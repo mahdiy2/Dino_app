@@ -4,7 +4,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class PostMedia(
-    val id: Int,
+    val id: Long,
     val url: String,
     val mime_type: String
 )

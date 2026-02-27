@@ -9,7 +9,7 @@ import javax.inject.Inject
 class GetCommentsUseCase @Inject constructor(
     private val threadRepository: ThreadRepository
 ) {
-    fun execute(postId: Int, page: Int, pageSize: Int) = flow<Resource<List<Comment>>> {
+    fun execute(postId: Long, page: Int, pageSize: Int) = flow<Resource<List<Comment>>> {
         emit(Resource.Loading())
         emit(threadRepository.getComments(postId = postId, page = page, pageSize = pageSize))
     }

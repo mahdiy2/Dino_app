@@ -5,6 +5,6 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class VoteRequest(
     val target_type: String,
-    val target_id: Int,
-    val value: Int
+    val target_id: Long,
+    val value: Long
 )

@@ -6,12 +6,12 @@ sealed class ThreadRoute(url: String) : BaseRoute(url) {
     data class GetPosts(val page: Int, val limit: Int) : ThreadRoute("api/posts?page=$page&limit=$limit")
 
     data class GetComments(
-        val postId: Int,
+        val postId: Long,
         val page: Int,
         val pageSize: Int
     ) : ThreadRoute("api/posts/$postId/comments?page=$page&page_size=$pageSize")
 
-    data class CreateComment(val postId: Int) : ThreadRoute("api/posts/$postId/comments")
+    data class CreateComment(val postId: Long) : ThreadRoute("api/posts/$postId/comments")
 
     object Vote : ThreadRoute("api/votes")
 }

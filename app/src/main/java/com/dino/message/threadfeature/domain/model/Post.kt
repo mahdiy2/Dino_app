@@ -4,9 +4,9 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class Post(
-    val id: Int,
+    val id: Long,
     val text: String,
-    val author: Int,
+    val author: Author,
     val created_at: String,
     val media: List<PostMedia>
 )

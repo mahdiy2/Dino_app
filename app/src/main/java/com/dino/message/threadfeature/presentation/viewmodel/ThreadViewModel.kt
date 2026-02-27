@@ -13,14 +13,15 @@ import com.dino.message.threadfeature.domain.model.Post
 import com.dino.message.threadfeature.domain.model.VoteTargetType
 import com.dino.message.threadfeature.domain.usecase.GetPostsUseCase
 import com.dino.message.threadfeature.domain.usecase.VoteUseCase
-import com.ramcosta.composedestinations.generated.destinations.ThreadCommentsBottomSheetScreenDestination
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.ramcosta.composedestinations.generated.destinations.ThreadCommentsBottomSheetScreenDestination
 
 @HiltViewModel
 class ThreadViewModel @Inject constructor(
@@ -47,8 +48,8 @@ class ThreadViewModel @Inject constructor(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
-    private val postVoteByPost = mutableStateMapOf<Int, Int>()
-    private val postErrorByPost = mutableStateMapOf<Int, String?>()
+    private val postVoteByPost = mutableStateMapOf<Long, Long>()
+    private val postErrorByPost = mutableStateMapOf<Long, String?>()
 
     init {
         refresh()
@@ -99,15 +100,18 @@ class ThreadViewModel @Inject constructor(
         }
     }
 
-    fun openCommentsBottomSheet(postId: Int) {
-        navigateToDestination(ThreadCommentsBottomSheetScreenDestination(postId), viewModelScope)
+    fun openCommentsBottomSheet(postId: Long) {
+        navigateToDestination(
+            ThreadCommentsBottomSheetScreenDestination(
+                postId
+            ), viewModelScope)
     }
 
-    fun selectedPostVote(postId: Int): Int = postVoteByPost[postId] ?: 0
+    fun selectedPostVote(postId: Long): Long = postVoteByPost[postId] ?: 0L
 
-    fun postError(postId: Int): String? = postErrorByPost[postId]
+    fun postError(postId: Long): String? = postErrorByPost[postId]
 
-    fun votePost(postId: Int, value: Int) = viewModelScope.launch {
+    fun votePost(postId: Long, value: Long) = viewModelScope.launch {
         voteUseCase.execute(
             targetType = VoteTargetType.POST,
             targetId = postId,

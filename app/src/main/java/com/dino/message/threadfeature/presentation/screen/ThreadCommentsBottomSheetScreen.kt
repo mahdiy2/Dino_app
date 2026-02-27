@@ -60,7 +60,7 @@ import com.ramcosta.composedestinations.bottomsheet.spec.DestinationStyleBottomS
 @Destination<RootGraph>(style = DestinationStyleBottomSheet::class)
 @Composable
 fun ThreadCommentsBottomSheetScreen(
-    postId: Int
+    postId: Long
 ) {
     val viewModel: ThreadCommentsViewModel = hiltViewModel()
     val commentsCount = remember(viewModel.comments) { countComments(viewModel.comments) }
@@ -260,7 +260,7 @@ private fun CommentItem(
                 modifier = Modifier.padding(DPMedium)
             ) {
                 Text(
-                    text = "${comment.author} • score ${comment.score}",
+                    text = "${comment.author.username} • score ${comment.score}",
                     style = MaterialTheme.typography.labelMedium
                 )
                 Spacer(modifier = Modifier.height(2.dp))
@@ -281,7 +281,7 @@ private fun CommentItem(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     VoteIconButton(
-                        selected = selectedVote == 1,
+                        selected = selectedVote == 1L,
                         onClick = { viewModel.voteComment(commentId = comment.id, value = 1) },
                         icon = {
                             Icon(
@@ -291,7 +291,7 @@ private fun CommentItem(
                         }
                     )
                     VoteIconButton(
-                        selected = selectedVote == -1,
+                        selected = selectedVote == -1L,
                         onClick = { viewModel.voteComment(commentId = comment.id, value = -1) },
                         icon = {
                             Icon(

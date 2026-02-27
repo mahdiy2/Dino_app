@@ -9,7 +9,7 @@ import javax.inject.Inject
 class VoteUseCase @Inject constructor(
     private val threadRepository: ThreadRepository
 ) {
-    fun execute(targetType: String, targetId: Int, value: Int) = flow<Resource<VoteResult>> {
+    fun execute(targetType: String, targetId: Long, value: Long) = flow<Resource<VoteResult>> {
         emit(Resource.Loading())
         emit(threadRepository.vote(targetType = targetType, targetId = targetId, value = value))
     }

@@ -1,5 +1,6 @@
 package com.dino.message.threadfeature.presentation.screen
 
+import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
@@ -10,6 +11,8 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,10 +37,13 @@ import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -50,11 +56,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.dino.message.R
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPSmall
+import com.dino.message.corefeature.presentation.util.getTimeAgo
 import com.dino.message.threadfeature.domain.model.Post
 import com.dino.message.threadfeature.presentation.component.Carousel
 import com.dino.message.threadfeature.presentation.component.PostContainer
@@ -164,6 +175,7 @@ fun ThreadScreen() {
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun PostCard(
     modifier: Modifier,
@@ -172,6 +184,15 @@ private fun PostCard(
 ) {
     val selectedPostVote = viewModel.selectedPostVote(post.id)
     val postError = viewModel.postError(post.id)
+
+    val commentsContentColor by animateColorAsState(
+        targetValue = MaterialTheme.colorScheme.onSurfaceVariant,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        ),
+        label = "comment"
+    )
 
     PostContainer(
         modifier = modifier
@@ -187,38 +208,44 @@ private fun PostCard(
                 .padding(DPMedium)
         ) {
             Row(
-                horizontalArrangement = Arrangement.spacedBy(DPSmall),
-                verticalAlignment = Alignment.CenterVertically
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Surface(
-                    modifier = Modifier.size(30.dp),
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.primaryContainer
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(DPSmall),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Rounded.Person,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
+                    Surface(
+                        modifier = Modifier.size(30.dp),
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.surface
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Rounded.Person,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
                     }
+                    Text(
+                        text = post.author.username,
+                        style = MaterialTheme.typography.labelLarge
+                    )
                 }
                 Text(
-                    text = "Author #${post.author}",
-                    style = MaterialTheme.typography.labelLarge
+                    text = "${getTimeAgo(post.created_at)} ago",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+
 
             Spacer(modifier = Modifier.height(DPSmall))
             Text(
                 text = post.text,
                 style = MaterialTheme.typography.bodyLarge
-            )
-            Spacer(modifier = Modifier.height(DPSmall))
-            Text(
-                text = post.created_at,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             if (post.media.isNotEmpty()) {
@@ -232,50 +259,45 @@ private fun PostCard(
 
             Spacer(modifier = Modifier.height(DPMedium))
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(MaterialTheme.shapes.extraLarge)
+                    .background(MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.72f))
+                    .border(
+                        width = 1.dp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.14f),
+                        shape = MaterialTheme.shapes.extraLarge
+                    )
+                    .padding(DPMedium),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(DPSmall),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     VoteIconButton(
-                        selected = selectedPostVote == 1,
+                        selected = selectedPostVote == 1.toLong(),
                         onClick = { viewModel.votePost(post.id, 1) },
-                        icon = {
-                            Icon(
-                                imageVector = Icons.Rounded.KeyboardArrowUp,
-                                contentDescription = "Upvote post"
-                            )
-                        }
+                        icon = R.drawable.ic_like_filled
                     )
                     VoteIconButton(
-                        selected = selectedPostVote == -1,
+                        selected = selectedPostVote == (-1).toLong(),
                         onClick = { viewModel.votePost(post.id, -1) },
-                        icon = {
-                            Icon(
-                                imageVector = Icons.Rounded.KeyboardArrowDown,
-                                contentDescription = "Downvote post"
-                            )
-                        }
+                        icon = R.drawable.ic_dislike_filled
                     )
                 }
 
-                FilledTonalButton(
+                IconButton(
                     onClick = { viewModel.openCommentsBottomSheet(post.id) },
-                    shape = MaterialTheme.shapes.large,
-                    colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
-                        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                    colors = IconButtonDefaults.iconButtonColors(
+                        contentColor = commentsContentColor
                     )
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.ChatBubbleOutline,
+                        painter = painterResource(R.drawable.ic_commets_filled),
                         contentDescription = null
                     )
-                    Spacer(modifier = Modifier.width(DPSmall))
-                    Text(text = "Comments")
                 }
             }
 
@@ -312,7 +334,7 @@ private fun PostCard(
 private fun VoteIconButton(
     selected: Boolean,
     onClick: () -> Unit,
-    icon: @Composable () -> Unit
+    @DrawableRes icon: Int
 ) {
     val containerColor by animateColorAsState(
         targetValue = if (selected) {
@@ -328,7 +350,7 @@ private fun VoteIconButton(
     )
     val contentColor by animateColorAsState(
         targetValue = if (selected) {
-            MaterialTheme.colorScheme.onPrimaryContainer
+            MaterialTheme.colorScheme.primary
         } else {
             MaterialTheme.colorScheme.onSurfaceVariant
         },
@@ -347,17 +369,19 @@ private fun VoteIconButton(
         label = "vote-scale"
     )
 
-    FilledTonalIconButton(
+    IconButton(
         onClick = onClick,
         modifier = Modifier.graphicsLayer {
             scaleX = scale
             scaleY = scale
         },
-        colors = IconButtonDefaults.filledTonalIconButtonColors(
-            containerColor = containerColor,
+        colors = IconButtonDefaults.iconButtonColors(
             contentColor = contentColor
         )
     ) {
-        icon()
+        Icon(
+            painter = painterResource(id = icon),
+            contentDescription = null
+        )
     }
 }

@@ -4,12 +4,11 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class Comment(
-    val id: Int,
-    val author_id: Int,
-    val author: String,
+    val id: Long,
+    val author: Author,
     val text: String,
-    val score: Int,
+    val score: Long,
     val created_at: String,
-    val parent_id: Int? = null,
+    val parent_id: Long? = null,
     val replies: List<Comment> = emptyList()
 )

@@ -34,7 +34,7 @@ class ThreadCommentsViewModel @Inject constructor(
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
 
-    val postId: Int = savedStateHandle.get<Int>("postId")!!
+    val postId: Long = savedStateHandle.get<Long>("postId")!!
 
     private val commentsPageSize = 10
     private var nextCommentsPage = 1
@@ -55,9 +55,9 @@ class ThreadCommentsViewModel @Inject constructor(
     val error: StateFlow<String?> = _error.asStateFlow()
 
     val commentDraft = mutableStateOf("")
-    private val replyDraftByComment = mutableStateMapOf<Int, String>()
-    private val replyComposerVisibleByComment = mutableStateMapOf<Int, Boolean>()
-    private val commentVoteByComment = mutableStateMapOf<Int, Int>()
+    private val replyDraftByComment = mutableStateMapOf<Long, String>()
+    private val replyComposerVisibleByComment = mutableStateMapOf<Long, Boolean>()
+    private val commentVoteByComment = mutableStateMapOf<Long, Long>()
 
     init {
         refreshComments()
@@ -110,7 +110,7 @@ class ThreadCommentsViewModel @Inject constructor(
         }
     }
 
-    fun submitComment(parentId: Int? = null) {
+    fun submitComment(parentId: Long? = null) {
         if (_isCommentSending.value) return
         val draft = if (parentId == null) {
             commentDraft.value
@@ -148,31 +148,31 @@ class ThreadCommentsViewModel @Inject constructor(
         }
     }
 
-    fun isReplyComposerVisible(commentId: Int): Boolean = replyComposerVisibleByComment[commentId] == true
+    fun isReplyComposerVisible(commentId: Long): Boolean = replyComposerVisibleByComment[commentId] == true
 
-    fun toggleReplyComposer(commentId: Int) {
+    fun toggleReplyComposer(commentId: Long) {
         replyComposerVisibleByComment[commentId] = !isReplyComposerVisible(commentId)
     }
 
-    fun replyDraft(commentId: Int): String = replyDraftByComment[commentId] ?: ""
+    fun replyDraft(commentId: Long): String = replyDraftByComment[commentId] ?: ""
 
-    fun onReplyDraftChanged(commentId: Int, value: String) {
+    fun onReplyDraftChanged(commentId: Long, value: String) {
         replyDraftByComment[commentId] = value
     }
 
-    fun selectedCommentVote(commentId: Int): Int = commentVoteByComment[commentId] ?: 0
+    fun selectedCommentVote(commentId: Long): Long = commentVoteByComment[commentId] ?: 0L
 
-    fun voteComment(commentId: Int, value: Int) {
+    fun voteComment(commentId: Long, value: Long) {
         val oldVote = selectedCommentVote(commentId)
         val delta = when {
-            oldVote == value -> 0
-            oldVote == 0 -> value
-            oldVote == 1 && value == -1 -> -2
-            oldVote == -1 && value == 1 -> 2
+            oldVote.toLong() == value -> 0
+            oldVote == 0L -> value
+            oldVote == 1L && value == (-1L) -> -2
+            oldVote == -1L && value == 1L -> 2
             else -> 0
         }
 
-        if (delta != 0) {
+        if (delta != 0L) {
             updateCommentScore(commentId = commentId, delta = delta)
         }
         commentVoteByComment[commentId] = value
@@ -188,7 +188,7 @@ class ThreadCommentsViewModel @Inject constructor(
                     is Resource.Loading -> Unit
                     is Resource.Error -> {
                         commentVoteByComment[commentId] = oldVote
-                        if (delta != 0) {
+                        if (delta != 0L) {
                             updateCommentScore(commentId = commentId, delta = -delta)
                         }
                         _error.value = res.message.asString(getApplication())
@@ -198,7 +198,7 @@ class ThreadCommentsViewModel @Inject constructor(
         }
     }
 
-    private fun updateCommentScore(commentId: Int, delta: Int) {
+    private fun updateCommentScore(commentId: Long, delta: Long) {
         val updated = updateCommentScoreRecursive(
             comments = _comments,
             commentId = commentId,
@@ -210,8 +210,8 @@ class ThreadCommentsViewModel @Inject constructor(
 
     private fun updateCommentScoreRecursive(
         comments: List<Comment>,
-        commentId: Int,
-        delta: Int
+        commentId: Long,
+        delta: Long
     ): List<Comment> {
         return comments.map { comment ->
             when {

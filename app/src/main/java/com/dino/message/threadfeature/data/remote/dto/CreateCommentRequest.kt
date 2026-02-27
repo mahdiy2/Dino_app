@@ -5,5 +5,5 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class CreateCommentRequest(
     val text: String,
-    val parent_id: Int? = null
+    val parent_id: Long? = null
 )

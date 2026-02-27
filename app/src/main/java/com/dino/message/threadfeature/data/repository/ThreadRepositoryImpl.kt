@@ -15,19 +15,19 @@ class ThreadRepositoryImpl(
         threadApiService.getPosts(page = page, limit = limit)
 
     override suspend fun getComments(
-        postId: Int,
+        postId: Long,
         page: Int,
         pageSize: Int
     ): Resource<List<Comment>> =
         threadApiService.getComments(postId = postId, page = page, pageSize = pageSize)
 
     override suspend fun createComment(
-        postId: Int,
+        postId: Long,
         text: String,
-        parentId: Int?
+        parentId: Long?
     ): Resource<CreatedComment> =
         threadApiService.createComment(postId = postId, text = text, parentId = parentId)
 
-    override suspend fun vote(targetType: String, targetId: Int, value: Int): Resource<VoteResult> =
+    override suspend fun vote(targetType: String, targetId: Long, value: Long): Resource<VoteResult> =
         threadApiService.vote(targetType = targetType, targetId = targetId, value = value)
 }

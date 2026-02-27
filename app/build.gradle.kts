@@ -114,24 +114,25 @@ dependencies {
     implementation(libs.accompanist.systemuicontroller)
 
     // Core ExoPlayer
-    implementation("androidx.media3:media3-exoplayer:1.6.0")
+    implementation(libs.androidx.media3.exoplayer)
 
     // UI for ExoPlayer
-    implementation("androidx.media3:media3-ui:1.6.0")
+    implementation(libs.androidx.media3.ui)
 
     // Optional: Common media utilities
-    implementation("androidx.media3:media3-common:1.6.0")
+    implementation(libs.androidx.media3.common)
 
     // Coil
-    implementation("io.coil-kt:coil-compose:2.2.2")
+    implementation(libs.coil.compose)
+    implementation(libs.coil.video)
 
     // Gson
-    implementation("com.google.code.gson:gson:2.10.1")
+    implementation(libs.gson)
 
     // androidx.security for EncryptedSharedPreferences
-    implementation("androidx.security:security-crypto:1.1.0-alpha06")
-    implementation("androidx.security:security-identity-credential:1.0.0-alpha03")
-    implementation("androidx.security:security-app-authenticator:1.0.0-beta01")
+    implementation(libs.androidx.security.crypto)
+    implementation(libs.androidx.security.identity.credential)
+    implementation(libs.androidx.security.app.authenticator)
 
     // material icons
     implementation(libs.androidx.material.icons.extended)
@@ -143,5 +144,8 @@ dependencies {
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
     ksp(libs.room.compiler)
+
+    coreLibraryDesugaring(libs.desugar.jdk.libs)
+
 
 }

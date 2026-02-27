@@ -9,9 +9,9 @@ import com.dino.message.threadfeature.domain.model.VoteResult
 interface ThreadApiService {
     suspend fun getPosts(page: Int, limit: Int): Resource<PostsPage>
 
-    suspend fun getComments(postId: Int, page: Int, pageSize: Int): Resource<List<Comment>>
+    suspend fun getComments(postId: Long, page: Int, pageSize: Int): Resource<List<Comment>>
 
-    suspend fun createComment(postId: Int, text: String, parentId: Int?): Resource<CreatedComment>
+    suspend fun createComment(postId: Long, text: String, parentId: Long?): Resource<CreatedComment>
 
-    suspend fun vote(targetType: String, targetId: Int, value: Int): Resource<VoteResult>
+    suspend fun vote(targetType: String, targetId: Long, value: Long): Resource<VoteResult>
 }

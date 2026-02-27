@@ -42,7 +42,7 @@ class ThreadApiServiceImpl @Inject constructor(
         )
 
     override suspend fun getComments(
-        postId: Int,
+        postId: Long,
         page: Int,
         pageSize: Int
     ): Resource<List<Comment>> =
@@ -63,9 +63,9 @@ class ThreadApiServiceImpl @Inject constructor(
         )
 
     override suspend fun createComment(
-        postId: Int,
+        postId: Long,
         text: String,
-        parentId: Int?
+        parentId: Long?
     ): Resource<CreatedComment> =
         httpAPIUtil.callAPIWithErrorHandling<CreatedComment, CreateCommentResponse>(
             callAPI = {
@@ -80,8 +80,8 @@ class ThreadApiServiceImpl @Inject constructor(
 
     override suspend fun vote(
         targetType: String,
-        targetId: Int,
-        value: Int
+        targetId: Long,
+        value: Long
     ): Resource<VoteResult> =
         httpAPIUtil.callAPIWithErrorHandling<VoteResult, VoteResponse>(
             callAPI = {

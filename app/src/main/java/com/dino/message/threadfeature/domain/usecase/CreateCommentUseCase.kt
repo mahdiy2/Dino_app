@@ -9,7 +9,7 @@ import javax.inject.Inject
 class CreateCommentUseCase @Inject constructor(
     private val threadRepository: ThreadRepository
 ) {
-    fun execute(postId: Int, text: String, parentId: Int?) = flow<Resource<CreatedComment>> {
+    fun execute(postId: Long, text: String, parentId: Long?) = flow<Resource<CreatedComment>> {
         emit(Resource.Loading())
         emit(threadRepository.createComment(postId = postId, text = text, parentId = parentId))
     }
