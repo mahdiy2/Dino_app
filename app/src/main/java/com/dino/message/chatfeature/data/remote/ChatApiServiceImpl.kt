@@ -1,7 +1,9 @@
 package com.dino.message.chatfeature.data.remote
 
-import android.util.Log
 import com.dino.message.chatfeature.data.remote.dto.InboxResponse
+import com.dino.message.chatfeature.data.remote.dto.MessageSent
+import com.dino.message.chatfeature.data.remote.dto.NewMessage
+import com.dino.message.chatfeature.data.remote.dto.PendingMessage
 import com.dino.message.chatfeature.data.remote.dto.ReceiverPublicKeyResponse
 import com.dino.message.chatfeature.data.remote.dto.SendMessageRequest
 import com.dino.message.chatfeature.data.remote.dto.SendMessageResponse
@@ -31,23 +33,21 @@ class ChatApiServiceImpl @Inject constructor(
 ): ChatApiService, HaveRefreshTokenAPI by HaveRefreshTokenAPIImpl(httpClient, sPrefManager) {
 
 
-    override suspend fun connectToSocket() {
+    override suspend fun connectToSocket(
+        onConnected: (String) -> Unit,
+        onPendingMessages: (List<PendingMessage>) -> Unit,
+        onNewMessage: (NewMessage) -> Unit,
+        onMessageSent: (MessageSent) -> Unit,
+        onMessageError: (String) -> Unit,
+        onUserStatus: (username: String, online: Boolean) -> Unit
+    ) {
         socketManager.connectAndListen(
-            onConnected = { username ->
-                Log.d("MessageRepository", "Connected as $username")
-            },
-            onPendingMessages = { messages ->
-                Log.d("MessageRepository", "Received ${messages.size} pending messages")
-            },
-            onNewMessage = { message ->
-                Log.d("MessageRepository", "New message from ${message.from}")
-            },
-            onMessageSent = { message ->
-                Log.d("MessageRepository", "Message sent to ${message.to}")
-            },
-            onMessageError = { error ->
-                Log.e("MessageRepository", "Message error: $error")
-            },
+            onConnected = onConnected,
+            onPendingMessages = onPendingMessages,
+            onNewMessage = onNewMessage,
+            onMessageSent = onMessageSent,
+            onMessageError = onMessageError,
+            onUserStatus = onUserStatus,
             callRefreshTokenAPI = this::getToken
         )
     }
@@ -58,6 +58,10 @@ class ChatApiServiceImpl @Inject constructor(
         encryptedKey: String
     ) {
         socketManager.sendMessage(to, message, encryptedKey)
+    }
+
+    override fun getUserStatus(username: String) {
+        socketManager.getUserStatus(username)
     }
 
     override suspend fun getInbox(): Resource<List<Inbox>?> =
