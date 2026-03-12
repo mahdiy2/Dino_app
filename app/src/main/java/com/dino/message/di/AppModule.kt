@@ -20,12 +20,17 @@ import com.dino.message.chatfeature.data.repository.ChatRepositoryImpl
 import com.dino.message.chatfeature.domain.repository.ChatRepository
 import com.dino.message.corefeature.data.db.MessageDatabase
 import com.dino.message.corefeature.data.remote.util.HttpAPIUtil
+import com.dino.message.corefeature.data.remote.util.SocketManager
 import com.dino.message.corefeature.data.spref.DataStoreUtil
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.mainpage.data.remote.MainApiService
 import com.dino.message.mainpage.data.remote.MainApiServiceImpl
 import com.dino.message.mainpage.data.repository.MainRepositoryImpl
 import com.dino.message.mainpage.domain.repository.MainRepository
+import com.dino.message.profilefeature.data.remote.ProfileApiService
+import com.dino.message.profilefeature.data.remote.ProfileApiServiceImpl
+import com.dino.message.profilefeature.data.repository.ProfileRepositoryImpl
+import com.dino.message.profilefeature.domain.repository.ProfileRepository
 import com.dino.message.threadfeature.data.remote.ThreadApiService
 import com.dino.message.threadfeature.data.remote.ThreadApiServiceImpl
 import com.dino.message.threadfeature.data.repository.ThreadRepositoryImpl
@@ -194,11 +199,13 @@ object AppModule {
     fun provideChatAPIService(
         httpClient: HttpClient,
         sPrefManager: SPrefManager,
-        httpAPIUtil: HttpAPIUtil
+        httpAPIUtil: HttpAPIUtil,
+        socketManager: SocketManager
     ): ChatApiService = ChatApiServiceImpl(
         httpClient = httpClient,
         sPrefManager = sPrefManager,
-        httpAPIUtil = httpAPIUtil
+        httpAPIUtil = httpAPIUtil,
+        socketManager = socketManager
     )
 
     @Singleton
@@ -225,6 +232,24 @@ object AppModule {
     fun provideThreadRepository(
         threadApiService: ThreadApiService
     ): ThreadRepository = ThreadRepositoryImpl(threadApiService)
+
+    @Singleton
+    @Provides
+    fun provideProfileApiService(
+        httpClient: HttpClient,
+        sPrefManager: SPrefManager,
+        httpAPIUtil: HttpAPIUtil
+    ): ProfileApiService = ProfileApiServiceImpl(
+        httpClient = httpClient,
+        sPrefManager = sPrefManager,
+        httpAPIUtil = httpAPIUtil
+    )
+
+    @Singleton
+    @Provides
+    fun provideProfileRepository(
+        profileApiService: ProfileApiService
+    ): ProfileRepository = ProfileRepositoryImpl(profileApiService)
 
 
     /**

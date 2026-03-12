@@ -63,7 +63,7 @@ fun DinoOrderBottomAppBar(
                 R.drawable.round_person_24,
                 R.string.profile
             ) {
-                mutableUIEvent.emit(UIEvent.Navigate(ProfileScreenDestination))
+                mutableUIEvent.emit(UIEvent.Navigate(ProfileScreenDestination()))
             },
         )
     }

@@ -13,6 +13,7 @@ import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.ramcosta.composedestinations.generated.destinations.MainScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.RegisterScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.ThreadScreenDestination
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.launch
@@ -29,13 +30,24 @@ class LoginScreenViewModel @Inject constructor(
     val userName = mutableStateOf("")
     val password = mutableStateOf("")
 
+    val privateKey = mutableStateOf("")
+
     val loginLoadingState = mutableStateOf(false)
 
     val usernameTextFieldIsError = mutableStateOf(false)
     val passwordTextFieldIsError = mutableStateOf(false)
 
+    val privateKeyTextFieldIsError = mutableStateOf(false)
 
-    private fun login(username: String, pass: String) = viewModelScope.launch {
+
+    private fun login(username: String, pass: String, privateKey: String) = viewModelScope.launch {
+        if (isPrivateKeyEmpty()){
+            if (privateKey.isEmpty()){
+                privateKeyTextFieldIsError.value = true
+            } else {
+                sPrefManager.savePrivateKey(privateKey)
+            }
+        }
         loginUseCase.execute(
             username, pass
         ).collect { data ->
@@ -74,8 +86,13 @@ class LoginScreenViewModel @Inject constructor(
         password.value = value
     }
 
+    fun privateKeyOnValueChange(value: String){
+        privateKeyTextFieldIsError.value = false
+        privateKey.value = value
+    }
+
     fun onLoginBtnClicked(){
-        login(userName.value, password.value)
+        login(userName.value, password.value, privateKey.value)
     }
 
     fun navigateToRegisterScreen(){
@@ -84,9 +101,17 @@ class LoginScreenViewModel @Inject constructor(
 
     fun navigateToMainScreen(){
         navigateWithPopBackStackToDestination(
-            MainScreenDestination,
+            ThreadScreenDestination,
             viewModelScope,
             PopBackStackLevel.ALL
         )
+    }
+
+    fun setPrivateKey(key: String){
+        sPrefManager.savePrivateKey(key)
+    }
+
+    fun isPrivateKeyEmpty(): Boolean {
+        return sPrefManager.getPrivateKey().isNullOrEmpty()
     }
 }

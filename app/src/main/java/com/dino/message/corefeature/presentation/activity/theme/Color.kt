@@ -114,6 +114,7 @@ val OnErrorContainerDark = Color(0xFFffdad6)
 val BackgroundDark = Color(0xFF1a2127)// 1a1c1e
 val OnBackgroundDark = Color(0xFFe2e2e6)
 val SurfaceDark = Color(0xFF1a1c1e)
+val OnSurfaceDark = Color.White
 
 val OutlineDark = Color(0xFF8d9199)
 val SurfaceVariantDark = StatusBarColorDark// 43474e

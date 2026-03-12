@@ -22,7 +22,6 @@
         <activity
             android:name=".corefeature.presentation.activity.MainActivity"
             android:exported="true"
-            android:screenOrientation="fullSensor"
             android:theme="@style/Theme.sec_message">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

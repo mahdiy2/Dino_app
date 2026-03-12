@@ -48,7 +48,7 @@ class MainApiServiceImpl @Inject constructor(
     override suspend fun getContacts(username: String): Resource<List<String>> =
         httpAPIUtil.callAPIWithErrorHandling<List<String>, GetContactsResponse>(
             callAPI = {
-                httpClient.get(MainRoute.GetContacts(username).url) {
+                httpClient.get(MainRoute.GetContacts.url) {
                     appendTokenToHeader(sPrefManager.getToken())
                 }
             },

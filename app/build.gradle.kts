@@ -109,6 +109,10 @@ dependencies {
     implementation (libs.ktor.client.logging)
     implementation (libs.logback.classic)
 
+    implementation(libs.socket.io.client)
+
+//    implementation("io.ktor:ktor-client-websockets:2.3.0")
+
     implementation (libs.androidx.datastore.preferences)
 
     implementation(libs.accompanist.systemuicontroller)

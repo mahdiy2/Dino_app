@@ -138,7 +138,7 @@ class MainScreenViewModel @Inject constructor(
     }
 
     fun navigateToProfileScreen() {
-        navigateToDestination(ProfileScreenDestination, viewModelScope)
+        navigateToDestination(ProfileScreenDestination(), viewModelScope)
     }
 
     fun navigateToChatScreen(name: String) {

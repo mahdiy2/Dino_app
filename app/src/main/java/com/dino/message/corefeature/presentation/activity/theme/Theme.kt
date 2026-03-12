@@ -60,6 +60,7 @@ private val DarkColorPalette = darkColorScheme(
     outline = OutlineDark,
     surfaceVariant = SurfaceVariantDark,
     onSurfaceVariant = OnSurfaceVariantDark,
+    onSurface = OnSurfaceDark,
 )
 
 private val LightColorPalette = lightColorScheme(

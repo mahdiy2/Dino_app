@@ -13,6 +13,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,6 +31,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ChatBubbleOutline
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
@@ -50,6 +52,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -62,13 +65,19 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.dino.message.R
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPSmall
 import com.dino.message.corefeature.presentation.util.getTimeAgo
+import com.dino.message.profilefeature.presentation.component.ProfileAvatarMedia
 import com.dino.message.threadfeature.domain.model.Post
 import com.dino.message.threadfeature.presentation.component.Carousel
 import com.dino.message.threadfeature.presentation.component.PostContainer
+import com.dino.message.threadfeature.presentation.component.ThreadPostCard
+import com.dino.message.threadfeature.presentation.component.VoteIconButton
 import com.dino.message.threadfeature.presentation.viewmodel.ThreadViewModel
 import com.ramcosta.composedestinations.annotation.Destination
 import com.ramcosta.composedestinations.annotation.RootGraph
@@ -83,9 +92,21 @@ import kotlinx.coroutines.flow.map
 fun ThreadScreen() {
     val viewModel: ThreadViewModel = hiltViewModel()
     val listState = rememberLazyListState()
+    val profile = viewModel.profile.value
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val isLoadingMore by viewModel.isLoadingMore.collectAsState()
     val postsError by viewModel.error.collectAsState()
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.refreshIfNeededAfterCreatePost()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     LaunchedEffect(listState, viewModel.posts.size) {
         snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1 }
@@ -98,7 +119,33 @@ fun ThreadScreen() {
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text(text = "Threads", style = MaterialTheme.typography.headlineSmall) }
+                title = { Text(text = "Threads", style = MaterialTheme.typography.headlineSmall) },
+                actions = {
+                    IconButton(onClick = { viewModel.openCreatePostScreen() }) {
+                        Icon(
+                            imageVector = Icons.Rounded.Add,
+                            contentDescription = "Create post"
+                        )
+                    }
+
+                    IconButton(
+                        onClick = viewModel::navigateChat
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_message_filled),
+                            contentDescription = null
+                        )
+                    }
+                },
+                navigationIcon = {
+                    ProfileAvatarMedia(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clickable(onClick = viewModel::openUserProfile),
+                        profileImageUrl = profile?.profile_image_url,
+                        profileVideoUrl = profile?.profile_video_url
+                    )
+                }
             )
         }
     ) { innerPadding ->
@@ -148,12 +195,17 @@ fun ThreadScreen() {
                         items = viewModel.posts,
                         key = { it.id }
                     ) { post ->
-                        PostCard(
+                        ThreadPostCard(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = DPMedium),
+                                .padding(DPMedium),
                             post = post,
-                            viewModel = viewModel
+                            selectedPostVote = viewModel.selectedPostVote(post.id),
+                            postError = viewModel.postError(post.id),
+                            onUpVoteClick = { viewModel.votePost(post.id, 1) },
+                            onDownVoteClick = { viewModel.votePost(post.id, -1) },
+                            onCommentsClick = { viewModel.openCommentsBottomSheet(post.id) },
+                            onUserClick = { viewModel.openUserProfile(post.author.username) }
                         )
                     }
 
@@ -172,216 +224,5 @@ fun ThreadScreen() {
                 }
             }
         }
-    }
-}
-
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
-@Composable
-private fun PostCard(
-    modifier: Modifier,
-    post: Post,
-    viewModel: ThreadViewModel
-) {
-    val selectedPostVote = viewModel.selectedPostVote(post.id)
-    val postError = viewModel.postError(post.id)
-
-    val commentsContentColor by animateColorAsState(
-        targetValue = MaterialTheme.colorScheme.onSurfaceVariant,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioNoBouncy,
-            stiffness = Spring.StiffnessMediumLow
-        ),
-        label = "comment"
-    )
-
-    PostContainer(
-        modifier = modifier
-    ) {
-        Column(
-            modifier = Modifier
-                .animateContentSize(
-                    animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioNoBouncy,
-                        stiffness = Spring.StiffnessLow
-                    )
-                )
-                .padding(DPMedium)
-        ) {
-            Row(
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(DPSmall),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Surface(
-                        modifier = Modifier.size(30.dp),
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.surface
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Rounded.Person,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                        }
-                    }
-                    Text(
-                        text = post.author.username,
-                        style = MaterialTheme.typography.labelLarge
-                    )
-                }
-                Text(
-                    text = "${getTimeAgo(post.created_at)} ago",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-
-            Spacer(modifier = Modifier.height(DPSmall))
-            Text(
-                text = post.text,
-                style = MaterialTheme.typography.bodyLarge
-            )
-
-            if (post.media.isNotEmpty()) {
-                Carousel(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = DPMedium),
-                    items = post.media
-                )
-            }
-
-            Spacer(modifier = Modifier.height(DPMedium))
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(MaterialTheme.shapes.extraLarge)
-                    .background(MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.72f))
-                    .border(
-                        width = 1.dp,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.14f),
-                        shape = MaterialTheme.shapes.extraLarge
-                    )
-                    .padding(DPMedium),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(DPSmall),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    VoteIconButton(
-                        selected = selectedPostVote == 1.toLong(),
-                        onClick = { viewModel.votePost(post.id, 1) },
-                        icon = R.drawable.ic_like_filled
-                    )
-                    VoteIconButton(
-                        selected = selectedPostVote == (-1).toLong(),
-                        onClick = { viewModel.votePost(post.id, -1) },
-                        icon = R.drawable.ic_dislike_filled
-                    )
-                }
-
-                IconButton(
-                    onClick = { viewModel.openCommentsBottomSheet(post.id) },
-                    colors = IconButtonDefaults.iconButtonColors(
-                        contentColor = commentsContentColor
-                    )
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_commets_filled),
-                        contentDescription = null
-                    )
-                }
-            }
-
-            AnimatedVisibility(
-                visible = postError != null,
-                enter = fadeIn() + expandVertically(
-                    animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioNoBouncy,
-                        stiffness = Spring.StiffnessLow
-                    )
-                ),
-                exit = fadeOut() + shrinkVertically()
-            ) {
-                postError?.let {
-                    Spacer(modifier = Modifier.height(DPSmall))
-                    Surface(
-                        color = MaterialTheme.colorScheme.errorContainer,
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text(
-                            modifier = Modifier.padding(DPSmall),
-                            text = it,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onErrorContainer
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun VoteIconButton(
-    selected: Boolean,
-    onClick: () -> Unit,
-    @DrawableRes icon: Int
-) {
-    val containerColor by animateColorAsState(
-        targetValue = if (selected) {
-            MaterialTheme.colorScheme.primaryContainer
-        } else {
-            MaterialTheme.colorScheme.surfaceVariant
-        },
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioNoBouncy,
-            stiffness = Spring.StiffnessMediumLow
-        ),
-        label = "vote-container"
-    )
-    val contentColor by animateColorAsState(
-        targetValue = if (selected) {
-            MaterialTheme.colorScheme.primary
-        } else {
-            MaterialTheme.colorScheme.onSurfaceVariant
-        },
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioNoBouncy,
-            stiffness = Spring.StiffnessMediumLow
-        ),
-        label = "vote-content"
-    )
-    val scale by animateFloatAsState(
-        targetValue = if (selected) 1.06f else 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMediumLow
-        ),
-        label = "vote-scale"
-    )
-
-    IconButton(
-        onClick = onClick,
-        modifier = Modifier.graphicsLayer {
-            scaleX = scale
-            scaleY = scale
-        },
-        colors = IconButtonDefaults.iconButtonColors(
-            contentColor = contentColor
-        )
-    ) {
-        Icon(
-            painter = painterResource(id = icon),
-            contentDescription = null
-        )
     }
 }

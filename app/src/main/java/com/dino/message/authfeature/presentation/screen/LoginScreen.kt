@@ -116,6 +116,42 @@ fun LoginScreen() {
                         maxLines = 1
                     )
 
+                    Spacer(
+                        Modifier.size(DPExtraLarge)
+                    )
+
+                    AnimatedVisibility(
+                        modifier = Modifier
+                            .align(Alignment.CenterHorizontally),
+                        visible = (viewModel.userName.value.length > 6 && viewModel.password.value.length > 9 && viewModel.isPrivateKeyEmpty())
+                    ) {
+                        OutlinedTextField(
+                            isError = viewModel.privateKeyTextFieldIsError.value,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                focusedBorderColor = Color.Transparent,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.inversePrimary,
+                                focusedContainerColor = MaterialTheme.colorScheme.inversePrimary,
+                                cursorColor = Color.White,
+                                focusedPlaceholderColor = Color.Transparent,
+                                unfocusedPlaceholderColor = MaterialTheme.colorScheme.secondary
+                            ),
+                            shape = MaterialTheme.shapes.extraLarge,
+                            value = viewModel.privateKey.value,
+                            onValueChange = { viewModel.privateKeyOnValueChange(it) },
+                            placeholder = {
+                                Text(
+                                    "If the Private key is incorrect, the messages section will not work properly!",
+                                    color = Color.Gray
+                                )
+                            },
+                            label = {
+                                Text("Private key")
+                            },
+                            maxLines = 3
+                        )
+                    }
+
                     AnimatedVisibility(
                         modifier = Modifier
                             .align(Alignment.CenterHorizontally),

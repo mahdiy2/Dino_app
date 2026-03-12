@@ -1,5 +1,7 @@
 package com.dino.message.threadfeature.presentation.component
 
+import android.net.Uri
+import android.util.Log
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -53,6 +55,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import coil.compose.SubcomposeAsyncImage
+import coil.decode.VideoFrameDecoder
 import coil.request.ImageRequest
 import coil.request.videoFrameMillis
 import com.dino.message.threadfeature.domain.model.PostMedia
@@ -185,12 +188,24 @@ private fun MediaImage(
     contentDescription: String,
     isVideo: Boolean
 ) {
+    val modelData: Any = if (
+        url.startsWith("content://", ignoreCase = true) ||
+        url.startsWith("file://", ignoreCase = true)
+    ) {
+        Uri.parse(url)
+    } else {
+        url
+    }
+
     SubcomposeAsyncImage(
         model = ImageRequest.Builder(LocalContext.current)
-            .data(url)
+            .data(modelData)
             .apply {
                 if (isVideo) {
-                    videoFrameMillis(1_000)
+                    // Explicitly force video frame decoder for reliable mp4 thumbnail extraction.
+                    decoderFactory(VideoFrameDecoder.Factory())
+                    // First frame is more reliable for local video-uri previews.
+                    videoFrameMillis(0)
                 }
             }
             .crossfade(true)
@@ -198,6 +213,13 @@ private fun MediaImage(
         contentDescription = contentDescription,
         contentScale = ContentScale.Crop,
         modifier = modifier,
+        onError = { error ->
+            Log.e(
+                "Carousel",
+                "Video/image preview failed for: $url",
+                error.result.throwable
+            )
+        },
         loading = {
             MediaLoading(modifier = Modifier.fillMaxSize())
         },

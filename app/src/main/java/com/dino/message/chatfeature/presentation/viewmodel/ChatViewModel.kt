@@ -2,6 +2,7 @@ package com.dino.message.chatfeature.presentation.viewmodel
 
 import android.content.Context
 import android.os.Build
+import android.util.Log
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
@@ -69,7 +70,7 @@ class ChatViewModel @Inject constructor(
             while (isActive) {
                 loadMessages()       // Load from DB initially
                 getInbox()           // Get from server
-                delay(2000) // 2 seconds
+                delay(32000) // 2 seconds
             }
         }
     }
@@ -79,6 +80,7 @@ class ChatViewModel @Inject constructor(
         getInboxUseCase.execute().collect { res ->
             when (res) {
                 is Resource.Success -> {
+                    Log.i("InboxProblem", "getInbox: ${res.data?.forEach { it.message }}")
                     res.data?.forEach { inbox ->
                         try {
                             val decryptedMsg = decryptMessage(
@@ -94,7 +96,7 @@ class ChatViewModel @Inject constructor(
                             )
                             saveMessage(entity)
                         } catch (e: Exception) {
-//                            Log.e("ChatViewModel", "Decrypt failed", e)
+                            Log.e("InboxProblem", "Decrypt failed", e)
                         }
                     }
                     getInbox = false
@@ -143,6 +145,9 @@ class ChatViewModel @Inject constructor(
                     receiverPublicKey.value = res.data.public_key
                     getPublicKey = false
                     showRefreshing()
+
+                    loadMessages()       // Load from DB initially
+                    getInbox()
                 }
 
                 is Resource.Loading -> {
@@ -191,6 +196,7 @@ class ChatViewModel @Inject constructor(
     fun saveMessage(message: MessageEntity) = viewModelScope.launch {
         saveMessageInDbUseCase.execute(message).collect {
             _messages.add(message)
+            loadMessages()
         }
     }
 

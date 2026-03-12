@@ -12,6 +12,7 @@ import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.ramcosta.composedestinations.generated.destinations.LoginScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.PrivateKeyAlertScreenDestination
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.launch
@@ -40,7 +41,7 @@ class RegisterScreenViewModel @Inject constructor(
             when(res){
                 is Resource.Success -> {
                     registerLoadingState.value = false
-                    navigateToLoginScreen()
+                    navigateToPrivateKeyAlert()
                 }
                 is Resource.Loading -> {
                     registerLoadingState.value = true
@@ -69,5 +70,9 @@ class RegisterScreenViewModel @Inject constructor(
 
     fun navigateToLoginScreen(){
         navigateToDestination(LoginScreenDestination, viewModelScope)
+    }
+
+    fun navigateToPrivateKeyAlert(){
+        navigateToDestination(PrivateKeyAlertScreenDestination, viewModelScope)
     }
 }

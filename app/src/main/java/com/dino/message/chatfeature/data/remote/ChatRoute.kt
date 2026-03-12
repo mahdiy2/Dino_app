@@ -3,9 +3,9 @@ package com.dino.message.chatfeature.data.remote
 import com.dino.message.corefeature.data.remote.BaseRoute
 
 sealed class ChatRoute(url: String) : BaseRoute(url){
-    object GetInbox : ChatRoute("api/auth/inbox")
+    object GetInbox : ChatRoute("api/messages/inbox")
 
-    object SendMessage : ChatRoute("api/auth/send")
+    object SendMessage : ChatRoute("api/messages/send")
 
-    data class GetReceiverPublicKey(val username: String) : ChatRoute("api/auth/public-key/$username")
+    data class GetReceiverPublicKey(val username: String) : ChatRoute("api/contacts/$username/public-key")
 }

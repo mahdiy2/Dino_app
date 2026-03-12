@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Reply
 import androidx.compose.material.icons.rounded.Close
@@ -33,25 +34,36 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.dino.message.R
+import com.dino.message.corefeature.presentation.activity.theme.DividerColor
+import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPSmall
+import com.dino.message.corefeature.presentation.util.getTimeAgo
 import com.dino.message.threadfeature.domain.model.Comment
+import com.dino.message.threadfeature.presentation.component.VoteIconButton
 import com.dino.message.threadfeature.presentation.viewmodel.ThreadCommentsViewModel
 import com.ramcosta.composedestinations.annotation.Destination
 import com.ramcosta.composedestinations.annotation.RootGraph
@@ -64,6 +76,7 @@ fun ThreadCommentsBottomSheetScreen(
 ) {
     val viewModel: ThreadCommentsViewModel = hiltViewModel()
     val commentsCount = remember(viewModel.comments) { countComments(viewModel.comments) }
+    val expandedNestedRepliesByComment = remember { mutableStateMapOf<Long, Boolean>() }
     val isLoadingComments by viewModel.isCommentsLoading.collectAsState()
     val hasMoreComments by viewModel.hasMoreComments.collectAsState()
     val commentsError by viewModel.error.collectAsState()
@@ -81,33 +94,27 @@ fun ThreadCommentsBottomSheetScreen(
         ) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(DPSmall),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(vertical = DPExtraLarge)
             ) {
                 Text(
                     text = "Comments",
-                    style = MaterialTheme.typography.titleLarge
-                )
-                AssistChip(
-                    onClick = {},
-                    label = { Text("$commentsCount") },
-                    colors = AssistChipDefaults.assistChipColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        labelColor = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
-            FilledTonalIconButton(
-                onClick = { viewModel.closeCommentsBottomSheet() },
-                colors = IconButtonDefaults.filledTonalIconButtonColors(
-                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer
-                )
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.Close,
-                    contentDescription = "Close comments"
-                )
-            }
+//            FilledTonalIconButton(
+//                onClick = { viewModel.closeCommentsBottomSheet() },
+//                colors = IconButtonDefaults.filledTonalIconButtonColors(
+//                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+//                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+//                )
+//            ) {
+//                Icon(
+//                    imageVector = Icons.Rounded.Close,
+//                    contentDescription = "Close comments"
+//                )
+//            }
         }
 
         Spacer(modifier = Modifier.height(DPSmall))
@@ -156,7 +163,8 @@ fun ThreadCommentsBottomSheetScreen(
                     CommentTree(
                         comments = viewModel.comments,
                         depth = 0,
-                        viewModel = viewModel
+                        viewModel = viewModel,
+                        expandedNestedRepliesByComment = expandedNestedRepliesByComment
                     )
                 }
             }
@@ -192,25 +200,47 @@ fun ThreadCommentsBottomSheetScreen(
 private fun CommentTree(
     comments: List<Comment>,
     depth: Int,
-    viewModel: ThreadCommentsViewModel
+    viewModel: ThreadCommentsViewModel,
+    expandedNestedRepliesByComment: MutableMap<Long, Boolean>
 ) {
-    comments.forEachIndexed { index, comment ->
+    val visibleComments = if (depth == 0) {
+        comments.filter { it.parent_id == null }
+    } else {
+        comments
+    }
+
+    visibleComments.forEachIndexed { index, comment ->
+        val hasReplies = comment.replies.isNotEmpty()
+        val shouldShowRepliesToggle = hasReplies
+        val areRepliesVisible = if (shouldShowRepliesToggle) {
+            expandedNestedRepliesByComment[comment.id] == true
+        } else {
+            true
+        }
+
         CommentItem(
             comment = comment,
             depth = depth,
-            viewModel = viewModel
+            viewModel = viewModel,
+            shouldShowRepliesToggle = shouldShowRepliesToggle,
+            areRepliesVisible = areRepliesVisible,
+            repliesCount = comment.replies.size,
+            onToggleReplies = {
+                expandedNestedRepliesByComment[comment.id] = !areRepliesVisible
+            }
         )
-        if (index != comments.lastIndex) {
+        if (index != visibleComments.lastIndex) {
             HorizontalDivider(
                 modifier = Modifier.padding(vertical = 2.dp),
                 color = MaterialTheme.colorScheme.surfaceVariant
             )
         }
-        if (comment.replies.isNotEmpty()) {
+        if (hasReplies && areRepliesVisible) {
             CommentTree(
                 comments = comment.replies,
                 depth = depth + 1,
-                viewModel = viewModel
+                viewModel = viewModel,
+                expandedNestedRepliesByComment = expandedNestedRepliesByComment
             )
         }
     }
@@ -220,7 +250,11 @@ private fun CommentTree(
 private fun CommentItem(
     comment: Comment,
     depth: Int,
-    viewModel: ThreadCommentsViewModel
+    viewModel: ThreadCommentsViewModel,
+    shouldShowRepliesToggle: Boolean,
+    areRepliesVisible: Boolean,
+    repliesCount: Int,
+    onToggleReplies: () -> Unit
 ) {
     val selectedVote = viewModel.selectedCommentVote(comment.id)
     val isReplyVisible = viewModel.isReplyComposerVisible(comment.id)
@@ -253,7 +287,7 @@ private fun CommentItem(
             )
     ) {
         Surface(
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+//            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
             shape = MaterialTheme.shapes.large
         ) {
             Column(
@@ -261,12 +295,14 @@ private fun CommentItem(
             ) {
                 Text(
                     text = "${comment.author.username} • score ${comment.score}",
-                    style = MaterialTheme.typography.labelMedium
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = comment.text,
-                    style = MaterialTheme.typography.bodyMedium
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
@@ -283,22 +319,12 @@ private fun CommentItem(
                     VoteIconButton(
                         selected = selectedVote == 1L,
                         onClick = { viewModel.voteComment(commentId = comment.id, value = 1) },
-                        icon = {
-                            Icon(
-                                imageVector = Icons.Rounded.KeyboardArrowUp,
-                                contentDescription = "Upvote comment"
-                            )
-                        }
+                        icon = R.drawable.ic_like_filled
                     )
                     VoteIconButton(
                         selected = selectedVote == -1L,
                         onClick = { viewModel.voteComment(commentId = comment.id, value = -1) },
-                        icon = {
-                            Icon(
-                                imageVector = Icons.Rounded.KeyboardArrowDown,
-                                contentDescription = "Downvote comment"
-                            )
-                        }
+                        icon = R.drawable.ic_dislike_filled
                     )
                     TextButton(
                         onClick = { viewModel.toggleReplyComposer(comment.id) }
@@ -309,6 +335,18 @@ private fun CommentItem(
                         )
                         Spacer(modifier = Modifier.width(2.dp))
                         Text(text = if (isReplyVisible) "Cancel" else "Reply")
+                    }
+                }
+
+                AnimatedVisibility(visible = shouldShowRepliesToggle) {
+                    TextButton(onClick = onToggleReplies) {
+                        Text(
+                            text = if (areRepliesVisible) {
+                                "Hide replies"
+                            } else {
+                                "Show more ($repliesCount)"
+                            }
+                        )
                     }
                 }
             }
@@ -351,8 +389,8 @@ private fun CommentComposer(
     onSendClick: () -> Unit
 ) {
     Surface(
-        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
-        shape = MaterialTheme.shapes.large
+        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+        shape = CircleShape
     ) {
         Row(
             modifier = Modifier
@@ -360,76 +398,36 @@ private fun CommentComposer(
                 .padding(horizontal = DPSmall, vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            OutlinedTextField(
+            TextField(
                 modifier = Modifier.weight(1f),
                 value = value,
                 onValueChange = onValueChange,
                 enabled = enabled,
                 maxLines = 4,
-                placeholder = { Text("Write a comment...") }
+                placeholder = {
+                    Text(
+                        "Write a comment...",
+                        style = MaterialTheme.typography.titleSmall,
+                    )
+                },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color.Transparent,
+                    unfocusedBorderColor = Color.Transparent,
+                    disabledBorderColor = Color.Transparent,
+                )
             )
             Spacer(modifier = Modifier.width(DPSmall))
-            FilledTonalButton(
+            IconButton(
                 onClick = onSendClick,
                 enabled = enabled && value.isNotBlank()
             ) {
-                Text("Post")
+                Icon(
+                    painter = painterResource(R.drawable.ic_send_filled),
+                    contentDescription = "Send comment",
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                )
             }
         }
-    }
-}
-
-@Composable
-private fun VoteIconButton(
-    selected: Boolean,
-    onClick: () -> Unit,
-    icon: @Composable () -> Unit
-) {
-    val containerColor by animateColorAsState(
-        targetValue = if (selected) {
-            MaterialTheme.colorScheme.primaryContainer
-        } else {
-            MaterialTheme.colorScheme.surfaceVariant
-        },
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioNoBouncy,
-            stiffness = Spring.StiffnessMediumLow
-        ),
-        label = "comment-vote-container"
-    )
-    val contentColor by animateColorAsState(
-        targetValue = if (selected) {
-            MaterialTheme.colorScheme.onPrimaryContainer
-        } else {
-            MaterialTheme.colorScheme.onSurfaceVariant
-        },
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioNoBouncy,
-            stiffness = Spring.StiffnessMediumLow
-        ),
-        label = "comment-vote-content"
-    )
-    val scale by animateFloatAsState(
-        targetValue = if (selected) 1.06f else 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMediumLow
-        ),
-        label = "comment-vote-scale"
-    )
-
-    FilledTonalIconButton(
-        onClick = onClick,
-        modifier = Modifier.graphicsLayer {
-            scaleX = scale
-            scaleY = scale
-        },
-        colors = IconButtonDefaults.filledTonalIconButtonColors(
-            containerColor = containerColor,
-            contentColor = contentColor
-        )
-    ) {
-        icon()
     }
 }
 

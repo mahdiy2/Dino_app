@@ -6,5 +6,5 @@ sealed class MainRoute(url: String) : BaseRoute(url) {
 
     object AddContact : MainRoute("api/auth/contacts")
 
-    data class GetContacts(val username: String) : MainRoute("api/auth/contacts/$username")
+    object GetContacts : MainRoute("api/contacts")
 }

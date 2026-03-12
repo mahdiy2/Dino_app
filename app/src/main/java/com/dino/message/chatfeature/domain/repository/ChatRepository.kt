@@ -18,4 +18,6 @@ interface ChatRepository {
     suspend fun saveMessage(message: MessageEntity)
     suspend fun getMessages(): List<MessageEntity>
     suspend fun clearMessages()
+    suspend fun connectToSocket()
+    fun sendMessageWithSocket(to: String, message: String, encryptedKey: String)
 }

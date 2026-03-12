@@ -15,4 +15,7 @@ interface ChatApiService {
         message: String,
         encryptedKey: String
     ): Resource<SendMessage>
+
+    suspend fun connectToSocket()
+    fun sendMessageWithSocket(to: String, message: String, encryptedKey: String)
 }

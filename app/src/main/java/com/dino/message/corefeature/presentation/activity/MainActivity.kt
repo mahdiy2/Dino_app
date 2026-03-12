@@ -8,6 +8,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.navigation.ModalBottomSheetLayout
 import androidx.compose.material.navigation.rememberBottomSheetNavigator
 import androidx.compose.material3.MaterialTheme
@@ -26,6 +27,7 @@ import com.dino.message.corefeature.domain.model.AppLanguage
 import com.dino.message.corefeature.domain.model.toLayoutDirection
 import com.dino.message.corefeature.domain.model.toLocale
 import com.dino.message.corefeature.presentation.activity.theme.SecMessageTheme
+import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
 import com.dino.message.corefeature.presentation.util.HandleUIEvent
 import com.dino.message.corefeature.presentation.util.LocaleUtils
 import com.dino.message.corefeature.presentation.viewmodel.MainActivityViewModel
@@ -81,8 +83,9 @@ class MainActivity : ComponentActivity() {
                 ) {
                     ModalBottomSheetLayout(
                         bottomSheetNavigator = bottomSheetNavigator,
-                        sheetShape = MaterialTheme.shapes.extraLarge,
+                        sheetShape = RoundedCornerShape(topEnd = DPExtraLarge, topStart = DPExtraLarge),
                         sheetBackgroundColor = MaterialTheme.colorScheme.surface,
+                        sheetContentColor = MaterialTheme.colorScheme.onSurface,
                     ){
                         DestinationsNavHost(
                             navGraph = NavGraphs.root,

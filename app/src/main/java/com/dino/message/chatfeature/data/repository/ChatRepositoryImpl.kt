@@ -15,6 +15,19 @@ class ChatRepositoryImpl(
 ) : ChatRepository{
 
 
+    override suspend fun connectToSocket() {
+        chatApiService.connectToSocket()
+    }
+
+    override fun sendMessageWithSocket(
+        to: String,
+        message: String,
+        encryptedKey: String
+    ) {
+        chatApiService.sendMessageWithSocket(to, message, encryptedKey)
+    }
+
+
     override suspend fun getInbox(): Resource<List<Inbox>?> =
         chatApiService.getInbox()
 

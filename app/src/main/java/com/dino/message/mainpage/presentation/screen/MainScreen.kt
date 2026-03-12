@@ -83,11 +83,6 @@ fun MainScreen() {
     val isRefreshing by viewModel.isRefreshing.collectAsState()
 
 
-    // Handle back press
-    BackHandler {
-        // todo
-    }
-
     LaunchedEffect(Unit) {
         delay(1000)
         toolbarExpanded = true
