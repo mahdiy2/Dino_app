@@ -34,10 +34,13 @@ class SocketManager @Inject constructor(
         onUserStatus: (username: String, online: Boolean) -> Unit,
         callRefreshTokenAPI: suspend () -> String
     ) {
-        if (socket?.connected() == true) return
+        if (socket?.connected() == true) {
+            Log.d(TAG, "connectAndListen: socket already connected, rebinding listeners by recreating socket")
+        }
 
         val token = sPrefManager.getToken().orEmpty()
         if (token.isBlank()) {
+            Log.w(TAG, "connectAndListen: access token is empty, socket connection aborted")
             onMessageError("Missing access token")
             return
         }
@@ -45,6 +48,8 @@ class SocketManager @Inject constructor(
         val baseUri = URI(BuildConfig.BASE_URL)
         val serverUrl = "${baseUri.scheme}://${baseUri.host}" +
             (if (baseUri.port != -1) ":${baseUri.port}" else "")
+
+        Log.d(TAG, "connectAndListen: preparing socket connection to $serverUrl")
 
         socket?.off()
         socket?.disconnect()
@@ -58,28 +63,32 @@ class SocketManager @Inject constructor(
         socket = IO.socket(serverUrl, options)
 
         socket?.on(Socket.EVENT_CONNECT) {
-            Log.d(TAG, "Connected to socket")
+            Log.d(TAG, "Connected to socket successfully")
         }
 
         socket?.on("connected") { args ->
             val payload = args.firstOrNull().asJsonObjectOrNull()
             val username = payload?.optString("username").orEmpty()
+            Log.d(TAG, "connected event received. username=$username raw=${args.firstOrNull()}")
             onConnected(username)
         }
 
         socket?.on("pending_messages") { args ->
             val payload = args.firstOrNull().asJsonObjectOrNull() ?: JSONObject()
             val messagesJson = payload.optJSONArray("messages") ?: JSONArray()
+            Log.d(TAG, "pending_messages event received. count=${messagesJson.length()}")
             onPendingMessages(parsePendingMessages(messagesJson))
         }
 
         socket?.on("new_message") { args ->
             val payload = args.firstOrNull().asJsonObjectOrNull() ?: return@on
+            Log.d(TAG, "new_message event received. payload=$payload")
             parseNewMessage(payload)?.let(onNewMessage)
         }
 
         socket?.on("message_sent") { args ->
             val payload = args.firstOrNull().asJsonObjectOrNull() ?: return@on
+            Log.d(TAG, "message_sent event received. payload=$payload")
             onMessageSent(
                 MessageSent(
                     to = payload.optString("to"),
@@ -91,15 +100,18 @@ class SocketManager @Inject constructor(
 
         socket?.on("user_status") { args ->
             val payload = args.firstOrNull().asJsonObjectOrNull() ?: return@on
+            Log.d(TAG, "user_status event received. payload=$payload")
             onUserStatus(payload.optString("username"), payload.optBoolean("online"))
         }
 
         socket?.on("message_error") { args ->
             val payload = args.firstOrNull().asJsonObjectOrNull()
+            Log.e(TAG, "message_error event received. payload=$payload")
             onMessageError(payload?.optString("error").orEmpty())
         }
 
         socket?.on(Socket.EVENT_CONNECT_ERROR) { args ->
+            Log.e(TAG, "Socket connect error: ${args.firstOrNull()}")
             onMessageError(args.firstOrNull()?.toString() ?: "Socket connection error")
         }
 
@@ -147,10 +159,12 @@ class SocketManager @Inject constructor(
                 )
             }
         }
+        Log.d(TAG, "Emitting send_message event. payload=$payload")
         socket?.emit("send_message", payload)
     }
 
     fun getUserStatus(username: String) {
+        Log.d(TAG, "Emitting get_user_status for username=$username")
         socket?.emit("get_user_status", JSONObject().put("username", username))
     }
 
@@ -165,6 +179,7 @@ class SocketManager @Inject constructor(
     ) {
         val newToken = callRefreshTokenAPI()
         if (newToken.isNotBlank()) {
+            Log.d(TAG, "reconnectWithToken: acquired new token, reconnecting socket")
             sPrefManager.setToken(newToken)
             connectAndListen(
                 onConnected = onConnected,
@@ -175,6 +190,8 @@ class SocketManager @Inject constructor(
                 onUserStatus = onUserStatus,
                 callRefreshTokenAPI = callRefreshTokenAPI
             )
+        } else {
+            Log.e(TAG, "reconnectWithToken: failed to refresh token, socket not reconnected")
         }
     }
 
@@ -188,6 +205,7 @@ class SocketManager @Inject constructor(
         val messages = mutableListOf<PendingMessage>()
         for (i in 0 until messagesJson.length()) {
             val item = messagesJson.optJSONObject(i) ?: continue
+            Log.d(TAG, "parsePendingMessages[$i]: from=${item.optString("from")}, type=${item.optString("type")}")
             messages.add(
                 PendingMessage(
                     from = item.optString("from"),
@@ -204,7 +222,10 @@ class SocketManager @Inject constructor(
 
     private fun parseNewMessage(payload: JSONObject): NewMessage? {
         val sender = payload.optString("from")
-        if (sender.isBlank()) return null
+        if (sender.isBlank()) {
+            Log.w(TAG, "parseNewMessage: ignored payload without sender. payload=$payload")
+            return null
+        }
 
         return NewMessage(
             from = sender,

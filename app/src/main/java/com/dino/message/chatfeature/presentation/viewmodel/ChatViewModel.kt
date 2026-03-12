@@ -68,17 +68,21 @@ class ChatViewModel @Inject constructor(
     private fun connectSocket() = viewModelScope.launch {
         isSocketConnecting = true
         showRefreshing()
+        Log.d("ChatViewModel", "connectSocket: starting socket connection for chatId=$chatId")
 
         connectUseCase(
             onConnected = {
                 isSocketConnecting = false
                 showRefreshing()
+                Log.d("ChatViewModel", "connectSocket: socket connected, requesting user status for $chatId")
                 connectUseCase.getUserStatus(chatId)
             },
             onPendingMessages = { pendingMessages ->
+                Log.d("ChatViewModel", "connectSocket: pending messages received. total=${pendingMessages.size}")
                 pendingMessages
                     .filter { it.from == chatId }
                     .forEach {
+                        Log.d("ChatViewModel", "connectSocket: processing pending message from=${it.from} at=${it.timestamp}")
                         decryptAndSaveMessage(
                             sender = it.from,
                             encryptedMessage = it.message,
@@ -88,6 +92,7 @@ class ChatViewModel @Inject constructor(
                     }
             },
             onNewMessage = {
+                Log.d("ChatViewModel", "connectSocket: new_message received from=${it.from} at=${it.timestamp}")
                 if (it.from == chatId) {
                     decryptAndSaveMessage(
                         sender = it.from,
@@ -98,10 +103,12 @@ class ChatViewModel @Inject constructor(
                 }
             },
             onMessageSent = {
-                Log.d("ChatViewModel", "Message sent to ${it.to}")
+                Log.d("ChatViewModel", "connectSocket: message_sent ack received. to=${it.to}, type=${it.type}, timestamp=${it.timestamp}")
             },
             onMessageError = {
                 Log.e("ChatViewModel", "Socket message error: $it")
+                isSocketConnecting = false
+                showRefreshing()
             },
             onUserStatus = { username, online ->
                 if (username == chatId) {
@@ -116,6 +123,7 @@ class ChatViewModel @Inject constructor(
             when (res) {
                 is Resource.Success -> {
                     receiverPublicKey.value = res.data.public_key
+                    Log.d("ChatViewModel", "getReceiverPublicKey: public key loaded for chatId=$chatId")
                     getPublicKey = false
                     showRefreshing()
                 }
@@ -126,6 +134,7 @@ class ChatViewModel @Inject constructor(
                 }
 
                 is Resource.Error -> {
+                    Log.e("ChatViewModel", "getReceiverPublicKey: failed for chatId=$chatId")
                     getPublicKey = false
                     showRefreshing()
                 }
@@ -136,6 +145,7 @@ class ChatViewModel @Inject constructor(
     fun sendMessage(message: String) {
         val publicKey = receiverPublicKey.value
         if (publicKey != null) {
+            Log.d("ChatViewModel", "sendMessage: encrypting and sending message to chatId=$chatId, size=${message.length}")
             val (encryptedKey, encryptedMessage) = CryptoUtil.encryptMessage(
                 message = message,
                 receiverPublicKey = decodePublicKey(publicKey)
@@ -151,6 +161,7 @@ class ChatViewModel @Inject constructor(
                 )
             )
         } else {
+            Log.w("ChatViewModel", "sendMessage: receiver public key missing, re-fetching")
             getReceiverPublicKey()
         }
     }
@@ -163,6 +174,7 @@ class ChatViewModel @Inject constructor(
     }
 
     fun saveMessage(message: MessageEntity) = viewModelScope.launch {
+        Log.d("ChatViewModel", "saveMessage: senderOrReceiver=${message.senderOrReceiver}, timestamp=${message.timestamp}")
         saveMessageInDbUseCase.execute(message).collect {
             _messages.add(message)
             loadMessages()
@@ -205,6 +217,7 @@ class ChatViewModel @Inject constructor(
                 encryptedAESKey = encryptedKey,
                 privateKey = decodePrivateKey(privateKey)
             )
+            Log.d("ChatViewModel", "decryptAndSaveMessage: decrypt success for sender=$sender timestamp=$timestamp")
 
             saveMessage(
                 MessageEntity(
@@ -214,7 +227,7 @@ class ChatViewModel @Inject constructor(
                 )
             )
         } catch (e: Exception) {
-            Log.e("ChatViewModel", "Decrypt failed", e)
+            Log.e("ChatViewModel", "decryptAndSaveMessage: decrypt failed for sender=$sender", e)
         }
     }
 }
