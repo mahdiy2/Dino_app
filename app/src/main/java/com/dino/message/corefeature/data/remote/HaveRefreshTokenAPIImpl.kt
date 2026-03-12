@@ -1,5 +1,6 @@
 package com.dino.message.corefeature.data.remote
 
+import android.util.Log
 import com.dino.message.corefeature.data.remote.dto.GetTokenResponse
 import com.dino.message.corefeature.data.spref.SPrefManager
 import io.ktor.client.HttpClient
@@ -20,22 +21,45 @@ class HaveRefreshTokenAPIImpl constructor(
 ) : HaveRefreshTokenAPI {
 
     /**
-     * Retrieves the refresh token.
+     * Retrieves a new access token using the refresh token.
      *
-     * @return The refresh token as a String.
+     * @return The new access token, or empty string when refresh fails.
      */
     override suspend fun getToken(): String {
         return try {
+            val refreshToken = sPrefManager.getRefreshToken()
+                .trim()
+                .removePrefix("Bearer ")
+                .removePrefix("bearer ")
+                .trim()
+
+            if (refreshToken.isBlank()) {
+                Log.e("HaveRefreshTokenAPI", "getToken: refresh token is empty")
+                return ""
+            }
+
             val response = httpClient.post(CoreRoute.GetToken.url) {
                 headers {
-                    append(HttpHeaders.Authorization, "Bearer ${sPrefManager.getRefreshToken()}")
+                    remove(HttpHeaders.Authorization)
+                    append(HttpHeaders.Authorization, "Bearer $refreshToken")
                 }
             }.body<GetTokenResponse>()
+
             val newAccessToken = response.mapResponseToResult()
-            newAccessToken
+                .trim()
+                .removePrefix("Bearer ")
+                .removePrefix("bearer ")
+                .trim()
+
+            if (newAccessToken.count { it == '.' } != 2) {
+                Log.e("HaveRefreshTokenAPI", "getToken: received malformed access token")
+                ""
+            } else {
+                newAccessToken
+            }
         } catch (e: Exception) {
-            e.printStackTrace()
-            "error in refresh token request"
+            Log.e("HaveRefreshTokenAPI", "getToken: refresh request failed", e)
+            ""
         }
     }
 
