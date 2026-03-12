@@ -98,11 +98,11 @@ class ChatViewModel @Inject constructor(
                 connectUseCase.getUserStatus(chatId)
             },
             onPendingMessages = { pendingMessages ->
-                Log.d("ChatViewModel", "connectSocket: pending messages received. total=${pendingMessages.size}")
+                Log.i("ChatViewModel", "connectSocket: pending messages received. total=${pendingMessages.size}")
                 pendingMessages
                     .filter { it.from == chatId }
                     .forEach {
-                        Log.d("ChatViewModel", "connectSocket: processing pending message from=${it.from} at=${it.timestamp}")
+                        Log.i("ChatViewModel", "connectSocket: processing pending message from=${it.from} at=${it.timestamp}")
                         decryptAndSaveMessage(
                             sender = it.from,
                             encryptedMessage = it.message,
@@ -112,7 +112,7 @@ class ChatViewModel @Inject constructor(
                     }
             },
             onNewMessage = {
-                Log.d("ChatViewModel", "connectSocket: new_message received from=${it.from} at=${it.timestamp}")
+                Log.i("ChatViewModel", "connectSocket: new_message received from=${it.from} at=${it.timestamp}")
                 if (it.from == chatId) {
                     decryptAndSaveMessage(
                         sender = it.from,
