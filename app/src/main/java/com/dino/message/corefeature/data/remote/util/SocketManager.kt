@@ -24,6 +24,8 @@ class SocketManager @Inject constructor(
 ) {
 
     private var socket: Socket? = null
+    @Volatile
+    private var isRefreshingSocketToken = false
 
     @Volatile
     private var isRefreshingSocketToken = false

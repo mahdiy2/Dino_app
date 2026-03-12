@@ -117,7 +117,7 @@ class HttpAPIUtil @Inject constructor(
         )
     }
 
-    private suspend fun <ResultType> handleUnauthorized(
+    suspend fun <ResultType> handleUnauthorized(
         callRefreshTokenAPI: suspend () -> String,
         needToUpdateToken: Boolean
     ): Resource<ResultType> {
