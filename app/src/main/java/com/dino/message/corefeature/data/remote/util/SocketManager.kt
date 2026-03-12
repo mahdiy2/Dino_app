@@ -25,6 +25,9 @@ class SocketManager @Inject constructor(
 
     private var socket: Socket? = null
 
+    @Volatile
+    private var isRefreshingSocketToken = false
+
     suspend fun connectAndListen(
         onConnected: (String) -> Unit,
         onPendingMessages: (List<PendingMessage>) -> Unit,
@@ -38,7 +41,7 @@ class SocketManager @Inject constructor(
             Log.d(TAG, "connectAndListen: socket already connected, rebinding listeners by recreating socket")
         }
 
-        val token = sPrefManager.getToken().orEmpty()
+        val token = sPrefManager.getToken().normalizeToken()
         if (token.isBlank()) {
             Log.w(TAG, "connectAndListen: access token is empty, socket connection aborted")
             onMessageError("Missing access token")
@@ -57,6 +60,8 @@ class SocketManager @Inject constructor(
         val options = IO.Options.builder()
             .setPath("/socket.io")
             .setAuth(mapOf("token" to token))
+            .setQuery("token=$token")
+            .setExtraHeaders(mapOf("Authorization" to listOf("Bearer $token")))
             .setTransports(arrayOf(WebSocketTransport))
             .build()
 
@@ -64,18 +69,21 @@ class SocketManager @Inject constructor(
 
         socket?.on(Socket.EVENT_CONNECT) {
             Log.d(TAG, "Connected to socket successfully")
+            val fallbackUsername = sPrefManager.getUsername().orEmpty()
+            onConnected(fallbackUsername)
         }
 
         socket?.on("connected") { args ->
             val payload = args.firstOrNull().asJsonObjectOrNull()
-            val username = payload?.optString("username").orEmpty()
+            val username = payload?.optString("username")
+                ?.takeIf { it.isNotBlank() }
+                ?: sPrefManager.getUsername().orEmpty()
             Log.d(TAG, "connected event received. username=$username raw=${args.firstOrNull()}")
             onConnected(username)
         }
 
         socket?.on("pending_messages") { args ->
-            val payload = args.firstOrNull().asJsonObjectOrNull() ?: JSONObject()
-            val messagesJson = payload.optJSONArray("messages") ?: JSONArray()
+            val messagesJson = args.firstOrNull().extractMessagesArray()
             Log.d(TAG, "pending_messages event received. count=${messagesJson.length()}")
             onPendingMessages(parsePendingMessages(messagesJson))
         }
@@ -111,12 +119,37 @@ class SocketManager @Inject constructor(
         }
 
         socket?.on(Socket.EVENT_CONNECT_ERROR) { args ->
-            Log.e(TAG, "Socket connect error: ${args.firstOrNull()}")
-            onMessageError(args.firstOrNull()?.toString() ?: "Socket connection error")
+            val rawError = args.firstOrNull()?.toString().orEmpty()
+            Log.e(TAG, "Socket connect error: $rawError")
+            onMessageError(rawError.ifBlank { "Socket connection error" })
+
+            if (rawError.contains("Unauthorized", ignoreCase = true) ||
+                rawError.contains("401") ||
+                rawError.contains("jwt", ignoreCase = true)
+            ) {
+                CoroutineScope(Dispatchers.IO).launch {
+                    reconnectWithToken(
+                        onConnected = onConnected,
+                        onPendingMessages = onPendingMessages,
+                        onNewMessage = onNewMessage,
+                        onMessageSent = onMessageSent,
+                        onMessageError = onMessageError,
+                        onUserStatus = onUserStatus,
+                        callRefreshTokenAPI = callRefreshTokenAPI
+                    )
+                }
+            }
         }
 
-        socket?.on(Socket.EVENT_DISCONNECT) {
-            Log.d(TAG, "Disconnected from socket")
+        socket?.on(Socket.EVENT_DISCONNECT) { args ->
+            val reason = args.firstOrNull()?.toString().orEmpty()
+            Log.d(TAG, "Disconnected from socket. reason=$reason")
+
+            if (reason.equals("io client disconnect", ignoreCase = true)) {
+                Log.d(TAG, "disconnect triggered by client, skipping auto reconnect")
+                return@on
+            }
+
             CoroutineScope(Dispatchers.IO).launch {
                 reconnectWithToken(
                     onConnected = onConnected,
@@ -177,21 +210,31 @@ class SocketManager @Inject constructor(
         onUserStatus: (username: String, online: Boolean) -> Unit,
         callRefreshTokenAPI: suspend () -> String
     ) {
-        val newToken = callRefreshTokenAPI()
-        if (newToken.isNotBlank()) {
-            Log.d(TAG, "reconnectWithToken: acquired new token, reconnecting socket")
-            sPrefManager.setToken(newToken)
-            connectAndListen(
-                onConnected = onConnected,
-                onPendingMessages = onPendingMessages,
-                onNewMessage = onNewMessage,
-                onMessageSent = onMessageSent,
-                onMessageError = onMessageError,
-                onUserStatus = onUserStatus,
-                callRefreshTokenAPI = callRefreshTokenAPI
-            )
-        } else {
-            Log.e(TAG, "reconnectWithToken: failed to refresh token, socket not reconnected")
+        if (isRefreshingSocketToken) {
+            Log.d(TAG, "reconnectWithToken: refresh already in progress, skipping duplicate attempt")
+            return
+        }
+
+        isRefreshingSocketToken = true
+        val newToken = callRefreshTokenAPI().normalizeToken()
+        try {
+            if (newToken.isNotBlank()) {
+                Log.d(TAG, "reconnectWithToken: acquired new token, reconnecting socket")
+                sPrefManager.setToken(newToken)
+                connectAndListen(
+                    onConnected = onConnected,
+                    onPendingMessages = onPendingMessages,
+                    onNewMessage = onNewMessage,
+                    onMessageSent = onMessageSent,
+                    onMessageError = onMessageError,
+                    onUserStatus = onUserStatus,
+                    callRefreshTokenAPI = callRefreshTokenAPI
+                )
+            } else {
+                Log.e(TAG, "reconnectWithToken: failed to refresh token, socket not reconnected")
+            }
+        } finally {
+            isRefreshingSocketToken = false
         }
     }
 
@@ -247,6 +290,19 @@ class SocketManager @Inject constructor(
         )
     }
 
+    private fun Any?.extractMessagesArray(): JSONArray {
+        return when (this) {
+            is JSONArray -> this
+            is JSONObject -> optJSONArray("messages") ?: JSONArray()
+            is String -> {
+                runCatching { JSONArray(this) }.getOrElse {
+                    runCatching { JSONObject(this).optJSONArray("messages") ?: JSONArray() }.getOrDefault(JSONArray())
+                }
+            }
+            else -> JSONArray()
+        }
+    }
+
     private fun Any?.asJsonObjectOrNull(): JSONObject? {
         return when (this) {
             is JSONObject -> this
@@ -254,6 +310,12 @@ class SocketManager @Inject constructor(
             else -> null
         }
     }
+
+    private fun String.normalizeToken(): String =
+        trim()
+            .removePrefix("Bearer ")
+            .removePrefix("bearer ")
+            .trim()
 
     companion object {
         private const val TAG = "SocketManager"
