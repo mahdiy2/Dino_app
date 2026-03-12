@@ -12,6 +12,7 @@ import com.dino.message.corefeature.util.RetryableException
 import io.ktor.client.call.body
 import io.ktor.client.plugins.HttpRequestTimeoutException
 import io.ktor.client.statement.HttpResponse
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.isSuccess
 import io.ktor.serialization.JsonConvertException
@@ -31,10 +32,8 @@ class HttpAPIUtil @Inject constructor(
         noinline callRefreshTokenAPI: suspend () -> String,
         needToUpdateToken: Boolean = true
     ): Resource<ResultType> {
-        var loopRounds = 0
 
         return retry(times = 3, initialDelay = 1000, factor = 2.0) {
-            loopRounds++
 
             try {
                 val response = callAPI()
@@ -44,40 +43,44 @@ class HttpAPIUtil @Inject constructor(
                         Resource.Success(body.mapResponseToResult())
                     }
 
-                    response.status == HttpStatusCode.Companion.BadRequest -> Resource.Error(
+                    response.status == HttpStatusCode.BadRequest -> Resource.Error(
                         message = R.string.error_bad_request.asStringResourceContent()
                     )
 
-                    response.status == HttpStatusCode.Companion.Unauthorized -> {
-//                        Log.i("?????", "callAPIWithErrorHandling: ")
-                        if (needToUpdateToken) {
-//                            Log.i("?????", "callAPIWithErrorHandling: ")
-                            val newToken = callRefreshTokenAPI()
-                            if (newToken.isNotEmpty()) {
-//                                Log.i("?????", "callAPIWithErrorHandling: ")
-                                sPrefManager.setToken(newToken)
-                                throw RetryableException("Token refreshed, retrying request.")
-                            }
-
-                        }
-                        Resource.Error(
-                            message = R.string.error_unauthorized.asStringResourceContent()
-                        )
+                    response.status == HttpStatusCode.Unauthorized -> {
+                        handleUnauthorized(callRefreshTokenAPI = callRefreshTokenAPI, needToUpdateToken = needToUpdateToken)
                     }
 
-                    response.status == HttpStatusCode.Companion.Forbidden -> Resource.Error(
+                    response.status == HttpStatusCode.UnprocessableEntity -> {
+                        val rawBody = runCatching { response.bodyAsText() }.getOrDefault("")
+                        val isAuthorizationHeaderError = rawBody.contains("Bad Authorization header", ignoreCase = true)
+
+                        if (isAuthorizationHeaderError) {
+                            Log.w("HttpAPIUtil", "422 with bad authorization header; trying token refresh")
+                            handleUnauthorized(callRefreshTokenAPI = callRefreshTokenAPI, needToUpdateToken = needToUpdateToken)
+                        } else {
+                            Resource.Error(
+                                message = context.getString(
+                                    R.string.error_with_http_status_code,
+                                    response.status.value
+                                ).asStringResourceContent()
+                            )
+                        }
+                    }
+
+                    response.status == HttpStatusCode.Forbidden -> Resource.Error(
                         message = R.string.error_forbidden.asStringResourceContent()
                     )
 
-                    response.status == HttpStatusCode.Companion.NotFound -> Resource.Error(
+                    response.status == HttpStatusCode.NotFound -> Resource.Error(
                         message = R.string.error_not_found.asStringResourceContent()
                     )
 
-                    response.status == HttpStatusCode.Companion.Conflict -> Resource.Error(
+                    response.status == HttpStatusCode.Conflict -> Resource.Error(
                         message = R.string.error_conflict.asStringResourceContent()
                     )
 
-                    response.status == HttpStatusCode.Companion.InternalServerError -> Resource.Error(
+                    response.status == HttpStatusCode.InternalServerError -> Resource.Error(
                         message = R.string.internal_server_error.asStringResourceContent()
                     )
 
@@ -111,6 +114,23 @@ class HttpAPIUtil @Inject constructor(
             }
         } ?: Resource.Error(
             message = R.string.error_retries_exceeded.asStringResourceContent()
+        )
+    }
+
+    private suspend fun <ResultType> handleUnauthorized(
+        callRefreshTokenAPI: suspend () -> String,
+        needToUpdateToken: Boolean
+    ): Resource<ResultType> {
+        if (needToUpdateToken) {
+            val newToken = callRefreshTokenAPI().trim()
+            if (newToken.isNotBlank()) {
+                sPrefManager.setToken(newToken)
+                throw RetryableException("Token refreshed, retrying request.")
+            }
+        }
+
+        return Resource.Error(
+            message = R.string.error_unauthorized.asStringResourceContent()
         )
     }
 

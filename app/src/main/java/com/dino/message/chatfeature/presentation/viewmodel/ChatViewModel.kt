@@ -58,14 +58,34 @@ class ChatViewModel @Inject constructor(
 
     private var getPublicKey = false
     private var isSocketConnecting = false
+    private var hasSocketConnectionStarted = false
 
     init {
         loadMessages()
-        getReceiverPublicKey()
-        connectSocket()
+        prepareChatSession()
+    }
+
+    private fun prepareChatSession() = viewModelScope.launch {
+        val publicKeyLoaded = getReceiverPublicKey()
+        if (publicKeyLoaded) {
+            connectSocket()
+        } else {
+            Log.e("ChatViewModel", "prepareChatSession: public key was not loaded, socket connection skipped")
+        }
     }
 
     private fun connectSocket() = viewModelScope.launch {
+        if (hasSocketConnectionStarted) {
+            Log.d("ChatViewModel", "connectSocket: socket connection already started, skip duplicate")
+            return@launch
+        }
+
+        if (receiverPublicKey.value.isNullOrBlank()) {
+            Log.w("ChatViewModel", "connectSocket: receiver public key missing, socket connection aborted")
+            return@launch
+        }
+
+        hasSocketConnectionStarted = true
         isSocketConnecting = true
         showRefreshing()
         Log.d("ChatViewModel", "connectSocket: starting socket connection for chatId=$chatId")
@@ -118,14 +138,25 @@ class ChatViewModel @Inject constructor(
         )
     }
 
-    private fun getReceiverPublicKey() = viewModelScope.launch {
+    private suspend fun getReceiverPublicKey(): Boolean {
+        var isPublicKeyLoaded = false
+
         getReceiverPublicKeyUseCase.execute(chatId).collect { res ->
             when (res) {
                 is Resource.Success -> {
-                    receiverPublicKey.value = res.data.public_key
+                    val publicKey = res.data.public_key
+                    if (publicKey.isNullOrBlank()) {
+                        Log.e("ChatViewModel", "getReceiverPublicKey: empty public key for chatId=$chatId")
+                        getPublicKey = false
+                        showRefreshing()
+                        return@collect
+                    }
+
+                    receiverPublicKey.value = publicKey
                     Log.d("ChatViewModel", "getReceiverPublicKey: public key loaded for chatId=$chatId")
                     getPublicKey = false
                     showRefreshing()
+                    isPublicKeyLoaded = true
                 }
 
                 is Resource.Loading -> {
@@ -140,6 +171,8 @@ class ChatViewModel @Inject constructor(
                 }
             }
         }
+
+        return isPublicKeyLoaded
     }
 
     fun sendMessage(message: String) {
@@ -161,8 +194,8 @@ class ChatViewModel @Inject constructor(
                 )
             )
         } else {
-            Log.w("ChatViewModel", "sendMessage: receiver public key missing, re-fetching")
-            getReceiverPublicKey()
+            Log.w("ChatViewModel", "sendMessage: receiver public key missing, preparing chat session again")
+            prepareChatSession()
         }
     }
 
