@@ -117,10 +117,10 @@ class HttpAPIUtil @Inject constructor(
         )
     }
 
-    suspend fun handleUnauthorized(
+    private suspend fun <ResultType> handleUnauthorized(
         callRefreshTokenAPI: suspend () -> String,
         needToUpdateToken: Boolean
-    ): Resource.Error {
+    ): Resource<ResultType> {
         if (needToUpdateToken) {
             val newToken = callRefreshTokenAPI().trim()
             if (newToken.isNotBlank()) {
