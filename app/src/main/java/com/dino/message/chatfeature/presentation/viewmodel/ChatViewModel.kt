@@ -11,7 +11,7 @@ import androidx.lifecycle.viewModelScope
 import com.dino.message.DinoOrderApplication
 import com.dino.message.chatfeature.domain.model.MessageEntity
 import com.dino.message.chatfeature.domain.usecase.ClearMessageFromDBUseCase
-import com.dino.message.chatfeature.domain.usecase.GetInboxUseCase
+import com.dino.message.chatfeature.domain.usecase.ConnectUseCase
 import com.dino.message.chatfeature.domain.usecase.GetMessageFromDBUseCase
 import com.dino.message.chatfeature.domain.usecase.GetReceiverPublicKeyUseCase
 import com.dino.message.chatfeature.domain.usecase.SaveMessageInDbUseCase
@@ -26,11 +26,9 @@ import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -38,7 +36,7 @@ import javax.inject.Inject
 class ChatViewModel @Inject constructor(
     @ApplicationContext app: Context,
     private val spref: SPrefManager,
-    private val getInboxUseCase: GetInboxUseCase,
+    private val connectUseCase: ConnectUseCase,
     private val sendMessageUseCase: SendMessageUseCase,
     private val getReceiverPublicKeyUseCase: GetReceiverPublicKeyUseCase,
     private val getMessageFromDBUseCase: GetMessageFromDBUseCase,
@@ -48,106 +46,86 @@ class ChatViewModel @Inject constructor(
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
 
-
-    private val chatId: String? = savedStateHandle.get<String>("chatId")!!
+    private val chatId: String = checkNotNull(savedStateHandle["chatId"])
 
     private val receiverPublicKey = mutableStateOf<String?>(null)
 
     private val _messages = mutableStateListOf<MessageEntity>()
     val messages: List<MessageEntity> = _messages
 
-    // State to indicate if a refresh is in progress
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
-    private var getInbox = false
     private var getPublicKey = false
+    private var isSocketConnecting = false
 
     init {
+        loadMessages()
         getReceiverPublicKey()
-
-        viewModelScope.launch {
-            while (isActive) {
-                loadMessages()       // Load from DB initially
-                getInbox()           // Get from server
-                delay(32000) // 2 seconds
-            }
-        }
+        connectSocket()
     }
 
+    private fun connectSocket() = viewModelScope.launch {
+        isSocketConnecting = true
+        showRefreshing()
+        Log.d("ChatViewModel", "connectSocket: starting socket connection for chatId=$chatId")
 
-    private fun getInbox() = viewModelScope.launch {
-        getInboxUseCase.execute().collect { res ->
-            when (res) {
-                is Resource.Success -> {
-                    Log.i("InboxProblem", "getInbox: ${res.data?.forEach { it.message }}")
-                    res.data?.forEach { inbox ->
-                        try {
-                            val decryptedMsg = decryptMessage(
-                                encryptedMessage = inbox.message,
-                                encryptedAESKey = inbox.encrypted_key,
-                                privateKey = decodePrivateKey(spref.getPrivateKey()!!)
-                            )
-
-                            val entity = MessageEntity(
-                                senderOrReceiver = chatId!!,
-                                content = decryptedMsg,
-                                timestamp = inbox.timestamp
-                            )
-                            saveMessage(entity)
-                        } catch (e: Exception) {
-                            Log.e("InboxProblem", "Decrypt failed", e)
-                        }
+        connectUseCase(
+            onConnected = {
+                isSocketConnecting = false
+                showRefreshing()
+                Log.d("ChatViewModel", "connectSocket: socket connected, requesting user status for $chatId")
+                connectUseCase.getUserStatus(chatId)
+            },
+            onPendingMessages = { pendingMessages ->
+                Log.d("ChatViewModel", "connectSocket: pending messages received. total=${pendingMessages.size}")
+                pendingMessages
+                    .filter { it.from == chatId }
+                    .forEach {
+                        Log.d("ChatViewModel", "connectSocket: processing pending message from=${it.from} at=${it.timestamp}")
+                        decryptAndSaveMessage(
+                            sender = it.from,
+                            encryptedMessage = it.message,
+                            encryptedKey = it.encryptedKey,
+                            timestamp = it.timestamp
+                        )
                     }
-                    getInbox = false
-                    showRefreshing()
+            },
+            onNewMessage = {
+                Log.d("ChatViewModel", "connectSocket: new_message received from=${it.from} at=${it.timestamp}")
+                if (it.from == chatId) {
+                    decryptAndSaveMessage(
+                        sender = it.from,
+                        encryptedMessage = it.message,
+                        encryptedKey = it.encryptedKey,
+                        timestamp = it.timestamp
+                    )
                 }
-
-                is Resource.Loading -> {
-                    getInbox = true
-                    showRefreshing()
-                }
-
-                is Resource.Error -> {
-                    getInbox = false
-                    showRefreshing()
+            },
+            onMessageSent = {
+                Log.d("ChatViewModel", "connectSocket: message_sent ack received. to=${it.to}, type=${it.type}, timestamp=${it.timestamp}")
+            },
+            onMessageError = {
+                Log.e("ChatViewModel", "Socket message error: $it")
+                isSocketConnecting = false
+                showRefreshing()
+            },
+            onUserStatus = { username, online ->
+                if (username == chatId) {
+                    Log.d("ChatViewModel", "$username is ${if (online) "online" else "offline"}")
                 }
             }
-        }
+        )
     }
-
-    private fun sendMessageRequest(to: String, message: String, encryptedKey: String) =
-        viewModelScope.launch {
-            sendMessageUseCase.execute(
-                to = to,
-                message = message,
-                encryptedKey = encryptedKey
-            ).collect { res ->
-                when (res) {
-                    is Resource.Success -> {
-
-                    }
-
-                    is Resource.Loading -> {
-
-                    }
-
-                    is Resource.Error -> {
-                    }
-                }
-            }
-        }
 
     private fun getReceiverPublicKey() = viewModelScope.launch {
-        getReceiverPublicKeyUseCase.execute(chatId!!).collect { res ->
+        getReceiverPublicKeyUseCase.execute(chatId).collect { res ->
             when (res) {
                 is Resource.Success -> {
                     receiverPublicKey.value = res.data.public_key
+                    Log.d("ChatViewModel", "getReceiverPublicKey: public key loaded for chatId=$chatId")
                     getPublicKey = false
                     showRefreshing()
-
-                    loadMessages()       // Load from DB initially
-                    getInbox()
                 }
 
                 is Resource.Loading -> {
@@ -156,6 +134,7 @@ class ChatViewModel @Inject constructor(
                 }
 
                 is Resource.Error -> {
+                    Log.e("ChatViewModel", "getReceiverPublicKey: failed for chatId=$chatId")
                     getPublicKey = false
                     showRefreshing()
                 }
@@ -164,15 +143,16 @@ class ChatViewModel @Inject constructor(
     }
 
     fun sendMessage(message: String) {
-        if (receiverPublicKey.value != null) {
+        val publicKey = receiverPublicKey.value
+        if (publicKey != null) {
+            Log.d("ChatViewModel", "sendMessage: encrypting and sending message to chatId=$chatId, size=${message.length}")
             val (encryptedKey, encryptedMessage) = CryptoUtil.encryptMessage(
                 message = message,
-                receiverPublicKey = decodePublicKey(receiverPublicKey.value!!)
+                receiverPublicKey = decodePublicKey(publicKey)
             )
 
-            sendMessageRequest(chatId!!, encryptedMessage, encryptedKey)
+            sendMessageUseCase.execute(chatId, encryptedMessage, encryptedKey)
 
-            // Save message locally as "sent"
             saveMessage(
                 MessageEntity(
                     senderOrReceiver = getUsernameFromPrefs().toString(),
@@ -181,6 +161,7 @@ class ChatViewModel @Inject constructor(
                 )
             )
         } else {
+            Log.w("ChatViewModel", "sendMessage: receiver public key missing, re-fetching")
             getReceiverPublicKey()
         }
     }
@@ -189,11 +170,11 @@ class ChatViewModel @Inject constructor(
         _messages.clear()
         getMessageFromDBUseCase.execute().collect {
             _messages.addAll(it)
-//            Log.i("messages", "loadMessages: ${_messages}")
         }
     }
 
     fun saveMessage(message: MessageEntity) = viewModelScope.launch {
+        Log.d("ChatViewModel", "saveMessage: senderOrReceiver=${message.senderOrReceiver}, timestamp=${message.timestamp}")
         saveMessageInDbUseCase.execute(message).collect {
             _messages.add(message)
             loadMessages()
@@ -206,10 +187,8 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    // get login username
     private fun getUsernameFromPrefs(): String? = spref.getUsername()
 
-    // get iso time
     private fun getCurrentTimestamp(): String =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             java.time.Instant.now().toString()
@@ -222,6 +201,33 @@ class ChatViewModel @Inject constructor(
     }
 
     private fun showRefreshing() {
-        _isRefreshing.value = getPublicKey || getInbox
+        _isRefreshing.value = getPublicKey || isSocketConnecting
+    }
+
+    private fun decryptAndSaveMessage(
+        sender: String,
+        encryptedMessage: String,
+        encryptedKey: String,
+        timestamp: String
+    ) {
+        try {
+            val privateKey = spref.getPrivateKey() ?: return
+            val decryptedMsg = decryptMessage(
+                encryptedMessage = encryptedMessage,
+                encryptedAESKey = encryptedKey,
+                privateKey = decodePrivateKey(privateKey)
+            )
+            Log.d("ChatViewModel", "decryptAndSaveMessage: decrypt success for sender=$sender timestamp=$timestamp")
+
+            saveMessage(
+                MessageEntity(
+                    senderOrReceiver = sender,
+                    content = decryptedMsg,
+                    timestamp = timestamp
+                )
+            )
+        } catch (e: Exception) {
+            Log.e("ChatViewModel", "decryptAndSaveMessage: decrypt failed for sender=$sender", e)
+        }
     }
 }

@@ -2,6 +2,9 @@ package com.dino.message.chatfeature.data.repository
 
 import com.dino.message.chatfeature.data.db.MessageDao
 import com.dino.message.chatfeature.data.remote.ChatApiService
+import com.dino.message.chatfeature.data.remote.dto.MessageSent
+import com.dino.message.chatfeature.data.remote.dto.NewMessage
+import com.dino.message.chatfeature.data.remote.dto.PendingMessage
 import com.dino.message.chatfeature.domain.model.Inbox
 import com.dino.message.chatfeature.domain.model.MessageEntity
 import com.dino.message.chatfeature.domain.model.ReceiverPublicKey
@@ -15,8 +18,22 @@ class ChatRepositoryImpl(
 ) : ChatRepository{
 
 
-    override suspend fun connectToSocket() {
-        chatApiService.connectToSocket()
+    override suspend fun connectToSocket(
+        onConnected: (String) -> Unit,
+        onPendingMessages: (List<PendingMessage>) -> Unit,
+        onNewMessage: (NewMessage) -> Unit,
+        onMessageSent: (MessageSent) -> Unit,
+        onMessageError: (String) -> Unit,
+        onUserStatus: (username: String, online: Boolean) -> Unit
+    ) {
+        chatApiService.connectToSocket(
+            onConnected = onConnected,
+            onPendingMessages = onPendingMessages,
+            onNewMessage = onNewMessage,
+            onMessageSent = onMessageSent,
+            onMessageError = onMessageError,
+            onUserStatus = onUserStatus
+        )
     }
 
     override fun sendMessageWithSocket(
@@ -25,6 +42,10 @@ class ChatRepositoryImpl(
         encryptedKey: String
     ) {
         chatApiService.sendMessageWithSocket(to, message, encryptedKey)
+    }
+
+    override fun getUserStatus(username: String) {
+        chatApiService.getUserStatus(username)
     }
 
 
