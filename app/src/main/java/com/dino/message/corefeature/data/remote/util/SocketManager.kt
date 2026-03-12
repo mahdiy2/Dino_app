@@ -24,6 +24,8 @@ class SocketManager @Inject constructor(
 ) {
 
     private var socket: Socket? = null
+    @Volatile
+    private var isRefreshingSocketToken = false
 
     suspend fun connectAndListen(
         onConnected: (String) -> Unit,
@@ -111,12 +113,37 @@ class SocketManager @Inject constructor(
         }
 
         socket?.on(Socket.EVENT_CONNECT_ERROR) { args ->
-            Log.e(TAG, "Socket connect error: ${args.firstOrNull()}")
-            onMessageError(args.firstOrNull()?.toString() ?: "Socket connection error")
+            val rawError = args.firstOrNull()?.toString().orEmpty()
+            Log.e(TAG, "Socket connect error: $rawError")
+            onMessageError(rawError.ifBlank { "Socket connection error" })
+
+            if (rawError.contains("Unauthorized", ignoreCase = true) ||
+                rawError.contains("401") ||
+                rawError.contains("jwt", ignoreCase = true)
+            ) {
+                CoroutineScope(Dispatchers.IO).launch {
+                    reconnectWithToken(
+                        onConnected = onConnected,
+                        onPendingMessages = onPendingMessages,
+                        onNewMessage = onNewMessage,
+                        onMessageSent = onMessageSent,
+                        onMessageError = onMessageError,
+                        onUserStatus = onUserStatus,
+                        callRefreshTokenAPI = callRefreshTokenAPI
+                    )
+                }
+            }
         }
 
-        socket?.on(Socket.EVENT_DISCONNECT) {
-            Log.d(TAG, "Disconnected from socket")
+        socket?.on(Socket.EVENT_DISCONNECT) { args ->
+            val reason = args.firstOrNull()?.toString().orEmpty()
+            Log.d(TAG, "Disconnected from socket. reason=$reason")
+
+            if (reason.equals("io client disconnect", ignoreCase = true)) {
+                Log.d(TAG, "disconnect triggered by client, skipping auto reconnect")
+                return@on
+            }
+
             CoroutineScope(Dispatchers.IO).launch {
                 reconnectWithToken(
                     onConnected = onConnected,
@@ -177,21 +204,31 @@ class SocketManager @Inject constructor(
         onUserStatus: (username: String, online: Boolean) -> Unit,
         callRefreshTokenAPI: suspend () -> String
     ) {
+        if (isRefreshingSocketToken) {
+            Log.d(TAG, "reconnectWithToken: refresh already in progress, skipping duplicate attempt")
+            return
+        }
+
+        isRefreshingSocketToken = true
         val newToken = callRefreshTokenAPI()
-        if (newToken.isNotBlank()) {
-            Log.d(TAG, "reconnectWithToken: acquired new token, reconnecting socket")
-            sPrefManager.setToken(newToken)
-            connectAndListen(
-                onConnected = onConnected,
-                onPendingMessages = onPendingMessages,
-                onNewMessage = onNewMessage,
-                onMessageSent = onMessageSent,
-                onMessageError = onMessageError,
-                onUserStatus = onUserStatus,
-                callRefreshTokenAPI = callRefreshTokenAPI
-            )
-        } else {
-            Log.e(TAG, "reconnectWithToken: failed to refresh token, socket not reconnected")
+        try {
+            if (newToken.isNotBlank()) {
+                Log.d(TAG, "reconnectWithToken: acquired new token, reconnecting socket")
+                sPrefManager.setToken(newToken)
+                connectAndListen(
+                    onConnected = onConnected,
+                    onPendingMessages = onPendingMessages,
+                    onNewMessage = onNewMessage,
+                    onMessageSent = onMessageSent,
+                    onMessageError = onMessageError,
+                    onUserStatus = onUserStatus,
+                    callRefreshTokenAPI = callRefreshTokenAPI
+                )
+            } else {
+                Log.e(TAG, "reconnectWithToken: failed to refresh token, socket not reconnected")
+            }
+        } finally {
+            isRefreshingSocketToken = false
         }
     }
 
