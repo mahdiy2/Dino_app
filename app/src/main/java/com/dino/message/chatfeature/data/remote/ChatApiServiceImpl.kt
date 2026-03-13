@@ -13,7 +13,6 @@ import com.dino.message.chatfeature.domain.model.SendMessage
 import com.dino.message.corefeature.data.remote.HaveRefreshTokenAPI
 import com.dino.message.corefeature.data.remote.HaveRefreshTokenAPIImpl
 import com.dino.message.corefeature.data.remote.util.HttpAPIUtil
-import com.dino.message.corefeature.data.remote.util.SocketManager
 import com.dino.message.corefeature.data.remote.util.appendTokenToHeader
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.presentation.util.Resource
@@ -29,40 +28,10 @@ class ChatApiServiceImpl @Inject constructor(
     private val httpClient: HttpClient,
     private val sPrefManager: SPrefManager,
     private val httpAPIUtil: HttpAPIUtil,
-    private val socketManager: SocketManager
 ): ChatApiService, HaveRefreshTokenAPI by HaveRefreshTokenAPIImpl(httpClient, sPrefManager) {
 
 
-    override suspend fun connectToSocket(
-        onConnected: (String) -> Unit,
-        onPendingMessages: (List<PendingMessage>) -> Unit,
-        onNewMessage: (NewMessage) -> Unit,
-        onMessageSent: (MessageSent) -> Unit,
-        onMessageError: (String) -> Unit,
-        onUserStatus: (username: String, online: Boolean) -> Unit
-    ) {
-        socketManager.connectAndListen(
-            onConnected = onConnected,
-            onPendingMessages = onPendingMessages,
-            onNewMessage = onNewMessage,
-            onMessageSent = onMessageSent,
-            onMessageError = onMessageError,
-            onUserStatus = onUserStatus,
-            callRefreshTokenAPI = this::getToken
-        )
-    }
 
-    override fun sendMessageWithSocket(
-        to: String,
-        message: String,
-        encryptedKey: String
-    ) {
-        socketManager.sendMessage(to, message, encryptedKey)
-    }
-
-    override fun getUserStatus(username: String) {
-        socketManager.getUserStatus(username)
-    }
 
     override suspend fun getInbox(): Resource<List<Inbox>?> =
         httpAPIUtil.callAPIWithErrorHandling<List<Inbox>?, InboxResponse>(

@@ -18,15 +18,4 @@ interface ChatApiService {
         message: String,
         encryptedKey: String
     ): Resource<SendMessage>
-
-    suspend fun connectToSocket(
-        onConnected: (String) -> Unit,
-        onPendingMessages: (List<PendingMessage>) -> Unit,
-        onNewMessage: (NewMessage) -> Unit,
-        onMessageSent: (MessageSent) -> Unit,
-        onMessageError: (String) -> Unit,
-        onUserStatus: (username: String, online: Boolean) -> Unit
-    )
-    fun sendMessageWithSocket(to: String, message: String, encryptedKey: String)
-    fun getUserStatus(username: String)
 }

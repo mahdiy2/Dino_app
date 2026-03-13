@@ -18,37 +18,6 @@ class ChatRepositoryImpl(
 ) : ChatRepository{
 
 
-    override suspend fun connectToSocket(
-        onConnected: (String) -> Unit,
-        onPendingMessages: (List<PendingMessage>) -> Unit,
-        onNewMessage: (NewMessage) -> Unit,
-        onMessageSent: (MessageSent) -> Unit,
-        onMessageError: (String) -> Unit,
-        onUserStatus: (username: String, online: Boolean) -> Unit
-    ) {
-        chatApiService.connectToSocket(
-            onConnected = onConnected,
-            onPendingMessages = onPendingMessages,
-            onNewMessage = onNewMessage,
-            onMessageSent = onMessageSent,
-            onMessageError = onMessageError,
-            onUserStatus = onUserStatus
-        )
-    }
-
-    override fun sendMessageWithSocket(
-        to: String,
-        message: String,
-        encryptedKey: String
-    ) {
-        chatApiService.sendMessageWithSocket(to, message, encryptedKey)
-    }
-
-    override fun getUserStatus(username: String) {
-        chatApiService.getUserStatus(username)
-    }
-
-
     override suspend fun getInbox(): Resource<List<Inbox>?> =
         chatApiService.getInbox()
 

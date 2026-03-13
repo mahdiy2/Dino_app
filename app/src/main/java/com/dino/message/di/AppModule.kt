@@ -20,7 +20,6 @@ import com.dino.message.chatfeature.data.repository.ChatRepositoryImpl
 import com.dino.message.chatfeature.domain.repository.ChatRepository
 import com.dino.message.corefeature.data.db.MessageDatabase
 import com.dino.message.corefeature.data.remote.util.HttpAPIUtil
-import com.dino.message.corefeature.data.remote.util.SocketManager
 import com.dino.message.corefeature.data.spref.DataStoreUtil
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.mainpage.data.remote.MainApiService
@@ -200,12 +199,10 @@ object AppModule {
         httpClient: HttpClient,
         sPrefManager: SPrefManager,
         httpAPIUtil: HttpAPIUtil,
-        socketManager: SocketManager
     ): ChatApiService = ChatApiServiceImpl(
         httpClient = httpClient,
         sPrefManager = sPrefManager,
         httpAPIUtil = httpAPIUtil,
-        socketManager = socketManager
     )
 
     @Singleton

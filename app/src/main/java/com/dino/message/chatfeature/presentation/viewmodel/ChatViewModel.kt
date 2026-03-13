@@ -11,11 +11,9 @@ import androidx.lifecycle.viewModelScope
 import com.dino.message.DinoOrderApplication
 import com.dino.message.chatfeature.domain.model.MessageEntity
 import com.dino.message.chatfeature.domain.usecase.ClearMessageFromDBUseCase
-import com.dino.message.chatfeature.domain.usecase.ConnectUseCase
 import com.dino.message.chatfeature.domain.usecase.GetMessageFromDBUseCase
 import com.dino.message.chatfeature.domain.usecase.GetReceiverPublicKeyUseCase
 import com.dino.message.chatfeature.domain.usecase.SaveMessageInDbUseCase
-import com.dino.message.chatfeature.domain.usecase.SendMessageUseCase
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.presentation.util.CryptoUtil
 import com.dino.message.corefeature.presentation.util.Resource
@@ -36,8 +34,6 @@ import javax.inject.Inject
 class ChatViewModel @Inject constructor(
     @ApplicationContext app: Context,
     private val spref: SPrefManager,
-    private val connectUseCase: ConnectUseCase,
-    private val sendMessageUseCase: SendMessageUseCase,
     private val getReceiverPublicKeyUseCase: GetReceiverPublicKeyUseCase,
     private val getMessageFromDBUseCase: GetMessageFromDBUseCase,
     private val saveMessageInDbUseCase: SaveMessageInDbUseCase,
@@ -68,7 +64,6 @@ class ChatViewModel @Inject constructor(
 
     init {
         loadMessages()
-        connectSocket()
         prepareEncryptionSession()
     }
 
@@ -81,73 +76,6 @@ class ChatViewModel @Inject constructor(
     private fun prepareEncryptionSession() = viewModelScope.launch {
         pushSocketDebugLog("HTTP get public key for $chatId")
         getReceiverPublicKey()
-    }
-
-    private fun connectSocket() = viewModelScope.launch {
-        if (hasSocketConnectionStarted) {
-            Log.d("ChatViewModel", "connectSocket: socket connection already started, skip duplicate")
-            return@launch
-        }
-
-        hasSocketConnectionStarted = true
-        isSocketConnecting = true
-        showRefreshing()
-        Log.d("ChatViewModel", "connectSocket: starting socket connection for chatId=$chatId")
-
-        connectUseCase(
-            onConnected = {
-                isSocketConnecting = false
-                showRefreshing()
-                pushSocketDebugLog("RECV connected -> request get_user_status for $chatId")
-                Log.d("ChatViewModel", "connectSocket: socket connected, requesting user status for $chatId")
-                connectUseCase.getUserStatus(chatId)
-                pushSocketDebugLog("EMIT get_user_status {username=$chatId}")
-            },
-            onPendingMessages = { pendingMessages ->
-                Log.i("ChatViewModel", "connectSocket: pending messages received. total=${pendingMessages.size}")
-                pushSocketDebugLog("RECV pending_messages count=${pendingMessages.size}")
-                pendingMessages
-                    .filter { it.from == chatId }
-                    .forEach {
-                        Log.i("ChatViewModel", "connectSocket: processing pending message from=${it.from} at=${it.timestamp}")
-                        decryptAndSaveMessage(
-                            sender = it.from,
-                            encryptedMessage = it.message,
-                            encryptedKey = it.encryptedKey,
-                            timestamp = it.timestamp
-                        )
-                    }
-            },
-            onNewMessage = {
-                Log.i("ChatViewModel", "connectSocket: new_message received from=${it.from} at=${it.timestamp}")
-                pushSocketDebugLog("RECV new_message from=${it.from} type=${it.type} ts=${it.timestamp}")
-                if (it.from == chatId) {
-                    decryptAndSaveMessage(
-                        sender = it.from,
-                        encryptedMessage = it.message,
-                        encryptedKey = it.encryptedKey,
-                        timestamp = it.timestamp
-                    )
-                }
-            },
-            onMessageSent = {
-                Log.d("ChatViewModel", "connectSocket: message_sent ack received. to=${it.to}, type=${it.type}, timestamp=${it.timestamp}")
-                pushSocketDebugLog("RECV message_sent to=${it.to} type=${it.type} ts=${it.timestamp}")
-            },
-            onMessageError = {
-                Log.e("ChatViewModel", "Socket message error: $it")
-                pushSocketDebugLog("RECV message_error error=$it")
-                isSocketConnecting = false
-                showRefreshing()
-            },
-            onUserStatus = { username, online ->
-                if (username == chatId) {
-                    _isPeerOnline.value = online
-                    pushSocketDebugLog("RECV user_status username=$username online=$online")
-                    Log.d("ChatViewModel", "$username is ${if (online) "online" else "offline"}")
-                }
-            }
-        )
     }
 
     private suspend fun getReceiverPublicKey(): Boolean {
@@ -189,30 +117,6 @@ class ChatViewModel @Inject constructor(
         return isPublicKeyLoaded
     }
 
-    fun sendMessage(message: String) {
-        val publicKey = receiverPublicKey.value
-        if (publicKey != null) {
-            Log.d("ChatViewModel", "sendMessage: encrypting and sending message to chatId=$chatId, size=${message.length}")
-            val (encryptedKey, encryptedMessage) = CryptoUtil.encryptMessage(
-                message = message,
-                receiverPublicKey = decodePublicKey(publicKey)
-            )
-
-            pushSocketDebugLog("EMIT send_message {to=$chatId,type=text,messageLen=${encryptedMessage.length},encryptedKeyLen=${encryptedKey.length}}")
-            sendMessageUseCase.execute(chatId, encryptedMessage, encryptedKey)
-
-            saveMessage(
-                MessageEntity(
-                    senderOrReceiver = getUsernameFromPrefs().toString(),
-                    content = message,
-                    timestamp = getCurrentTimestamp()
-                )
-            )
-        } else {
-            Log.w("ChatViewModel", "sendMessage: receiver public key missing, requesting it again")
-            prepareEncryptionSession()
-        }
-    }
 
     fun loadMessages() = viewModelScope.launch {
         _messages.clear()

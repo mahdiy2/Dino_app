@@ -64,7 +64,7 @@ fun ChatScreen(chatId: String) {
         bottomBar = {
             ChatScreenBottomAppBar() {
                 if (it.isNotEmpty()) {
-                    viewModel.sendMessage(it)
+//                    viewModel.sendMessage(it)
                 }
             }
         }

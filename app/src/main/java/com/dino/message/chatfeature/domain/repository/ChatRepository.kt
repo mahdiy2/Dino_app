@@ -21,14 +21,4 @@ interface ChatRepository {
     suspend fun saveMessage(message: MessageEntity)
     suspend fun getMessages(): List<MessageEntity>
     suspend fun clearMessages()
-    suspend fun connectToSocket(
-        onConnected: (String) -> Unit,
-        onPendingMessages: (List<PendingMessage>) -> Unit,
-        onNewMessage: (NewMessage) -> Unit,
-        onMessageSent: (MessageSent) -> Unit,
-        onMessageError: (String) -> Unit,
-        onUserStatus: (username: String, online: Boolean) -> Unit
-    )
-    fun sendMessageWithSocket(to: String, message: String, encryptedKey: String)
-    fun getUserStatus(username: String)
 }
