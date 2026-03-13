@@ -53,8 +53,14 @@ class ChatViewModel @Inject constructor(
     private val _messages = mutableStateListOf<MessageEntity>()
     val messages: List<MessageEntity> = _messages
 
+    private val _socketDebugEvents = MutableStateFlow<List<String>>(emptyList())
+    val socketDebugEvents: StateFlow<List<String>> = _socketDebugEvents.asStateFlow()
+
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
+    private val _isPeerOnline = MutableStateFlow(false)
+    val isPeerOnline: StateFlow<Boolean> = _isPeerOnline.asStateFlow()
 
     private var getPublicKey = false
     private var isSocketConnecting = false
@@ -62,26 +68,24 @@ class ChatViewModel @Inject constructor(
 
     init {
         loadMessages()
-        prepareChatSession()
+        connectSocket()
+        prepareEncryptionSession()
     }
 
-    private fun prepareChatSession() = viewModelScope.launch {
-        val publicKeyLoaded = getReceiverPublicKey()
-        if (publicKeyLoaded) {
-            connectSocket()
-        } else {
-            Log.e("ChatViewModel", "prepareChatSession: public key was not loaded, socket connection skipped")
-        }
+    private fun pushSocketDebugLog(message: String) {
+        val now = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) java.time.LocalTime.now().toString() else "time"
+        val updated = (_socketDebugEvents.value + "[$now] $message").takeLast(40)
+        _socketDebugEvents.value = updated
+    }
+
+    private fun prepareEncryptionSession() = viewModelScope.launch {
+        pushSocketDebugLog("HTTP get public key for $chatId")
+        getReceiverPublicKey()
     }
 
     private fun connectSocket() = viewModelScope.launch {
         if (hasSocketConnectionStarted) {
             Log.d("ChatViewModel", "connectSocket: socket connection already started, skip duplicate")
-            return@launch
-        }
-
-        if (receiverPublicKey.value.isNullOrBlank()) {
-            Log.w("ChatViewModel", "connectSocket: receiver public key missing, socket connection aborted")
             return@launch
         }
 
@@ -94,11 +98,14 @@ class ChatViewModel @Inject constructor(
             onConnected = {
                 isSocketConnecting = false
                 showRefreshing()
+                pushSocketDebugLog("RECV connected -> request get_user_status for $chatId")
                 Log.d("ChatViewModel", "connectSocket: socket connected, requesting user status for $chatId")
                 connectUseCase.getUserStatus(chatId)
+                pushSocketDebugLog("EMIT get_user_status {username=$chatId}")
             },
             onPendingMessages = { pendingMessages ->
                 Log.i("ChatViewModel", "connectSocket: pending messages received. total=${pendingMessages.size}")
+                pushSocketDebugLog("RECV pending_messages count=${pendingMessages.size}")
                 pendingMessages
                     .filter { it.from == chatId }
                     .forEach {
@@ -113,6 +120,7 @@ class ChatViewModel @Inject constructor(
             },
             onNewMessage = {
                 Log.i("ChatViewModel", "connectSocket: new_message received from=${it.from} at=${it.timestamp}")
+                pushSocketDebugLog("RECV new_message from=${it.from} type=${it.type} ts=${it.timestamp}")
                 if (it.from == chatId) {
                     decryptAndSaveMessage(
                         sender = it.from,
@@ -124,14 +132,18 @@ class ChatViewModel @Inject constructor(
             },
             onMessageSent = {
                 Log.d("ChatViewModel", "connectSocket: message_sent ack received. to=${it.to}, type=${it.type}, timestamp=${it.timestamp}")
+                pushSocketDebugLog("RECV message_sent to=${it.to} type=${it.type} ts=${it.timestamp}")
             },
             onMessageError = {
                 Log.e("ChatViewModel", "Socket message error: $it")
+                pushSocketDebugLog("RECV message_error error=$it")
                 isSocketConnecting = false
                 showRefreshing()
             },
             onUserStatus = { username, online ->
                 if (username == chatId) {
+                    _isPeerOnline.value = online
+                    pushSocketDebugLog("RECV user_status username=$username online=$online")
                     Log.d("ChatViewModel", "$username is ${if (online) "online" else "offline"}")
                 }
             }
@@ -153,6 +165,7 @@ class ChatViewModel @Inject constructor(
                     }
 
                     receiverPublicKey.value = publicKey
+                    pushSocketDebugLog("HTTP public key loaded for $chatId")
                     Log.d("ChatViewModel", "getReceiverPublicKey: public key loaded for chatId=$chatId")
                     getPublicKey = false
                     showRefreshing()
@@ -165,6 +178,7 @@ class ChatViewModel @Inject constructor(
                 }
 
                 is Resource.Error -> {
+                    pushSocketDebugLog("HTTP public key failed for $chatId")
                     Log.e("ChatViewModel", "getReceiverPublicKey: failed for chatId=$chatId")
                     getPublicKey = false
                     showRefreshing()
@@ -184,6 +198,7 @@ class ChatViewModel @Inject constructor(
                 receiverPublicKey = decodePublicKey(publicKey)
             )
 
+            pushSocketDebugLog("EMIT send_message {to=$chatId,type=text,messageLen=${encryptedMessage.length},encryptedKeyLen=${encryptedKey.length}}")
             sendMessageUseCase.execute(chatId, encryptedMessage, encryptedKey)
 
             saveMessage(
@@ -194,8 +209,8 @@ class ChatViewModel @Inject constructor(
                 )
             )
         } else {
-            Log.w("ChatViewModel", "sendMessage: receiver public key missing, preparing chat session again")
-            prepareChatSession()
+            Log.w("ChatViewModel", "sendMessage: receiver public key missing, requesting it again")
+            prepareEncryptionSession()
         }
     }
 

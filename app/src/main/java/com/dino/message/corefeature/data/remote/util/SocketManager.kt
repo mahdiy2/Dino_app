@@ -27,9 +27,6 @@ class SocketManager @Inject constructor(
     @Volatile
     private var isRefreshingSocketToken = false
 
-    @Volatile
-    private var isRefreshingSocketToken = false
-
     suspend fun connectAndListen(
         onConnected: (String) -> Unit,
         onPendingMessages: (List<PendingMessage>) -> Unit,
@@ -64,7 +61,7 @@ class SocketManager @Inject constructor(
             .setAuth(mapOf("token" to token))
             .setQuery("token=$token")
             .setExtraHeaders(mapOf("Authorization" to listOf("Bearer $token")))
-            .setTransports(arrayOf(WebSocketTransport))
+            .setTransports(arrayOf(WebSocketTransport, PollingTransport))
             .build()
 
         socket = IO.socket(serverUrl, options)
@@ -322,6 +319,7 @@ class SocketManager @Inject constructor(
     companion object {
         private const val TAG = "SocketManager"
         private const val WebSocketTransport = "websocket"
+        private const val PollingTransport = "polling"
         private const val MessageTypeText = "text"
     }
 }
