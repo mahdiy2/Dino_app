@@ -18,6 +18,7 @@ import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.dino.message.mainpage.domain.model.MessageList
 import com.dino.message.mainpage.domain.usecase.AddContactUseCase
 import com.dino.message.mainpage.domain.usecase.GetContactsUseCase
+import com.dino.message.mainpage.domain.usecase.GetDetailedContactsUseCase
 import com.ramcosta.composedestinations.generated.destinations.ChatScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.ProfileScreenDestination
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,6 +32,7 @@ class MainScreenViewModel @Inject constructor(
     @ApplicationContext app: Context,
     private val addContactUseCase: AddContactUseCase,
     private val getContactsUseCase: GetContactsUseCase,
+     private val getDetailedContactsUseCase: GetDetailedContactsUseCase,
     private val spref: SPrefManager,
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
@@ -59,16 +61,12 @@ class MainScreenViewModel @Inject constructor(
     private val context: Context = app.applicationContext
 
     init {
-        getContacts(
-            spref.getUsername().toString()
-        )
-    }
+         getDetailedContacts()
+     }
 
     fun refresh() {
-        getContacts(
-            spref.getUsername().toString()
-        )
-    }
+         getDetailedContacts()
+     }
 
 
     private fun addContact(contact: String) = viewModelScope.launch {
@@ -77,9 +75,7 @@ class MainScreenViewModel @Inject constructor(
                 is Resource.Success -> {
                     Toast.makeText(context, "Success", Toast.LENGTH_SHORT).show()
                     hideBottomSheet()
-                    getContacts(
-                        spref.getUsername().toString()
-                    )
+                     getDetailedContacts()
                     isAddingContacts = false
                 }
 
@@ -95,20 +91,25 @@ class MainScreenViewModel @Inject constructor(
         }
     }
 
-    private fun getContacts(username: String) = viewModelScope.launch {
-        getContactsUseCase.execute(username).collect { res ->
-            when (res) {
-                is Resource.Success -> {
-                    _contactList.clear()
-                    _contactList.addAll(
-                        res.data.map { name ->
+     private fun getDetailedContacts() = viewModelScope.launch {
+         getDetailedContactsUseCase.execute().collect { res ->
+             when (res) {
+                 is Resource.Success -> {
+                     _contactList.clear()
+                     _contactList.addAll(
+                        res.data.map { contact ->
                             MessageList(
-                                name = name,
-                                time = "00:00",
-                                newMessage = false
-                            )
-                        }
-                    )
+                                 username = contact.username,
+                                 displayName = contact.name?.takeIf { it.isNotBlank() } ?: contact.username,
+                                 time = contact.lastMessage?.timestamp ?: "",
+                                 newMessage = contact.hasMessage,
+                                 online = contact.online,
+                                 lastMessageType = contact.lastMessage?.type,
+                                 profileImageUrl = contact.profileImageUrl,
+                                 profileVideoUrl = contact.profileVideoUrl,
+                             )
+                         }
+                     )
 
                     isGettingContacts = false
                     showRefreshing()
@@ -141,8 +142,17 @@ class MainScreenViewModel @Inject constructor(
         navigateToDestination(ProfileScreenDestination(), viewModelScope)
     }
 
-    fun navigateToChatScreen(name: String) {
-        navigateToDestination(ChatScreenDestination(name), viewModelScope)
+    fun navigateToChatScreen(username: String) {
+        val contact = _contactList.firstOrNull { it?.username == username }
+        navigateToDestination(
+            ChatScreenDestination(
+                chatId = username,
+                displayName = contact?.displayName,
+                profileImageUrl = contact?.profileImageUrl,
+                profileVideoUrl = contact?.profileVideoUrl
+            ),
+            viewModelScope
+        )
     }
 
     fun showBottomSheet() {
@@ -163,4 +173,4 @@ class MainScreenViewModel @Inject constructor(
     private fun showRefreshing() {
         _isRefreshing.value = isGettingContacts || isAddingContacts
     }
-}
+ }

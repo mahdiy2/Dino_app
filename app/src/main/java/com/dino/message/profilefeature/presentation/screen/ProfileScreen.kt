@@ -162,16 +162,32 @@ fun ProfileScreen(username: String? = null) {
                             }
 
                             if (isOwnProfile) {
-                                IconButton(
-                                    onClick = viewModel::openEditProfileScreen,
-                                    enabled = !isActionLoading,
-                                    modifier = Modifier
+
+                                Row(
                                 ) {
-                                    Icon(
-                                        painter = painterResource(R.drawable.ic_edit),
-                                        contentDescription = null
-                                    )
+                                    IconButton(
+                                        onClick = viewModel::openEditProfileScreen,
+                                        enabled = !isActionLoading,
+                                        modifier = Modifier
+                                    ) {
+                                        Icon(
+                                            painter = painterResource(R.drawable.ic_edit),
+                                            contentDescription = null
+                                        )
+                                    }
+
+                                    IconButton(
+                                        onClick = viewModel::logout,
+                                        enabled = !isActionLoading,
+                                        modifier = Modifier
+                                    ) {
+                                        Icon(
+                                            painter = painterResource(R.drawable.round_logout_24),
+                                            contentDescription = null
+                                        )
+                                    }
                                 }
+
                             } else {
                                 FilledTonalButton(
                                     onClick = viewModel::toggleFollow,

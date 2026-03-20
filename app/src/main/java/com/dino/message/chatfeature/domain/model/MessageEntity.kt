@@ -1,13 +1,25 @@
 package com.dino.message.chatfeature.domain.model
 
-import androidx.room.Entity
-import androidx.room.PrimaryKey
+ import androidx.room.Entity
+ import androidx.room.Index
+ import androidx.room.PrimaryKey
 
 
-@Entity(tableName = "messages")
-data class MessageEntity(
-    @PrimaryKey(autoGenerate = true) val id: Int = 0,
-    val senderOrReceiver: String,
-    val content: String,
-    val timestamp: String
-)
+ @Entity(
+     tableName = "messages",
+     indices = [Index(value = ["messageId"], unique = true)]
+ )
+ data class MessageEntity(
+     @PrimaryKey(autoGenerate = true) val id: Int = 0,
+     val messageId: String? = null,
+     val chatId: String,
+     val senderOrReceiver: String,
+     val content: String,
+     val timestamp: String,
+     val messageType: String = "text",
+     val attachmentType: String? = null,
+     val attachmentUrl: String? = null,
+     val attachmentMimeType: String? = null,
+     val attachmentFileName: String? = null,
+     val attachmentSizeBytes: Long? = null
+ )

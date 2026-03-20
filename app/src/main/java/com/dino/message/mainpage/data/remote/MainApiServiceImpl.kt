@@ -8,6 +8,8 @@ import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.mainpage.data.remote.dto.AddContactRequest
 import com.dino.message.mainpage.data.remote.dto.AddContactResponse
+import com.dino.message.mainpage.data.remote.dto.DetailedContact
+import com.dino.message.mainpage.data.remote.dto.DetailedContactResponse
 import com.dino.message.mainpage.data.remote.dto.GetContactsResponse
 import com.dino.message.mainpage.domain.model.AddContact
 import io.ktor.client.HttpClient
@@ -49,6 +51,16 @@ class MainApiServiceImpl @Inject constructor(
         httpAPIUtil.callAPIWithErrorHandling<List<String>, GetContactsResponse>(
             callAPI = {
                 httpClient.get(MainRoute.GetContacts.url) {
+                    appendTokenToHeader(sPrefManager.getToken())
+                }
+            },
+            callRefreshTokenAPI = this::getToken
+        )
+
+    override suspend fun getDetailedContacts(): Resource<List<DetailedContact>> =
+        httpAPIUtil.callAPIWithErrorHandling<List<DetailedContact>, DetailedContactResponse>(
+            callAPI = {
+                httpClient.get(MainRoute.GetDetailedContacts.url) {
                     appendTokenToHeader(sPrefManager.getToken())
                 }
             },

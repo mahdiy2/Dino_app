@@ -5,7 +5,12 @@ import kotlinx.parcelize.Parcelize
 
 @Parcelize
 data class MessageList(
-    val name: String,
+    val username: String,
+    val displayName: String,
     val time: String,
     val newMessage: Boolean = false,
+    val online: Boolean = false,
+    val lastMessageType: String? = null,
+    val profileImageUrl: String? = null,
+    val profileVideoUrl: String? = null,
 ) : Parcelable

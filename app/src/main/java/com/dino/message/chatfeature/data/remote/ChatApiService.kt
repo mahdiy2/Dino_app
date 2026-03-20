@@ -1,11 +1,14 @@
 package com.dino.message.chatfeature.data.remote
 
-import com.dino.message.chatfeature.domain.model.Inbox
-import com.dino.message.chatfeature.domain.model.ReceiverPublicKey
-import com.dino.message.chatfeature.domain.model.SendMessage
-import com.dino.message.chatfeature.data.remote.dto.MessageSent
-import com.dino.message.chatfeature.data.remote.dto.NewMessage
-import com.dino.message.chatfeature.data.remote.dto.PendingMessage
+import android.net.Uri
+ import com.dino.message.chatfeature.domain.model.Inbox
+ import com.dino.message.chatfeature.domain.model.ReceiverPublicKey
+ import com.dino.message.chatfeature.domain.model.SendMessage
+ import com.dino.message.chatfeature.data.remote.dto.MessageSent
+ import com.dino.message.chatfeature.data.remote.dto.MessageAttachment
+ import com.dino.message.chatfeature.data.remote.dto.NewMessage
+ import com.dino.message.chatfeature.data.remote.dto.PendingMessage
+import com.dino.message.chatfeature.data.remote.dto.UnreadResponse
 import com.dino.message.corefeature.presentation.util.Resource
 
 interface ChatApiService {
@@ -18,4 +21,8 @@ interface ChatApiService {
         message: String,
         encryptedKey: String
     ): Resource<SendMessage>
+
+    suspend fun uploadAttachment(fileUri: Uri): Resource<MessageAttachment>
+
+    suspend fun getUnread(): Resource<UnreadResponse>
 }

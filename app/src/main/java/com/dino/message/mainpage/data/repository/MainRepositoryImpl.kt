@@ -2,6 +2,7 @@ package com.dino.message.mainpage.data.repository
 
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.mainpage.data.remote.MainApiService
+import com.dino.message.mainpage.data.remote.dto.DetailedContact
 import com.dino.message.mainpage.domain.model.AddContact
 import com.dino.message.mainpage.domain.repository.MainRepository
 
@@ -17,5 +18,6 @@ class MainRepositoryImpl(
     override suspend fun getContacts(username: String): Resource<List<String>> =
         mainApiService.getContacts(username)
 
-
+    override suspend fun getDetailedContacts(): Resource<List<DetailedContact>> =
+        mainApiService.getDetailedContacts()
 }

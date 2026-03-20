@@ -7,4 +7,6 @@ sealed class MainRoute(url: String) : BaseRoute(url) {
     object AddContact : MainRoute("api/auth/contacts")
 
     object GetContacts : MainRoute("api/contacts")
+
+    object GetDetailedContacts : MainRoute("api/contacts?detailed=true")
 }

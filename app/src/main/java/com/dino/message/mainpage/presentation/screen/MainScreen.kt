@@ -104,64 +104,7 @@ fun MainScreen() {
 //                currentItemLabelRes = R.string.home
 //            )
 //        },
-        floatingActionButton = {
-            HorizontalFloatingToolbar(
-                expanded = toolbarExpanded,
-                colors = FloatingToolbarDefaults.standardFloatingToolbarColors(
-                    toolbarContainerColor = MaterialTheme.colorScheme.inversePrimary,
-                    toolbarContentColor = MaterialTheme.colorScheme.primary
-                ),
-                floatingActionButton = {
-                    FloatingToolbarDefaults.StandardFloatingActionButton(
-                        contentColor = MaterialTheme.colorScheme.primary,
-                        onClick = {
-                            toolbarExpanded = !toolbarExpanded
-//                            viewModel.showBottomSheet()
-                        }
-                    ) {
-                        Icon(
-                            if (toolbarExpanded) Icons.Rounded.ChevronRight else Icons.Rounded.ChevronLeft,
-                            contentDescription = "expand"
-                        )
-                    }
-                }
-            ) {
-                FilledTonalButton(
-                    onClick = {
-                        viewModel.showBottomSheet()
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.Transparent,
-                        contentColor = MaterialTheme.colorScheme.primary
-                    )
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(Icons.Rounded.Add, contentDescription = "Add user")
-                        Spacer(Modifier.size(DPMedium))
-                        Text("Contact")
-                    }
-
-                }
-                FilledTonalButton(
-                    onClick = { viewModel.navigateToProfileScreen() },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.Transparent,
-                        contentColor = MaterialTheme.colorScheme.primary
-                    )
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(Icons.Rounded.Person, contentDescription = "Profile screen")
-                        Spacer(Modifier.size(DPMedium))
-                        Text("Profile")
-                    }
-
-                }
-            }
-        },
+        
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
@@ -214,13 +157,15 @@ fun MainScreen() {
                             ) {
                                 if (it != null)
                                     MessageListItems(
-                                        name = it.name,
+                                        displayName = it.displayName,
                                         time = it.time,
                                         newMessage = it.newMessage,
+                                        profileImageUrl = it.profileImageUrl,
+                                        profileVideoUrl = it.profileVideoUrl,
                                         modifier = Modifier
                                             .fillMaxWidth()
                                     ) {
-                                        viewModel.navigateToChatScreen(it.name)
+                                        viewModel.navigateToChatScreen(it.username)
                                     }
                             }
                         }
@@ -293,7 +238,6 @@ fun MainScreen() {
 
     }
 }
-
 
 
 

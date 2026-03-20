@@ -4,9 +4,11 @@ import android.content.Context
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
+import com.dino.message.chatfeature.data.worker.UnreadPollingScheduler
 import androidx.lifecycle.viewModelScope
 import com.dino.message.DinoOrderApplication
 import com.dino.message.corefeature.data.spref.SPrefManager
+import com.dino.message.corefeature.presentation.util.PopBackStackLevel
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
@@ -19,6 +21,7 @@ import com.dino.message.profilefeature.domain.usecase.GetProfileUseCase
 import com.dino.message.profilefeature.domain.usecase.UnfollowUserUseCase
 import com.dino.message.threadfeature.domain.model.Post
 import com.ramcosta.composedestinations.generated.destinations.EditProfileScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.LoginScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.ProfileFollowListScreenDestination
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -207,6 +210,15 @@ class ProfileScreenViewModel @Inject constructor(
         if (!_isOwnProfile.value || _isActionLoading.value) return
         shouldRefreshWhenScreenResumes = true
         navigateToDestination(EditProfileScreenDestination, viewModelScope)
+    }
+
+    fun logout(){
+        UnreadPollingScheduler.cancel(getApplication<DinoOrderApplication>())
+        navigateWithPopBackStackToDestination(
+            LoginScreenDestination,
+            viewModelScope,
+            PopBackStackLevel.ALL
+        )
     }
 
     fun refreshIfNeededAfterEditProfile() {

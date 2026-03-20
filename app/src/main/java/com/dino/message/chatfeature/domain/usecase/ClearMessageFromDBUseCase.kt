@@ -6,9 +6,8 @@ import kotlinx.coroutines.flow.flow
 
 class ClearMessageFromDBUseCase @Inject constructor(
     private val chatRepository: ChatRepository
-
-){
-    fun execute() = flow {
-        emit(chatRepository.clearMessages())
+) {
+    fun execute(chatId: String) = flow {
+        emit(chatRepository.clearMessages(chatId))
     }
 }

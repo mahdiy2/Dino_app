@@ -3,6 +3,7 @@ package com.dino.message.authfeature.presentation.viewmodel
 import android.content.Context
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
+import com.dino.message.chatfeature.data.worker.UnreadPollingScheduler
 import androidx.lifecycle.viewModelScope
 import com.dino.message.DinoOrderApplication
 import com.dino.message.authfeature.domain.usecase.LoginUseCase
@@ -58,6 +59,7 @@ class LoginScreenViewModel @Inject constructor(
                     sPrefManager.setUsername(username)
                     sPrefManager.setToken(data.data.accessToken)
                     sPrefManager.setRefreshToken(data.data.refreshToken)
+                    UnreadPollingScheduler.schedule(getApplication<DinoOrderApplication>())
                     navigateToMainScreen()
                 }
                 is Resource.Loading -> {

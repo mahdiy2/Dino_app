@@ -29,6 +29,10 @@ import com.dino.message.mainpage.domain.repository.MainRepository
 import com.dino.message.profilefeature.data.remote.ProfileApiService
 import com.dino.message.profilefeature.data.remote.ProfileApiServiceImpl
 import com.dino.message.profilefeature.data.repository.ProfileRepositoryImpl
+import com.dino.message.searchfeature.data.remote.SearchApiService
+import com.dino.message.searchfeature.data.remote.SearchApiServiceImpl
+import com.dino.message.searchfeature.data.repository.SearchRepositoryImpl
+import com.dino.message.searchfeature.domain.repository.SearchRepository
 import com.dino.message.profilefeature.domain.repository.ProfileRepository
 import com.dino.message.threadfeature.data.remote.ThreadApiService
 import com.dino.message.threadfeature.data.remote.ThreadApiServiceImpl
@@ -195,15 +199,17 @@ object AppModule {
 
     @Singleton
     @Provides
-    fun provideChatAPIService(
-        httpClient: HttpClient,
-        sPrefManager: SPrefManager,
-        httpAPIUtil: HttpAPIUtil,
-    ): ChatApiService = ChatApiServiceImpl(
-        httpClient = httpClient,
-        sPrefManager = sPrefManager,
-        httpAPIUtil = httpAPIUtil,
-    )
+     fun provideChatAPIService(
+         httpClient: HttpClient,
+         sPrefManager: SPrefManager,
+         httpAPIUtil: HttpAPIUtil,
+         @ApplicationContext context: Context,
+     ): ChatApiService = ChatApiServiceImpl(
+         httpClient = httpClient,
+         sPrefManager = sPrefManager,
+         httpAPIUtil = httpAPIUtil,
+         appContext = context,
+     )
 
     @Singleton
     @Provides
@@ -248,6 +254,24 @@ object AppModule {
         profileApiService: ProfileApiService
     ): ProfileRepository = ProfileRepositoryImpl(profileApiService)
 
+    @Singleton
+    @Provides
+    fun provideSearchApiService(
+        httpClient: HttpClient,
+        sPrefManager: SPrefManager,
+        httpAPIUtil: HttpAPIUtil
+    ): SearchApiService = SearchApiServiceImpl(
+        httpClient = httpClient,
+        sPrefManager = sPrefManager,
+        httpAPIUtil = httpAPIUtil
+    )
+
+    @Singleton
+    @Provides
+    fun provideSearchRepository(
+        searchApiService: SearchApiService
+    ): SearchRepository = SearchRepositoryImpl(searchApiService)
+
 
     /**
      * Provides the DataStoreUtil instance.
@@ -264,12 +288,19 @@ object AppModule {
     @Provides
     @Singleton
     fun provideChatDatabase(@ApplicationContext context: Context): MessageDatabase {
-        return Room.databaseBuilder(
-            context,
-            MessageDatabase::class.java,
-            "chat_db"
-        ).build()
-    }
+         return Room.databaseBuilder(
+             context,
+             MessageDatabase::class.java,
+             "chat_db"
+         )
+             .addMigrations(
+                 MessageDatabase.MIGRATION_1_2,
+                 MessageDatabase.MIGRATION_2_3,
+                 MessageDatabase.MIGRATION_3_4,
+                 MessageDatabase.MIGRATION_4_5
+             )
+             .build()
+     }
 
     @Provides
     @Singleton

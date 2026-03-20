@@ -20,6 +20,7 @@ import com.dino.message.threadfeature.domain.usecase.VoteUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import com.ramcosta.composedestinations.generated.destinations.CreatePostScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.SearchScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.MainScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.ProfileScreenDestination
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -209,5 +210,9 @@ class ThreadViewModel @Inject constructor(
 
     fun navigateChat(){
         navigateToDestination(MainScreenDestination, viewModelScope)
+    }
+
+    fun openSearchScreen() {
+        navigateToDestination(SearchScreenDestination, viewModelScope)
     }
 }

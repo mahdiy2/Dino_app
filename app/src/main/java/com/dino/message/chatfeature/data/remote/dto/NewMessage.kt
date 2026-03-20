@@ -1,7 +1,8 @@
 package com.dino.message.chatfeature.data.remote.dto
 
 data class NewMessage(
-    val from: String,
+     val messageId: String? = null,
+     val from: String,
     val type: String,
     val message: String,
     val encryptedKey: String,

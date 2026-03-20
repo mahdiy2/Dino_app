@@ -1,51 +1,27 @@
 package com.dino.message.threadfeature.presentation.screen
 
-import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.ChatBubbleOutline
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
-import androidx.compose.material.icons.rounded.KeyboardArrowUp
-import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -55,13 +31,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -70,14 +47,8 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.dino.message.R
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
-import com.dino.message.corefeature.presentation.ui.theme.DPSmall
-import com.dino.message.corefeature.presentation.util.getTimeAgo
 import com.dino.message.profilefeature.presentation.component.ProfileAvatarMedia
-import com.dino.message.threadfeature.domain.model.Post
-import com.dino.message.threadfeature.presentation.component.Carousel
-import com.dino.message.threadfeature.presentation.component.PostContainer
 import com.dino.message.threadfeature.presentation.component.ThreadPostCard
-import com.dino.message.threadfeature.presentation.component.VoteIconButton
 import com.dino.message.threadfeature.presentation.viewmodel.ThreadViewModel
 import com.ramcosta.composedestinations.annotation.Destination
 import com.ramcosta.composedestinations.annotation.RootGraph
@@ -97,6 +68,16 @@ fun ThreadScreen() {
     val isLoadingMore by viewModel.isLoadingMore.collectAsState()
     val postsError by viewModel.error.collectAsState()
     val lifecycleOwner = LocalLifecycleOwner.current
+
+    var previousFirstVisibleIndex by remember { mutableIntStateOf(0) }
+    val isFabVisible by remember {
+        derivedStateOf {
+            val currentIndex = listState.firstVisibleItemIndex
+            val scrollingUp = currentIndex <= previousFirstVisibleIndex
+            previousFirstVisibleIndex = currentIndex
+            scrollingUp || currentIndex == 0
+        }
+    }
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -121,10 +102,10 @@ fun ThreadScreen() {
             CenterAlignedTopAppBar(
                 title = { Text(text = "Threads", style = MaterialTheme.typography.headlineSmall) },
                 actions = {
-                    IconButton(onClick = { viewModel.openCreatePostScreen() }) {
+                    IconButton(onClick = { viewModel.openSearchScreen() }) {
                         Icon(
-                            imageVector = Icons.Rounded.Add,
-                            contentDescription = "Create post"
+                            imageVector = Icons.Rounded.Search,
+                            contentDescription = "Search"
                         )
                     }
 
@@ -147,6 +128,22 @@ fun ThreadScreen() {
                     )
                 }
             )
+        },
+        floatingActionButton = {
+            AnimatedVisibility(
+                visible = isFabVisible,
+                enter = slideInVertically(initialOffsetY = { it * 2 }),
+                exit = slideOutVertically(targetOffsetY = { it * 2 })
+            ) {
+                FloatingActionButton(
+                    onClick = { viewModel.openCreatePostScreen() }
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Add,
+                        contentDescription = "Create post"
+                    )
+                }
+            }
         }
     ) { innerPadding ->
         PullToRefreshBox(

@@ -16,14 +16,14 @@ val BASE_URL: String = project.findProperty("APP_BASE_URL") as? String ?: "http:
 
 android {
     namespace = "com.dino.message"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.sec.message"
         minSdk = 24
-        targetSdk = 35
-        versionCode = 10
-        versionName = "1.6"
+        targetSdk = 36
+        versionCode = 12
+        versionName = "1.8"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -152,4 +152,7 @@ dependencies {
     coreLibraryDesugaring(libs.desugar.jdk.libs)
 
 
+    // WorkManager
+    implementation(libs.androidx.work.runtime.ktx)
 }
+
