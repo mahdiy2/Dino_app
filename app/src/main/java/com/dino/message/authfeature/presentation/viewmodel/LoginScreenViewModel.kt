@@ -1,6 +1,7 @@
 package com.dino.message.authfeature.presentation.viewmodel
 
 import android.content.Context
+import android.util.Base64
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
 import com.dino.message.chatfeature.data.worker.UnreadPollingScheduler
@@ -18,6 +19,8 @@ import com.ramcosta.composedestinations.generated.destinations.ThreadScreenDesti
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.launch
+import java.security.KeyFactory
+import java.security.spec.PKCS8EncodedKeySpec
 import javax.inject.Inject
 
 @HiltViewModel
@@ -45,9 +48,16 @@ class LoginScreenViewModel @Inject constructor(
         if (isPrivateKeyEmpty()){
             if (privateKey.isEmpty()){
                 privateKeyTextFieldIsError.value = true
-            } else {
-                sPrefManager.savePrivateKey(privateKey)
+                privateKeyErrorMessage.value = "Private key is required"
+                return@launch
             }
+            val trimmedKey = privateKey.trim()
+            if (!isValidPrivateKey(trimmedKey)) {
+                privateKeyTextFieldIsError.value = true
+                privateKeyErrorMessage.value = "Invalid private key. Make sure you copied the full key correctly."
+                return@launch
+            }
+            sPrefManager.savePrivateKey(trimmedKey)
         }
         loginUseCase.execute(
             username, pass
@@ -76,6 +86,8 @@ class LoginScreenViewModel @Inject constructor(
         }
     }
 
+    val privateKeyErrorMessage = mutableStateOf<String?>(null)
+
     fun usernameOnValueChange(value: String){
         usernameTextFieldIsError.value = false
         passwordTextFieldIsError.value = false
@@ -90,6 +102,7 @@ class LoginScreenViewModel @Inject constructor(
 
     fun privateKeyOnValueChange(value: String){
         privateKeyTextFieldIsError.value = false
+        privateKeyErrorMessage.value = null
         privateKey.value = value
     }
 
@@ -115,5 +128,18 @@ class LoginScreenViewModel @Inject constructor(
 
     fun isPrivateKeyEmpty(): Boolean {
         return sPrefManager.getPrivateKey().isNullOrEmpty()
+    }
+
+    private fun isValidPrivateKey(base64Key: String): Boolean {
+        return try {
+            val keyBytes = Base64.decode(base64Key, Base64.DEFAULT)
+            if (keyBytes.size < 100) return false
+            val keySpec = PKCS8EncodedKeySpec(keyBytes)
+            val keyFactory = KeyFactory.getInstance("RSA")
+            keyFactory.generatePrivate(keySpec)
+            true
+        } catch (e: Exception) {
+            false
+        }
     }
 }

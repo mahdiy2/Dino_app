@@ -25,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -44,6 +45,7 @@ import com.ramcosta.composedestinations.annotation.RootGraph
 fun LoginScreen() {
 
     val viewModel: LoginScreenViewModel = hiltViewModel()
+    val clipboardManager = LocalClipboardManager.current
 
     Scaffold { innerPadding ->
         Box(
@@ -125,31 +127,61 @@ fun LoginScreen() {
                             .align(Alignment.CenterHorizontally),
                         visible = (viewModel.userName.value.length > 6 && viewModel.password.value.length > 9 && viewModel.isPrivateKeyEmpty())
                     ) {
-                        OutlinedTextField(
-                            isError = viewModel.privateKeyTextFieldIsError.value,
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedTextColor = Color.White,
-                                focusedBorderColor = Color.Transparent,
-                                unfocusedBorderColor = MaterialTheme.colorScheme.inversePrimary,
-                                focusedContainerColor = MaterialTheme.colorScheme.inversePrimary,
-                                cursorColor = Color.White,
-                                focusedPlaceholderColor = Color.Transparent,
-                                unfocusedPlaceholderColor = MaterialTheme.colorScheme.secondary
-                            ),
-                            shape = MaterialTheme.shapes.extraLarge,
-                            value = viewModel.privateKey.value,
-                            onValueChange = { viewModel.privateKeyOnValueChange(it) },
-                            placeholder = {
+                        Column {
+                            Text(
+                                text = "⚠️ Paste the private key you saved during registration",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+
+                            OutlinedTextField(
+                                isError = viewModel.privateKeyTextFieldIsError.value,
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Color.White,
+                                    focusedBorderColor = Color.Transparent,
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.inversePrimary,
+                                    focusedContainerColor = MaterialTheme.colorScheme.inversePrimary,
+                                    cursorColor = Color.White,
+                                    focusedPlaceholderColor = Color.Transparent,
+                                    unfocusedPlaceholderColor = MaterialTheme.colorScheme.secondary
+                                ),
+                                shape = MaterialTheme.shapes.extraLarge,
+                                value = viewModel.privateKey.value,
+                                onValueChange = { viewModel.privateKeyOnValueChange(it) },
+                                placeholder = {
+                                    Text(
+                                        "Tap \"Paste key\" below to paste from clipboard",
+                                        color = Color.Gray
+                                    )
+                                },
+                                label = {
+                                    Text("Private key")
+                                },
+                                maxLines = 3
+                            )
+
+                            if (viewModel.privateKeyErrorMessage.value != null) {
                                 Text(
-                                    "If the Private key is incorrect, the messages section will not work properly!",
-                                    color = Color.Gray
+                                    text = viewModel.privateKeyErrorMessage.value ?: "",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                                 )
-                            },
-                            label = {
-                                Text("Private key")
-                            },
-                            maxLines = 3
-                        )
+                            }
+
+                            TextButton(
+                                onClick = {
+                                    val clipText = clipboardManager.getText()?.text ?: ""
+                                    if (clipText.isNotBlank()) {
+                                        viewModel.privateKeyOnValueChange(clipText.trim())
+                                    }
+                                },
+                                modifier = Modifier.align(Alignment.CenterHorizontally)
+                            ) {
+                                Text("📋 Paste key from clipboard")
+                            }
+                        }
                     }
 
                     AnimatedVisibility(

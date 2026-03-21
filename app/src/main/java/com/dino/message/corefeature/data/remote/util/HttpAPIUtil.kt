@@ -18,6 +18,9 @@ import io.ktor.http.isSuccess
 import io.ktor.serialization.JsonConvertException
 import io.ktor.utils.io.errors.IOException
 import kotlinx.coroutines.delay
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import java.nio.channels.UnresolvedAddressException
 import javax.inject.Inject
 
@@ -68,9 +71,18 @@ class HttpAPIUtil @Inject constructor(
                         }
                     }
 
-                    response.status == HttpStatusCode.Forbidden -> Resource.Error(
-                        message = R.string.error_forbidden.asStringResourceContent()
-                    )
+                    response.status == HttpStatusCode.Forbidden -> {
+                        val rawBody = runCatching { response.bodyAsText() }.getOrDefault("")
+                        val serverError = runCatching {
+                            Json.decodeFromString<JsonObject>(rawBody)
+                                .get("error")
+                                ?.jsonPrimitive?.content
+                        }.getOrNull()
+                        Resource.Error(
+                            message = (serverError ?: context.getString(R.string.error_forbidden))
+                                .asStringResourceContent()
+                        )
+                    }
 
                     response.status == HttpStatusCode.NotFound -> Resource.Error(
                         message = R.string.error_not_found.asStringResourceContent()
@@ -78,6 +90,10 @@ class HttpAPIUtil @Inject constructor(
 
                     response.status == HttpStatusCode.Conflict -> Resource.Error(
                         message = R.string.error_conflict.asStringResourceContent()
+                    )
+
+                    response.status.value == 413 -> Resource.Error(
+                        message = R.string.error_payload_too_large.asStringResourceContent()
                     )
 
                     response.status == HttpStatusCode.InternalServerError -> Resource.Error(

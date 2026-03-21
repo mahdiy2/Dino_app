@@ -31,6 +31,7 @@
     <string name="error_not_found">Not found</string>
     <string name="error_conflict">Conflict</string>
     <string name="internal_server_error">Internal server error</string>
+    <string name="error_payload_too_large">File is too large to upload. Please choose a smaller file.</string>
     <string name="error_with_http_status_code">Error with HTTP status code %d</string>
     <string name="error_connecting_to_the_server">Error connecting to the server</string>
     <string name="error_request_timed_out">Request timed out</string>
@@ -45,4 +46,8 @@
     <string name="error_retries_exceeded">retry failed</string>
     <string name="network_error">network error</string>
     <string name="timeout_error">timeout error</string>
+    <string name="follow_required_title">Follow Required</string>
+    <string name="follow_required_message">You need to follow this user before you can chat with them. Would you like to follow?</string>
+    <string name="follow">Follow</string>
+    <string name="cancel">Cancel</string>
 </resources>

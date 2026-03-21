@@ -46,6 +46,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPSmall
+import com.dino.message.corefeature.presentation.util.rememberLayoutDirection
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalLayoutDirection
 
 @Composable
 fun ChatScreenBottomAppBar(
@@ -155,26 +158,28 @@ private fun InputBar(
 
         Spacer(Modifier.size(DPSmall))
 
-        OutlinedTextField(
-            modifier = Modifier
-                .weight(1f)
-                .padding(end = DPSmall),
-            enabled = enabled,
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = Color.White,
-                focusedBorderColor = Color.Transparent,
-                unfocusedBorderColor = MaterialTheme.colorScheme.inversePrimary,
-                focusedContainerColor = MaterialTheme.colorScheme.inversePrimary,
-                cursorColor = Color.White,
-                focusedPlaceholderColor = Color.Transparent,
-                unfocusedPlaceholderColor = MaterialTheme.colorScheme.secondary
-            ),
-            shape = MaterialTheme.shapes.extraLarge,
-            value = text,
-            onValueChange = onTextChange,
-            placeholder = { Text("Message") },
-            singleLine = true
-        )
+        CompositionLocalProvider(LocalLayoutDirection provides rememberLayoutDirection(text)) {
+            OutlinedTextField(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(end = DPSmall),
+                enabled = enabled,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = Color.White,
+                    focusedBorderColor = Color.Transparent,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.inversePrimary,
+                    focusedContainerColor = MaterialTheme.colorScheme.inversePrimary,
+                    cursorColor = Color.White,
+                    focusedPlaceholderColor = Color.Transparent,
+                    unfocusedPlaceholderColor = MaterialTheme.colorScheme.secondary
+                ),
+                shape = MaterialTheme.shapes.extraLarge,
+                value = text,
+                onValueChange = onTextChange,
+                placeholder = { Text("Message") },
+                singleLine = true
+            )
+        }
 
         if (text.isNotBlank()) {
             IconButton(

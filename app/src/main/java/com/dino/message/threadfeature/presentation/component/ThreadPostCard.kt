@@ -45,6 +45,9 @@ import androidx.compose.ui.unit.dp
 import com.dino.message.R
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPSmall
+import com.dino.message.corefeature.presentation.util.rememberLayoutDirection
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalLayoutDirection
 import com.dino.message.corefeature.presentation.util.getTimeAgo
 import com.dino.message.threadfeature.domain.model.Post
 import coil.compose.SubcomposeAsyncImage
@@ -116,10 +119,12 @@ fun ThreadPostCard(
 
 
             Spacer(modifier = Modifier.height(DPSmall))
-            Text(
-                text = post.text,
-                style = MaterialTheme.typography.bodyLarge
-            )
+            CompositionLocalProvider(LocalLayoutDirection provides rememberLayoutDirection(post.text)) {
+                Text(
+                    text = post.text,
+                    style = MaterialTheme.typography.bodyLarge
+                )
+            }
 
             if (post.media.isNotEmpty()) {
                 Carousel(

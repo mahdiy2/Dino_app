@@ -4,6 +4,8 @@ import android.media.MediaPlayer
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -48,8 +50,12 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPSmall
+import com.dino.message.corefeature.presentation.util.rememberLayoutDirection
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalLayoutDirection
 import kotlinx.coroutines.delay
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ChatContainer(
     text: String,
@@ -58,7 +64,8 @@ fun ChatContainer(
     attachmentUrl: String? = null,
     attachmentMimeType: String? = null,
     attachmentFileName: String? = null,
-    onAttachmentClick: (() -> Unit)? = null
+    onAttachmentClick: (() -> Unit)? = null,
+    onLongClick: (() -> Unit)? = null
 ) {
     val bubbleShape = RoundedCornerShape(
         topStart = 20.dp,
@@ -84,6 +91,12 @@ fun ChatContainer(
             modifier = Modifier
                 .padding(DPMedium)
                 .widthIn(max = 280.dp)
+                .combinedClickable(
+                    onClick = {},
+                    onLongClick = onLongClick,
+                    indication = null,
+                    interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                )
         ) {
             when (messageType) {
                 "image" -> ImageBubble(
@@ -107,10 +120,12 @@ fun ChatContainer(
 
                 else -> {
                     if (text.isNotBlank()) {
-                        Text(
-                            text = text,
-                            style = MaterialTheme.typography.bodyLarge
-                        )
+                        CompositionLocalProvider(LocalLayoutDirection provides rememberLayoutDirection(text)) {
+                            Text(
+                                text = text,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
                     }
                 }
             }
@@ -142,7 +157,9 @@ private fun ImageBubble(
     }
     if (text.isNotBlank()) {
         Spacer(modifier = Modifier.height(DPSmall))
-        Text(text = text, style = MaterialTheme.typography.bodyLarge)
+        CompositionLocalProvider(LocalLayoutDirection provides rememberLayoutDirection(text)) {
+            Text(text = text, style = MaterialTheme.typography.bodyLarge)
+        }
     }
 }
 
@@ -203,7 +220,9 @@ private fun VideoBubble(
     }
     if (text.isNotBlank()) {
         Spacer(modifier = Modifier.height(DPSmall))
-        Text(text = text, style = MaterialTheme.typography.bodyLarge)
+        CompositionLocalProvider(LocalLayoutDirection provides rememberLayoutDirection(text)) {
+            Text(text = text, style = MaterialTheme.typography.bodyLarge)
+        }
     }
 }
 

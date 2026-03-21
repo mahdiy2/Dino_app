@@ -42,5 +42,9 @@
     <string name="error_retries_exceeded">retry failed</string>
     <string name="network_error">network error</string>
     <string name="timeout_error">timeout error</string>
+    <string name="follow_required_title">نیاز به فالو</string>
+    <string name="follow_required_message">برای چت با این کاربر باید ابتدا او را فالو کنید. آیا می‌خواهید فالو کنید؟</string>
+    <string name="follow">فالو</string>
+    <string name="cancel">لغو</string>
 
 </resources>

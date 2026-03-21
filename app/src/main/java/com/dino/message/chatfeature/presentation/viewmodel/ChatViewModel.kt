@@ -18,6 +18,7 @@ import com.dino.message.chatfeature.domain.usecase.GetReceiverPublicKeyUseCase
 import com.dino.message.chatfeature.domain.usecase.SaveMessageInDbUseCase
 import com.dino.message.chatfeature.domain.usecase.UploadAttachmentUseCase
 import com.dino.message.corefeature.data.spref.SPrefManager
+import com.dino.message.profilefeature.domain.usecase.FollowUserUseCase
 import com.dino.message.corefeature.presentation.util.CryptoUtil
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.corefeature.presentation.util.decodePrivateKey
@@ -51,6 +52,7 @@ class ChatViewModel @Inject constructor(
     private val saveMessageInDbUseCase: SaveMessageInDbUseCase,
     private val clearMessageFromDBUseCase: ClearMessageFromDBUseCase,
     private val uploadAttachmentUseCase: UploadAttachmentUseCase,
+    private val followUserUseCase: FollowUserUseCase,
     savedStateHandle: SavedStateHandle
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
@@ -94,6 +96,18 @@ class ChatViewModel @Inject constructor(
 
     private val _isPublicKeyReady = MutableStateFlow(false)
     val isPublicKeyReady: StateFlow<Boolean> = _isPublicKeyReady.asStateFlow()
+
+    private val _showFollowRequired = MutableStateFlow(false)
+    val showFollowRequired: StateFlow<Boolean> = _showFollowRequired.asStateFlow()
+
+    private val _isFollowLoading = MutableStateFlow(false)
+    val isFollowLoading: StateFlow<Boolean> = _isFollowLoading.asStateFlow()
+
+    private val _decryptionError = MutableStateFlow<String?>(null)
+    val decryptionError: StateFlow<String?> = _decryptionError.asStateFlow()
+
+    private val _socketError = MutableStateFlow<String?>(null)
+    val socketError: StateFlow<String?> = _socketError.asStateFlow()
 
     private var getPublicKey = false
     private var isSocketConnecting = false
@@ -158,8 +172,15 @@ class ChatViewModel @Inject constructor(
                 }
 
                 is Resource.Error -> {
-                    _publicKeyError.value = res.message.asString(getApplication())
-                    _isPublicKeyLoading.value = false
+                    val errorMessage = res.message.asString(getApplication())
+                    if (errorMessage.contains("Not in your contacts", ignoreCase = true)) {
+                        _showFollowRequired.value = true
+                        _publicKeyError.value = null
+                        _isPublicKeyLoading.value = false
+                    } else {
+                        _publicKeyError.value = errorMessage
+                        _isPublicKeyLoading.value = false
+                    }
                     pushSocketDebugLog("HTTP public key failed for $chatId")
                     Log.e("ChatViewModel", "getReceiverPublicKey: failed for chatId=$chatId")
                     getPublicKey = false
@@ -220,6 +241,35 @@ class ChatViewModel @Inject constructor(
         prepareEncryptionSession()
     }
 
+    fun followAndRetry() {
+        viewModelScope.launch {
+            _isFollowLoading.value = true
+            followUserUseCase.execute(chatId).collect { res ->
+                when (res) {
+                    is Resource.Success -> {
+                        _showFollowRequired.value = false
+                        _isFollowLoading.value = false
+                        _isPublicKeyLoading.value = true
+                        prepareEncryptionSession()
+                    }
+                    is Resource.Loading -> {
+                        _isFollowLoading.value = true
+                    }
+                    is Resource.Error -> {
+                        _isFollowLoading.value = false
+                        _showFollowRequired.value = false
+                        _publicKeyError.value = res.message.asString(getApplication())
+                    }
+                }
+            }
+        }
+    }
+
+    fun dismissFollowRequired() {
+        _showFollowRequired.value = false
+        navigateUp(viewModelScope)
+    }
+
     fun startVoiceRecording(context: Context) {
         if (_isRecording.value) return
         val recorder = com.dino.message.chatfeature.presentation.component.VoiceRecorderManager(context)
@@ -259,6 +309,19 @@ class ChatViewModel @Inject constructor(
         _uploadError.value = null
     }
 
+    fun dismissDecryptionError() {
+        _decryptionError.value = null
+    }
+
+    fun dismissSocketError() {
+        _socketError.value = null
+    }
+
+    fun retrySocketConnection() {
+        _socketError.value = null
+        connectSocketIfNeeded(forceReconnect = true)
+    }
+
     private fun showRefreshing() {
         _isRefreshing.value = getPublicKey || isSocketConnecting
     }
@@ -278,7 +341,8 @@ class ChatViewModel @Inject constructor(
 
         val activeSocket = socket
         if (activeSocket == null || !activeSocket.connected()) {
-            pushSocketDebugLog("Socket unavailable, reconnecting before send")
+            pushSocketDebugLog("⚠️ Socket unavailable (null=${activeSocket == null}, connected=${activeSocket?.connected()}), queuing & reconnecting")
+            Log.w("ChatViewModel", "sendMessage: socket unavailable, queuing message and reconnecting")
             pendingOutgoingMessages.addLast(trimmedMessage)
             connectSocketIfNeeded(forceReconnect = true)
             return
@@ -422,6 +486,7 @@ class ChatViewModel @Inject constructor(
 
             pushSocketDebugLog("Socket emit send_message to $chatId")
             activeSocket.emit("send_message", payload)
+            Log.d("ChatViewModel", "sendMessage: emitted send_message to=$chatId, socketConnected=${activeSocket.connected()}")
 
             val currentUsername = getUsernameFromPrefs().orEmpty().ifBlank { "self" }
             saveMessage(
@@ -501,6 +566,7 @@ class ChatViewModel @Inject constructor(
         createdSocket.on(Socket.EVENT_CONNECT) {
             viewModelScope.launch {
                 isSocketConnecting = false
+                _socketError.value = null
                 showRefreshing()
                 pushSocketDebugLog("Socket connected")
                 requestPeerStatus()
@@ -514,6 +580,7 @@ class ChatViewModel @Inject constructor(
                 showRefreshing()
                 val details = args.joinToString(separator = " | ") { it.toDebugString() }
                 pushSocketDebugLog("Socket connect_error: ${details.ifBlank { "unknown" }}")
+                _socketError.value = "Connection error. Please check your network."
             }
         }
 
@@ -523,6 +590,7 @@ class ChatViewModel @Inject constructor(
                 showRefreshing()
                 _isPeerOnline.value = false
                 pushSocketDebugLog("Socket disconnected: ${args.firstOrNull()?.toDebugString() ?: "unknown"}")
+                _socketError.value = "Disconnected from chat server."
             }
         }
 
@@ -625,14 +693,18 @@ class ChatViewModel @Inject constructor(
         createdSocket.on("message_sent") { args ->
             viewModelScope.launch {
                 val raw = extractPayloadArg(args, "message_sent")
-                pushSocketDebugLog("Sender ack: ${raw?.toDebugString() ?: "no payload"}")
+                val detail = raw?.toDebugString() ?: "no payload"
+                pushSocketDebugLog("✅ message_sent: $detail")
+                Log.d("ChatViewModel", "message_sent ack received: $detail")
             }
         }
 
         createdSocket.on("message_error") { args ->
             viewModelScope.launch {
                 val raw = extractPayloadArg(args, "message_error")
-                pushSocketDebugLog("Socket message_error: ${raw?.toDebugString() ?: "unknown"}")
+                val detail = raw?.toDebugString() ?: "unknown"
+                pushSocketDebugLog("❌ message_error: $detail")
+                Log.e("ChatViewModel", "message_error from server: $detail")
             }
         }
 
@@ -754,6 +826,16 @@ class ChatViewModel @Inject constructor(
         } catch (e: Exception) {
             pushSocketDebugLog("Decrypt failed for $sender: ${e.message ?: "unknown error"}")
             Log.e("ChatViewModel", "decryptAndSaveMessage: decrypt failed for sender=$sender", e)
+            _decryptionError.value = "Unable to decrypt message from $sender. Your private key may not match. Please re-login with the correct private key."
+            saveMessageToDb(
+                MessageEntity(
+                    messageId = messageId,
+                    senderOrReceiver = sender,
+                    chatId = targetChatId,
+                    content = "⚠️ Could not decrypt this message. Wrong private key?",
+                    timestamp = timestamp
+                )
+            )
         }
     }
 

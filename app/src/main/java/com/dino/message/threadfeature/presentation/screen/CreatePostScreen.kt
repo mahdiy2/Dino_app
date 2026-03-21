@@ -41,6 +41,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalLayoutDirection
+import com.dino.message.corefeature.presentation.util.rememberLayoutDirection
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
@@ -164,16 +167,18 @@ fun CreatePostScreen() {
                         )
                     }
 
-                    OutlinedTextField(
-                        modifier = Modifier.fillMaxWidth(),
-                        value = viewModel.postDraft.value,
-                        onValueChange = viewModel::onPostDraftChanged,
-                        enabled = !isSubmitting,
-                        placeholder = { Text("What's on your mind?") },
-                        minLines = 2,
-                        maxLines = 10,
-                        shape = MaterialTheme.shapes.extraLarge
-                    )
+                    CompositionLocalProvider(LocalLayoutDirection provides rememberLayoutDirection(viewModel.postDraft.value)) {
+                        OutlinedTextField(
+                            modifier = Modifier.fillMaxWidth(),
+                            value = viewModel.postDraft.value,
+                            onValueChange = viewModel::onPostDraftChanged,
+                            enabled = !isSubmitting,
+                            placeholder = { Text("What's on your mind?") },
+                            minLines = 2,
+                            maxLines = 10,
+                            shape = MaterialTheme.shapes.extraLarge
+                        )
+                    }
 
                     AnimatedVisibility(visible = selectedMedia.isNotEmpty()) {
                         Column(verticalArrangement = Arrangement.spacedBy(DPSmall)) {

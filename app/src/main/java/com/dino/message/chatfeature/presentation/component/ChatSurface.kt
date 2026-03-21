@@ -19,10 +19,11 @@ package com.dino.message.chatfeature.presentation.component
  fun ChatSurface(
      modifier: Modifier = Modifier,
      state: LazyListState = rememberLazyListState(),
-     items: List<MessageEntity>,
-     sender: String,
-     onAttachmentClick: ((MessageEntity) -> Unit)? = null
- ) {
+    items: List<MessageEntity>,
+    sender: String,
+    onAttachmentClick: ((MessageEntity) -> Unit)? = null,
+    onMessageLongClick: ((MessageEntity) -> Unit)? = null
+) {
      LazyColumn(
          modifier = modifier,
          state = state,
@@ -42,9 +43,10 @@ package com.dino.message.chatfeature.presentation.component
                      messageType = it.messageType,
                      attachmentUrl = it.attachmentUrl,
                      attachmentMimeType = it.attachmentMimeType,
-                     attachmentFileName = it.attachmentFileName,
-                     onAttachmentClick = { onAttachmentClick?.invoke(it) }
-                 )
+                    attachmentFileName = it.attachmentFileName,
+                    onAttachmentClick = { onAttachmentClick?.invoke(it) },
+                    onLongClick = { onMessageLongClick?.invoke(it) }
+                )
              }
          }
      }
