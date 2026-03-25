@@ -86,6 +86,7 @@ fun ChatScreen(
     val isPeerOnline by viewModel.isPeerOnline.collectAsState()
     val isUploading by viewModel.isUploading.collectAsState()
     val uploadError by viewModel.uploadError.collectAsState()
+    val messages by viewModel.messages.collectAsState()
     val isPublicKeyLoading by viewModel.isPublicKeyLoading.collectAsState()
     val publicKeyError by viewModel.publicKeyError.collectAsState()
     val isPublicKeyReady by viewModel.isPublicKeyReady.collectAsState()
@@ -99,6 +100,7 @@ fun ChatScreen(
     val debugListState = rememberLazyListState()
     val isRecording by viewModel.isRecording.collectAsState()
     val recordingDurationMs by viewModel.recordingDurationMs.collectAsState()
+    val replyingTo by viewModel.replyingTo.collectAsState()
     val context = LocalContext.current
     val resolvedName = displayName ?: chatId
     val snackbarHostState = remember { SnackbarHostState() }
@@ -332,7 +334,10 @@ fun ChatScreen(
                 onVoiceRecordCancel = { viewModel.cancelVoiceRecording() },
                 isRecording = isRecording,
                 recordingDurationMs = recordingDurationMs,
-                enabled = isPublicKeyReady
+                enabled = isPublicKeyReady,
+                replySenderName = replyingTo?.senderOrReceiver,
+                replyPreviewText = replyingTo?.content?.take(100),
+                onDismissReply = { viewModel.clearReplyingTo() }
             )
         },
         snackbarHost = {
@@ -392,7 +397,7 @@ fun ChatScreen(
                             Box(modifier = Modifier.fillMaxSize()) {
                                 ChatSurface(
                                     modifier = Modifier.fillMaxSize(),
-                                    items = viewModel.messages,
+                                    items = messages,
                                     sender = chatId,
                                     onAttachmentClick = { message ->
                                         val url = message.attachmentUrl
@@ -415,6 +420,9 @@ fun ChatScreen(
                                             clipboardManager?.setPrimaryClip(clip)
                                             Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
                                         }
+                                    },
+                                    onSwipeToReply = { message ->
+                                        viewModel.setReplyingTo(message)
                                     }
                                 )
                             }

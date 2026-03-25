@@ -9,6 +9,7 @@ package com.dino.message.chatfeature.presentation.component
  import androidx.compose.foundation.lazy.items
  import androidx.compose.foundation.lazy.rememberLazyListState
  import androidx.compose.runtime.Composable
+ import androidx.compose.runtime.LaunchedEffect
  import androidx.compose.ui.Alignment
  import androidx.compose.ui.Modifier
  import com.dino.message.chatfeature.domain.model.MessageEntity
@@ -22,14 +23,21 @@ package com.dino.message.chatfeature.presentation.component
     items: List<MessageEntity>,
     sender: String,
     onAttachmentClick: ((MessageEntity) -> Unit)? = null,
-    onMessageLongClick: ((MessageEntity) -> Unit)? = null
+    onMessageLongClick: ((MessageEntity) -> Unit)? = null,
+    onSwipeToReply: ((MessageEntity) -> Unit)? = null
 ) {
+     val itemCount = items.size
+     LaunchedEffect(itemCount) {
+         if (itemCount > 0 && state.firstVisibleItemIndex <= 1) {
+             state.animateScrollToItem(0)
+         }
+     }
      LazyColumn(
          modifier = modifier,
          state = state,
          reverseLayout = true
      ) {
-         items(items = items) {
+         items(items = items, key = { it.id }) {
              Row(
                  modifier = Modifier
                      .fillMaxWidth()
@@ -37,16 +45,23 @@ package com.dino.message.chatfeature.presentation.component
                  horizontalArrangement = if (it.senderOrReceiver != sender) Arrangement.End else Arrangement.Start,
                  verticalAlignment = Alignment.CenterVertically
              ) {
-                 ChatContainer(
-                     text = it.content,
-                     sent = it.senderOrReceiver != sender,
-                     messageType = it.messageType,
-                     attachmentUrl = it.attachmentUrl,
-                     attachmentMimeType = it.attachmentMimeType,
-                    attachmentFileName = it.attachmentFileName,
-                    onAttachmentClick = { onAttachmentClick?.invoke(it) },
-                    onLongClick = { onMessageLongClick?.invoke(it) }
-                )
+                 SwipeToReply(
+                     onSwipe = { onSwipeToReply?.invoke(it) },
+                     enabled = onSwipeToReply != null
+                 ) {
+                     ChatContainer(
+                         text = it.content,
+                         sent = it.senderOrReceiver != sender,
+                         messageType = it.messageType,
+                         attachmentUrl = it.attachmentUrl,
+                         attachmentMimeType = it.attachmentMimeType,
+                         attachmentFileName = it.attachmentFileName,
+                         onAttachmentClick = { onAttachmentClick?.invoke(it) },
+                         onLongClick = { onMessageLongClick?.invoke(it) },
+                         replySenderName = it.replyToSender,
+                         replyPreviewText = it.replyPreview
+                     )
+                 }
              }
          }
      }

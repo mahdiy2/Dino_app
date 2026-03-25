@@ -4,7 +4,6 @@ import android.content.Context
 import android.net.Uri
 import android.os.Build
 import android.util.Log
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
@@ -39,6 +38,8 @@ import kotlinx.coroutines.sync.withLock
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URISyntaxException
+import com.dino.message.chatfeature.data.notification.ActiveChatTracker
+import com.dino.message.chatfeature.data.notification.NotificationHelper
 import java.util.ArrayDeque
 import com.dino.message.chatfeature.domain.util.MessageDeduplicator
 import javax.inject.Inject
@@ -61,8 +62,8 @@ class ChatViewModel @Inject constructor(
 
     private val receiverPublicKey = mutableStateOf<String?>(null)
 
-    private val _messages = mutableStateListOf<MessageEntity>()
-    val messages: List<MessageEntity> = _messages
+    private val _messages = MutableStateFlow<List<MessageEntity>>(emptyList())
+    val messages: StateFlow<List<MessageEntity>> = _messages.asStateFlow()
 
     private val _socketDebugEvents = MutableStateFlow<List<String>>(emptyList())
     val socketDebugEvents: StateFlow<List<String>> = _socketDebugEvents.asStateFlow()
@@ -109,6 +110,9 @@ class ChatViewModel @Inject constructor(
     private val _socketError = MutableStateFlow<String?>(null)
     val socketError: StateFlow<String?> = _socketError.asStateFlow()
 
+    private val _replyingTo = MutableStateFlow<MessageEntity?>(null)
+    val replyingTo: StateFlow<MessageEntity?> = _replyingTo.asStateFlow()
+
     private var getPublicKey = false
     private var isSocketConnecting = false
     private var hasSocketConnectionStarted = false
@@ -121,6 +125,8 @@ class ChatViewModel @Inject constructor(
     init {
         loadMessages()
         prepareEncryptionSession()
+        ActiveChatTracker.setActiveChat(chatId)
+        NotificationHelper.clearNotificationForUser(app, chatId)
     }
 
     private fun pushSocketDebugLog(message: String) {
@@ -195,8 +201,7 @@ class ChatViewModel @Inject constructor(
     fun loadMessages() = viewModelScope.launch {
         messagesMutex.withLock {
             getMessageFromDBUseCase.execute(chatId).collect { dbMessages ->
-                _messages.clear()
-                _messages.addAll(dbMessages)
+                _messages.value = dbMessages
             }
         }
     }
@@ -210,15 +215,14 @@ class ChatViewModel @Inject constructor(
         saveMessageToDb(message)
         messagesMutex.withLock {
             getMessageFromDBUseCase.execute(chatId).collect { dbMessages ->
-                _messages.clear()
-                _messages.addAll(dbMessages)
+                _messages.value = dbMessages
             }
         }
     }
 
     fun clearMessages() = viewModelScope.launch {
         clearMessageFromDBUseCase.execute(chatId).collect {
-            _messages.clear()
+            _messages.value = emptyList()
         }
     }
 
@@ -226,7 +230,8 @@ class ChatViewModel @Inject constructor(
 
     private fun getCurrentTimestamp(): String =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            java.time.Instant.now().toString()
+            val now = java.time.Instant.now().atZone(java.time.ZoneOffset.UTC)
+            now.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSS'Z'"))
         } else {
             TODO("VERSION.SDK_INT < O")
         }
@@ -317,6 +322,14 @@ class ChatViewModel @Inject constructor(
         _socketError.value = null
     }
 
+    fun setReplyingTo(message: MessageEntity) {
+        _replyingTo.value = message
+    }
+
+    fun clearReplyingTo() {
+        _replyingTo.value = null
+    }
+
     fun retrySocketConnection() {
         _socketError.value = null
         connectSocketIfNeeded(forceReconnect = true)
@@ -402,7 +415,8 @@ class ChatViewModel @Inject constructor(
     private fun emitAttachmentMessage(
         attachment: com.dino.message.chatfeature.data.remote.dto.MessageAttachment,
         caption: String?,
-        activeSocket: Socket
+        activeSocket: Socket,
+        replyTo: MessageEntity? = _replyingTo.value
     ) {
         val publicKey = receiverPublicKey.value ?: return
 
@@ -442,6 +456,19 @@ class ChatViewModel @Inject constructor(
                 if (encryptedCaption != null) {
                     put("message", encryptedCaption)
                 }
+                if (replyTo != null) {
+                    put("reply_to_message_id", replyTo.messageId ?: "")
+                    put("reply_to_sender", replyTo.senderOrReceiver)
+                   val preview = replyTo.content.take(100)
+                   if (preview.isNotBlank()) {
+                        val (encReplyKey, encReplyPreview) = CryptoUtil.encryptMessage(
+                           message = preview,
+                           receiverPublicKey = decodePublicKey(publicKey)
+                       )
+                      put("encrypted_reply_preview", encReplyPreview)
+                       put("encrypted_reply_key", encReplyKey)
+                   }
+                }
             }
 
             pushSocketDebugLog("Socket emit send_message (${attachment.type}) to $chatId")
@@ -459,16 +486,20 @@ class ChatViewModel @Inject constructor(
                     attachmentUrl = attachment.url,
                     attachmentMimeType = attachment.mimeType,
                     attachmentFileName = attachment.fileName,
-                    attachmentSizeBytes = attachment.sizeBytes
+                    attachmentSizeBytes = attachment.sizeBytes,
+                    replyToMessageId = replyTo?.messageId,
+                    replyToSender = replyTo?.senderOrReceiver,
+                    replyPreview = replyTo?.content?.take(100)
                 )
             )
+            _replyingTo.value = null
         } catch (e: Exception) {
             pushSocketDebugLog("Attachment send failed: ${e.message ?: "unknown error"}")
             Log.e("ChatViewModel", "emitAttachmentMessage: failed", e)
         }
     }
 
-    private fun emitEncryptedMessage(message: String, activeSocket: Socket) {
+    private fun emitEncryptedMessage(message: String, activeSocket: Socket, replyTo: MessageEntity? = _replyingTo.value) {
         val publicKey = receiverPublicKey.value ?: return
 
         try {
@@ -482,6 +513,19 @@ class ChatViewModel @Inject constructor(
                 put("message", encryptedMessage)
                 put("encrypted_key", encryptedKey)
                 put("type", "text")
+                if (replyTo != null) {
+                    put("reply_to_message_id", replyTo.messageId ?: "")
+                    put("reply_to_sender", replyTo.senderOrReceiver)
+                    val preview = replyTo.content.take(100)
+                    if (preview.isNotBlank()) {
+                        val (encReplyKey, encReplyPreview) = CryptoUtil.encryptMessage(
+                            message = preview,
+                            receiverPublicKey = decodePublicKey(publicKey)
+                        )
+                       put("encrypted_reply_preview", encReplyPreview)
+                        put("encrypted_reply_key", encReplyKey)
+                   }
+                }
             }
 
             pushSocketDebugLog("Socket emit send_message to $chatId")
@@ -494,9 +538,13 @@ class ChatViewModel @Inject constructor(
                     senderOrReceiver = currentUsername,
                     chatId = chatId,
                     content = message,
-                    timestamp = getCurrentTimestamp()
+                    timestamp = getCurrentTimestamp(),
+                    replyToMessageId = replyTo?.messageId,
+                    replyToSender = replyTo?.senderOrReceiver,
+                    replyPreview = replyTo?.content?.take(100)
                 )
             )
+            _replyingTo.value = null
         } catch (e: Exception) {
             pushSocketDebugLog("Encryption/send failed: ${e.message ?: "unknown error"}")
             Log.e("ChatViewModel", "sendMessage: failed", e)
@@ -730,6 +778,18 @@ class ChatViewModel @Inject constructor(
         val timestamp = payload.optString("timestamp").ifBlank { getCurrentTimestamp() }
         val type = payload.optString("type", "text")
         val attachmentObj = payload.optJSONObject("attachment")
+        val replyToMessageId = payload.optString("reply_to_message_id", "").ifBlank { null }
+        val replyToSender = payload.optString("reply_to_sender", "").ifBlank { null }
+       val encryptedReplyPreview = payload.optString("encrypted_reply_preview", "").ifBlank { null }
+        val encryptedReplyKey = payload.optString("encrypted_reply_key", "").ifBlank { null }
+
+        val replyDecryptKey = encryptedReplyKey ?: encryptedKey
+        val decryptedReplyPreview = if (encryptedReplyPreview != null && replyDecryptKey.isNotBlank()) {
+           try {
+               val privateKey = spref.getPrivateKey() ?: ""
+                decryptMessage(encryptedReplyPreview, replyDecryptKey, decodePrivateKey(privateKey))
+           } catch (e: Exception) { null }
+        } else null
 
         val targetChatId = sender
 
@@ -753,7 +813,10 @@ class ChatViewModel @Inject constructor(
                     attachmentUrl = attachmentObj.optString("url"),
                     attachmentMimeType = attachmentObj.optString("mime_type"),
                     attachmentFileName = attachmentObj.optString("file_name"),
-                    attachmentSizeBytes = attachmentObj.optLong("size_bytes", 0)
+                    attachmentSizeBytes = attachmentObj.optLong("size_bytes", 0),
+                    replyToMessageId = replyToMessageId,
+                    replyToSender = replyToSender,
+                    replyPreview = decryptedReplyPreview
                 )
             )
         } else {
@@ -767,7 +830,10 @@ class ChatViewModel @Inject constructor(
                 encryptedMessage = encryptedMessage,
                 encryptedKey = encryptedKey,
                 timestamp = timestamp,
-                targetChatId = targetChatId
+                targetChatId = targetChatId,
+                replyToMessageId = replyToMessageId,
+                replyToSender = replyToSender,
+                replyPreview = decryptedReplyPreview
             )
         }
     }
@@ -803,7 +869,10 @@ class ChatViewModel @Inject constructor(
         encryptedMessage: String,
         encryptedKey: String,
         timestamp: String,
-        targetChatId: String = chatId
+        targetChatId: String = chatId,
+        replyToMessageId: String? = null,
+        replyToSender: String? = null,
+        replyPreview: String? = null
     ) {
         try {
             val privateKey = spref.getPrivateKey() ?: return
@@ -820,7 +889,10 @@ class ChatViewModel @Inject constructor(
                     senderOrReceiver = sender,
                     chatId = targetChatId,
                     content = decryptedMsg,
-                    timestamp = timestamp
+                    timestamp = timestamp,
+                    replyToMessageId = replyToMessageId,
+                    replyToSender = replyToSender,
+                    replyPreview = replyPreview
                 )
             )
         } catch (e: Exception) {
@@ -833,7 +905,10 @@ class ChatViewModel @Inject constructor(
                     senderOrReceiver = sender,
                     chatId = targetChatId,
                     content = "⚠️ Could not decrypt this message. Wrong private key?",
-                    timestamp = timestamp
+                    timestamp = timestamp,
+                    replyToMessageId = replyToMessageId,
+                    replyToSender = replyToSender,
+                    replyPreview = replyPreview
                 )
             )
         }
@@ -863,6 +938,7 @@ class ChatViewModel @Inject constructor(
     }
 
     override fun onCleared() {
+        ActiveChatTracker.clearActiveChat()
         voiceRecorder?.release()
         disconnectSocket()
         super.onCleared()
