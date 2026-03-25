@@ -1,12 +1,16 @@
 package com.dino.message.chatfeature.presentation.component
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -60,13 +64,28 @@ fun ChatScreenBottomAppBar(
     onVoiceRecordCancel: () -> Unit = {},
     isRecording: Boolean = false,
     recordingDurationMs: Long = 0L,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    replySenderName: String? = null,
+    replyPreviewText: String? = null,
+    onDismissReply: () -> Unit = {}
 ) {
     val value = remember { mutableStateOf("") }
     var showAttachMenu by remember { mutableStateOf(false) }
 
-    BottomAppBar {
-        AnimatedContent(
+    Column {
+        AnimatedVisibility(
+            visible = replySenderName != null && replyPreviewText != null,
+            enter = expandVertically(),
+            exit = shrinkVertically()
+        ) {
+            ReplyPreviewBanner(
+                senderName = replySenderName ?: "",
+                previewText = replyPreviewText ?: "",
+                onDismiss = onDismissReply
+            )
+        }
+        BottomAppBar {
+            AnimatedContent(
             targetState = isRecording,
             label = "bottom_bar_mode"
         ) { recording ->
@@ -99,6 +118,7 @@ fun ChatScreenBottomAppBar(
                     enabled = enabled
                 )
             }
+        }
         }
     }
 }
@@ -136,6 +156,7 @@ private fun InputBar(
                 )
             }
             DropdownMenu(
+                shape = MaterialTheme.shapes.extraLarge,
                 expanded = showAttachMenu,
                 onDismissRequest = onDismissAttachMenu
             ) {
@@ -165,11 +186,11 @@ private fun InputBar(
                     .padding(end = DPSmall),
                 enabled = enabled,
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = Color.White,
+                    focusedTextColor = MaterialTheme.colorScheme.onSecondaryContainer,
                     focusedBorderColor = Color.Transparent,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.inversePrimary,
-                    focusedContainerColor = MaterialTheme.colorScheme.inversePrimary,
-                    cursorColor = Color.White,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.secondaryContainer,
+                    focusedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    cursorColor = MaterialTheme.colorScheme.onSecondaryContainer,
                     focusedPlaceholderColor = Color.Transparent,
                     unfocusedPlaceholderColor = MaterialTheme.colorScheme.secondary
                 ),

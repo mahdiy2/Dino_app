@@ -12,11 +12,11 @@ import kotlin.math.abs
 @SuppressLint("NewApi")
 fun getTimeAgo(dateString: String): String {
 
+    val normalized = dateString.trimEnd('Z')
+
     val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSS")
 
-    val localDateTime = LocalDateTime.parse(dateString, formatter)
-
-    // فرض می‌کنیم UTC
+    val localDateTime = LocalDateTime.parse(normalized, formatter)
     val instant = localDateTime.toInstant(ZoneOffset.UTC)
 
     val now = Instant.now()

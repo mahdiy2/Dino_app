@@ -7,7 +7,7 @@ package com.dino.message.corefeature.data.db
  import com.dino.message.chatfeature.data.db.MessageDao
  import com.dino.message.chatfeature.domain.model.MessageEntity
 
- @Database(entities = [MessageEntity::class], version = 5)
+ @Database(entities = [MessageEntity::class], version = 6)
  abstract class MessageDatabase : RoomDatabase() {
      abstract fun messageDao(): MessageDao
 
@@ -38,6 +38,14 @@ package com.dino.message.corefeature.data.db
          val MIGRATION_4_5 = object : Migration(4, 5) {
              override fun migrate(db: SupportSQLiteDatabase) {
                  db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_messages_messageId ON messages (messageId)")
+             }
+         }
+
+         val MIGRATION_5_6 = object : Migration(5, 6) {
+             override fun migrate(db: SupportSQLiteDatabase) {
+                 db.execSQL("ALTER TABLE messages ADD COLUMN replyToMessageId TEXT")
+                 db.execSQL("ALTER TABLE messages ADD COLUMN replyToSender TEXT")
+                 db.execSQL("ALTER TABLE messages ADD COLUMN replyPreview TEXT")
              }
          }
      }

@@ -28,6 +28,11 @@ fun SearchResultsList(
     error: String?,
     query: String,
     onUserClick: (String) -> Unit,
+    onUpVoteClick: (Long) -> Unit,
+    onDownVoteClick: (Long) -> Unit,
+    onCommentsClick: (Long) -> Unit,
+    selectedPostVote: (Long) -> Long,
+    postError: (Long) -> String?,
     modifier: Modifier = Modifier
 ) {
     if (isLoading) {
@@ -130,8 +135,12 @@ fun SearchResultsList(
                         .fillMaxWidth()
                         .padding(horizontal = DPMedium),
                     post = post,
-                    showActions = false,
-                    onUserClick = { onUserClick(post.author.username) }
+                    selectedPostVote = selectedPostVote(post.id),
+                    postError = postError(post.id),
+                    onUpVoteClick = { onUpVoteClick(post.id) },
+                    onDownVoteClick = { onDownVoteClick(post.id) },
+                    onCommentsClick = { onCommentsClick(post.id) },
+                    onUserClick = { onUserClick(post.author.username) },
                 )
             }
         }

@@ -2,6 +2,7 @@ package com.dino.message.searchfeature.presentation.viewmodel
 
 import android.content.Context
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -15,7 +16,10 @@ import com.dino.message.searchfeature.domain.usecase.SearchAllUseCase
 import com.dino.message.searchfeature.domain.usecase.SearchPostsUseCase
 import com.dino.message.searchfeature.domain.usecase.SearchUsersUseCase
 import com.dino.message.threadfeature.domain.model.Post
+import com.dino.message.threadfeature.domain.model.VoteTargetType
+import com.dino.message.threadfeature.domain.usecase.VoteUseCase
 import com.ramcosta.composedestinations.generated.destinations.ProfileScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.ThreadCommentsBottomSheetScreenDestination
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Job
@@ -31,7 +35,8 @@ class SearchViewModel @Inject constructor(
     @ApplicationContext app: Context,
     private val searchUsersUseCase: SearchUsersUseCase,
     private val searchPostsUseCase: SearchPostsUseCase,
-    private val searchAllUseCase: SearchAllUseCase
+    private val searchAllUseCase: SearchAllUseCase,
+    private val voteUseCase: VoteUseCase
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
 
@@ -52,6 +57,9 @@ class SearchViewModel @Inject constructor(
 
     private var searchJob: Job? = null
     private val searchLimit = 20
+
+    private val postVoteByPost = mutableStateMapOf<Long, Long>()
+    private val postErrorByPost = mutableStateMapOf<Long, String?>()
 
     fun onQueryChange(newQuery: String) {
         query.value = newQuery
@@ -162,5 +170,37 @@ class SearchViewModel @Inject constructor(
 
     fun navigateBack() {
         navigateUp(viewModelScope)
+    }
+
+    fun selectedPostVote(postId: Long): Long = postVoteByPost[postId] ?: 0L
+
+    fun postError(postId: Long): String? = postErrorByPost[postId]
+
+    fun votePost(postId: Long, value: Long) = viewModelScope.launch {
+        voteUseCase.execute(
+            targetType = VoteTargetType.POST,
+            targetId = postId,
+            value = value
+        ).collect { res ->
+            when (res) {
+                is Resource.Success -> {
+                    postVoteByPost[postId] = value
+                    postErrorByPost[postId] = null
+                }
+
+                is Resource.Loading -> Unit
+
+                is Resource.Error -> {
+                    postErrorByPost[postId] = res.message.asString(getApplication())
+                }
+            }
+        }
+    }
+
+    fun openCommentsBottomSheet(postId: Long) {
+        navigateToDestination(
+            ThreadCommentsBottomSheetScreenDestination(postId),
+            viewModelScope
+        )
     }
 }

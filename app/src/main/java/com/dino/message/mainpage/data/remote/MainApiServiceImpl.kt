@@ -8,13 +8,14 @@ import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.mainpage.data.remote.dto.AddContactRequest
 import com.dino.message.mainpage.data.remote.dto.AddContactResponse
-import com.dino.message.mainpage.data.remote.dto.DetailedContact
 import com.dino.message.mainpage.data.remote.dto.DetailedContactResponse
 import com.dino.message.mainpage.data.remote.dto.GetContactsResponse
 import com.dino.message.mainpage.domain.model.AddContact
+import com.dino.message.mainpage.data.remote.dto.PaginatedContacts
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.request.post
+import io.ktor.client.request.parameter
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
@@ -57,11 +58,14 @@ class MainApiServiceImpl @Inject constructor(
             callRefreshTokenAPI = this::getToken
         )
 
-    override suspend fun getDetailedContacts(): Resource<List<DetailedContact>> =
-        httpAPIUtil.callAPIWithErrorHandling<List<DetailedContact>, DetailedContactResponse>(
+    override suspend fun getDetailedContacts(page: Int, limit: Int): Resource<PaginatedContacts> =
+        httpAPIUtil.callAPIWithErrorHandling<PaginatedContacts, DetailedContactResponse>(
             callAPI = {
                 httpClient.get(MainRoute.GetDetailedContacts.url) {
                     appendTokenToHeader(sPrefManager.getToken())
+                    parameter("detailed", "true")
+                    parameter("page", page)
+                    parameter("limit", limit)
                 }
             },
             callRefreshTokenAPI = this::getToken

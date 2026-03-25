@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.ArrowBackIosNew
 import androidx.compose.material.icons.rounded.Clear
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -76,7 +77,7 @@ fun SearchScreen() {
                 navigationIcon = {
                     IconButton(onClick = viewModel::navigateBack) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                            imageVector = Icons.Rounded.ArrowBackIosNew,
                             contentDescription = "Back"
                         )
                     }
@@ -112,6 +113,11 @@ fun SearchScreen() {
                 error = error,
                 query = query,
                 onUserClick = viewModel::openUserProfile,
+                onUpVoteClick = { postId -> viewModel.votePost(postId, 1) },
+                onDownVoteClick = { postId -> viewModel.votePost(postId, -1) },
+                onCommentsClick = viewModel::openCommentsBottomSheet,
+                selectedPostVote = viewModel::selectedPostVote,
+                postError = viewModel::postError,
                 modifier = Modifier.fillMaxSize()
             )
         }

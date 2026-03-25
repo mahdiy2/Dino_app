@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.dino.message.BuildConfig
 import com.dino.message.DinoOrderApplication
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.presentation.util.Resource
@@ -17,12 +18,16 @@ import com.dino.message.threadfeature.domain.model.Post
 import com.dino.message.threadfeature.domain.model.VoteTargetType
 import com.dino.message.threadfeature.domain.usecase.GetPostsUseCase
 import com.dino.message.threadfeature.domain.usecase.VoteUseCase
+import com.dino.message.activitynotificationfeature.domain.usecase.GetUnreadCountUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import com.ramcosta.composedestinations.generated.destinations.CreatePostScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.SearchScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.MainScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.ProfileScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.ActivityNotificationScreenDestination
+import io.socket.client.IO
+import io.socket.client.Socket
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -37,7 +42,8 @@ class ThreadViewModel @Inject constructor(
     private val getPostsUseCase: GetPostsUseCase,
     private val voteUseCase: VoteUseCase,
     private val getMyProfileUseCase: GetMyProfileUseCase,
-    private val sPrefManager: SPrefManager
+    private val sPrefManager: SPrefManager,
+    private val getUnreadCountUseCase: GetUnreadCountUseCase
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
 
@@ -69,8 +75,15 @@ class ThreadViewModel @Inject constructor(
     private val postVoteByPost = mutableStateMapOf<Long, Long>()
     private val postErrorByPost = mutableStateMapOf<Long, String?>()
 
+    private val _unreadNotificationCount = MutableStateFlow(0)
+    val unreadNotificationCount: StateFlow<Int> = _unreadNotificationCount.asStateFlow()
+
+    private var activitySocket: Socket? = null
+
     init {
         refresh()
+        fetchUnreadCount()
+        connectActivitySocket()
     }
 
     fun refresh() {
@@ -214,5 +227,61 @@ class ThreadViewModel @Inject constructor(
 
     fun openSearchScreen() {
         navigateToDestination(SearchScreenDestination, viewModelScope)
+    }
+
+    fun openActivityNotifications() {
+        navigateToDestination(ActivityNotificationScreenDestination, viewModelScope)
+    }
+
+    fun fetchUnreadCount() = viewModelScope.launch {
+        getUnreadCountUseCase.execute().collect { res ->
+            when (res) {
+                is Resource.Success -> {
+                    _unreadNotificationCount.value = res.data.unread_count
+                }
+                is Resource.Loading -> Unit
+                is Resource.Error -> Unit
+            }
+        }
+    }
+
+    private fun connectActivitySocket() {
+        val token = sPrefManager.getToken().trim()
+        if (token.isBlank()) return
+
+        val cleanToken = token.removePrefix("Bearer ").removePrefix("bearer ").trim()
+        val baseUrl = BuildConfig.BASE_URL.trimEnd('/')
+
+        try {
+            val opts = IO.Options.builder()
+                .setForceNew(false)
+                .setMultiplex(true)
+                .setReconnection(true)
+                .setReconnectionAttempts(Int.MAX_VALUE)
+                .setReconnectionDelay(2_000)
+                .setReconnectionDelayMax(15_000)
+                .setTimeout(20_000)
+                .setPath("/socket.io/")
+                .setTransports(arrayOf("websocket", "polling"))
+                .setAuth(mapOf("token" to cleanToken))
+                .build()
+
+            val socket = IO.socket(baseUrl, opts)
+
+            socket.on("activity_notification") {
+                _unreadNotificationCount.value = _unreadNotificationCount.value + 1
+            }
+
+            activitySocket = socket
+            socket.connect()
+        } catch (_: Exception) {
+        }
+    }
+
+    override fun onCleared() {
+        activitySocket?.off("activity_notification")
+        activitySocket?.disconnect()
+        activitySocket = null
+        super.onCleared()
     }
 }

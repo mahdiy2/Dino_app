@@ -10,6 +10,10 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import com.dino.message.DinoOrderApplication
 import com.dino.message.authfeature.data.remote.AuthAPIService
+import com.dino.message.activitynotificationfeature.data.remote.ActivityNotificationApiService
+import com.dino.message.activitynotificationfeature.data.remote.ActivityNotificationApiServiceImpl
+import com.dino.message.activitynotificationfeature.data.repository.ActivityNotificationRepositoryImpl
+import com.dino.message.activitynotificationfeature.domain.repository.ActivityNotificationRepository
 import com.dino.message.authfeature.data.remote.AuthAPIServiceImpl
 import com.dino.message.authfeature.data.repository.AuthRepositoryImpl
 import com.dino.message.authfeature.domain.repository.AuthRepository
@@ -272,6 +276,23 @@ object AppModule {
         searchApiService: SearchApiService
     ): SearchRepository = SearchRepositoryImpl(searchApiService)
 
+    @Singleton
+    @Provides
+    fun provideActivityNotificationApiService(
+        httpClient: HttpClient,
+        sPrefManager: SPrefManager,
+        httpAPIUtil: HttpAPIUtil
+    ): ActivityNotificationApiService = ActivityNotificationApiServiceImpl(
+        httpClient = httpClient,
+        sPrefManager = sPrefManager,
+        httpAPIUtil = httpAPIUtil
+    )
+
+    @Singleton
+    @Provides
+    fun provideActivityNotificationRepository(
+        apiService: ActivityNotificationApiService
+    ): ActivityNotificationRepository = ActivityNotificationRepositoryImpl(apiService)
 
     /**
      * Provides the DataStoreUtil instance.
@@ -297,7 +318,8 @@ object AppModule {
                  MessageDatabase.MIGRATION_1_2,
                  MessageDatabase.MIGRATION_2_3,
                  MessageDatabase.MIGRATION_3_4,
-                 MessageDatabase.MIGRATION_4_5
+                 MessageDatabase.MIGRATION_4_5,
+                 MessageDatabase.MIGRATION_5_6
              )
              .build()
      }

@@ -11,12 +11,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.ArrowBackIosNew
 import androidx.compose.material.icons.rounded.ChevronLeft
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Person
@@ -24,11 +26,13 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingToolbarDefaults
 import androidx.compose.material3.HorizontalFloatingToolbar
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
@@ -41,6 +45,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -73,6 +78,7 @@ fun MainScreen() {
     val viewModel: MainScreenViewModel = hiltViewModel()
     var isNoInternet by remember { mutableStateOf(!viewModel.isConnected(context)) }
 
+    val listState = remember { LazyListState() }
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val isSheetVisible by viewModel.isBottomSheetVisible.collectAsState()
@@ -81,6 +87,8 @@ fun MainScreen() {
 
     // Collect the StateFlows as Compose State
     val isRefreshing by viewModel.isRefreshing.collectAsState()
+    val isLoadingMore by viewModel.isLoadingMore.collectAsState()
+    val hasMore by viewModel.hasMore.collectAsState()
 
 
     LaunchedEffect(Unit) {
@@ -94,6 +102,17 @@ fun MainScreen() {
             isNoInternet = !viewModel.isConnected(context)
             delay(2000) // Check every 2 seconds
         }
+    }
+
+    val shouldLoadMore by remember {
+        derivedStateOf {
+            val lastVisibleItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            val totalItems = listState.layoutInfo.totalItemsCount
+            lastVisibleItem >= totalItems - 3 && hasMore && !isLoadingMore
+        }
+    }
+    LaunchedEffect(shouldLoadMore) {
+        if (shouldLoadMore) viewModel.loadNextPage()
     }
 
     isNoInternet = !viewModel.isConnected(context)
@@ -110,6 +129,12 @@ fun MainScreen() {
                 title = {
                     Text(text = "Messages")
                 },
+
+                navigationIcon = {
+                    IconButton(onClick = { viewModel.navigateUp() }) {
+                        Icon(imageVector = Icons.Rounded.ArrowBackIosNew, contentDescription = "Back")
+                    }
+                }
             )
         }
     ) { innerPadding ->
@@ -150,6 +175,7 @@ fun MainScreen() {
                         }
 
                         LazyColumn(
+                            state = listState,
                             modifier = Modifier.fillMaxSize()
                         ) {
                             items(
@@ -166,7 +192,18 @@ fun MainScreen() {
                                             .fillMaxWidth()
                                     ) {
                                         viewModel.navigateToChatScreen(it.username)
+                                }
+                            }
+
+                            if (isLoadingMore) {
+                                item {
+                                    Box(
+                                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        CircularProgressIndicator()
                                     }
+                                }
                             }
                         }
                     }
@@ -238,8 +275,6 @@ fun MainScreen() {
 
     }
 }
-
-
 
 
 

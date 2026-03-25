@@ -1,12 +1,15 @@
 package com.dino.message.corefeature.presentation.activity
 
 import android.Manifest
+import android.content.Intent
 import android.content.Context
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
 import android.webkit.WebView
+import android.util.Log
+import androidx.lifecycle.lifecycleScope
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -23,6 +26,9 @@ import androidx.navigation.NavController
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.ramcosta.composedestinations.DestinationsNavHost
+import com.ramcosta.composedestinations.generated.destinations.ChatScreenDestination
+import com.dino.message.chatfeature.data.notification.NotificationHelper
+import com.dino.message.corefeature.data.spref.SPrefManager
 import dagger.hilt.android.AndroidEntryPoint
 import dagger.hilt.android.qualifiers.ApplicationContext
 import com.dino.message.DinoOrderApplication
@@ -34,6 +40,8 @@ import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
 import com.dino.message.corefeature.presentation.util.HandleUIEvent
 import com.dino.message.corefeature.presentation.util.LocaleUtils
 import com.dino.message.corefeature.presentation.viewmodel.MainActivityViewModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import com.ramcosta.composedestinations.generated.NavGraphs
 import javax.inject.Inject
 
@@ -44,6 +52,9 @@ class MainActivity : ComponentActivity() {
     @ApplicationContext
     lateinit var app: Context
 
+    @Inject
+    lateinit var sPrefManager: SPrefManager
+
     private val viewModel: MainActivityViewModel by viewModels()
 
 
@@ -53,6 +64,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        connectNotificationSocket()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
@@ -105,6 +118,59 @@ class MainActivity : ComponentActivity() {
                     // Set the app's navigation graph and navigation controller
 
 
+                }
+            }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleNotificationDeepLink(intent)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        connectNotificationSocket()
+        handleNotificationDeepLink(intent)
+    }
+
+    override fun onDestroy() {
+        val dinoApp = applicationContext as? DinoOrderApplication
+        dinoApp?.inAppNotificationManager?.disconnect()
+        super.onDestroy()
+    }
+
+    private fun connectNotificationSocket() {
+        val token = sPrefManager.getToken()
+        if (token.isNotBlank()) {
+            val dinoApp = applicationContext as DinoOrderApplication
+            dinoApp.inAppNotificationManager.connect(token)
+        }
+    }
+
+    private fun handleNotificationDeepLink(intent: Intent?) {
+        val chatUsername = intent?.getStringExtra("open_chat")
+        if (chatUsername.isNullOrBlank()) return
+
+        intent.removeExtra("open_chat")
+
+        NotificationHelper.clearNotificationForUser(this, chatUsername)
+
+        lifecycleScope.launch {
+            delay(300)
+            val nav = navController
+            if (nav != null) {
+                try {
+                    val direction = ChatScreenDestination(
+                        chatId = chatUsername,
+                        displayName = chatUsername
+                    )
+                    nav.navigate(direction.route) {
+                        launchSingleTop = true
+                    }
+                } catch (e: Exception) {
+                    Log.e("MainActivity", "Failed to navigate to chat: $chatUsername", e)
                 }
             }
         }

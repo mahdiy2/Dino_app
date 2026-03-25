@@ -351,7 +351,11 @@ fun ProfileScreen(username: String? = null) {
                             .fillMaxWidth()
                             .padding(DPMedium),
                         post = post,
-                        showActions = false,
+                        selectedPostVote = viewModel.selectedPostVote(post.id),
+                        postError = viewModel.postError(post.id),
+                        onUpVoteClick = { viewModel.votePost(post.id, 1) },
+                        onDownVoteClick = { viewModel.votePost(post.id, -1) },
+                        onCommentsClick = { viewModel.openCommentsBottomSheet(post.id) },
                     )
                 }
             }

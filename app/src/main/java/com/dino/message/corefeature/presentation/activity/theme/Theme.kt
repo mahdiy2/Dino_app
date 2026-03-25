@@ -1,6 +1,7 @@
 package com.dino.message.corefeature.presentation.activity.theme
 
 import android.app.Activity
+import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialExpressiveTheme
@@ -8,10 +9,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MaterialTheme.shapes
 import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
@@ -61,6 +65,12 @@ private val DarkColorPalette = darkColorScheme(
     surfaceVariant = SurfaceVariantDark,
     onSurfaceVariant = OnSurfaceVariantDark,
     onSurface = OnSurfaceDark,
+
+    surfaceContainerLowest = SurfaceContainerLowestDark,
+    surfaceContainerLow = SurfaceContainerLowDark,
+    surfaceContainer = SurfaceContainerDark,
+    surfaceContainerHigh = SurfaceContainerHighDark,
+    surfaceContainerHighest = SurfaceContainerHighestDark,
 )
 
 private val LightColorPalette = lightColorScheme(
@@ -84,8 +94,14 @@ private val LightColorPalette = lightColorScheme(
     onBackground = OnBackgroundLight,
     surface = SurfaceLight,
     outline = OutlineLight,
+    onSurface = OnSurfaceLight,
     surfaceVariant = SurfaceVariantLight,
     onSurfaceVariant = OnSurfaceVariantLight,
+    surfaceContainerLowest = SurfaceContainerLowestLight,
+    surfaceContainerLow = SurfaceContainerLowLight,
+    surfaceContainer = SurfaceContainerLight,
+    surfaceContainerHigh = SurfaceContainerHighLight,
+    surfaceContainerHighest = SurfaceContainerHighestLight,
 )
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -96,6 +112,8 @@ fun SecMessageTheme(
     dynamicColor: Boolean = true,
     content: @Composable () -> Unit
 ) {
+
+    val context = LocalContext.current
 //    val colorScheme = when {
 //        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
 //            val context = LocalContext.current
@@ -112,7 +130,14 @@ fun SecMessageTheme(
 //        content = content
 //    )
 
-    val colors = if (darkTheme) DarkColorPalette else LightColorPalette
+    val colors = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        if (darkTheme) dynamicDarkColorScheme(context = context)
+        else dynamicLightColorScheme(context = context)
+    } else {
+        if (darkTheme) DarkColorPalette else LightColorPalette
+    }
+
+//    val colors = if (darkTheme) DarkColorPalette else LightColorPalette
 
     MaterialExpressiveTheme(
         colorScheme = colors,
@@ -127,7 +152,7 @@ fun SecMessageTheme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = colors.surfaceVariant.toArgb()
+//            window.statusBarColor = colors.surfaceVariant.toArgb()
 
             WindowCompat.getInsetsController(window, view)
                 .isAppearanceLightStatusBars = !darkTheme

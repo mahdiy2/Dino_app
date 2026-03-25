@@ -70,6 +70,9 @@ class LoginScreenViewModel @Inject constructor(
                     sPrefManager.setToken(data.data.accessToken)
                     sPrefManager.setRefreshToken(data.data.refreshToken)
                     UnreadPollingScheduler.schedule(getApplication<DinoOrderApplication>())
+                    getApplication<DinoOrderApplication>()
+                        .inAppNotificationManager
+                        .connect(data.data.accessToken)
                     navigateToMainScreen()
                 }
                 is Resource.Loading -> {

@@ -65,7 +65,9 @@ fun ChatContainer(
     attachmentMimeType: String? = null,
     attachmentFileName: String? = null,
     onAttachmentClick: (() -> Unit)? = null,
-    onLongClick: (() -> Unit)? = null
+    onLongClick: (() -> Unit)? = null,
+    replySenderName: String? = null,
+    replyPreviewText: String? = null
 ) {
     val bubbleShape = RoundedCornerShape(
         topStart = 20.dp,
@@ -98,6 +100,51 @@ fun ChatContainer(
                     interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
                 )
         ) {
+            if (replySenderName != null && replyPreviewText != null) {
+                Row(
+                   modifier = Modifier
+                       .clip(RoundedCornerShape(8.dp))
+                        .background(
+                            if (sent)
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+                            else
+                                MaterialTheme.colorScheme.secondary.copy(alpha = 0.08f)
+                        )
+                        .padding(DPMedium),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .width(3.dp)
+                            .height(28.dp)
+                            .background(
+                                color = MaterialTheme.colorScheme.primary,
+                                shape = RoundedCornerShape(2.dp)
+                            )
+                    )
+                    Spacer(modifier = Modifier.width(DPMedium))
+                    Column {
+                        Text(
+                            text = replySenderName,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = replyPreviewText,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (sent)
+                                MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                            else
+                                MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f),
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(DPSmall))
+            }
             when (messageType) {
                 "image" -> ImageBubble(
                     attachmentUrl = attachmentUrl,

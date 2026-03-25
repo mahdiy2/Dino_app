@@ -22,10 +22,13 @@ import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.BrokenImage
-import androidx.compose.material.icons.rounded.Videocam
+import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.carousel.HorizontalMultiBrowseCarousel
@@ -69,6 +72,7 @@ fun Carousel(
     if (items.isEmpty()) return
 
     var activeVideoId by remember(items) { mutableStateOf<Long?>(null) }
+    var viewerOpenIndex by remember { mutableStateOf<Int?>(null) }
 
     LaunchedEffect(items, activeVideoId) {
         if (activeVideoId != null && items.none { it.id == activeVideoId }) {
@@ -96,14 +100,25 @@ fun Carousel(
             item = item,
             isVideo = isVideo,
             isPlaying = isVideo && activeVideoId == item.id,
-            onVideoClick = {
+            onPlayPauseClick = {
                 activeVideoId = if (activeVideoId == item.id) null else item.id
+            },
+            onCardClick = {
+                viewerOpenIndex = i
             },
             onVideoStopRequest = { stopId ->
                 if (activeVideoId == stopId) {
                     activeVideoId = null
                 }
             }
+        )
+    }
+
+    viewerOpenIndex?.let { index ->
+        PostMediaViewerDialog(
+            mediaItems = items,
+            initialIndex = index,
+            onDismiss = { viewerOpenIndex = null }
         )
     }
 }
@@ -114,7 +129,8 @@ private fun MediaItemCard(
     item: PostMedia,
     isVideo: Boolean,
     isPlaying: Boolean,
-    onVideoClick: () -> Unit,
+    onPlayPauseClick: () -> Unit,
+    onCardClick: () -> Unit,
     onVideoStopRequest: (Long) -> Unit
 ) {
     val localView = LocalView.current
@@ -131,16 +147,10 @@ private fun MediaItemCard(
                     bounds.top < windowHeight &&
                     bounds.left < windowWidth
             }
-            .then(
-                if (isVideo) {
-                    Modifier.clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = onVideoClick
-                    )
-                } else {
-                    Modifier
-                }
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onCardClick
             )
     ) {
         if (isVideo && isPlaying) {
@@ -158,7 +168,9 @@ private fun MediaItemCard(
         }
 
         if (isVideo) {
-            VideoBadge(
+            PlayPauseButton(
+                isPlaying = isPlaying,
+                onClick = onPlayPauseClick,
                 modifier = Modifier
                     .align(Alignment.BottomStart)
                     .padding(10.dp)
@@ -202,9 +214,7 @@ private fun MediaImage(
             .data(modelData)
             .apply {
                 if (isVideo) {
-                    // Explicitly force video frame decoder for reliable mp4 thumbnail extraction.
                     decoderFactory(VideoFrameDecoder.Factory())
-                    // First frame is more reliable for local video-uri previews.
                     videoFrameMillis(0)
                 }
             }
@@ -283,17 +293,23 @@ private fun VideoPlayer(
 }
 
 @Composable
-private fun VideoBadge(modifier: Modifier = Modifier) {
-    Surface(
-        modifier = modifier,
-        shape = CircleShape,
-        color = MaterialTheme.colorScheme.scrim.copy(alpha = 0.45f)
+private fun PlayPauseButton(
+    isPlaying: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    IconButton(
+        onClick = onClick,
+        modifier = modifier.size(36.dp),
+        colors = IconButtonDefaults.iconButtonColors(
+            containerColor = MaterialTheme.colorScheme.scrim.copy(alpha = 0.55f),
+            contentColor = MaterialTheme.colorScheme.onPrimary
+        )
     ) {
         Icon(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-            imageVector = Icons.Rounded.Videocam,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onPrimary
+            imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+            contentDescription = if (isPlaying) "Pause" else "Play",
+            modifier = Modifier.size(20.dp)
         )
     }
 }

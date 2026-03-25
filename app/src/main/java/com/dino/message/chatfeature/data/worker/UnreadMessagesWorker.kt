@@ -1,20 +1,14 @@
 package com.dino.message.chatfeature.data.worker
 
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.PendingIntent
 import android.content.Context
-import android.content.Intent
-import android.os.Build
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
-import androidx.core.app.NotificationCompat
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.dino.message.R
 import com.dino.message.chatfeature.data.remote.ChatRoute
 import com.dino.message.chatfeature.data.remote.dto.UnreadResponse
-import com.dino.message.corefeature.presentation.activity.MainActivity
+import com.dino.message.chatfeature.data.notification.ActiveChatTracker
+import com.dino.message.chatfeature.data.notification.NotificationHelper
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.engine.cio.CIO
@@ -61,20 +55,9 @@ class UnreadMessagesWorker(
     }
 
     private fun showNotifications(response: UnreadResponse) {
-        val channelId = "messages"
-        val notificationManager =
-            applicationContext.getSystemService(Context.NOTIFICATION_SERVICE)
-                as NotificationManager
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                channelId, "Messages",
-                NotificationManager.IMPORTANCE_HIGH
-            )
-            notificationManager.createNotificationChannel(channel)
-        }
-
         for (sender in response.senders) {
+            if (ActiveChatTracker.isChattingWith(sender.sender)) continue
+
             val body = when (sender.lastType) {
                 "image" -> "Sent you an image"
                 "video" -> "Sent you a video"
@@ -85,27 +68,7 @@ class UnreadMessagesWorker(
                 else "Sent you a message"
             }
 
-            val intent = Intent(applicationContext, MainActivity::class.java).apply {
-                putExtra("username", sender.sender)
-                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP
-            }
-            val pendingIntent = PendingIntent.getActivity(
-                applicationContext,
-                sender.sender.hashCode(),
-                intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-
-            val notification = NotificationCompat.Builder(applicationContext, channelId)
-                .setSmallIcon(R.drawable.ic_message_filled)
-                .setContentTitle(sender.sender)
-                .setContentText(body)
-                .setPriority(NotificationCompat.PRIORITY_HIGH)
-                .setAutoCancel(true)
-                .setContentIntent(pendingIntent)
-                .build()
-
-            notificationManager.notify(sender.sender.hashCode(), notification)
+            NotificationHelper.showMessageNotification(applicationContext, sender.sender, body)
         }
     }
 

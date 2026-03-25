@@ -8,5 +8,5 @@ sealed class MainRoute(url: String) : BaseRoute(url) {
 
     object GetContacts : MainRoute("api/contacts")
 
-    object GetDetailedContacts : MainRoute("api/contacts?detailed=true")
+    object GetDetailedContacts : MainRoute("api/contacts")
 }

@@ -3,6 +3,7 @@ package com.dino.message.mainpage.presentation.viewmodel
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -10,6 +11,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import com.dino.message.BuildConfig
 import com.dino.message.DinoOrderApplication
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.presentation.util.Resource
@@ -21,10 +23,13 @@ import com.dino.message.mainpage.domain.usecase.GetContactsUseCase
 import com.dino.message.mainpage.domain.usecase.GetDetailedContactsUseCase
 import com.ramcosta.composedestinations.generated.destinations.ChatScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.ProfileScreenDestination
+import io.socket.client.IO
+import io.socket.client.Socket
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.net.URISyntaxException
 import javax.inject.Inject
 
 @HiltViewModel
@@ -32,11 +37,15 @@ class MainScreenViewModel @Inject constructor(
     @ApplicationContext app: Context,
     private val addContactUseCase: AddContactUseCase,
     private val getContactsUseCase: GetContactsUseCase,
-     private val getDetailedContactsUseCase: GetDetailedContactsUseCase,
+    private val getDetailedContactsUseCase: GetDetailedContactsUseCase,
     private val spref: SPrefManager,
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
 
+    companion object {
+        private const val TAG = "MainScreenVM"
+        private const val PAGE_SIZE = 20
+    }
 
     var isError = mutableStateOf(false)
 
@@ -49,25 +58,38 @@ class MainScreenViewModel @Inject constructor(
     private var _contactList = mutableStateListOf<MessageList?>(null)
     val contactList = _contactList
 
-    // State to indicate if a refresh is in progress
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
+    private val _isLoadingMore = MutableStateFlow(false)
+    val isLoadingMore: StateFlow<Boolean> = _isLoadingMore.asStateFlow()
+
+    private val _hasMore = MutableStateFlow(true)
+    val hasMore: StateFlow<Boolean> = _hasMore.asStateFlow()
+
+    private var currentPage = 1
+    private var totalContacts = 0
     private var isGettingContacts = false
-
     private var isAddingContacts = false
-
 
     private val context: Context = app.applicationContext
 
+    private var socket: Socket? = null
+    private var hasSocketStarted = false
+
     init {
-         getDetailedContacts()
-     }
+        getDetailedContacts(page = 1, isRefresh = true)
+        connectSocket()
+    }
 
     fun refresh() {
-         getDetailedContacts()
-     }
+        getDetailedContacts(page = 1, isRefresh = true)
+    }
 
+    fun loadNextPage() {
+        if (_isLoadingMore.value || !_hasMore.value || isGettingContacts) return
+        getDetailedContacts(page = currentPage + 1, isRefresh = false)
+    }
 
     private fun addContact(contact: String) = viewModelScope.launch {
         addContactUseCase.execute(contact).collect { res ->
@@ -75,7 +97,7 @@ class MainScreenViewModel @Inject constructor(
                 is Resource.Success -> {
                     Toast.makeText(context, "Success", Toast.LENGTH_SHORT).show()
                     hideBottomSheet()
-                     getDetailedContacts()
+                    getDetailedContacts(page = 1, isRefresh = true)
                     isAddingContacts = false
                 }
 
@@ -91,45 +113,135 @@ class MainScreenViewModel @Inject constructor(
         }
     }
 
-     private fun getDetailedContacts() = viewModelScope.launch {
-         getDetailedContactsUseCase.execute().collect { res ->
-             when (res) {
-                 is Resource.Success -> {
-                     _contactList.clear()
-                     _contactList.addAll(
-                        res.data.map { contact ->
-                            MessageList(
-                                 username = contact.username,
-                                 displayName = contact.name?.takeIf { it.isNotBlank() } ?: contact.username,
-                                 time = contact.lastMessage?.timestamp ?: "",
-                                 newMessage = contact.hasMessage,
-                                 online = contact.online,
-                                 lastMessageType = contact.lastMessage?.type,
-                                 profileImageUrl = contact.profileImageUrl,
-                                 profileVideoUrl = contact.profileVideoUrl,
-                             )
-                         }
-                     )
+    private fun getDetailedContacts(page: Int, isRefresh: Boolean) = viewModelScope.launch {
+        getDetailedContactsUseCase.execute(page = page, limit = PAGE_SIZE).collect { res ->
+            when (res) {
+                is Resource.Success -> {
+                    val paginated = res.data
+                    val mapped = paginated.contacts.map { contact ->
+                        MessageList(
+                            username = contact.username,
+                            displayName = contact.name?.takeIf { it.isNotBlank() } ?: contact.username,
+                            time = contact.lastMessage?.timestamp ?: "",
+                            newMessage = contact.hasMessage,
+                            online = contact.online,
+                            lastMessageType = contact.lastMessage?.type,
+                            profileImageUrl = contact.profileImageUrl,
+                            profileVideoUrl = contact.profileVideoUrl,
+                        )
+                    }
+
+                    if (isRefresh) {
+                        _contactList.clear()
+                        _contactList.addAll(mapped)
+                    } else {
+                        _contactList.addAll(mapped)
+                    }
+
+                    currentPage = paginated.page
+                    totalContacts = paginated.total
+                    _hasMore.value = paginated.hasMore
 
                     isGettingContacts = false
+                    _isLoadingMore.value = false
                     showRefreshing()
                 }
 
                 is Resource.Loading -> {
-                    isGettingContacts = true
+                    if (isRefresh) {
+                        isGettingContacts = true
+                    } else {
+                        _isLoadingMore.value = true
+                    }
                     showRefreshing()
                 }
 
                 is Resource.Error -> {
                     isGettingContacts = false
+                    _isLoadingMore.value = false
                     showRefreshing()
                 }
             }
         }
     }
 
+    private fun connectSocket() {
+        if (hasSocketStarted && socket?.connected() == true) return
 
-    // Check Internet Connection
+        disconnectSocket()
+
+        val token = spref.getToken().removePrefix("Bearer ").trim()
+        if (token.isBlank()) return
+
+        val baseUrl = BuildConfig.BASE_URL.trimEnd('/')
+        val opts = IO.Options.builder()
+            .setForceNew(true)
+            .setMultiplex(false)
+            .setReconnection(true)
+            .setReconnectionAttempts(Int.MAX_VALUE)
+            .setReconnectionDelay(1_000)
+            .setReconnectionDelayMax(10_000)
+            .setTimeout(20_000)
+            .setPath("/socket.io/")
+            .setTransports(arrayOf("websocket", "polling"))
+            .setAuth(mapOf("token" to token))
+            .build()
+
+        try {
+            val createdSocket = IO.socket(baseUrl, opts)
+            registerSocketListeners(createdSocket)
+            socket = createdSocket
+            hasSocketStarted = true
+            createdSocket.connect()
+            Log.d(TAG, "Socket connecting to $baseUrl")
+        } catch (e: URISyntaxException) {
+            Log.e(TAG, "Socket URL invalid", e)
+        } catch (e: Exception) {
+            Log.e(TAG, "Socket connect failed", e)
+        }
+    }
+
+    private fun registerSocketListeners(socket: Socket) {
+        socket.on("contacts_updated") {
+            Log.d(TAG, "Received contacts_updated event")
+            viewModelScope.launch {
+                getDetailedContacts(page = 1, isRefresh = true)
+            }
+        }
+
+        socket.on("user_status") { args ->
+            viewModelScope.launch {
+                try {
+                    val payload = args.firstOrNull()
+                    if (payload is org.json.JSONObject) {
+                        val username = payload.optString("username")
+                        val online = payload.optBoolean("online", false)
+                        val index = _contactList.indexOfFirst { it?.username == username }
+                        if (index >= 0) {
+                            _contactList[index] = _contactList[index]?.copy(online = online)
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "user_status handling error", e)
+                }
+            }
+        }
+
+        socket.on(Socket.EVENT_CONNECT) {
+            Log.d(TAG, "Socket connected")
+        }
+
+        socket.on(Socket.EVENT_DISCONNECT) {
+            Log.d(TAG, "Socket disconnected")
+        }
+    }
+
+    private fun disconnectSocket() {
+        socket?.off()
+        socket?.disconnect()
+        socket = null
+    }
+
     fun isConnected(context: Context): Boolean {
         val connectivityManager =
             context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
@@ -173,4 +285,13 @@ class MainScreenViewModel @Inject constructor(
     private fun showRefreshing() {
         _isRefreshing.value = isGettingContacts || isAddingContacts
     }
- }
+
+    fun navigateUp() {
+        navigateUp(viewModelScope)
+    }
+
+    override fun onCleared() {
+        disconnectSocket()
+        super.onCleared()
+    }
+}

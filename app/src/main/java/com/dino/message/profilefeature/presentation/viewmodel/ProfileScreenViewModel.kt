@@ -2,6 +2,7 @@ package com.dino.message.profilefeature.presentation.viewmodel
 
 import android.content.Context
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
 import com.dino.message.chatfeature.data.worker.UnreadPollingScheduler
@@ -20,9 +21,12 @@ import com.dino.message.profilefeature.domain.usecase.GetProfilePostsUseCase
 import com.dino.message.profilefeature.domain.usecase.GetProfileUseCase
 import com.dino.message.profilefeature.domain.usecase.UnfollowUserUseCase
 import com.dino.message.threadfeature.domain.model.Post
+import com.dino.message.threadfeature.domain.model.VoteTargetType
+import com.dino.message.threadfeature.domain.usecase.VoteUseCase
 import com.ramcosta.composedestinations.generated.destinations.EditProfileScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.LoginScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.ProfileFollowListScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.ThreadCommentsBottomSheetScreenDestination
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -40,8 +44,8 @@ class ProfileScreenViewModel @Inject constructor(
     private val getProfilePostsUseCase: GetProfilePostsUseCase,
     private val getFollowStatusUseCase: GetFollowStatusUseCase,
     private val followUserUseCase: FollowUserUseCase,
-    private val unfollowUserUseCase: UnfollowUserUseCase
-
+    private val unfollowUserUseCase: UnfollowUserUseCase,
+    private val voteUseCase: VoteUseCase
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
     val profile = mutableStateOf<Profile?>(null)
@@ -69,6 +73,9 @@ class ProfileScreenViewModel @Inject constructor(
     private var requestedUsername: String? = null
     private var initializedKey: String? = null
     private var shouldRefreshWhenScreenResumes = false
+
+    private val postVoteByPost = mutableStateMapOf<Long, Long>()
+    private val postErrorByPost = mutableStateMapOf<Long, String?>()
 
     fun initialize(profileUsername: String?) {
         val key = profileUsername?.trim()?.ifEmpty { null }
@@ -214,6 +221,9 @@ class ProfileScreenViewModel @Inject constructor(
 
     fun logout(){
         UnreadPollingScheduler.cancel(getApplication<DinoOrderApplication>())
+        getApplication<DinoOrderApplication>()
+            .inAppNotificationManager
+            .disconnect()
         navigateWithPopBackStackToDestination(
             LoginScreenDestination,
             viewModelScope,
@@ -243,6 +253,38 @@ class ProfileScreenViewModel @Inject constructor(
                 username = targetUsername(),
                 showFollowers = false
             ),
+            viewModelScope
+        )
+    }
+
+    fun selectedPostVote(postId: Long): Long = postVoteByPost[postId] ?: 0L
+
+    fun postError(postId: Long): String? = postErrorByPost[postId]
+
+    fun votePost(postId: Long, value: Long) = viewModelScope.launch {
+        voteUseCase.execute(
+            targetType = VoteTargetType.POST,
+            targetId = postId,
+            value = value
+        ).collect { res ->
+            when (res) {
+                is Resource.Success -> {
+                    postVoteByPost[postId] = value
+                    postErrorByPost[postId] = null
+                }
+
+                is Resource.Loading -> Unit
+
+                is Resource.Error -> {
+                    postErrorByPost[postId] = res.message.asString(getApplication())
+                }
+            }
+        }
+    }
+
+    fun openCommentsBottomSheet(postId: Long) {
+        navigateToDestination(
+            ThreadCommentsBottomSheetScreenDestination(postId),
             viewModelScope
         )
     }

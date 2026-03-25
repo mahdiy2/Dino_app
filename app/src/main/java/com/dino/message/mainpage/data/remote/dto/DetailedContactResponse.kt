@@ -6,9 +6,26 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class DetailedContactResponse(
-    val contacts: List<DetailedContact>
-) : ResponseToResultMapper<List<DetailedContact>> {
-    override fun mapResponseToResult(): List<DetailedContact> = contacts
+    val contacts: List<DetailedContact>,
+    val page: Int = 1,
+    val limit: Int = 20,
+    val total: Int = 0
+) : ResponseToResultMapper<PaginatedContacts> {
+    override fun mapResponseToResult(): PaginatedContacts = PaginatedContacts(
+        contacts = contacts,
+        page = page,
+        limit = limit,
+        total = total
+    )
+}
+
+data class PaginatedContacts(
+    val contacts: List<DetailedContact>,
+    val page: Int,
+    val limit: Int,
+    val total: Int
+) {
+    val hasMore: Boolean get() = page * limit < total
 }
 
 @Serializable

@@ -8,6 +8,7 @@ import dagger.hilt.android.HiltAndroidApp
 import com.dino.message.corefeature.presentation.util.UIEvent
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
+import com.dino.message.chatfeature.data.notification.InAppNotificationManager
 
 @HiltAndroidApp
 class DinoOrderApplication: Application() {
@@ -21,6 +22,8 @@ class DinoOrderApplication: Application() {
      * A shared flow representing UI events.
      */
     val uIEventFlow: SharedFlow<UIEvent> = mutableUIEventFlow
+
+    val inAppNotificationManager: InAppNotificationManager by lazy { InAppNotificationManager(this) }
 
     override fun onCreate() {
         super.onCreate()
