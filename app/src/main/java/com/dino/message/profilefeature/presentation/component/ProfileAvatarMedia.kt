@@ -31,20 +31,23 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
-import coil.compose.SubcomposeAsyncImage
+import coil.compose.AsyncImage
+import coil.compose.AsyncImagePainter
 import coil.imageLoader
 import coil.request.ImageRequest
+import coil.request.CachePolicy
 
 @Composable
 fun ProfileAvatarMedia(
     profileImageUrl: String?,
     profileVideoUrl: String?,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    autoPlayVideo: Boolean = false
 ) {
     val normalizedImageUrl = profileImageUrl?.takeIf { it.isNotBlank() }
     val normalizedVideoUrl = profileVideoUrl?.takeIf { it.isNotBlank() }
-    var hasVideoFinished by remember(normalizedVideoUrl, normalizedImageUrl) {
-        mutableStateOf(normalizedVideoUrl == null)
+    var hasVideoFinished by remember(normalizedVideoUrl, normalizedImageUrl, autoPlayVideo) {
+        mutableStateOf(!autoPlayVideo || normalizedVideoUrl == null)
     }
     val shouldShowVideo = normalizedVideoUrl != null && !hasVideoFinished
 
@@ -108,38 +111,45 @@ private fun ProfileImageAvatar(
         return
     }
 
-    SubcomposeAsyncImage(
-        model = ImageRequest.Builder(LocalContext.current)
+    val context = LocalContext.current
+    val imageRequest = remember(imageUrl) {
+        ImageRequest.Builder(context)
             .data(imageUrl)
-            .crossfade(true)
-            .build(),
-        contentDescription = "Profile image",
-        contentScale = ContentScale.Crop,
-        modifier = modifier,
-        loading = {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(18.dp),
-                    strokeWidth = 2.dp
-                )
+            .memoryCacheKey(imageUrl)
+            .diskCachePolicy(CachePolicy.ENABLED)
+            .memoryCachePolicy(CachePolicy.ENABLED)
+            .placeholderMemoryCacheKey(imageUrl)
+            .build()
+    }
+
+    var isLoading by remember(imageUrl) { mutableStateOf(true) }
+    var isError by remember(imageUrl) { mutableStateOf(false) }
+
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+        AsyncImage(
+            model = imageRequest,
+            contentDescription = "Profile image",
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize(),
+            onState = { state ->
+                isLoading = state is AsyncImagePainter.State.Loading
+                isError = state is AsyncImagePainter.State.Error
             }
-        },
-        error = {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.Person,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+        )
+
+        if (isError) {
+            Icon(
+                imageVector = Icons.Rounded.Person,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else if (isLoading) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(18.dp),
+                strokeWidth = 2.dp
+            )
         }
-    )
+    }
 }
 
 @androidx.annotation.OptIn(UnstableApi::class)
@@ -199,10 +209,6 @@ private fun ProfileVideoAutoPlayer(
                     player = exoPlayer
                 }
             },
-            update = { playerView ->
-                playerView.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-                playerView.player = exoPlayer
-            }
         )
 
         if (isBuffering) {

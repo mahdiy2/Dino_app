@@ -250,10 +250,11 @@ fun ChatScreen(
                         horizontalArrangement = Arrangement.Center
                     ) {
                         ProfileAvatarMedia(
-                            modifier = Modifier.size(36.dp),
-                            profileImageUrl = profileImageUrl,
-                            profileVideoUrl = profileVideoUrl
-                        )
+                           modifier = Modifier.size(36.dp),
+                           profileImageUrl = profileImageUrl,
+                            profileVideoUrl = profileVideoUrl,
+                            autoPlayVideo = true
+                       )
                         Spacer(Modifier.width(8.dp))
                         Column {
                             Text(

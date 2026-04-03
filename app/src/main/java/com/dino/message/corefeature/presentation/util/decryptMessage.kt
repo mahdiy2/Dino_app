@@ -18,10 +18,13 @@ fun decryptMessage(
     encryptedAESKey: String,
     privateKey: PrivateKey
 ): String {
-    return if (encryptedMessage.startsWith(V2_PREFIX) && encryptedAESKey.startsWith(V2_PREFIX)) {
+    val isMessageV2 = encryptedMessage.startsWith(V2_PREFIX)
+    val isKeyV2 = encryptedAESKey.startsWith(V2_PREFIX)
+
+    return if (isMessageV2 || isKeyV2) {
         decryptV2(
-            encryptedMessage = encryptedMessage.removePrefix(V2_PREFIX),
-            encryptedAESKey = encryptedAESKey.removePrefix(V2_PREFIX),
+            encryptedMessage = if (isMessageV2) encryptedMessage.removePrefix(V2_PREFIX) else encryptedMessage,
+            encryptedAESKey = if (isKeyV2) encryptedAESKey.removePrefix(V2_PREFIX) else encryptedAESKey,
             privateKey = privateKey
         )
     } else {

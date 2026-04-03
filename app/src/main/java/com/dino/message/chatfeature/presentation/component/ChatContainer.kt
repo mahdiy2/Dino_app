@@ -98,11 +98,14 @@ fun ChatContainer(
                     onLongClick = onLongClick,
                     indication = null,
                     interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-                )
+               )
         ) {
-            if (replySenderName != null && replyPreviewText != null) {
+            val hasReply = !replySenderName.isNullOrBlank() && replySenderName != "null" &&
+                    !replyPreviewText.isNullOrBlank() && replyPreviewText != "null"
+            if (hasReply) {
                 Row(
                    modifier = Modifier
+                       .fillMaxWidth()
                        .clip(RoundedCornerShape(8.dp))
                         .background(
                             if (sent)

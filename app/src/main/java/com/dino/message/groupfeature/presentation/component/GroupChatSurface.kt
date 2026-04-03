@@ -1,0 +1,87 @@
+package com.dino.message.groupfeature.presentation.component
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import com.dino.message.chatfeature.presentation.component.ChatContainer
+import com.dino.message.chatfeature.presentation.component.SwipeToReply
+import com.dino.message.corefeature.presentation.ui.theme.DPMedium
+import com.dino.message.corefeature.presentation.ui.theme.DPSmall
+import com.dino.message.groupfeature.domain.model.GroupMessageEntity
+
+@Composable
+fun GroupChatSurface(
+    modifier: Modifier = Modifier,
+    state: LazyListState = rememberLazyListState(),
+    items: List<GroupMessageEntity>,
+    currentUsername: String,
+    onAttachmentClick: ((GroupMessageEntity) -> Unit)? = null,
+    onMessageLongClick: ((GroupMessageEntity) -> Unit)? = null,
+    onSwipeToReply: ((GroupMessageEntity) -> Unit)? = null,
+) {
+    val itemCount = items.size
+    LaunchedEffect(itemCount) {
+        if (itemCount > 0 && state.firstVisibleItemIndex <= 1) {
+            state.animateScrollToItem(0)
+        }
+    }
+    LazyColumn(
+        modifier = modifier,
+        state = state,
+        reverseLayout = true,
+    ) {
+        items(items = items, key = { it.messageId }) { message ->
+            val isMine = message.sender == currentUsername
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = DPMedium, vertical = DPSmall),
+                horizontalAlignment = if (isMine) Alignment.End else Alignment.Start
+            ) {
+                if (!isMine) {
+                    Text(
+                        text = message.sender,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(start = DPSmall, bottom = DPSmall)
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = if (isMine) Arrangement.End else Arrangement.Start,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    SwipeToReply(
+                        onSwipe = { onSwipeToReply?.invoke(message) },
+                        enabled = onSwipeToReply != null
+                    ) {
+                        ChatContainer(
+                            text = message.content,
+                            sent = isMine,
+                            messageType = message.messageType,
+                            attachmentUrl = message.attachmentUrl,
+                            attachmentMimeType = message.attachmentMimeType,
+                            attachmentFileName = message.attachmentFileName,
+                            onAttachmentClick = { onAttachmentClick?.invoke(message) },
+                            onLongClick = { onMessageLongClick?.invoke(message) },
+                            replySenderName = message.replyToSender,
+                            replyPreviewText = message.replyPreview
+                        )
+                    }
+                }
+            }
+        }
+    }
+}

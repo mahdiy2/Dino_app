@@ -6,10 +6,13 @@ package com.dino.message.corefeature.data.db
  import androidx.sqlite.db.SupportSQLiteDatabase
  import com.dino.message.chatfeature.data.db.MessageDao
  import com.dino.message.chatfeature.domain.model.MessageEntity
+import com.dino.message.groupfeature.data.db.GroupMessageDao
+import com.dino.message.groupfeature.domain.model.GroupMessageEntity
 
- @Database(entities = [MessageEntity::class], version = 6)
+ @Database(entities = [MessageEntity::class, GroupMessageEntity::class], version = 7)
  abstract class MessageDatabase : RoomDatabase() {
      abstract fun messageDao(): MessageDao
+     abstract fun groupMessageDao(): GroupMessageDao
 
      companion object {
          val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -46,6 +49,31 @@ package com.dino.message.corefeature.data.db
                  db.execSQL("ALTER TABLE messages ADD COLUMN replyToMessageId TEXT")
                  db.execSQL("ALTER TABLE messages ADD COLUMN replyToSender TEXT")
                  db.execSQL("ALTER TABLE messages ADD COLUMN replyPreview TEXT")
+             }
+         }
+
+         val MIGRATION_6_7 = object : Migration(6, 7) {
+             override fun migrate(db: SupportSQLiteDatabase) {
+                 db.execSQL("""
+                     CREATE TABLE IF NOT EXISTS group_messages (
+                         id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                         messageId TEXT NOT NULL,
+                         groupId INTEGER NOT NULL,
+                         sender TEXT NOT NULL,
+                         content TEXT NOT NULL,
+                         timestamp TEXT NOT NULL,
+                         messageType TEXT NOT NULL DEFAULT 'text',
+                         attachmentType TEXT,
+                         attachmentUrl TEXT,
+                         attachmentMimeType TEXT,
+                         attachmentFileName TEXT,
+                         attachmentSizeBytes INTEGER,
+                         replyToMessageId TEXT,
+                         replyToSender TEXT,
+                         replyPreview TEXT
+                     )
+                 """.trimIndent())
+                 db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_group_messages_messageId ON group_messages (messageId)")
              }
          }
      }

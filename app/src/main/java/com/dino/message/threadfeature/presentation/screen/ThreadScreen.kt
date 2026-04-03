@@ -2,6 +2,7 @@ package com.dino.message.threadfeature.presentation.screen
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateIntOffsetAsState
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.clickable
@@ -16,6 +17,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -81,6 +86,7 @@ fun ThreadScreen() {
     val topBarHeight = 64.dp + statusBarTop
     val isLoadingMore by viewModel.isLoadingMore.collectAsState()
     val postsError by viewModel.error.collectAsState()
+    val density = LocalDensity.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val unreadCount by viewModel.unreadNotificationCount.collectAsState()
     var showProfileMenu by remember { mutableStateOf(false) }
@@ -96,6 +102,13 @@ fun ThreadScreen() {
             scrollingUp || currentIndex == 0
         }
     }
+
+    var topBarHeightPx by remember { mutableIntStateOf(0) }
+    val topBarOffsetY by animateIntOffsetAsState(
+        targetValue = if (isDockVisible) IntOffset.Zero
+        else IntOffset(0, -topBarHeightPx),
+        label = "topBarOffset"
+    )
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -205,11 +218,11 @@ fun ThreadScreen() {
                 }
             }
 
-            AnimatedVisibility(
-                visible = isDockVisible,
-                modifier = Modifier.align(Alignment.TopCenter),
-                enter = slideInVertically(initialOffsetY = { -it }),
-                exit = slideOutVertically(targetOffsetY = { -it })
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .offset { topBarOffsetY }
+                    .onGloballyPositioned { topBarHeightPx = it.size.height }
             ) {
                 CenterAlignedTopAppBar(
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
@@ -235,15 +248,16 @@ fun ThreadScreen() {
                     navigationIcon = {
                         Box {
                             ProfileAvatarMedia(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .combinedClickable(
-                                        onClick = viewModel::openUserProfile,
-                                        onLongClick = { showProfileMenu = true }
-                                    ),
-                                profileImageUrl = profile?.profile_image_url,
-                                profileVideoUrl = profile?.profile_video_url
-                            )
+                               modifier = Modifier
+                                   .size(40.dp)
+                                   .combinedClickable(
+                                       onClick = viewModel::openUserProfile,
+                                       onLongClick = { showProfileMenu = true }
+                                   ),
+                               profileImageUrl = profile?.profile_image_url,
+                                profileVideoUrl = profile?.profile_video_url,
+                                autoPlayVideo = true
+                           )
 
                             DropdownMenu(
                                 expanded = showProfileMenu,

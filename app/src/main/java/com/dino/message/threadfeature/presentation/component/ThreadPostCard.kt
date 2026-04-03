@@ -52,6 +52,8 @@ import com.dino.message.corefeature.presentation.util.getTimeAgo
 import com.dino.message.threadfeature.domain.model.Post
 import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
+import coil.request.CachePolicy
+import androidx.compose.runtime.remember
 
 @Composable
 fun ThreadPostCard(
@@ -105,10 +107,20 @@ fun ThreadPostCard(
                         imageUrl = post.author.profile_image_url,
                         modifier = Modifier.size(30.dp)
                     )
-                    Text(
-                        text = post.author.username,
-                        style = MaterialTheme.typography.labelLarge
-                    )
+                    Column {
+                        Text(
+                            text = post.author.name?.takeIf { it.isNotBlank() }
+                                ?: post.author.username,
+                            style = MaterialTheme.typography.labelLarge
+                        )
+                        if (!post.author.name.isNullOrBlank()) {
+                            Text(
+                                text = "@${post.author.username}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                 }
                 Text(
                     text = "${getTimeAgo(post.created_at)} ago",
@@ -216,6 +228,7 @@ private fun PostAuthorAvatar(
     modifier: Modifier = Modifier
 ) {
     val normalizedImageUrl = imageUrl?.takeIf { it.isNotBlank() }
+    val context = LocalContext.current
 
     Surface(
         modifier = modifier,
@@ -237,10 +250,15 @@ private fun PostAuthorAvatar(
         }
 
         SubcomposeAsyncImage(
-            model = ImageRequest.Builder(LocalContext.current)
-                .data(normalizedImageUrl)
-                .crossfade(true)
-                .build(),
+            model = remember(normalizedImageUrl) {
+                ImageRequest.Builder(context)
+                    .data(normalizedImageUrl)
+                    .crossfade(true)
+                    .memoryCacheKey(normalizedImageUrl)
+                    .diskCachePolicy(CachePolicy.ENABLED)
+                    .memoryCachePolicy(CachePolicy.ENABLED)
+                    .build()
+            },
             contentDescription = "Author avatar",
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize(),

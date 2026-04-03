@@ -36,8 +36,13 @@ class DinoOrderApplication: Application() {
                 "messages", "Messages",
                 NotificationManager.IMPORTANCE_HIGH
             )
+            val activityChannel = NotificationChannel(
+                "activity_notifications", "Activity Notifications",
+                NotificationManager.IMPORTANCE_DEFAULT
+            )
             val manager = getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(channel)
+            manager.createNotificationChannel(activityChannel)
         }
     }
 }

@@ -42,6 +42,7 @@ import com.dino.message.chatfeature.data.notification.ActiveChatTracker
 import com.dino.message.chatfeature.data.notification.NotificationHelper
 import java.util.ArrayDeque
 import com.dino.message.chatfeature.domain.util.MessageDeduplicator
+import com.dino.message.chatfeature.domain.repository.ChatRepository
 import javax.inject.Inject
 
 @HiltViewModel
@@ -54,6 +55,7 @@ class ChatViewModel @Inject constructor(
     private val clearMessageFromDBUseCase: ClearMessageFromDBUseCase,
     private val uploadAttachmentUseCase: UploadAttachmentUseCase,
     private val followUserUseCase: FollowUserUseCase,
+    private val chatRepository: ChatRepository,
     savedStateHandle: SavedStateHandle
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
@@ -118,6 +120,8 @@ class ChatViewModel @Inject constructor(
     private var hasSocketConnectionStarted = false
     private var socket: Socket? = null
     private val pendingOutgoingMessages = ArrayDeque<String>()
+
+    private val pendingSentMessages = ArrayDeque<MessageEntity>()
 
     private val deduplicator = MessageDeduplicator(app)
     private val messagesMutex = Mutex()
@@ -475,23 +479,21 @@ class ChatViewModel @Inject constructor(
             activeSocket.emit("send_message", payload)
 
             val currentUsername = getUsernameFromPrefs().orEmpty().ifBlank { "self" }
-            saveMessage(
-                MessageEntity(
-                    senderOrReceiver = currentUsername,
-                    chatId = chatId,
-                    content = caption ?: "",
-                    timestamp = getCurrentTimestamp(),
-                    messageType = attachment.type,
-                    attachmentType = attachment.type,
-                    attachmentUrl = attachment.url,
-                    attachmentMimeType = attachment.mimeType,
-                    attachmentFileName = attachment.fileName,
-                    attachmentSizeBytes = attachment.sizeBytes,
-                    replyToMessageId = replyTo?.messageId,
-                    replyToSender = replyTo?.senderOrReceiver,
-                    replyPreview = replyTo?.content?.take(100)
-                )
-            )
+            pendingSentMessages.addLast(MessageEntity(
+                senderOrReceiver = currentUsername,
+                chatId = chatId,
+                content = caption ?: "",
+                timestamp = "",
+                messageType = attachment.type,
+                attachmentType = attachment.type,
+                attachmentUrl = attachment.url,
+                attachmentMimeType = attachment.mimeType,
+                attachmentFileName = attachment.fileName,
+                attachmentSizeBytes = attachment.sizeBytes,
+                replyToMessageId = replyTo?.messageId,
+                replyToSender = replyTo?.senderOrReceiver,
+                replyPreview = replyTo?.content?.take(100)
+            ))
             _replyingTo.value = null
         } catch (e: Exception) {
             pushSocketDebugLog("Attachment send failed: ${e.message ?: "unknown error"}")
@@ -531,19 +533,19 @@ class ChatViewModel @Inject constructor(
             pushSocketDebugLog("Socket emit send_message to $chatId")
             activeSocket.emit("send_message", payload)
             Log.d("ChatViewModel", "sendMessage: emitted send_message to=$chatId, socketConnected=${activeSocket.connected()}")
-
+            
             val currentUsername = getUsernameFromPrefs().orEmpty().ifBlank { "self" }
-            saveMessage(
-                MessageEntity(
-                    senderOrReceiver = currentUsername,
-                    chatId = chatId,
-                    content = message,
-                    timestamp = getCurrentTimestamp(),
-                    replyToMessageId = replyTo?.messageId,
-                    replyToSender = replyTo?.senderOrReceiver,
-                    replyPreview = replyTo?.content?.take(100)
-                )
-            )
+            pendingSentMessages.addLast(MessageEntity(
+                senderOrReceiver = currentUsername,
+                chatId = chatId,
+                content = message,
+                timestamp = "",
+                messageType = "text",
+                replyToMessageId = replyTo?.messageId,
+                replyToSender = replyTo?.senderOrReceiver,
+                replyPreview = replyTo?.content?.take(100)
+            ))
+            
             _replyingTo.value = null
         } catch (e: Exception) {
             pushSocketDebugLog("Encryption/send failed: ${e.message ?: "unknown error"}")
@@ -741,9 +743,41 @@ class ChatViewModel @Inject constructor(
         createdSocket.on("message_sent") { args ->
             viewModelScope.launch {
                 val raw = extractPayloadArg(args, "message_sent")
-                val detail = raw?.toDebugString() ?: "no payload"
-                pushSocketDebugLog("✅ message_sent: $detail")
-                Log.d("ChatViewModel", "message_sent ack received: $detail")
+               val detail = raw?.toDebugString() ?: "no payload"
+               pushSocketDebugLog("✅ message_sent: $detail")
+               Log.d("ChatViewModel", "message_sent ack received: $detail")
+
+                val payload = raw as? JSONObject ?: return@launch
+                val to = payload.optString("to", "")
+                val serverTimestamp = payload.optString("timestamp", "")
+                val serverMessageId = payload.optString("message_id", "")
+                val type = payload.optString("type", "text")
+                
+                if (serverTimestamp.isNotBlank() && serverMessageId.isNotBlank() && to == chatId) {
+                    val pendingMsg = if (pendingSentMessages.isNotEmpty()) pendingSentMessages.removeFirst() else null
+                    
+                    if (pendingMsg != null) {
+                        val message = MessageEntity(
+                            messageId = serverMessageId,
+                            senderOrReceiver = pendingMsg.senderOrReceiver,
+                            chatId = pendingMsg.chatId,
+                            content = pendingMsg.content,
+                            timestamp = serverTimestamp,
+                            messageType = pendingMsg.messageType,
+                            attachmentType = pendingMsg.attachmentType,
+                            attachmentUrl = pendingMsg.attachmentUrl,
+                            attachmentMimeType = pendingMsg.attachmentMimeType,
+                            attachmentFileName = pendingMsg.attachmentFileName,
+                            attachmentSizeBytes = pendingMsg.attachmentSizeBytes,
+                            replyToMessageId = pendingMsg.replyToMessageId,
+                            replyToSender = pendingMsg.replyToSender,
+                            replyPreview = pendingMsg.replyPreview
+                        )
+                        saveMessageToDb(message)
+                        loadMessages()
+                        pushSocketDebugLog("Saved sent message with server timestamp")
+                    }
+                }
             }
         }
 
@@ -775,7 +809,7 @@ class ChatViewModel @Inject constructor(
 
         val encryptedMessage = payload.optString("message")
         val encryptedKey = payload.optString("encrypted_key")
-        val timestamp = payload.optString("timestamp").ifBlank { getCurrentTimestamp() }
+        val timestamp = payload.optString("timestamp", "")
         val type = payload.optString("type", "text")
         val attachmentObj = payload.optJSONObject("attachment")
         val replyToMessageId = payload.optString("reply_to_message_id", "").ifBlank { null }

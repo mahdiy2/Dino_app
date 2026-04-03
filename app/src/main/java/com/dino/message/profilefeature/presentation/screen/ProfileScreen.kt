@@ -141,10 +141,11 @@ fun ProfileScreen(username: String? = null) {
                                 horizontalArrangement = Arrangement.spacedBy(DPMedium)
                             ) {
                                 ProfileAvatarMedia(
-                                    modifier = Modifier.size(60.dp),
-                                    profileImageUrl = profile?.profile_image_url,
-                                    profileVideoUrl = profile?.profile_video_url
-                                )
+                                   modifier = Modifier.size(60.dp),
+                                   profileImageUrl = profile?.profile_image_url,
+                                    profileVideoUrl = profile?.profile_video_url,
+                                    autoPlayVideo = true
+                               )
 
                                 Column {
                                     Text(

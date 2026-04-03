@@ -19,9 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ArrowBackIosNew
-import androidx.compose.material.icons.rounded.ChevronLeft
-import androidx.compose.material.icons.rounded.ChevronRight
-import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.Group
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -58,7 +56,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
+import com.dino.message.corefeature.presentation.ui.theme.DPSmall
 import com.dino.message.errorfeature.presentation.screen.ErrorScreen
+import com.dino.message.mainpage.presentation.component.GroupListItem
 import com.dino.message.mainpage.presentation.component.MessageListItems
 import com.dino.message.mainpage.presentation.viewmodel.MainScreenViewModel
 import com.dino.message.nointernetfeature.presentation.screen.NoInternetScreen
@@ -85,7 +85,6 @@ fun MainScreen() {
 
     var toolbarExpanded by rememberSaveable { mutableStateOf(false) }
 
-    // Collect the StateFlows as Compose State
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val isLoadingMore by viewModel.isLoadingMore.collectAsState()
     val hasMore by viewModel.hasMore.collectAsState()
@@ -96,11 +95,10 @@ fun MainScreen() {
         toolbarExpanded = true
     }
 
-    // Monitor network status
     LaunchedEffect(Unit) {
         while (true) {
             isNoInternet = !viewModel.isConnected(context)
-            delay(2000) // Check every 2 seconds
+            delay(2000)
         }
     }
 
@@ -117,13 +115,6 @@ fun MainScreen() {
 
     isNoInternet = !viewModel.isConnected(context)
     Scaffold(
-//        bottomBar = {
-//            DinoOrderBottomAppBar(
-//                mutableUIEvent = viewModel.mutableUIEventFlow,
-//                currentItemLabelRes = R.string.home
-//            )
-//        },
-        
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
@@ -136,6 +127,19 @@ fun MainScreen() {
                     }
                 }
             )
+        },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = { viewModel.navigateToCreateGroupScreen() },
+                shape = CircleShape,
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Group,
+                    contentDescription = "Create Group"
+                )
+            }
         }
     ) { innerPadding ->
 
@@ -178,6 +182,42 @@ fun MainScreen() {
                             state = listState,
                             modifier = Modifier.fillMaxSize()
                         ) {
+                            if (viewModel.groupList.isNotEmpty()) {
+                                item {
+                                    Text(
+                                        text = "Groups",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(
+                                            start = DPMedium,
+                                            top = DPSmall,
+                                            bottom = DPSmall
+                                        )
+                                    )
+                                }
+                                items(viewModel.groupList) { group ->
+                                    GroupListItem(
+                                        groupName = group.name,
+                                        memberCount = group.memberCount,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        viewModel.navigateToGroupChatScreen(group)
+                                    }
+                                }
+                                item {
+                                    Text(
+                                        text = "Contacts",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(
+                                            start = DPMedium,
+                                            top = DPMedium,
+                                            bottom = DPSmall
+                                        )
+                                    )
+                                }
+                            }
+
                             items(
                                 viewModel.contactList
                             ) {
@@ -212,7 +252,6 @@ fun MainScreen() {
                             onDismissRequest = { viewModel.hideBottomSheet() },
                             sheetState = sheetState
                         ) {
-                            // Sheet content
                             Column(
                                 modifier = Modifier
                                     .fillMaxWidth(),
@@ -275,9 +314,3 @@ fun MainScreen() {
 
     }
 }
-
-
-
-
-
-

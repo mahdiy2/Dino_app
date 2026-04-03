@@ -25,6 +25,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
+import coil.request.CachePolicy
+import androidx.compose.runtime.remember
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPSmall
 import com.dino.message.searchfeature.domain.model.SearchUser
@@ -71,6 +73,7 @@ private fun UserAvatar(
     modifier: Modifier = Modifier
 ) {
     val normalizedUrl = imageUrl?.takeIf { it.isNotBlank() }
+    val context = LocalContext.current
 
     Surface(
         modifier = modifier,
@@ -92,10 +95,15 @@ private fun UserAvatar(
         }
 
         SubcomposeAsyncImage(
-            model = ImageRequest.Builder(LocalContext.current)
-                .data(normalizedUrl)
-                .crossfade(true)
-                .build(),
+            model = remember(normalizedUrl) {
+                ImageRequest.Builder(context)
+                    .data(normalizedUrl)
+                    .crossfade(true)
+                    .memoryCacheKey(normalizedUrl)
+                    .diskCachePolicy(CachePolicy.ENABLED)
+                    .memoryCachePolicy(CachePolicy.ENABLED)
+                    .build()
+            },
             contentDescription = "User avatar",
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize(),

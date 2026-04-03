@@ -90,6 +90,14 @@ class InAppNotificationManager(
         createdSocket.on("new_message") { args ->
             handleNewMessage(args)
         }
+
+        createdSocket.on("activity_notification") { args ->
+            handleActivityNotification(args)
+        }
+
+        createdSocket.on("pending_activity_notifications") { args ->
+            handlePendingActivityNotifications(args)
+        }
     }
 
     private fun handlePendingMessages(args: Array<out Any>) {
@@ -193,5 +201,86 @@ class InAppNotificationManager(
             }
         }
         return null
+    }
+
+    private fun handleActivityNotification(args: Array<out Any>) {
+        try {
+            val raw = extractPayloadArg(args)
+            val payload = when (raw) {
+                is JSONObject -> raw
+                is String -> try { JSONObject(raw) } catch (_: Exception) { null }
+                else -> null
+            } ?: return
+
+            val kind = payload.optString("kind", "")
+            val actorObj = payload.optJSONObject("actor")
+            val actorName = actorObj?.optString("name", null)
+                ?: actorObj?.optString("username", "Someone")
+                ?: "Someone"
+
+            val body = buildActivityNotificationBody(kind, actorName, payload)
+            val notifId = payload.optLong("id", System.currentTimeMillis()).toInt()
+            NotificationHelper.showActivityNotification(context, "Activity", body, notifId)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error handling activity_notification", e)
+        }
+    }
+
+    private fun handlePendingActivityNotifications(args: Array<out Any>) {
+        try {
+            val raw = extractPayloadArg(args)
+            val payload = when (raw) {
+                is JSONObject -> raw
+                is String -> try { JSONObject(raw) } catch (_: Exception) { null }
+                else -> null
+            } ?: return
+
+            val unreadCount = payload.optInt("unread_count", 0)
+            if (unreadCount <= 0) return
+
+            val notifications = payload.optJSONArray("notifications")
+            if (notifications != null && notifications.length() > 0) {
+                val first = notifications.optJSONObject(0)
+                if (first != null) {
+                    val kind = first.optString("kind", "")
+                    val actorObj = first.optJSONObject("actor")
+                    val actorName = actorObj?.optString("name", null)
+                        ?: actorObj?.optString("username", "Someone")
+                        ?: "Someone"
+
+                    val body = if (unreadCount == 1) {
+                        buildActivityNotificationBody(kind, actorName, first)
+                    } else {
+                        "You have $unreadCount new activity notifications"
+                    }
+                    NotificationHelper.showActivityNotification(context, "Activity", body)
+                }
+            } else {
+                NotificationHelper.showActivityNotification(
+                    context, "Activity",
+                    "You have $unreadCount new activity notifications"
+                )
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error handling pending_activity_notifications", e)
+        }
+    }
+
+    private fun buildActivityNotificationBody(kind: String, actorName: String, payload: JSONObject): String {
+        val extra = payload.optJSONObject("extra")
+        return when (kind) {
+            "follow" -> "$actorName started following you"
+            "unfollow" -> "$actorName unfollowed you"
+            "comment" -> {
+                val preview = extra?.optString("comment_preview", "") ?: ""
+                if (preview.isNotBlank()) "$actorName commented: $preview"
+                else "$actorName commented on your post"
+            }
+            "vote" -> {
+                val label = extra?.optString("vote_label", "voted") ?: "voted"
+                "$actorName ${label}d your post"
+            }
+            else -> "$actorName interacted with your content"
+        }
     }
 }

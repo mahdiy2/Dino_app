@@ -18,11 +18,16 @@ import com.dino.message.authfeature.data.remote.AuthAPIServiceImpl
 import com.dino.message.authfeature.data.repository.AuthRepositoryImpl
 import com.dino.message.authfeature.domain.repository.AuthRepository
 import com.dino.message.chatfeature.data.db.MessageDao
+import com.dino.message.groupfeature.data.db.GroupMessageDao
 import com.dino.message.chatfeature.data.remote.ChatApiService
 import com.dino.message.chatfeature.data.remote.ChatApiServiceImpl
 import com.dino.message.chatfeature.data.repository.ChatRepositoryImpl
 import com.dino.message.chatfeature.domain.repository.ChatRepository
 import com.dino.message.corefeature.data.db.MessageDatabase
+import com.dino.message.groupfeature.data.remote.GroupApiService
+import com.dino.message.groupfeature.data.remote.GroupApiServiceImpl
+import com.dino.message.groupfeature.data.repository.GroupRepositoryImpl
+import com.dino.message.groupfeature.domain.repository.GroupRepository
 import com.dino.message.corefeature.data.remote.util.HttpAPIUtil
 import com.dino.message.corefeature.data.spref.DataStoreUtil
 import com.dino.message.corefeature.data.spref.SPrefManager
@@ -319,7 +324,8 @@ object AppModule {
                  MessageDatabase.MIGRATION_2_3,
                  MessageDatabase.MIGRATION_3_4,
                  MessageDatabase.MIGRATION_4_5,
-                 MessageDatabase.MIGRATION_5_6
+                 MessageDatabase.MIGRATION_5_6,
+                 MessageDatabase.MIGRATION_6_7
              )
              .build()
      }
@@ -329,4 +335,31 @@ object AppModule {
     fun provideMessageDao(database: MessageDatabase): MessageDao {
         return database.messageDao()
     }
+
+    @Provides
+    @Singleton
+    fun provideGroupMessageDao(database: MessageDatabase): GroupMessageDao {
+        return database.groupMessageDao()
+    }
+
+    @Singleton
+    @Provides
+    fun provideGroupApiService(
+        httpClient: HttpClient,
+        sPrefManager: SPrefManager,
+        httpAPIUtil: HttpAPIUtil,
+        @ApplicationContext context: Context,
+    ): GroupApiService = GroupApiServiceImpl(
+        httpClient = httpClient,
+        sPrefManager = sPrefManager,
+        httpAPIUtil = httpAPIUtil,
+        appContext = context,
+    )
+
+    @Singleton
+    @Provides
+    fun provideGroupRepository(
+        groupApiService: GroupApiService,
+        groupMessageDao: GroupMessageDao,
+    ): GroupRepository = GroupRepositoryImpl(groupApiService, groupMessageDao)
 }

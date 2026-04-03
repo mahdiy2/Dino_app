@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
 import com.dino.message.chatfeature.data.worker.UnreadPollingScheduler
+import com.dino.message.activitynotificationfeature.data.worker.ActivityPollingScheduler
 import androidx.lifecycle.viewModelScope
 import com.dino.message.DinoOrderApplication
 import com.dino.message.corefeature.data.spref.SPrefManager
@@ -221,6 +222,7 @@ class ProfileScreenViewModel @Inject constructor(
 
     fun logout(){
         UnreadPollingScheduler.cancel(getApplication<DinoOrderApplication>())
+        ActivityPollingScheduler.cancel(getApplication<DinoOrderApplication>())
         getApplication<DinoOrderApplication>()
             .inAppNotificationManager
             .disconnect()

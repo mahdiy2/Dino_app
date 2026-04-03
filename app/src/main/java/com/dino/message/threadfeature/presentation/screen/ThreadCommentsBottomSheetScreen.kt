@@ -294,10 +294,17 @@ private fun CommentItem(
                 modifier = Modifier.padding(DPMedium)
             ) {
                 Text(
-                    text = "${comment.author.username} • score ${comment.score}",
+                    text = "${comment.author.name?.takeIf { it.isNotBlank() } ?: comment.author.username} • score ${comment.score}",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurface
                 )
+                if (!comment.author.name.isNullOrBlank()) {
+                    Text(
+                        text = "@${comment.author.username}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = comment.text,

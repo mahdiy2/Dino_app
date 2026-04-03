@@ -5,6 +5,7 @@ import android.util.Base64
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
 import com.dino.message.chatfeature.data.worker.UnreadPollingScheduler
+import com.dino.message.activitynotificationfeature.data.worker.ActivityPollingScheduler
 import androidx.lifecycle.viewModelScope
 import com.dino.message.DinoOrderApplication
 import com.dino.message.authfeature.domain.usecase.LoginUseCase
@@ -70,6 +71,7 @@ class LoginScreenViewModel @Inject constructor(
                     sPrefManager.setToken(data.data.accessToken)
                     sPrefManager.setRefreshToken(data.data.refreshToken)
                     UnreadPollingScheduler.schedule(getApplication<DinoOrderApplication>())
+                    ActivityPollingScheduler.schedule(getApplication<DinoOrderApplication>())
                     getApplication<DinoOrderApplication>()
                         .inAppNotificationManager
                         .connect(data.data.accessToken)

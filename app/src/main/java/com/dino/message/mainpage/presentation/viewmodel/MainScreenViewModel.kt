@@ -17,11 +17,15 @@ import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
+import com.dino.message.groupfeature.domain.model.Group
+import com.dino.message.groupfeature.domain.usecase.ListGroupsUseCase
 import com.dino.message.mainpage.domain.model.MessageList
 import com.dino.message.mainpage.domain.usecase.AddContactUseCase
 import com.dino.message.mainpage.domain.usecase.GetContactsUseCase
 import com.dino.message.mainpage.domain.usecase.GetDetailedContactsUseCase
 import com.ramcosta.composedestinations.generated.destinations.ChatScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.CreateGroupScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.GroupChatScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.ProfileScreenDestination
 import io.socket.client.IO
 import io.socket.client.Socket
@@ -38,6 +42,7 @@ class MainScreenViewModel @Inject constructor(
     private val addContactUseCase: AddContactUseCase,
     private val getContactsUseCase: GetContactsUseCase,
     private val getDetailedContactsUseCase: GetDetailedContactsUseCase,
+    private val listGroupsUseCase: ListGroupsUseCase,
     private val spref: SPrefManager,
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
@@ -57,6 +62,9 @@ class MainScreenViewModel @Inject constructor(
 
     private var _contactList = mutableStateListOf<MessageList?>(null)
     val contactList = _contactList
+
+    private var _groupList = mutableStateListOf<Group>()
+    val groupList: List<Group> get() = _groupList
 
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
@@ -79,11 +87,13 @@ class MainScreenViewModel @Inject constructor(
 
     init {
         getDetailedContacts(page = 1, isRefresh = true)
+        loadGroups()
         connectSocket()
     }
 
     fun refresh() {
         getDetailedContacts(page = 1, isRefresh = true)
+        loadGroups()
     }
 
     fun loadNextPage() {
@@ -160,6 +170,21 @@ class MainScreenViewModel @Inject constructor(
                     isGettingContacts = false
                     _isLoadingMore.value = false
                     showRefreshing()
+                }
+            }
+        }
+    }
+
+    private fun loadGroups() = viewModelScope.launch {
+        listGroupsUseCase.execute().collect { res ->
+            when (res) {
+                is Resource.Success -> {
+                    _groupList.clear()
+                    _groupList.addAll(res.data)
+                }
+                is Resource.Loading -> { }
+                is Resource.Error -> {
+                    Log.e(TAG, "Failed to load groups")
                 }
             }
         }
@@ -262,6 +287,20 @@ class MainScreenViewModel @Inject constructor(
                 displayName = contact?.displayName,
                 profileImageUrl = contact?.profileImageUrl,
                 profileVideoUrl = contact?.profileVideoUrl
+            ),
+            viewModelScope
+        )
+    }
+
+    fun navigateToCreateGroupScreen() {
+        navigateToDestination(CreateGroupScreenDestination, viewModelScope)
+    }
+
+    fun navigateToGroupChatScreen(group: Group) {
+        navigateToDestination(
+            GroupChatScreenDestination(
+                groupId = group.id,
+                groupName = group.name,
             ),
             viewModelScope
         )

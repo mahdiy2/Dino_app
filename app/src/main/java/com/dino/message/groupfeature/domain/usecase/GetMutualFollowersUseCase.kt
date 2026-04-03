@@ -1,0 +1,16 @@
+package com.dino.message.groupfeature.domain.usecase
+
+import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.groupfeature.domain.model.MutualFollowersPage
+import com.dino.message.groupfeature.domain.repository.GroupRepository
+import kotlinx.coroutines.flow.flow
+import javax.inject.Inject
+
+class GetMutualFollowersUseCase @Inject constructor(
+    private val repository: GroupRepository,
+) {
+    fun execute(page: Int = 1, limit: Int = 50) = flow<Resource<MutualFollowersPage>> {
+        emit(Resource.Loading())
+        emit(repository.getMutualFollowers(page, limit))
+    }
+}

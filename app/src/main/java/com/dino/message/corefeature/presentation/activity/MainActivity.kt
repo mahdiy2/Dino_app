@@ -27,6 +27,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.ramcosta.composedestinations.DestinationsNavHost
 import com.ramcosta.composedestinations.generated.destinations.ChatScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.ActivityNotificationScreenDestination
 import com.dino.message.chatfeature.data.notification.NotificationHelper
 import com.dino.message.corefeature.data.spref.SPrefManager
 import dagger.hilt.android.AndroidEntryPoint
@@ -127,12 +128,14 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         handleNotificationDeepLink(intent)
+        handleActivityNotificationDeepLink(intent)
     }
 
     override fun onResume() {
         super.onResume()
         connectNotificationSocket()
         handleNotificationDeepLink(intent)
+        handleActivityNotificationDeepLink(intent)
     }
 
     override fun onDestroy() {
@@ -171,6 +174,27 @@ class MainActivity : ComponentActivity() {
                     }
                 } catch (e: Exception) {
                     Log.e("MainActivity", "Failed to navigate to chat: $chatUsername", e)
+                }
+            }
+        }
+    }
+
+    private fun handleActivityNotificationDeepLink(intent: Intent?) {
+        val openActivity = intent?.getBooleanExtra("open_activity_notifications", false) ?: false
+        if (!openActivity) return
+
+        intent?.removeExtra("open_activity_notifications")
+
+        lifecycleScope.launch {
+            delay(300)
+            val nav = navController
+            if (nav != null) {
+                try {
+                    nav.navigate(ActivityNotificationScreenDestination.route) {
+                        launchSingleTop = true
+                    }
+                } catch (e: Exception) {
+                    Log.e("MainActivity", "Failed to navigate to activity notifications", e)
                 }
             }
         }
