@@ -9,7 +9,7 @@ package com.dino.message.corefeature.data.db
 import com.dino.message.groupfeature.data.db.GroupMessageDao
 import com.dino.message.groupfeature.domain.model.GroupMessageEntity
 
- @Database(entities = [MessageEntity::class, GroupMessageEntity::class], version = 7)
+ @Database(entities = [MessageEntity::class, GroupMessageEntity::class], version = 8)
  abstract class MessageDatabase : RoomDatabase() {
      abstract fun messageDao(): MessageDao
      abstract fun groupMessageDao(): GroupMessageDao
@@ -74,6 +74,13 @@ import com.dino.message.groupfeature.domain.model.GroupMessageEntity
                      )
                  """.trimIndent())
                  db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_group_messages_messageId ON group_messages (messageId)")
+             }
+         }
+
+         val MIGRATION_7_8 = object : Migration(7, 8) {
+             override fun migrate(db: SupportSQLiteDatabase) {
+                 db.execSQL("ALTER TABLE messages ADD COLUMN isSeen INTEGER NOT NULL DEFAULT 0")
+                 db.execSQL("ALTER TABLE group_messages ADD COLUMN isSeen INTEGER NOT NULL DEFAULT 0")
              }
          }
      }

@@ -12,6 +12,7 @@ import com.dino.message.corefeature.presentation.util.PopBackStackLevel
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.ramcosta.composedestinations.generated.destinations.MainScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.PrivateKeyAlertScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.RegisterScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.ThreadScreenDestination
 import javax.inject.Inject
@@ -30,6 +31,12 @@ HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
         if (userLogIn){
             navigateWithPopBackStackToDestination(
                 direction = ThreadScreenDestination,
+                scope = viewModelScope,
+                level = PopBackStackLevel.ALL
+            )
+        } else if (sPrefManager.hasPendingRegistration()) {
+            navigateWithPopBackStackToDestination(
+                direction = PrivateKeyAlertScreenDestination,
                 scope = viewModelScope,
                 level = PopBackStackLevel.ALL
             )

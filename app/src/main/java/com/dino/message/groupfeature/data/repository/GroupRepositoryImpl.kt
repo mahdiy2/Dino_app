@@ -3,6 +3,7 @@ package com.dino.message.groupfeature.data.repository
 import android.net.Uri
 import com.dino.message.chatfeature.data.remote.dto.MessageAttachment
 import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.groupfeature.domain.model.AddGroupMembersResult
  import com.dino.message.groupfeature.data.remote.GroupApiService
  import com.dino.message.groupfeature.domain.model.Group
 import com.dino.message.groupfeature.domain.model.GroupMessageEntity
@@ -18,6 +19,11 @@ import com.dino.message.groupfeature.data.db.GroupMessageDao
 
     override suspend fun createGroup(name: String, members: List<String>): Resource<Group> =
         apiService.createGroup(name, members)
+
+    override suspend fun addGroupMembers(
+        groupId: Int,
+        usernames: List<String>,
+    ): Resource<AddGroupMembersResult> = apiService.addGroupMembers(groupId, usernames)
 
     override suspend fun listGroups(): Resource<List<Group>> =
         apiService.listGroups()
@@ -39,4 +45,10 @@ import com.dino.message.groupfeature.data.db.GroupMessageDao
 
     override suspend fun clearGroupMessages(groupId: Int) =
         groupMessageDao.deleteMessagesByGroupId(groupId)
+
+    override suspend fun deleteGroupMessageByMessageId(messageId: String) =
+        groupMessageDao.deleteMessageByMessageId(messageId)
+
+    override suspend fun markGroupMessageSeenByMessageId(messageId: String) =
+        groupMessageDao.markMessageSeenByMessageId(messageId)
  }

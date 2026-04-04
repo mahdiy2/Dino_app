@@ -21,12 +21,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.remember
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -42,21 +43,27 @@ import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.ramcosta.composedestinations.annotation.Destination
 import com.ramcosta.composedestinations.annotation.RootGraph
-import com.ramcosta.composedestinations.bottomsheet.spec.DestinationStyleBottomSheet
 
-@Destination<RootGraph>(style = DestinationStyleBottomSheet::class)
+@Destination<RootGraph>
 @Composable
 fun PrivateKeyAlertScreen() {
     val viewModel: PrivateKeyAlertScreenViewModel = hiltViewModel()
     val clipboardManager = LocalClipboardManager.current
-    var privateKey by remember { mutableStateOf(viewModel.getPrivateKey()) }
+    val confirmErrorMessage by viewModel.confirmErrorMessage
+    val isConfirmLoading by viewModel.confirmLoadingState
+    var privateKey by remember { mutableStateOf(viewModel.getPendingPrivateKey()) }
     var hasCopied by rememberSaveable { mutableStateOf(false) }
     var showFullKey by rememberSaveable { mutableStateOf(false) }
+
+    BackHandler(enabled = true) {
+        // Block back navigation so the user cannot bypass key backup confirmation.
+    }
 
     LazyColumn(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = DPMedium, horizontal = DPExtraLarge)
+            .windowInsetsPadding(WindowInsets.statusBars)
     ) {
 
         item {
@@ -93,7 +100,7 @@ fun PrivateKeyAlertScreen() {
 
             if (privateKey.isNullOrEmpty()) {
                 Text(
-                    text = "Not found. An error has occurred.",
+                    text = "Private key not found. Please restart registration.",
                     color = MaterialTheme.colorScheme.error
                 )
 
@@ -101,10 +108,18 @@ fun PrivateKeyAlertScreen() {
 
                 FilledTonalButton(
                     onClick = {
-                        privateKey = viewModel.getPrivateKey()
+                        privateKey = viewModel.getPendingPrivateKey()
                     }
                 ) {
                     Text("Try again!")
+                }
+
+                Spacer(Modifier.size(DPMedium))
+
+                TextButton(
+                    onClick = { viewModel.navigateToRegisterScreenAndResetPending() }
+                ) {
+                    Text("Back to Register")
                 }
             } else {
                 FilledTonalButton(
@@ -140,6 +155,15 @@ fun PrivateKeyAlertScreen() {
                     }
                 }
             }
+
+            if (!confirmErrorMessage.isNullOrBlank()) {
+                Spacer(Modifier.size(DPMedium))
+                Text(
+                    text = confirmErrorMessage.orEmpty(),
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
         }
 
         item {
@@ -156,22 +180,24 @@ fun PrivateKeyAlertScreen() {
                 FloatingActionButton(
                     shape = CircleShape,
                     containerColor = if (isSystemInDarkTheme())
-                        if (hasCopied || privateKey.isNullOrEmpty()) MaterialTheme.colorScheme.primaryContainer
+                        if (hasCopied && !privateKey.isNullOrEmpty()) MaterialTheme.colorScheme.primaryContainer
                         else MaterialTheme.colorScheme.surfaceVariant
                     else
-                        if (hasCopied || privateKey.isNullOrEmpty()) Color.Black
+                        if (hasCopied && !privateKey.isNullOrEmpty()) Color.Black
                         else Color.Gray,
-                    contentColor = if (hasCopied || privateKey.isNullOrEmpty()) Color.White else Color.LightGray,
+                    contentColor = if (hasCopied && !privateKey.isNullOrEmpty()) Color.White else Color.LightGray,
                     onClick = {
-                        if (hasCopied || privateKey.isNullOrEmpty()) {
-                            viewModel.navigateToLoginScreen()
-                        }
+                        viewModel.onContinueClicked(hasCopied = hasCopied)
                     }
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.KeyboardArrowRight,
-                        contentDescription = "Go to Login",
-                    )
+                    if (isConfirmLoading) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.KeyboardArrowRight,
+                            contentDescription = "Confirm Registration",
+                        )
+                    }
 
                 }
             }

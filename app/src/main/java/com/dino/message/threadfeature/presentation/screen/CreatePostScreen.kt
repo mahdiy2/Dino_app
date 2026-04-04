@@ -1,6 +1,8 @@
 package com.dino.message.threadfeature.presentation.screen
 
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
@@ -18,7 +20,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.ArrowBackIosNew
 import androidx.compose.material.icons.rounded.AttachFile
 import androidx.compose.material.icons.rounded.Close
@@ -37,15 +38,18 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
-import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.dp
 import com.dino.message.corefeature.presentation.util.rememberLayoutDirection
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.dino.message.chatfeature.presentation.component.MediaAccessLevel
+import com.dino.message.chatfeature.presentation.component.MediaPermissionHandler
 import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPSmall
@@ -64,6 +68,7 @@ fun CreatePostScreen() {
     val isSubmitting by viewModel.isSubmitting.collectAsState()
     val error by viewModel.error.collectAsState()
     val selectedMedia = viewModel.selectedMedia
+    val context = LocalContext.current
     val previewMedia = selectedMedia.map {
         PostMedia(
             id = it.id,
@@ -74,9 +79,27 @@ fun CreatePostScreen() {
 
     val canSubmit = viewModel.postDraft.value.trim().isNotEmpty()
     val mediaPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenMultipleDocuments()
+        contract = ActivityResultContracts.PickMultipleVisualMedia(
+            CreatePostViewModel.MAX_MEDIA_FILES_PER_POST
+        )
     ) { uris ->
         viewModel.onMediaPicked(uris)
+    }
+    val mediaPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val accessLevel = MediaPermissionHandler.resolveAccessLevel(permissions)
+        if (accessLevel == MediaAccessLevel.DENIED) {
+            Toast.makeText(
+                context,
+                "Media access is required to select photos and videos",
+                Toast.LENGTH_SHORT
+            ).show()
+        } else {
+            mediaPickerLauncher.launch(
+                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)
+            )
+        }
     }
 
     Scaffold(
@@ -239,7 +262,16 @@ fun CreatePostScreen() {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 FilledTonalButton(
-                    onClick = { mediaPickerLauncher.launch(arrayOf("image/*", "video/*")) },
+                    onClick = {
+                        val currentAccess = MediaPermissionHandler.checkAccessLevel(context)
+                        if (currentAccess != MediaAccessLevel.DENIED) {
+                            mediaPickerLauncher.launch(
+                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)
+                            )
+                        } else {
+                            mediaPermissionLauncher.launch(MediaPermissionHandler.getRequiredPermissions())
+                        }
+                    },
                     enabled = !isSubmitting && selectedMedia.size < CreatePostViewModel.MAX_MEDIA_FILES_PER_POST
                 ) {
                     Icon(

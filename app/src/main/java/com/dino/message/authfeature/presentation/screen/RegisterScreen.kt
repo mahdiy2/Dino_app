@@ -22,6 +22,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -44,6 +45,9 @@ import com.ramcosta.composedestinations.annotation.RootGraph
 fun RegisterScreen() {
 
     val viewModel: RegisterScreenViewModel = hiltViewModel()
+    val registerErrorMessage by viewModel.registerErrorMessage
+    val minUsernameLength = 7
+    val minPasswordLength = 10
 
     Scaffold { innerPadding ->
         Box(
@@ -85,8 +89,16 @@ fun RegisterScreen() {
                         shape = MaterialTheme.shapes.extraLarge,
                         value = viewModel.userName.value,
                         onValueChange = { viewModel.userName.value = it },
+                        isError = viewModel.userName.value.isNotEmpty() &&
+                            viewModel.userName.value.length < minUsernameLength,
                         placeholder = {
                             Text("Username")
+                        },
+                        supportingText = {
+                            Text(
+                                text = "Minimum $minUsernameLength characters " +
+                                    "(${viewModel.userName.value.length}/$minUsernameLength)"
+                            )
                         },
                         maxLines = 1
                     )
@@ -108,8 +120,16 @@ fun RegisterScreen() {
                         shape = MaterialTheme.shapes.extraLarge,
                         value = viewModel.password.value,
                         onValueChange = { viewModel.password.value = it },
+                        isError = viewModel.password.value.isNotEmpty() &&
+                            viewModel.password.value.length < minPasswordLength,
                         placeholder = {
                             Text("Password")
+                        },
+                        supportingText = {
+                            Text(
+                                text = "Minimum $minPasswordLength characters " +
+                                    "(${viewModel.password.value.length}/$minPasswordLength)"
+                            )
                         },
                         maxLines = 1
                     )
@@ -117,9 +137,12 @@ fun RegisterScreen() {
                     AnimatedVisibility(
                         modifier = Modifier
                             .align(Alignment.CenterHorizontally),
-                        visible = (viewModel.userName.value.length > 6 && viewModel.password.value.length > 9)
+                        visible = (
+                            viewModel.userName.value.length >= minUsernameLength &&
+                                viewModel.password.value.length >= minPasswordLength
+                            )
                     ) {
-                        Column{
+                        Column {
                             Spacer(
                                 Modifier.size(DPExtraLarge)
                             )
@@ -142,6 +165,15 @@ fun RegisterScreen() {
                                         contentDescription = "Register",
                                     )
                                 }
+                            }
+
+                            if (!registerErrorMessage.isNullOrBlank()) {
+                                Spacer(Modifier.size(DPMedium))
+                                Text(
+                                    text = registerErrorMessage.orEmpty(),
+                                    color = MaterialTheme.colorScheme.error,
+                                    style = MaterialTheme.typography.bodySmall
+                                )
                             }
                         }
                     }

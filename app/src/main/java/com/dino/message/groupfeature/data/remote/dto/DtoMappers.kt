@@ -14,6 +14,7 @@ fun GroupDto.toDomain(): Group = Group(
         profileImageUrl = creator.profileImageUrl,
     ),
     memberCount = memberCount,
+    hasUnread = hasUnread,
     createdAt = createdAt,
     members = members?.map {
         GroupMember(

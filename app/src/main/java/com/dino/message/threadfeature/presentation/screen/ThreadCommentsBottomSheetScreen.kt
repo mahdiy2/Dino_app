@@ -61,7 +61,7 @@ import com.dino.message.corefeature.presentation.activity.theme.DividerColor
 import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPSmall
-import com.dino.message.corefeature.presentation.util.getTimeAgo
+import com.dino.message.corefeature.presentation.util.getRelativeTimeLabel
 import com.dino.message.threadfeature.domain.model.Comment
 import com.dino.message.threadfeature.presentation.component.VoteIconButton
 import com.dino.message.threadfeature.presentation.viewmodel.ThreadCommentsViewModel
@@ -313,7 +313,7 @@ private fun CommentItem(
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = comment.created_at,
+                    text = getRelativeTimeLabel(comment.created_at),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

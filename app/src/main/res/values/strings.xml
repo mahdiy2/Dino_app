@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name" translatable="false">Sec Message</string>
+    <string name="app_name" translatable="false">Dino Social(beta)</string>
     <string name="and">and</string>
     <string name="english" translatable="false">English (انگلیسی)</string>
     <string name="farsi" translatable="false">Farsi (فارسی)</string>
@@ -31,7 +31,7 @@
     <string name="error_not_found">Not found</string>
     <string name="error_conflict">Conflict</string>
     <string name="internal_server_error">Internal server error</string>
-    <string name="error_payload_too_large">File is too large to upload. Please choose a smaller file.</string>
+    <string name="error_payload_too_large" translatable="false">File is too large to upload. Please choose a smaller file.</string>
     <string name="error_with_http_status_code">Error with HTTP status code %d</string>
     <string name="error_connecting_to_the_server">Error connecting to the server</string>
     <string name="error_request_timed_out">Request timed out</string>
@@ -50,4 +50,5 @@
     <string name="follow_required_message">You need to follow this user before you can chat with them. Would you like to follow?</string>
     <string name="follow">Follow</string>
     <string name="cancel">Cancel</string>
+    <string name="built_in_war">Built in war!</string>
 </resources>

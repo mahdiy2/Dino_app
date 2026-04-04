@@ -3,6 +3,7 @@ package com.dino.message.searchfeature.data.remote
 import com.dino.message.corefeature.data.remote.HaveRefreshTokenAPI
 import com.dino.message.corefeature.data.remote.HaveRefreshTokenAPIImpl
 import com.dino.message.corefeature.data.remote.util.HttpAPIUtil
+import com.dino.message.corefeature.data.remote.util.appendTokenToHeader
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.searchfeature.data.remote.dto.SearchAllResponse
@@ -47,10 +48,10 @@ class SearchApiServiceImpl @Inject constructor(
             callAPI = {
                 httpClient.get(SearchRoute.SearchPosts(query = query, page = page, limit = limit).url) {
                     contentType(ContentType.Application.Json)
+                    appendTokenToHeader(sPrefManager.getToken())
                 }
             },
-            callRefreshTokenAPI = this::getToken,
-            needToUpdateToken = false
+            callRefreshTokenAPI = this::getToken
         )
 
     override suspend fun searchAll(
@@ -62,9 +63,9 @@ class SearchApiServiceImpl @Inject constructor(
             callAPI = {
                 httpClient.get(SearchRoute.SearchAll(query = query, page = page, limit = limit).url) {
                     contentType(ContentType.Application.Json)
+                    appendTokenToHeader(sPrefManager.getToken())
                 }
             },
-            callRefreshTokenAPI = this::getToken,
-            needToUpdateToken = false
+            callRefreshTokenAPI = this::getToken
         )
 }

@@ -84,6 +84,8 @@ class SearchViewModel @Inject constructor(
         if (currentQuery.isBlank()) {
             _users.clear()
             _posts.clear()
+            postVoteByPost.clear()
+            postErrorByPost.clear()
             _error.value = null
             return
         }
@@ -107,6 +109,8 @@ class SearchViewModel @Inject constructor(
                     _users.clear()
                     _users.addAll(res.data.users)
                     _posts.clear()
+                    postVoteByPost.clear()
+                    postErrorByPost.clear()
                     _error.value = null
                     _isLoading.value = false
                 }
@@ -127,6 +131,9 @@ class SearchViewModel @Inject constructor(
                 is Resource.Success -> {
                     _posts.clear()
                     _posts.addAll(res.data.posts)
+                    postVoteByPost.clear()
+                    postErrorByPost.clear()
+                    seedVotesFromPosts(res.data.posts)
                     _users.clear()
                     _error.value = null
                     _isLoading.value = false
@@ -150,6 +157,9 @@ class SearchViewModel @Inject constructor(
                     _users.addAll(res.data.users)
                     _posts.clear()
                     _posts.addAll(res.data.posts)
+                    postVoteByPost.clear()
+                    postErrorByPost.clear()
+                    seedVotesFromPosts(res.data.posts)
                     _error.value = null
                     _isLoading.value = false
                 }
@@ -194,6 +204,12 @@ class SearchViewModel @Inject constructor(
                     postErrorByPost[postId] = res.message.asString(getApplication())
                 }
             }
+        }
+    }
+
+    private fun seedVotesFromPosts(posts: List<Post>) {
+        posts.forEach { post ->
+            postVoteByPost[post.id] = post.viewerVote
         }
     }
 

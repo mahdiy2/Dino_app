@@ -93,10 +93,10 @@ class ThreadApiServiceImpl @Inject constructor(
             callAPI = {
                 httpClient.get(ThreadRoute.GetPosts(page = page, limit = limit).url) {
                     contentType(ContentType.Application.Json)
+                    appendTokenToHeader(sPrefManager.getToken())
                 }
             },
-            callRefreshTokenAPI = this::getToken,
-            needToUpdateToken = false
+            callRefreshTokenAPI = this::getToken
         )
 
     override suspend fun getComments(

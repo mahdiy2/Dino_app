@@ -107,7 +107,20 @@ fun ActivityNotificationScreen() {
                         items = viewModel.notifications,
                         key = { it.id }
                     ) { notification ->
-                        ActivityNotificationItem(notification = notification)
+                        ActivityNotificationItem(
+                            notification = notification,
+                            showFollowBackButton = viewModel.shouldShowFollowBack(notification),
+                            isFollowBackLoading = viewModel.isFollowBackLoading(notification.actor.username),
+                            onOpenProfile = viewModel::openUserProfile,
+                            onFollowBackClick = { viewModel.followBack(notification.actor.username) },
+                            showReplyButton = viewModel.canReply(notification),
+                            isReplyComposerVisible = viewModel.isReplyComposerVisible(notification.id),
+                            replyDraft = viewModel.replyDraft(notification.id),
+                            isReplySending = viewModel.isReplySending(notification.id),
+                            onToggleReplyComposer = { viewModel.toggleReplyComposer(notification.id) },
+                            onReplyDraftChanged = { viewModel.onReplyDraftChanged(notification.id, it) },
+                            onSendReply = { viewModel.submitReply(notification) }
+                        )
                         HorizontalDivider(thickness = 0.5.dp)
                     }
 

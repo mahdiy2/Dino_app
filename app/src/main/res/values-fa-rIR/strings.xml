@@ -46,5 +46,6 @@
     <string name="follow_required_message">برای چت با این کاربر باید ابتدا او را فالو کنید. آیا می‌خواهید فالو کنید؟</string>
     <string name="follow">فالو</string>
     <string name="cancel">لغو</string>
+    <string name="built_in_war">Built in war!</string>
 
 </resources>

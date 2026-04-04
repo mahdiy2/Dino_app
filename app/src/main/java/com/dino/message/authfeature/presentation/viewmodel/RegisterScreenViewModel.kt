@@ -16,6 +16,7 @@ import com.ramcosta.composedestinations.generated.destinations.PrivateKeyAlertSc
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.launch
+import java.util.UUID
 import javax.inject.Inject
 
 @HiltViewModel
@@ -23,56 +24,93 @@ class RegisterScreenViewModel @Inject constructor(
     @ApplicationContext app: Context,
     private val registerUseCase: RegisterUseCase,
     private val sPrefManager: SPrefManager,
-    ) : AndroidViewModel(app as DinoOrderApplication),
+) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
 
     val userName = mutableStateOf("")
     val password = mutableStateOf("")
 
     val registerLoadingState = mutableStateOf(false)
+    val registerErrorMessage = mutableStateOf<String?>(null)
 
+    init {
+        if (sPrefManager.hasPendingRegistration()) {
+            navigateToPrivateKeyAlert()
+        }
+    }
 
-    private fun register(username: String, pass: String, publicKey: String) = viewModelScope.launch {
+    private fun register(
+        username: String,
+        pass: String,
+        publicKey: String,
+        clientNonce: String
+    ) = viewModelScope.launch {
         registerUseCase.execute(
             username,
             pass,
-            publicKey
+            publicKey,
+            clientNonce
         ).collect { res ->
-            when(res){
+            when (res) {
                 is Resource.Success -> {
                     registerLoadingState.value = false
+                    registerErrorMessage.value = null
+                    sPrefManager.savePendingRegistrationId(res.data.registrationId)
+                    val expiresAt =
+                        System.currentTimeMillis() + (res.data.expiresInSeconds * 1000L)
+                    sPrefManager.savePendingRegistrationExpiresAt(expiresAt)
                     navigateToPrivateKeyAlert()
                 }
                 is Resource.Loading -> {
                     registerLoadingState.value = true
-
                 }
                 is Resource.Error -> {
                     registerLoadingState.value = false
+                    registerErrorMessage.value =
+                        res.message.asString(getApplication<DinoOrderApplication>())
                 }
             }
         }
     }
 
 
-    fun onClickBtnRegister(){
+    fun onClickBtnRegister() {
+        if (registerLoadingState.value) return
+        registerErrorMessage.value = null
+
+        val trimmedUsername = userName.value.trim()
+        val rawPassword = password.value
+
         val keyPair = RSAUtil.generateKeyPair()
         val publicKeyBase64 = RSAUtil.getPublicKeyBase64(keyPair.public)
         val privateKeyBase64 = RSAUtil.getPrivateKeyBase64(keyPair.private)
-        sPrefManager.savePublicKey(publicKeyBase64)
-        sPrefManager.savePrivateKey(privateKeyBase64)
+        val clientNonce = UUID.randomUUID().toString()
+
+        sPrefManager.clearPendingRegistration()
+        sPrefManager.savePendingPrivateKey(privateKeyBase64)
+        sPrefManager.savePendingPublicKey(publicKeyBase64)
+        sPrefManager.savePendingRegistrationUsername(trimmedUsername)
+        sPrefManager.savePendingRegistrationNonce(clientNonce)
+
         register(
-            userName.value,
-            password.value,
-            publicKeyBase64
+            trimmedUsername,
+            rawPassword,
+            publicKeyBase64,
+            clientNonce
         )
     }
 
-    fun navigateToLoginScreen(){
+    fun navigateToLoginScreen() {
+        if (sPrefManager.hasPendingRegistration()) {
+            registerErrorMessage.value =
+                "You must finish private key backup before going to login."
+            navigateToPrivateKeyAlert()
+            return
+        }
         navigateToDestination(LoginScreenDestination, viewModelScope)
     }
 
-    fun navigateToPrivateKeyAlert(){
+    fun navigateToPrivateKeyAlert() {
         navigateToDestination(PrivateKeyAlertScreenDestination, viewModelScope)
     }
 }

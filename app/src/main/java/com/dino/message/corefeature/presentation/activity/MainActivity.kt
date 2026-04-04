@@ -28,6 +28,7 @@ import androidx.navigation.compose.rememberNavController
 import com.ramcosta.composedestinations.DestinationsNavHost
 import com.ramcosta.composedestinations.generated.destinations.ChatScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.ActivityNotificationScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.GroupChatScreenDestination
 import com.dino.message.chatfeature.data.notification.NotificationHelper
 import com.dino.message.corefeature.data.spref.SPrefManager
 import dagger.hilt.android.AndroidEntryPoint
@@ -128,6 +129,7 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         handleNotificationDeepLink(intent)
+        handleGroupNotificationDeepLink(intent)
         handleActivityNotificationDeepLink(intent)
     }
 
@@ -135,6 +137,7 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         connectNotificationSocket()
         handleNotificationDeepLink(intent)
+        handleGroupNotificationDeepLink(intent)
         handleActivityNotificationDeepLink(intent)
     }
 
@@ -196,6 +199,50 @@ class MainActivity : ComponentActivity() {
                 } catch (e: Exception) {
                     Log.e("MainActivity", "Failed to navigate to activity notifications", e)
                 }
+            }
+        }
+    }
+
+    private fun handleGroupNotificationDeepLink(intent: Intent?) {
+        val safeIntent = intent ?: return
+        val data = safeIntent.data
+        val deepLinkGroupId = data?.lastPathSegment?.toIntOrNull() ?: -1
+        val deepLinkGroupName = data?.getQueryParameter("name")
+
+        val groupId = if (deepLinkGroupId > 0) {
+            deepLinkGroupId
+        } else {
+            safeIntent.getIntExtra("open_group_id", -1)
+        }
+        if (groupId <= 0) return
+
+        val groupName = deepLinkGroupName ?: safeIntent.getStringExtra("open_group_name")
+        safeIntent.removeExtra("open_group_id")
+        safeIntent.removeExtra("open_group_name")
+        NotificationHelper.clearNotificationForGroup(this, groupId)
+
+        val nav = navController
+        if (nav != null && safeIntent.data != null) {
+            val handledByDeepLink = nav.handleDeepLink(safeIntent)
+            if (handledByDeepLink) {
+                safeIntent.data = null
+                return
+            }
+        }
+
+        lifecycleScope.launch {
+            delay(300)
+            val fallbackNav = navController ?: return@launch
+            try {
+                val direction = GroupChatScreenDestination(
+                    groupId = groupId,
+                    groupName = groupName
+                )
+                fallbackNav.navigate(direction.route) {
+                    launchSingleTop = true
+                }
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Failed to navigate to group: $groupId", e)
             }
         }
     }

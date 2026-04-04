@@ -1,9 +1,0 @@
-Now the profile screen should display the profile image, and if it’s loading, it should show a loading indicator.
-
-There’s another condition I want: if the user has a profile video, then when the profile screen opens, it should automatically play and display that video first. After the profile video finishes, it should then show the profile image.
-
-While the video is playing, the profile image should already be loading in the background so that as soon as the video ends, the image can be displayed immediately without delay.
-
-Also, check the posts. I’m not sure whether the profile image is currently shown inside the post card. If it’s not and some placeholder icon is being shown instead, fix that.
-
-Finally, remove the refresh button from the profile screen and replace it with pull-to-refresh behavior, similar to the Threads app.

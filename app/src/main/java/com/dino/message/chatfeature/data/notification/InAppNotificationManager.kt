@@ -16,9 +16,10 @@ class InAppNotificationManager(
 
     private var socket: Socket? = null
     private var isConnected = false
+    private var isConnecting = false
 
     fun connect(token: String) {
-        if (isConnected && socket?.connected() == true) {
+        if ((isConnected || isConnecting) && socket != null) {
             Log.d(TAG, "Already connected, skipping")
             return
         }
@@ -50,9 +51,11 @@ class InAppNotificationManager(
             val createdSocket = IO.socket(baseUrl, opts)
             registerListeners(createdSocket)
             socket = createdSocket
+            isConnecting = true
             createdSocket.connect()
             Log.d(TAG, "Socket connecting to $baseUrl")
         } catch (e: Exception) {
+            isConnecting = false
             Log.e(TAG, "Failed to create socket", e)
         }
     }
@@ -62,20 +65,25 @@ class InAppNotificationManager(
         socket?.disconnect()
         socket = null
         isConnected = false
+        isConnecting = false
     }
 
     private fun registerListeners(createdSocket: Socket) {
         createdSocket.on(Socket.EVENT_CONNECT) {
             isConnected = true
+            isConnecting = false
             Log.d(TAG, "Socket connected for notifications")
         }
 
         createdSocket.on(Socket.EVENT_DISCONNECT) {
             isConnected = false
+            isConnecting = false
             Log.d(TAG, "Socket disconnected")
         }
 
         createdSocket.on(Socket.EVENT_CONNECT_ERROR) { args ->
+            isConnected = false
+            isConnecting = false
             Log.w(TAG, "Socket connect error: ${args.firstOrNull()}")
         }
 
@@ -89,6 +97,10 @@ class InAppNotificationManager(
 
         createdSocket.on("new_message") { args ->
             handleNewMessage(args)
+        }
+
+        createdSocket.on("pending_group_messages") { args ->
+            handlePendingGroupMessages(args)
         }
 
         createdSocket.on("activity_notification") { args ->
@@ -144,6 +156,22 @@ class InAppNotificationManager(
             val sender = payload.optString("from", "")
             if (sender.isBlank()) return
 
+            val groupId = payload.optInt("group_id", -1)
+            if (groupId > 0) {
+                if (ActiveGroupTracker.isViewingGroup(groupId)) return
+
+                val groupName = payload.optString("group_name", "Group Chat")
+                val type = payload.optString("type", "text")
+                val body = buildGroupNotificationBody(sender, type)
+                NotificationHelper.showGroupMessageNotification(
+                    context = context,
+                    groupId = groupId,
+                    groupName = groupName,
+                    body = body
+                )
+                return
+            }
+
             if (ActiveChatTracker.isChattingWith(sender)) return
 
             val type = payload.optString("type", "text")
@@ -187,6 +215,17 @@ class InAppNotificationManager(
         }
     }
 
+    private fun buildGroupNotificationBody(sender: String, type: String): String {
+        return when (type) {
+            "image" -> "$sender sent an image"
+            "video" -> "$sender sent a video"
+            "voice" -> "$sender sent a voice message"
+            "file" -> "$sender sent a file"
+            "mixed" -> "$sender sent a message with attachment"
+            else -> "$sender sent a message"
+        }
+    }
+
     private fun extractPayloadArg(args: Array<out Any>): Any? {
         for (arg in args) {
             when (arg) {
@@ -223,6 +262,43 @@ class InAppNotificationManager(
             NotificationHelper.showActivityNotification(context, "Activity", body, notifId)
         } catch (e: Exception) {
             Log.e(TAG, "Error handling activity_notification", e)
+        }
+    }
+
+    private fun handlePendingGroupMessages(args: Array<out Any>) {
+        try {
+            val raw = extractPayloadArg(args)
+            val payload = when (raw) {
+                is JSONObject -> raw
+                is String -> try { JSONObject(raw) } catch (_: Exception) { null }
+                else -> null
+            } ?: return
+
+            val groupId = payload.optInt("group_id", -1)
+            if (groupId <= 0) return
+            if (ActiveGroupTracker.isViewingGroup(groupId)) return
+
+            val groupName = payload.optString("group_name", "Group Chat")
+            val messages = payload.optJSONArray("messages") ?: return
+            if (messages.length() <= 0) return
+
+            val latest = messages.optJSONObject(messages.length() - 1)
+            val sender = latest?.optString("from", "Someone") ?: "Someone"
+            val type = latest?.optString("type", "text") ?: "text"
+            val body = if (messages.length() > 1) {
+                "${messages.length()} new messages"
+            } else {
+                buildGroupNotificationBody(sender, type)
+            }
+
+            NotificationHelper.showGroupMessageNotification(
+                context = context,
+                groupId = groupId,
+                groupName = groupName,
+                body = body
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Error handling pending_group_messages", e)
         }
     }
 

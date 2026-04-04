@@ -199,6 +199,7 @@ fun MainScreen() {
                                     GroupListItem(
                                         groupName = group.name,
                                         memberCount = group.memberCount,
+                                        newMessage = group.hasUnread,
                                         modifier = Modifier.fillMaxWidth()
                                     ) {
                                         viewModel.navigateToGroupChatScreen(group)

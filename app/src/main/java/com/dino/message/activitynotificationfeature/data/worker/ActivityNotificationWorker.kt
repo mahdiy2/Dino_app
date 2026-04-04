@@ -9,6 +9,7 @@ import com.dino.message.BuildConfig
 import com.dino.message.activitynotificationfeature.data.remote.ActivityNotificationRoute
 import com.dino.message.activitynotificationfeature.data.remote.dto.GetActivityNotificationsResponse
 import com.dino.message.chatfeature.data.notification.NotificationHelper
+import com.dino.message.corefeature.data.background.NotificationDedupStore
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.engine.cio.CIO
@@ -28,6 +29,7 @@ class ActivityNotificationWorker(
 
     override suspend fun doWork(): Result {
         val token = getJwtToken() ?: return Result.success()
+        val dedupStore = NotificationDedupStore(applicationContext)
 
         val client = HttpClient(CIO) {
             defaultRequest { url(BuildConfig.BASE_URL) }
@@ -45,7 +47,7 @@ class ActivityNotificationWorker(
             }.body()
 
             if (response.total > 0 && response.notifications.isNotEmpty()) {
-                showNotifications(response)
+                showNotifications(response, dedupStore)
             }
             client.close()
             Result.success()
@@ -55,7 +57,13 @@ class ActivityNotificationWorker(
         }
     }
 
-    private fun showNotifications(response: GetActivityNotificationsResponse) {
+    private fun showNotifications(
+        response: GetActivityNotificationsResponse,
+        dedupStore: NotificationDedupStore
+    ) {
+        val latestId = response.notifications.maxOfOrNull { it.id } ?: return
+        if (!dedupStore.shouldNotifyActivity(latestId)) return
+
         val count = response.total
         val first = response.notifications.first()
         val actorName = first.actor.name ?: first.actor.username
@@ -67,6 +75,7 @@ class ActivityNotificationWorker(
         }
 
         NotificationHelper.showActivityNotification(applicationContext, "Activity", body)
+        dedupStore.markActivityNotified(latestId)
     }
 
     private fun buildActivityBody(

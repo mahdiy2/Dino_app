@@ -10,6 +10,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.dino.message.BuildConfig
 import com.dino.message.DinoOrderApplication
+import com.dino.message.chatfeature.domain.model.MessageDeliveryStatus
 import com.dino.message.chatfeature.domain.model.MessageEntity
 import com.dino.message.chatfeature.domain.usecase.ClearMessageFromDBUseCase
 import com.dino.message.chatfeature.domain.usecase.GetMessageFromDBUseCase
@@ -29,12 +30,14 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.socket.client.IO
 import io.socket.client.Socket
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URISyntaxException
@@ -43,6 +46,7 @@ import com.dino.message.chatfeature.data.notification.NotificationHelper
 import java.util.ArrayDeque
 import com.dino.message.chatfeature.domain.util.MessageDeduplicator
 import com.dino.message.chatfeature.domain.repository.ChatRepository
+import com.ramcosta.composedestinations.generated.destinations.PrivateKeyResetDialogScreenDestination
 import javax.inject.Inject
 
 @HiltViewModel
@@ -66,6 +70,9 @@ class ChatViewModel @Inject constructor(
 
     private val _messages = MutableStateFlow<List<MessageEntity>>(emptyList())
     val messages: StateFlow<List<MessageEntity>> = _messages.asStateFlow()
+
+    private val _messageDeliveryStatuses = MutableStateFlow<Map<String, MessageDeliveryStatus>>(emptyMap())
+    val messageDeliveryStatuses: StateFlow<Map<String, MessageDeliveryStatus>> = _messageDeliveryStatuses.asStateFlow()
 
     private val _socketDebugEvents = MutableStateFlow<List<String>>(emptyList())
     val socketDebugEvents: StateFlow<List<String>> = _socketDebugEvents.asStateFlow()
@@ -120,6 +127,7 @@ class ChatViewModel @Inject constructor(
     private var hasSocketConnectionStarted = false
     private var socket: Socket? = null
     private val pendingOutgoingMessages = ArrayDeque<String>()
+    private val currentUsername: String = spref.getUsername().orEmpty().ifBlank { "self" }
 
     private val pendingSentMessages = ArrayDeque<MessageEntity>()
 
@@ -206,6 +214,9 @@ class ChatViewModel @Inject constructor(
         messagesMutex.withLock {
             getMessageFromDBUseCase.execute(chatId).collect { dbMessages ->
                 _messages.value = dbMessages
+                syncOutgoingStatuses(dbMessages)
+                requestSeenStatuses(dbMessages)
+                requestDeletedStatuses(dbMessages)
             }
         }
     }
@@ -230,18 +241,90 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    private fun getUsernameFromPrefs(): String? = spref.getUsername()
-
-    private fun getCurrentTimestamp(): String =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val now = java.time.Instant.now().atZone(java.time.ZoneOffset.UTC)
-            now.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSS'Z'"))
-        } else {
-            TODO("VERSION.SDK_INT < O")
+    private fun syncOutgoingStatuses(dbMessages: List<MessageEntity>) {
+        if (dbMessages.isEmpty()) return
+        val updated = _messageDeliveryStatuses.value.toMutableMap()
+        dbMessages.forEach { message ->
+            val messageId = message.messageId
+            if (!messageId.isNullOrBlank() && message.senderOrReceiver != chatId) {
+                updated[messageId] = if (message.isSeen) {
+                    MessageDeliveryStatus.SEEN
+                } else {
+                    MessageDeliveryStatus.SENT
+                }
+            }
         }
+        _messageDeliveryStatuses.value = updated
+    }
+
+    private fun markMessageAsSent(messageId: String?) {
+        if (messageId.isNullOrBlank()) return
+        val updated = _messageDeliveryStatuses.value.toMutableMap()
+        updated.putIfAbsent(messageId, MessageDeliveryStatus.SENT)
+        _messageDeliveryStatuses.value = updated
+    }
+
+    private suspend fun markMessageAsSeen(messageId: String?) {
+        if (messageId.isNullOrBlank()) return
+        chatRepository.markMessageSeenByMessageId(messageId)
+        val updated = _messageDeliveryStatuses.value.toMutableMap()
+        updated[messageId] = MessageDeliveryStatus.SEEN
+        _messageDeliveryStatuses.value = updated
+    }
+
+    private fun clearMessageStatus(messageId: String?) {
+        if (messageId.isNullOrBlank()) return
+        val updated = _messageDeliveryStatuses.value.toMutableMap()
+        updated.remove(messageId)
+        _messageDeliveryStatuses.value = updated
+    }
+
+    private fun requestSeenStatuses(messages: List<MessageEntity> = _messages.value) {
+        val activeSocket = socket ?: return
+        if (!activeSocket.connected()) return
+
+        val pendingIds = messages
+            .asSequence()
+            .filter { it.senderOrReceiver != chatId }
+            .filter { !it.isSeen }
+            .mapNotNull { it.messageId?.takeIf { id -> id.isNotBlank() } }
+            .distinct()
+            .toList()
+        if (pendingIds.isEmpty()) return
+
+        activeSocket.emit(
+            "get_seen_messages",
+            JSONObject().apply {
+                put("chat_id", chatId)
+                put("message_ids", JSONArray(pendingIds))
+            }
+        )
+    }
+
+    private fun requestDeletedStatuses(messages: List<MessageEntity> = _messages.value) {
+        val activeSocket = socket ?: return
+        if (!activeSocket.connected()) return
+
+        val existingIds = messages
+            .mapNotNull { it.messageId?.takeIf { id -> id.isNotBlank() } }
+            .distinct()
+        if (existingIds.isEmpty()) return
+
+        activeSocket.emit(
+            "get_deleted_messages",
+            JSONObject().apply {
+                put("chat_id", chatId)
+                put("message_ids", JSONArray(existingIds))
+            }
+        )
+    }
 
     fun navigateUp() {
         navigateUp(viewModelScope)
+    }
+
+    fun openPrivateKeyResetDialog() {
+        navigateToDestination(PrivateKeyResetDialogScreenDestination, viewModelScope)
     }
 
     fun retryLoadPublicKey() {
@@ -332,6 +415,45 @@ class ChatViewModel @Inject constructor(
 
     fun clearReplyingTo() {
         _replyingTo.value = null
+    }
+
+    private suspend fun deleteMessageLocally(message: MessageEntity) {
+        if (!message.messageId.isNullOrBlank()) {
+            chatRepository.deleteMessageByMessageId(message.messageId)
+            clearMessageStatus(message.messageId)
+        } else {
+            chatRepository.deleteMessageByLocalId(message.id)
+        }
+        loadMessages()
+    }
+
+    fun deleteMessageOnlyForMe(message: MessageEntity) = viewModelScope.launch {
+        deleteMessageLocally(message)
+    }
+
+    fun deleteMessageForEveryone(message: MessageEntity) = viewModelScope.launch {
+        deleteMessageLocally(message)
+
+        val messageId = message.messageId
+        if (messageId.isNullOrBlank()) {
+            return@launch
+        }
+
+        val activeSocket = socket
+        if (activeSocket == null || !activeSocket.connected()) {
+            connectSocketIfNeeded(forceReconnect = true)
+            _socketError.value = "Unable to delete for everyone while disconnected."
+            return@launch
+        }
+
+        activeSocket.emit(
+            "delete_message",
+            JSONObject().apply {
+                put("chat_id", chatId)
+                put("message_id", messageId)
+            }
+        )
+        pushSocketDebugLog("Requested delete_message for $messageId")
     }
 
     fun retrySocketConnection() {
@@ -478,7 +600,6 @@ class ChatViewModel @Inject constructor(
             pushSocketDebugLog("Socket emit send_message (${attachment.type}) to $chatId")
             activeSocket.emit("send_message", payload)
 
-            val currentUsername = getUsernameFromPrefs().orEmpty().ifBlank { "self" }
             pendingSentMessages.addLast(MessageEntity(
                 senderOrReceiver = currentUsername,
                 chatId = chatId,
@@ -534,7 +655,6 @@ class ChatViewModel @Inject constructor(
             activeSocket.emit("send_message", payload)
             Log.d("ChatViewModel", "sendMessage: emitted send_message to=$chatId, socketConnected=${activeSocket.connected()}")
             
-            val currentUsername = getUsernameFromPrefs().orEmpty().ifBlank { "self" }
             pendingSentMessages.addLast(MessageEntity(
                 senderOrReceiver = currentUsername,
                 chatId = chatId,
@@ -621,6 +741,8 @@ class ChatViewModel @Inject constructor(
                 pushSocketDebugLog("Socket connected")
                 requestPeerStatus()
                 flushPendingOutgoingMessages()
+                requestSeenStatuses()
+                requestDeletedStatuses()
             }
         }
 
@@ -687,19 +809,22 @@ class ChatViewModel @Inject constructor(
                     return@launch
                 }
                 pushSocketDebugLog("Received ${messages.length()} pending message(s)")
-                val ackedIds = mutableListOf<String>()
-                repeat(messages.length()) { index ->
-                    val item = messages.optJSONObject(index) ?: return@repeat
-                    val msgId = item.optString("message_id", "")
-                    if (msgId.isNotBlank() && deduplicator.isDuplicate(msgId)) {
-                        pushSocketDebugLog("Skipping duplicate pending message $msgId")
-                        ackedIds.add(msgId)
-                        return@repeat
+                val ackedIds = withContext(Dispatchers.Default) {
+                    val processedIds = mutableListOf<String>()
+                    repeat(messages.length()) { index ->
+                        val item = messages.optJSONObject(index) ?: return@repeat
+                        val msgId = item.optString("message_id", "")
+                        if (msgId.isNotBlank() && deduplicator.isDuplicate(msgId)) {
+                            pushSocketDebugLog("Skipping duplicate pending message $msgId")
+                            processedIds.add(msgId)
+                            return@repeat
+                        }
+                        handleIncomingMessage(item)
+                        if (msgId.isNotBlank()) {
+                            processedIds.add(msgId)
+                        }
                     }
-                    handleIncomingMessage(item)
-                    if (msgId.isNotBlank()) {
-                        ackedIds.add(msgId)
-                    }
+                    processedIds
                 }
                 loadMessages()
                 if (ackedIds.isNotEmpty()) {
@@ -732,7 +857,9 @@ class ChatViewModel @Inject constructor(
                     return@launch
                 }
                 pushSocketDebugLog("Received live message from ${payload.optString("from")}")
-                handleIncomingMessage(payload)
+                withContext(Dispatchers.Default) {
+                    handleIncomingMessage(payload)
+                }
                 loadMessages()
                 if (msgId.isNotBlank()) {
                     sendAck(listOf(msgId))
@@ -751,9 +878,8 @@ class ChatViewModel @Inject constructor(
                 val to = payload.optString("to", "")
                 val serverTimestamp = payload.optString("timestamp", "")
                 val serverMessageId = payload.optString("message_id", "")
-                val type = payload.optString("type", "text")
                 
-                if (serverTimestamp.isNotBlank() && serverMessageId.isNotBlank() && to == chatId) {
+                if (serverMessageId.isNotBlank() && to == chatId) {
                     val pendingMsg = if (pendingSentMessages.isNotEmpty()) pendingSentMessages.removeFirst() else null
                     
                     if (pendingMsg != null) {
@@ -775,7 +901,34 @@ class ChatViewModel @Inject constructor(
                         )
                         saveMessageToDb(message)
                         loadMessages()
-                        pushSocketDebugLog("Saved sent message with server timestamp")
+                        markMessageAsSent(serverMessageId)
+                        pushSocketDebugLog("Saved sent message")
+                    }
+                }
+            }
+        }
+
+        createdSocket.on("message_seen") { args ->
+            viewModelScope.launch {
+                val payload = parseSocketPayload(args, "message_seen") ?: return@launch
+                val targetChat = payload.optString("chat_id", "")
+                val messageId = payload.optString("message_id", "")
+                if (targetChat != chatId || messageId.isBlank()) return@launch
+
+                markMessageAsSeen(messageId)
+                pushSocketDebugLog("👀 message_seen: $messageId by ${payload.optString("seen_by", "peer")}")
+            }
+        }
+
+        createdSocket.on("seen_messages_status") { args ->
+            viewModelScope.launch {
+                val payload = parseSocketPayload(args, "seen_messages_status") ?: return@launch
+                if (payload.optString("chat_id", "") != chatId) return@launch
+                val messageIds = payload.optJSONArray("message_ids") ?: return@launch
+                for (index in 0 until messageIds.length()) {
+                    val messageId = messageIds.optString(index, "").trim()
+                    if (messageId.isNotBlank()) {
+                        markMessageAsSeen(messageId)
                     }
                 }
             }
@@ -790,6 +943,33 @@ class ChatViewModel @Inject constructor(
             }
         }
 
+        createdSocket.on("message_deleted") { args ->
+            viewModelScope.launch {
+                val payload = parseSocketPayload(args, "message_deleted") ?: return@launch
+                val messageId = payload.optString("message_id", "").ifBlank { return@launch }
+                chatRepository.deleteMessageByMessageId(messageId)
+                clearMessageStatus(messageId)
+                loadMessages()
+                pushSocketDebugLog("🗑️ message_deleted: $messageId")
+            }
+        }
+
+        createdSocket.on("deleted_messages_status") { args ->
+            viewModelScope.launch {
+                val payload = parseSocketPayload(args, "deleted_messages_status") ?: return@launch
+                if (payload.optString("chat_id", "") != chatId) return@launch
+                val messageIds = payload.optJSONArray("message_ids") ?: return@launch
+                for (index in 0 until messageIds.length()) {
+                    val messageId = messageIds.optString(index, "").trim()
+                    if (messageId.isNotBlank()) {
+                        chatRepository.deleteMessageByMessageId(messageId)
+                        clearMessageStatus(messageId)
+                    }
+                }
+                loadMessages()
+            }
+        }
+
         createdSocket.on("user_status") { args ->
             viewModelScope.launch {
                 val payload = extractPayloadArg(args, "user_status") as? JSONObject ?: return@launch
@@ -799,6 +979,17 @@ class ChatViewModel @Inject constructor(
                     _isPeerOnline.value = online
                     pushSocketDebugLog("Peer status: $chatId is ${if (online) "online" else "offline"}")
                 }
+            }
+        }
+
+        createdSocket.on("user_public_key_updated") { args ->
+            viewModelScope.launch {
+                val payload = parseSocketPayload(args, "user_public_key_updated") ?: return@launch
+                val updatedUsername = payload.optString("username", "")
+                if (updatedUsername != chatId) return@launch
+
+                pushSocketDebugLog("Peer key updated. Refreshing public key...")
+                getReceiverPublicKey()
             }
         }
     }
@@ -951,6 +1142,15 @@ class ChatViewModel @Inject constructor(
     private fun Any.toDebugString(): String = when (this) {
         is JSONObject -> toString()
         else -> toString()
+    }
+
+    private fun parseSocketPayload(args: Array<out Any>, eventName: String): JSONObject? {
+        val raw = extractPayloadArg(args, eventName) ?: return null
+        return when (raw) {
+            is JSONObject -> raw
+            is String -> runCatching { JSONObject(raw) }.getOrNull()
+            else -> null
+        }
     }
 
     /**

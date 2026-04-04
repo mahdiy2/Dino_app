@@ -6,7 +6,6 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
 import com.dino.message.chatfeature.data.worker.UnreadPollingScheduler
-import com.dino.message.activitynotificationfeature.data.worker.ActivityPollingScheduler
 import androidx.lifecycle.viewModelScope
 import com.dino.message.DinoOrderApplication
 import com.dino.message.corefeature.data.spref.SPrefManager
@@ -90,6 +89,8 @@ class ProfileScreenViewModel @Inject constructor(
     }
 
     fun refresh() {
+        postVoteByPost.clear()
+        postErrorByPost.clear()
         loadProfile()
         loadPosts()
         loadFollowStatus()
@@ -132,6 +133,7 @@ class ProfileScreenViewModel @Inject constructor(
                 is Resource.Success -> {
                     posts.clear()
                     posts.addAll(res.data.posts)
+                    seedVotesFromPosts(res.data.posts)
                     _isPostsLoading.value = false
                 }
 
@@ -222,7 +224,6 @@ class ProfileScreenViewModel @Inject constructor(
 
     fun logout(){
         UnreadPollingScheduler.cancel(getApplication<DinoOrderApplication>())
-        ActivityPollingScheduler.cancel(getApplication<DinoOrderApplication>())
         getApplication<DinoOrderApplication>()
             .inAppNotificationManager
             .disconnect()
@@ -281,6 +282,12 @@ class ProfileScreenViewModel @Inject constructor(
                     postErrorByPost[postId] = res.message.asString(getApplication())
                 }
             }
+        }
+    }
+
+    private fun seedVotesFromPosts(posts: List<Post>) {
+        posts.forEach { post ->
+            postVoteByPost[post.id] = post.viewerVote
         }
     }
 

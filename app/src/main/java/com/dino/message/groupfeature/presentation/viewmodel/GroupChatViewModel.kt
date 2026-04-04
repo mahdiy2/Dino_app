@@ -8,6 +8,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.dino.message.BuildConfig
 import com.dino.message.DinoOrderApplication
+import com.dino.message.chatfeature.domain.model.MessageDeliveryStatus
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.presentation.util.CryptoUtil
 import com.dino.message.corefeature.presentation.util.Resource
@@ -16,23 +17,32 @@ import com.dino.message.corefeature.presentation.util.decodePublicKey
 import com.dino.message.corefeature.presentation.util.decryptMessage
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
+import com.dino.message.chatfeature.data.notification.ActiveGroupTracker
+import com.dino.message.chatfeature.data.notification.NotificationHelper
 import com.dino.message.groupfeature.domain.model.GroupMessageEntity
+import com.dino.message.groupfeature.domain.model.Group
+import com.dino.message.groupfeature.domain.repository.GroupRepository
 import com.dino.message.groupfeature.domain.usecase.GetGroupDetailUseCase
 import com.dino.message.groupfeature.domain.usecase.UploadGroupAttachmentUseCase
 import com.dino.message.groupfeature.domain.usecase.SaveGroupMessageUseCase
 import com.dino.message.groupfeature.domain.usecase.GetGroupMessagesFromDbUseCase
+import com.ramcosta.composedestinations.generated.destinations.GroupMembersScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.PrivateKeyResetDialogScreenDestination
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.socket.client.IO
 import io.socket.client.Socket
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import org.json.JSONArray
 import java.net.URISyntaxException
 import java.security.PublicKey
+import java.util.Collections
 import javax.inject.Inject
 
 @HiltViewModel
@@ -43,6 +53,7 @@ class GroupChatViewModel @Inject constructor(
     private val uploadGroupAttachmentUseCase: UploadGroupAttachmentUseCase,
     private val saveGroupMessageUseCase: SaveGroupMessageUseCase,
     private val getGroupMessagesFromDbUseCase: GetGroupMessagesFromDbUseCase,
+    private val groupRepository: GroupRepository,
     savedStateHandle: SavedStateHandle,
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
@@ -59,6 +70,9 @@ class GroupChatViewModel @Inject constructor(
     private val _messages = MutableStateFlow<List<GroupMessageEntity>>(emptyList())
     val messages: StateFlow<List<GroupMessageEntity>> = _messages.asStateFlow()
 
+    private val _messageDeliveryStatuses = MutableStateFlow<Map<String, MessageDeliveryStatus>>(emptyMap())
+    val messageDeliveryStatuses: StateFlow<Map<String, MessageDeliveryStatus>> = _messageDeliveryStatuses.asStateFlow()
+
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
@@ -71,6 +85,9 @@ class GroupChatViewModel @Inject constructor(
     private val _socketError = MutableStateFlow<String?>(null)
     val socketError: StateFlow<String?> = _socketError.asStateFlow()
 
+    private val _decryptionError = MutableStateFlow<String?>(null)
+    val decryptionError: StateFlow<String?> = _decryptionError.asStateFlow()
+
     private val _isRecording = MutableStateFlow(false)
     val isRecording: StateFlow<Boolean> = _isRecording.asStateFlow()
 
@@ -80,17 +97,22 @@ class GroupChatViewModel @Inject constructor(
     private val _replyingTo = MutableStateFlow<GroupMessageEntity?>(null)
     val replyingTo: StateFlow<GroupMessageEntity?> = _replyingTo.asStateFlow()
 
+    private val _memberProfileImageUrls = MutableStateFlow<Map<String, String?>>(emptyMap())
+    val memberProfileImageUrls: StateFlow<Map<String, String?>> = _memberProfileImageUrls.asStateFlow()
+
     private var voiceRecorder: com.dino.message.chatfeature.presentation.component.VoiceRecorderManager? = null
     private var recordingTimerJob: kotlinx.coroutines.Job? = null
 
     private var socket: Socket? = null
     private var hasSocketStarted = false
-    private val seenMessageIds = mutableSetOf<String>()
+    private val seenMessageIds = Collections.synchronizedSet(mutableSetOf<String>())
 
     private var memberPublicKeys: Map<String, PublicKey> = emptyMap()
     private var memberKeysReady = false
 
     init {
+        ActiveGroupTracker.setActiveGroup(groupId)
+        NotificationHelper.clearNotificationForGroup(app, groupId)
         loadMessagesFromDb()
         loadGroupDetailAndConnect()
     }
@@ -102,10 +124,90 @@ class GroupChatViewModel @Inject constructor(
             getGroupMessagesFromDbUseCase.execute(groupId).collect { dbMessages ->
                 _messages.value = dbMessages
                 seenMessageIds.addAll(dbMessages.map { it.messageId })
+                syncOutgoingStatuses(dbMessages)
+                requestSeenStatuses(dbMessages)
+                requestDeletedStatuses(dbMessages)
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to load messages from DB", e)
         }
+    }
+
+    private fun syncOutgoingStatuses(dbMessages: List<GroupMessageEntity>) {
+        if (dbMessages.isEmpty()) return
+        val updated = _messageDeliveryStatuses.value.toMutableMap()
+        dbMessages.forEach { message ->
+            if (message.sender == currentUsername) {
+                updated[message.messageId] = if (message.isSeen) {
+                    MessageDeliveryStatus.SEEN
+                } else {
+                    MessageDeliveryStatus.SENT
+                }
+            }
+        }
+        _messageDeliveryStatuses.value = updated
+    }
+
+    private fun markMessageAsSent(messageId: String?) {
+        if (messageId.isNullOrBlank()) return
+        val updated = _messageDeliveryStatuses.value.toMutableMap()
+        updated.putIfAbsent(messageId, MessageDeliveryStatus.SENT)
+        _messageDeliveryStatuses.value = updated
+    }
+
+    private suspend fun markMessageAsSeen(messageId: String?) {
+        if (messageId.isNullOrBlank()) return
+        groupRepository.markGroupMessageSeenByMessageId(messageId)
+        val updated = _messageDeliveryStatuses.value.toMutableMap()
+        updated[messageId] = MessageDeliveryStatus.SEEN
+        _messageDeliveryStatuses.value = updated
+    }
+
+    private fun clearMessageStatus(messageId: String?) {
+        if (messageId.isNullOrBlank()) return
+        val updated = _messageDeliveryStatuses.value.toMutableMap()
+        updated.remove(messageId)
+        _messageDeliveryStatuses.value = updated
+    }
+
+    private fun requestSeenStatuses(messages: List<GroupMessageEntity> = _messages.value) {
+        val activeSocket = socket ?: return
+        if (!activeSocket.connected()) return
+
+        val pendingIds = messages
+            .asSequence()
+            .filter { it.sender == currentUsername }
+            .filter { !it.isSeen }
+            .map { it.messageId }
+            .distinct()
+            .toList()
+        if (pendingIds.isEmpty()) return
+
+        activeSocket.emit(
+            "get_group_seen_messages",
+            JSONObject().apply {
+                put("group_id", groupId)
+                put("message_ids", JSONArray(pendingIds))
+            }
+        )
+    }
+
+    private fun requestDeletedStatuses(messages: List<GroupMessageEntity> = _messages.value) {
+        val activeSocket = socket ?: return
+        if (!activeSocket.connected()) return
+
+        val existingIds = messages
+            .map { it.messageId }
+            .distinct()
+        if (existingIds.isEmpty()) return
+
+        activeSocket.emit(
+            "get_group_deleted_messages",
+            JSONObject().apply {
+                put("group_id", groupId)
+                put("message_ids", JSONArray(existingIds))
+            }
+        )
     }
 
     private suspend fun saveMessageToDb(entity: GroupMessageEntity) {
@@ -122,27 +224,47 @@ class GroupChatViewModel @Inject constructor(
                 is Resource.Loading -> _isLoading.value = true
                 is Resource.Success -> {
                     _isLoading.value = false
-                    val group = res.data
-                    val keys = mutableMapOf<String, PublicKey>()
-                    group.members?.forEach { member ->
-                        val pk = member.publicKey
-                        if (!pk.isNullOrBlank()) {
-                            try {
-                                keys[member.username] = decodePublicKey(pk)
-                            } catch (e: Exception) {
-                                Log.e(TAG, "Failed to decode public key for ${member.username}", e)
-                            }
-                        }
-                    }
-                    memberPublicKeys = keys
-                    memberKeysReady = true
-                    Log.d(TAG, "Loaded ${keys.size} member public keys for group $groupId")
+                    applyMemberPublicKeys(res.data)
                     connectSocket()
                 }
                 is Resource.Error -> {
                     _isLoading.value = false
                     _socketError.value = res.message.asString(getApplication<DinoOrderApplication>())
                 }
+            }
+        }
+    }
+
+    private fun applyMemberPublicKeys(group: Group) {
+        val keys = mutableMapOf<String, PublicKey>()
+        val profileImages = mutableMapOf<String, String?>()
+        group.members?.forEach { member ->
+            profileImages[member.username] = member.profileImageUrl
+            val pk = member.publicKey
+            if (!pk.isNullOrBlank()) {
+                try {
+                    keys[member.username] = decodePublicKey(pk)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to decode public key for ${member.username}", e)
+                }
+            }
+        }
+        _memberProfileImageUrls.value = profileImages
+        memberPublicKeys = keys
+        memberKeysReady = keys.isNotEmpty()
+        Log.d(TAG, "Loaded ${keys.size} member public keys for group $groupId")
+    }
+
+    private fun refreshMemberPublicKeysSilently() = viewModelScope.launch {
+        getGroupDetailUseCase.execute(groupId).collect { res ->
+            when (res) {
+                is Resource.Success -> {
+                    applyMemberPublicKeys(res.data)
+                }
+                is Resource.Error -> {
+                    Log.w(TAG, "Failed to refresh member keys: ${res.message.asString(getApplication<DinoOrderApplication>())}")
+                }
+                is Resource.Loading -> Unit
             }
         }
     }
@@ -156,11 +278,17 @@ class GroupChatViewModel @Inject constructor(
         val myEncryptedKey = encryptedKeys.optString(currentUsername, "")
         if (myEncryptedKey.isBlank()) {
             Log.w(TAG, "No encrypted key found for $currentUsername")
+            _decryptionError.value =
+                "Unable to decrypt some group messages. Your private key may not match your account key."
             return "\u26A0\uFE0F Could not decrypt: no key for your user"
         }
 
         return try {
-            val privateKeyStr = spref.getPrivateKey() ?: return "\u26A0\uFE0F Could not decrypt: missing private key"
+            val privateKeyStr = spref.getPrivateKey() ?: run {
+                _decryptionError.value =
+                    "Unable to decrypt some group messages. Your private key is missing on this device."
+                return "\u26A0\uFE0F Could not decrypt: missing private key"
+            }
             decryptMessage(
                 encryptedMessage = encryptedMessage,
                 encryptedAESKey = myEncryptedKey,
@@ -168,6 +296,8 @@ class GroupChatViewModel @Inject constructor(
             )
         } catch (e: Exception) {
             Log.e(TAG, "Failed to decrypt group message", e)
+            _decryptionError.value =
+                "Unable to decrypt some group messages. Your private key may not match your account key."
             "\u26A0\uFE0F Could not decrypt this message"
         }
     }
@@ -227,6 +357,8 @@ class GroupChatViewModel @Inject constructor(
         socket.on(Socket.EVENT_CONNECT) {
             Log.d(TAG, "Socket connected, joining group room")
             socket.emit("join_group", JSONObject().apply { put("group_id", groupId) })
+            requestSeenStatuses()
+            requestDeletedStatuses()
         }
 
         socket.on("group_joined") {
@@ -249,54 +381,57 @@ class GroupChatViewModel @Inject constructor(
                     val messagesArr: JSONArray = obj.optJSONArray("messages") ?: return@launch
                     Log.d(TAG, "Received ${messagesArr.length()} pending group messages for group $groupId")
 
-                    val ackedIds = mutableListOf<String>()
-                    repeat(messagesArr.length()) { index ->
-                        val item = messagesArr.optJSONObject(index) ?: return@repeat
-                        val messageId = item.optString("message_id", "")
-                        if (messageId.isBlank() || !seenMessageIds.add(messageId)) {
-                            if (messageId.isNotBlank()) ackedIds.add(messageId)
-                            return@repeat
+                    val ackedIds = withContext(Dispatchers.Default) {
+                        val processedIds = mutableListOf<String>()
+                        repeat(messagesArr.length()) { index ->
+                            val item = messagesArr.optJSONObject(index) ?: return@repeat
+                            val messageId = item.optString("message_id", "")
+                            if (messageId.isBlank() || !seenMessageIds.add(messageId)) {
+                                if (messageId.isNotBlank()) processedIds.add(messageId)
+                                return@repeat
+                            }
+
+                            val sender = item.optString("from", "")
+                            val encryptedMessage = item.optString("message", "")
+                            val type = item.optString("type", "text")
+                            val timestamp = item.optString("timestamp", "")
+                            val encryptedKeysObj = item.optJSONObject("encrypted_keys")
+
+                            val decryptedContent = decryptGroupMessage(encryptedMessage, encryptedKeysObj)
+
+                            val attachmentObj = item.optJSONObject("attachment")
+
+                            val decryptedReplyPreview = run {
+                                val encReply = if (item.has("encrypted_reply_preview") && !item.isNull("encrypted_reply_preview"))
+                                    item.optString("encrypted_reply_preview", "").ifBlank { null }
+                                else null
+                                if (encReply != null && encryptedKeysObj != null) {
+                                    decryptGroupMessage(encReply, encryptedKeysObj)
+                                } else null
+                            }
+
+                            val entity = GroupMessageEntity(
+                                messageId = messageId,
+                                groupId = groupId,
+                                sender = sender,
+                                content = decryptedContent,
+                                timestamp = timestamp,
+                                messageType = type,
+                                attachmentType = attachmentObj?.optString("type"),
+                                attachmentUrl = attachmentObj?.optString("url"),
+                                attachmentMimeType = attachmentObj?.optString("mime_type"),
+                                attachmentFileName = attachmentObj?.optString("file_name"),
+                                attachmentSizeBytes = attachmentObj?.optLong("size_bytes"),
+                                replyToMessageId = if (item.has("reply_to_message_id") && !item.isNull("reply_to_message_id"))
+                                    item.optString("reply_to_message_id", "").ifBlank { null } else null,
+                                replyToSender = if (item.has("reply_to_sender") && !item.isNull("reply_to_sender"))
+                                    item.optString("reply_to_sender", "").ifBlank { null } else null,
+                                replyPreview = decryptedReplyPreview,
+                            )
+                            saveMessageToDb(entity)
+                            if (messageId.isNotBlank()) processedIds.add(messageId)
                         }
-
-                        val sender = item.optString("from", "")
-                        val encryptedMessage = item.optString("message", "")
-                        val type = item.optString("type", "text")
-                        val timestamp = item.optString("timestamp", "")
-                        val encryptedKeysObj = item.optJSONObject("encrypted_keys")
-
-                        val decryptedContent = decryptGroupMessage(encryptedMessage, encryptedKeysObj)
-
-                        val attachmentObj = item.optJSONObject("attachment")
-
-                        val decryptedReplyPreview = run {
-                            val encReply = if (item.has("encrypted_reply_preview") && !item.isNull("encrypted_reply_preview"))
-                                item.optString("encrypted_reply_preview", "").ifBlank { null }
-                            else null
-                            if (encReply != null && encryptedKeysObj != null) {
-                                decryptGroupMessage(encReply, encryptedKeysObj)
-                            } else null
-                        }
-
-                        val entity = GroupMessageEntity(
-                            messageId = messageId,
-                            groupId = groupId,
-                            sender = sender,
-                            content = decryptedContent,
-                            timestamp = timestamp,
-                            messageType = type,
-                            attachmentType = attachmentObj?.optString("type"),
-                            attachmentUrl = attachmentObj?.optString("url"),
-                            attachmentMimeType = attachmentObj?.optString("mime_type"),
-                            attachmentFileName = attachmentObj?.optString("file_name"),
-                            attachmentSizeBytes = attachmentObj?.optLong("size_bytes"),
-                            replyToMessageId = if (item.has("reply_to_message_id") && !item.isNull("reply_to_message_id"))
-                                item.optString("reply_to_message_id", "").ifBlank { null } else null,
-                            replyToSender = if (item.has("reply_to_sender") && !item.isNull("reply_to_sender"))
-                                item.optString("reply_to_sender", "").ifBlank { null } else null,
-                            replyPreview = decryptedReplyPreview,
-                        )
-                        saveMessageToDb(entity)
-                        if (messageId.isNotBlank()) ackedIds.add(messageId)
+                        processedIds
                     }
                     loadMessagesFromDb()
                     if (ackedIds.isNotEmpty()) {
@@ -316,47 +451,53 @@ class GroupChatViewModel @Inject constructor(
                     if (messageId.isBlank() || !seenMessageIds.add(messageId)) return@launch
 
                     val sender = payload.optString("from", "")
-                    val encryptedMessage = payload.optString("message", "")
-                    val type = payload.optString("type", "text")
-                    val timestamp = payload.optString("timestamp", "")
 
-                    val encryptedKeysObj = payload.optJSONObject("encrypted_keys")
+                    withContext(Dispatchers.Default) {
+                        val encryptedMessage = payload.optString("message", "")
+                        val type = payload.optString("type", "text")
+                        val timestamp = payload.optString("timestamp", "")
 
-                    val decryptedContent = decryptGroupMessage(encryptedMessage, encryptedKeysObj)
+                        val encryptedKeysObj = payload.optJSONObject("encrypted_keys")
 
-                    val attachmentObj = payload.optJSONObject("attachment")
+                        val decryptedContent = decryptGroupMessage(encryptedMessage, encryptedKeysObj)
 
-                    val decryptedReplyPreview = run {
-                        val encReply = if (payload.has("encrypted_reply_preview") && !payload.isNull("encrypted_reply_preview"))
-                            payload.optString("encrypted_reply_preview", "").ifBlank { null }
-                        else null
-                        if (encReply != null && encryptedKeysObj != null) {
-                            decryptGroupMessage(encReply, encryptedKeysObj)
-                        } else {
-                            null
+                        val attachmentObj = payload.optJSONObject("attachment")
+
+                        val decryptedReplyPreview = run {
+                            val encReply = if (payload.has("encrypted_reply_preview") && !payload.isNull("encrypted_reply_preview"))
+                                payload.optString("encrypted_reply_preview", "").ifBlank { null }
+                            else null
+                            if (encReply != null && encryptedKeysObj != null) {
+                                decryptGroupMessage(encReply, encryptedKeysObj)
+                            } else {
+                                null
+                            }
                         }
-                    }
 
-                    val entity = GroupMessageEntity(
-                        messageId = messageId,
-                        groupId = groupId,
-                        sender = sender,
-                        content = decryptedContent,
-                        timestamp = timestamp,
-                        messageType = type,
-                        attachmentType = attachmentObj?.optString("type"),
-                        attachmentUrl = attachmentObj?.optString("url"),
-                        attachmentMimeType = attachmentObj?.optString("mime_type"),
-                        attachmentFileName = attachmentObj?.optString("file_name"),
-                        attachmentSizeBytes = attachmentObj?.optLong("size_bytes"),
-                        replyToMessageId = if (payload.has("reply_to_message_id") && !payload.isNull("reply_to_message_id"))
-                            payload.optString("reply_to_message_id", "").ifBlank { null } else null,
-                        replyToSender = if (payload.has("reply_to_sender") && !payload.isNull("reply_to_sender"))
-                            payload.optString("reply_to_sender", "").ifBlank { null } else null,
-                        replyPreview = decryptedReplyPreview,
-                    )
-                    saveMessageToDb(entity)
+                        val entity = GroupMessageEntity(
+                            messageId = messageId,
+                            groupId = groupId,
+                            sender = sender,
+                            content = decryptedContent,
+                            timestamp = timestamp,
+                            messageType = type,
+                            attachmentType = attachmentObj?.optString("type"),
+                            attachmentUrl = attachmentObj?.optString("url"),
+                            attachmentMimeType = attachmentObj?.optString("mime_type"),
+                            attachmentFileName = attachmentObj?.optString("file_name"),
+                            attachmentSizeBytes = attachmentObj?.optLong("size_bytes"),
+                            replyToMessageId = if (payload.has("reply_to_message_id") && !payload.isNull("reply_to_message_id"))
+                                payload.optString("reply_to_message_id", "").ifBlank { null } else null,
+                            replyToSender = if (payload.has("reply_to_sender") && !payload.isNull("reply_to_sender"))
+                                payload.optString("reply_to_sender", "").ifBlank { null } else null,
+                            replyPreview = decryptedReplyPreview,
+                        )
+                        saveMessageToDb(entity)
+                    }
                     loadMessagesFromDb()
+                    if (sender != currentUsername && messageId.isNotBlank()) {
+                        sendGroupAck(listOf(messageId))
+                    }
                 } catch (e: Exception) {
                     Log.e(TAG, "Error handling new_group_message", e)
                 }
@@ -364,7 +505,69 @@ class GroupChatViewModel @Inject constructor(
         }
 
         socket.on("group_message_sent") { args ->
-            Log.d(TAG, "group_message_sent ack received")
+            val payload = parseSocketPayload(args)
+            val messageId = payload?.optString("message_id", "")
+            markMessageAsSent(messageId)
+            Log.d(TAG, "group_message_sent ack received: $messageId")
+        }
+
+        socket.on("group_message_seen") { args ->
+            viewModelScope.launch {
+                val payload = parseSocketPayload(args) ?: return@launch
+                val payloadGroupId = payload.optInt("group_id", -1)
+                if (payloadGroupId != groupId) return@launch
+
+                val seenBy = payload.optString("seen_by", "")
+                if (seenBy == currentUsername) return@launch
+
+                val messageId = payload.optString("message_id", "")
+                if (messageId.isBlank()) return@launch
+                markMessageAsSeen(messageId)
+            }
+        }
+
+        socket.on("group_seen_messages_status") { args ->
+            viewModelScope.launch {
+                val payload = parseSocketPayload(args) ?: return@launch
+                if (payload.optInt("group_id", -1) != groupId) return@launch
+                val messageIds = payload.optJSONArray("message_ids") ?: return@launch
+                for (index in 0 until messageIds.length()) {
+                    val messageId = messageIds.optString(index, "").trim()
+                    if (messageId.isNotBlank()) {
+                        markMessageAsSeen(messageId)
+                    }
+                }
+            }
+        }
+
+        socket.on("group_message_deleted") { args ->
+            viewModelScope.launch {
+                val payload = parseSocketPayload(args) ?: return@launch
+                val payloadGroupId = payload.optInt("group_id", -1)
+                if (payloadGroupId != groupId) return@launch
+
+                val messageId = payload.optString("message_id", "")
+                if (messageId.isBlank()) return@launch
+                groupRepository.deleteGroupMessageByMessageId(messageId)
+                clearMessageStatus(messageId)
+                loadMessagesFromDb()
+            }
+        }
+
+        socket.on("group_deleted_messages_status") { args ->
+            viewModelScope.launch {
+                val payload = parseSocketPayload(args) ?: return@launch
+                if (payload.optInt("group_id", -1) != groupId) return@launch
+                val messageIds = payload.optJSONArray("message_ids") ?: return@launch
+                for (index in 0 until messageIds.length()) {
+                    val messageId = messageIds.optString(index, "").trim()
+                    if (messageId.isNotBlank()) {
+                        groupRepository.deleteGroupMessageByMessageId(messageId)
+                        clearMessageStatus(messageId)
+                    }
+                }
+                loadMessagesFromDb()
+            }
         }
 
         socket.on("message_error") { args ->
@@ -374,6 +577,28 @@ class GroupChatViewModel @Inject constructor(
                 _socketError.value = errorMsg
                 Log.e(TAG, "message_error: $errorMsg")
             }
+        }
+
+        socket.on("user_public_key_updated") { args ->
+            val payload = parseSocketPayload(args) ?: return@on
+            val updatedUsername = payload.optString("username", "")
+            if (updatedUsername.isBlank()) return@on
+
+            val shouldRefresh = memberPublicKeys.containsKey(updatedUsername) ||
+                payloadGroupIdsContainsCurrentGroup(payload)
+            if (!shouldRefresh) return@on
+
+            Log.d(TAG, "Detected updated public key for $updatedUsername, refreshing group keys")
+            refreshMemberPublicKeysSilently()
+        }
+
+        socket.on("group_member_key_updated") { args ->
+            val payload = parseSocketPayload(args) ?: return@on
+            val payloadGroupId = payload.optInt("group_id", -1)
+            if (payloadGroupId != groupId) return@on
+
+            Log.d(TAG, "Received group_member_key_updated for group $groupId")
+            refreshMemberPublicKeysSilently()
         }
 
         socket.on(Socket.EVENT_DISCONNECT) {
@@ -504,8 +729,53 @@ class GroupChatViewModel @Inject constructor(
         _socketError.value = null
     }
 
+    fun dismissDecryptionError() {
+        _decryptionError.value = null
+    }
+
+    private suspend fun deleteGroupMessageLocally(message: GroupMessageEntity) {
+        groupRepository.deleteGroupMessageByMessageId(message.messageId)
+        clearMessageStatus(message.messageId)
+        loadMessagesFromDb()
+    }
+
+    fun deleteMessageOnlyForMe(message: GroupMessageEntity) = viewModelScope.launch {
+        deleteGroupMessageLocally(message)
+    }
+
+    fun deleteMessageForEveryone(message: GroupMessageEntity) = viewModelScope.launch {
+        deleteGroupMessageLocally(message)
+        val activeSocket = socket
+        if (activeSocket == null || !activeSocket.connected()) {
+            _socketError.value = "Unable to delete for everyone while disconnected."
+            connectSocket()
+            return@launch
+        }
+        activeSocket.emit(
+            "delete_group_message",
+            JSONObject().apply {
+                put("group_id", groupId)
+                put("message_id", message.messageId)
+            }
+        )
+    }
+
     fun navigateUp() {
         navigateUp(viewModelScope)
+    }
+
+    fun openPrivateKeyResetDialog() {
+        navigateToDestination(PrivateKeyResetDialogScreenDestination, viewModelScope)
+    }
+
+    fun openGroupMembersScreen(currentGroupName: String) {
+        navigateToDestination(
+            GroupMembersScreenDestination(
+                groupId = groupId,
+                groupName = currentGroupName.ifBlank { groupName },
+            ),
+            viewModelScope,
+        )
     }
 
     private fun sendGroupAck(messageIds: List<String>) {
@@ -533,7 +803,25 @@ class GroupChatViewModel @Inject constructor(
         return args.firstOrNull()
     }
 
+    private fun parseSocketPayload(args: Array<out Any>): JSONObject? {
+        val raw = extractPayloadArg(args) ?: return null
+        return when (raw) {
+            is JSONObject -> raw
+            is String -> runCatching { JSONObject(raw) }.getOrNull()
+            else -> null
+        }
+    }
+
+    private fun payloadGroupIdsContainsCurrentGroup(payload: JSONObject): Boolean {
+        val groupIds = payload.optJSONArray("group_ids") ?: return false
+        for (index in 0 until groupIds.length()) {
+            if (groupIds.optInt(index, -1) == groupId) return true
+        }
+        return false
+    }
+
     override fun onCleared() {
+        ActiveGroupTracker.clearActiveGroup()
         voiceRecorder?.release()
         disconnectSocket()
         super.onCleared()

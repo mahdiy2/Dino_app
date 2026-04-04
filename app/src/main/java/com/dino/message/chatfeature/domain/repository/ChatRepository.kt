@@ -24,6 +24,9 @@ interface ChatRepository {
     suspend fun saveMessage(message: MessageEntity)
     suspend fun getMessages(chatId: String): List<MessageEntity>
     suspend fun clearMessages(chatId: String)
+    suspend fun deleteMessageByLocalId(localId: Int)
+    suspend fun deleteMessageByMessageId(messageId: String)
+    suspend fun markMessageSeenByMessageId(messageId: String)
 
     suspend fun getUnread(): Resource<UnreadResponse>
 }

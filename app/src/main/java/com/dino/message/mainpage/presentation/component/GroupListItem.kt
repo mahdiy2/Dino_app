@@ -1,5 +1,6 @@
 package com.dino.message.mainpage.presentation.component
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -28,6 +29,7 @@ fun GroupListItem(
     modifier: Modifier = Modifier,
     groupName: String,
     memberCount: Int,
+    newMessage: Boolean = false,
     onClick: () -> Unit,
 ) {
     Box(modifier = modifier) {
@@ -71,6 +73,13 @@ fun GroupListItem(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                AnimatedVisibility(newMessage) {
+                    Text(
+                        text = "New message",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
             }
         }
     }

@@ -24,10 +24,12 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBackIosNew
+import androidx.compose.material.icons.rounded.AccessTime
 import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.VpnKey
 import androidx.compose.material3.Badge
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedButton
@@ -58,20 +60,31 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import com.dino.message.R
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.dino.message.chatfeature.presentation.component.ChatScreenBottomAppBar
 import com.dino.message.chatfeature.presentation.component.ChatSurface
 import com.dino.message.chatfeature.presentation.component.MediaAccessLevel
 import com.dino.message.chatfeature.presentation.component.MediaPermissionHandler
 import com.dino.message.chatfeature.presentation.component.MediaViewerDialog
+import com.dino.message.chatfeature.domain.model.MessageEntity
 import com.dino.message.chatfeature.presentation.viewmodel.ChatViewModel
 import com.dino.message.profilefeature.presentation.component.ProfileAvatarMedia
 import com.ramcosta.composedestinations.annotation.Destination
 import com.ramcosta.composedestinations.annotation.RootGraph
+import java.time.Duration
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Destination<RootGraph>
@@ -87,6 +100,7 @@ fun ChatScreen(
     val isUploading by viewModel.isUploading.collectAsState()
     val uploadError by viewModel.uploadError.collectAsState()
     val messages by viewModel.messages.collectAsState()
+    val messageDeliveryStatuses by viewModel.messageDeliveryStatuses.collectAsState()
     val isPublicKeyLoading by viewModel.isPublicKeyLoading.collectAsState()
     val publicKeyError by viewModel.publicKeyError.collectAsState()
     val isPublicKeyReady by viewModel.isPublicKeyReady.collectAsState()
@@ -111,6 +125,9 @@ fun ChatScreen(
 
     var mediaViewerIsVideo by remember { mutableStateOf(false) }
     var pendingMediaType by remember { mutableStateOf<String?>(null) }
+    var selectedMessage by remember { mutableStateOf<MessageEntity?>(null) }
+    var selectedMessageAnchor by remember { mutableStateOf<Pair<IntOffset, IntSize>?>(null) }
+    var deleteCandidate by remember { mutableStateOf<MessageEntity?>(null) }
 
     LaunchedEffect(uploadError) {
         uploadError?.let {
@@ -121,7 +138,14 @@ fun ChatScreen(
 
     LaunchedEffect(decryptionError) {
         decryptionError?.let {
-            snackbarHostState.showSnackbar(it)
+            val result = snackbarHostState.showSnackbar(
+                message = it,
+                actionLabel = "Change key",
+                duration = SnackbarDuration.Long
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                viewModel.openPrivateKeyResetDialog()
+            }
             viewModel.dismissDecryptionError()
         }
     }
@@ -241,6 +265,97 @@ fun ChatScreen(
         )
     }
 
+    if (selectedMessage != null && selectedMessageAnchor != null) {
+        val message = selectedMessage!!
+        val (anchorOffset, anchorSize) = selectedMessageAnchor!!
+        val density = LocalDensity.current
+        val menuHeightPx = with(density) { 132.dp.roundToPx() }
+        val verticalGapPx = with(density) { 8.dp.roundToPx() }
+        val popupOffset = IntOffset(
+            x = anchorOffset.x + (anchorSize.width / 2),
+            y = (anchorOffset.y - menuHeightPx - verticalGapPx).coerceAtLeast(0)
+        )
+
+        Popup(
+            alignment = Alignment.TopStart,
+            offset = popupOffset,
+            onDismissRequest = {
+                selectedMessage = null
+                selectedMessageAnchor = null
+            },
+            properties = PopupProperties(focusable = true)
+        ) {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                tonalElevation = 10.dp,
+                shadowElevation = 10.dp,
+                color = MaterialTheme.colorScheme.surfaceContainerHigh
+            ) {
+                Column(
+                    modifier = Modifier
+                        .width(210.dp)
+                        .padding(vertical = 6.dp)
+                ) {
+                    MessageMenuRow(
+                        icon = Icons.Rounded.AccessTime,
+                        title = formatMessageSentAt(message.timestamp),
+                        onClick = {},
+                        enabled = false
+                    )
+                    MessageMenuRow(
+                        icon = Icons.Rounded.ContentCopy,
+                        title = "Copy",
+                        onClick = {
+                            if (message.content.isNotBlank()) {
+                                val clip = ClipData.newPlainText("Message", message.content)
+                                clipboardManager?.setPrimaryClip(clip)
+                                Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(context, "Nothing to copy", Toast.LENGTH_SHORT).show()
+                            }
+                            selectedMessage = null
+                            selectedMessageAnchor = null
+                        }
+                    )
+                    MessageMenuRow(
+                        icon = Icons.Rounded.Delete,
+                        title = "Delete",
+                        onClick = {
+                            deleteCandidate = message
+                            selectedMessage = null
+                            selectedMessageAnchor = null
+                        }
+                    )
+                }
+            }
+        }
+    }
+
+    if (deleteCandidate != null) {
+        val message = deleteCandidate!!
+        AlertDialog(
+            onDismissRequest = { deleteCandidate = null },
+            title = { Text("Delete message") },
+            text = { Text("Delete this message only for you, or for both sides?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.deleteMessageForEveryone(message)
+                        deleteCandidate = null
+                    }
+                ) { Text("For both sides") }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.deleteMessageOnlyForMe(message)
+                        deleteCandidate = null
+                    }
+                ) { Text("Only for me") }
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
@@ -273,6 +388,12 @@ fun ChatScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { viewModel.openPrivateKeyResetDialog() }) {
+                        Icon(
+                            imageVector = Icons.Rounded.VpnKey,
+                            contentDescription = "Reset encryption key"
+                        )
+                    }
                     IconButton(onClick = { viewModel.clearMessages() }) {
                         Icon(imageVector = Icons.Rounded.Delete, contentDescription = "Clear")
                     }
@@ -399,7 +520,12 @@ fun ChatScreen(
                                 ChatSurface(
                                     modifier = Modifier.fillMaxSize(),
                                     items = messages,
+                                    messageDeliveryStatuses = messageDeliveryStatuses,
                                     sender = chatId,
+                                    onMessageClick = { message, offset, size ->
+                                        selectedMessage = message
+                                        selectedMessageAnchor = offset to size
+                                    },
                                     onAttachmentClick = { message ->
                                         val url = message.attachmentUrl
                                         if (!url.isNullOrBlank()) {
@@ -413,13 +539,6 @@ fun ChatScreen(
                                                     mediaViewerIsVideo = true
                                                 }
                                             }
-                                        }
-                                    },
-                                    onMessageLongClick = { message ->
-                                        if (message.content.isNotBlank()) {
-                                            val clip = ClipData.newPlainText("Message", message.content)
-                                            clipboardManager?.setPrimaryClip(clip)
-                                            Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
                                         }
                                     },
                                     onSwipeToReply = { message ->
@@ -511,6 +630,52 @@ fun ChatScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+private fun formatMessageSentAt(timestamp: String?): String {
+    if (timestamp.isNullOrBlank()) return "Unknown time"
+    return try {
+        val sentAt = Instant.parse(timestamp)
+        val now = Instant.now()
+        val zone = ZoneId.systemDefault()
+        val localTime = sentAt.atZone(zone)
+        if (Duration.between(sentAt, now) < Duration.ofDays(1)) {
+            localTime.format(DateTimeFormatter.ofPattern("HH:mm"))
+        } else {
+            localTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
+        }
+    } catch (_: Exception) {
+        timestamp
+    }
+}
+
+@Composable
+private fun MessageMenuRow(
+    icon: ImageVector,
+    title: String,
+    onClick: () -> Unit,
+    enabled: Boolean = true
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 10.dp, vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(18.dp)
+        )
+        Spacer(modifier = Modifier.width(10.dp))
+        TextButton(
+            onClick = onClick,
+            enabled = enabled
+        ) {
+            Text(title)
         }
     }
 }

@@ -241,7 +241,7 @@ fun ThreadScreen() {
                                         viewModel.refresh()
                                     }
                                 }),
-                            text = "Threads",
+                            text = "Dino",
                             style = MaterialTheme.typography.headlineSmall
                         )
                     },

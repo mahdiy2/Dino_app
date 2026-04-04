@@ -17,6 +17,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.isSuccess
 import io.ktor.serialization.JsonConvertException
 import io.ktor.utils.io.errors.IOException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -47,7 +48,10 @@ class HttpAPIUtil @Inject constructor(
                     }
 
                     response.status == HttpStatusCode.BadRequest -> Resource.Error(
-                        message = R.string.error_bad_request.asStringResourceContent()
+                        message = (
+                            extractServerErrorMessage(response)
+                                ?: context.getString(R.string.error_bad_request)
+                            ).asStringResourceContent()
                     )
 
                     response.status == HttpStatusCode.Unauthorized -> {
@@ -85,11 +89,27 @@ class HttpAPIUtil @Inject constructor(
                     }
 
                     response.status == HttpStatusCode.NotFound -> Resource.Error(
-                        message = R.string.error_not_found.asStringResourceContent()
+                        message = (
+                            extractServerErrorMessage(response)
+                                ?: context.getString(R.string.error_not_found)
+                            ).asStringResourceContent()
                     )
 
                     response.status == HttpStatusCode.Conflict -> Resource.Error(
-                        message = R.string.error_conflict.asStringResourceContent()
+                        message = (
+                            extractServerErrorMessage(response)
+                                ?: context.getString(R.string.error_conflict)
+                            ).asStringResourceContent()
+                    )
+
+                    response.status == HttpStatusCode.Gone -> Resource.Error(
+                        message = (
+                            extractServerErrorMessage(response)
+                                ?: context.getString(
+                                    R.string.error_with_http_status_code,
+                                    response.status.value
+                                )
+                            ).asStringResourceContent()
                     )
 
                     response.status.value == 413 -> Resource.Error(
@@ -114,6 +134,8 @@ class HttpAPIUtil @Inject constructor(
                 throw RetryableException("Network error", e)
             } catch (e: HttpRequestTimeoutException) {
                 throw RetryableException("Timeout error", e)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: JsonConvertException) {
                 if (BuildConfig.DEBUG) throw e
                 Resource.Error(
@@ -150,6 +172,18 @@ class HttpAPIUtil @Inject constructor(
         )
     }
 
+    suspend fun extractServerErrorMessage(response: HttpResponse): String? {
+        val rawBody = runCatching { response.bodyAsText() }.getOrNull() ?: return null
+        return runCatching {
+            Json.decodeFromString<JsonObject>(rawBody)
+                .get("error")
+                ?.jsonPrimitive
+                ?.content
+                ?.trim()
+                ?.takeIf { it.isNotBlank() }
+        }.getOrNull()
+    }
+
 
     suspend fun <T> retry(
         times: Int,
@@ -162,6 +196,7 @@ class HttpAPIUtil @Inject constructor(
             try {
                 return block()
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
 //                Log.e("Retry", "Attempt failed, retrying in $currentDelay ms", e)
             }
             delay(currentDelay)
@@ -170,6 +205,7 @@ class HttpAPIUtil @Inject constructor(
         return try {
             block()
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             null
         }
     }

@@ -10,6 +10,7 @@ import com.dino.message.BuildConfig
 import com.dino.message.DinoOrderApplication
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.corefeature.presentation.util.PopBackStackLevel
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.dino.message.profilefeature.domain.model.Profile
@@ -91,6 +92,8 @@ class ThreadViewModel @Inject constructor(
         currentPostsPage = 1
         totalPosts = Int.MAX_VALUE
         _posts.clear()
+        postVoteByPost.clear()
+        postErrorByPost.clear()
         requestPage(isRefresh = true)
         loadProfile()
     }
@@ -135,6 +138,7 @@ class ThreadViewModel @Inject constructor(
                     if (isRefresh) _posts.clear()
                     totalPosts = res.data.total
                     _posts.addAll(res.data.posts)
+                    seedVotesFromPosts(res.data.posts)
                     if (res.data.posts.isNotEmpty()) {
                         currentPostsPage = res.data.page + 1
                     }
@@ -216,13 +220,23 @@ class ThreadViewModel @Inject constructor(
         }
     }
 
+    private fun seedVotesFromPosts(posts: List<Post>) {
+        posts.forEach { post ->
+            postVoteByPost[post.id] = post.viewerVote
+        }
+    }
+
     private fun showLoading(isRefresh: Boolean, isLoadMore: Boolean) {
         _isRefreshing.value = isRefresh
         _isLoadingMore.value = isLoadMore
     }
 
     fun navigateChat(){
-        navigateToDestination(MainScreenDestination, viewModelScope)
+        navigateWithPopBackStackToDestination(
+            direction = MainScreenDestination,
+            scope = viewModelScope,
+            level = PopBackStackLevel.ALL
+        )
     }
 
     fun openSearchScreen() {

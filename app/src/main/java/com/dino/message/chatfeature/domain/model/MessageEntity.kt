@@ -22,6 +22,7 @@ package com.dino.message.chatfeature.domain.model
      val attachmentMimeType: String? = null,
      val attachmentFileName: String? = null,
      val attachmentSizeBytes: Long? = null,
+     val isSeen: Boolean = false,
      val replyToMessageId: String? = null,
      val replyToSender: String? = null,
      val replyPreview: String? = null

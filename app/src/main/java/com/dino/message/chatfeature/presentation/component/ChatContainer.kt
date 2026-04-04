@@ -20,6 +20,8 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Done
+import androidx.compose.material.icons.rounded.DoneAll
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Videocam
@@ -43,11 +45,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.dino.message.chatfeature.domain.model.MessageDeliveryStatus
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPSmall
 import com.dino.message.corefeature.presentation.util.rememberLayoutDirection
@@ -64,6 +71,8 @@ fun ChatContainer(
     attachmentUrl: String? = null,
     attachmentMimeType: String? = null,
     attachmentFileName: String? = null,
+    deliveryStatus: MessageDeliveryStatus? = null,
+    onClick: ((IntOffset, IntSize) -> Unit)? = null,
     onAttachmentClick: (() -> Unit)? = null,
     onLongClick: (() -> Unit)? = null,
     replySenderName: String? = null,
@@ -89,12 +98,19 @@ fun ChatContainer(
                 MaterialTheme.colorScheme.onSecondaryContainer
         )
     ) {
+        var bubbleOffset = IntOffset.Zero
+        var bubbleSize = IntSize.Zero
         Column(
             modifier = Modifier
                 .padding(DPMedium)
                 .widthIn(max = 280.dp)
+                .onGloballyPositioned { coordinates ->
+                    val position = coordinates.positionInRoot()
+                    bubbleOffset = IntOffset(position.x.toInt(), position.y.toInt())
+                    bubbleSize = coordinates.size
+                }
                 .combinedClickable(
-                    onClick = {},
+                    onClick = { onClick?.invoke(bubbleOffset, bubbleSize) },
                     onLongClick = onLongClick,
                     indication = null,
                     interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
@@ -148,39 +164,81 @@ fun ChatContainer(
                 }
                 Spacer(modifier = Modifier.height(DPSmall))
             }
-            when (messageType) {
-                "image" -> ImageBubble(
-                    attachmentUrl = attachmentUrl,
-                    attachmentFileName = attachmentFileName,
-                    text = text,
-                    onClick = onAttachmentClick
-                )
+            val showStatus = sent && deliveryStatus != null
+            if (messageType == "text" && text.isNotBlank() && showStatus) {
+                Row(verticalAlignment = Alignment.Bottom) {
+                    DeliveryStatusIcon(deliveryStatus = deliveryStatus)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    CompositionLocalProvider(LocalLayoutDirection provides rememberLayoutDirection(text)) {
+                        Text(
+                            text = text,
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
+                }
+            } else {
+                when (messageType) {
+                    "image" -> ImageBubble(
+                        attachmentUrl = attachmentUrl,
+                        attachmentFileName = attachmentFileName,
+                        text = text,
+                        onClick = onAttachmentClick
+                    )
 
-                "video" -> VideoBubble(
-                    attachmentUrl = attachmentUrl,
-                    attachmentFileName = attachmentFileName,
-                    text = text,
-                    onClick = onAttachmentClick
-                )
+                    "video" -> VideoBubble(
+                        attachmentUrl = attachmentUrl,
+                        attachmentFileName = attachmentFileName,
+                        text = text,
+                        onClick = onAttachmentClick
+                    )
 
-                "voice" -> VoiceBubble(
-                    attachmentUrl = attachmentUrl,
-                    sent = sent
-                )
+                    "voice" -> VoiceBubble(
+                        attachmentUrl = attachmentUrl,
+                        sent = sent
+                    )
 
-                else -> {
-                    if (text.isNotBlank()) {
-                        CompositionLocalProvider(LocalLayoutDirection provides rememberLayoutDirection(text)) {
-                            Text(
-                                text = text,
-                                style = MaterialTheme.typography.bodyLarge
-                            )
+                    else -> {
+                        if (text.isNotBlank()) {
+                            CompositionLocalProvider(LocalLayoutDirection provides rememberLayoutDirection(text)) {
+                                Text(
+                                    text = text,
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                            }
                         }
                     }
                 }
             }
+            if (showStatus && messageType != "text") {
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(modifier = Modifier.align(Alignment.Start)) {
+                    DeliveryStatusIcon(deliveryStatus = deliveryStatus)
+                }
+            }
         }
     }
+}
+
+@Composable
+private fun DeliveryStatusIcon(deliveryStatus: MessageDeliveryStatus) {
+    Icon(
+        imageVector = if (deliveryStatus == MessageDeliveryStatus.SEEN) {
+            Icons.Rounded.DoneAll
+        } else {
+            Icons.Rounded.Done
+        },
+        contentDescription = if (deliveryStatus == MessageDeliveryStatus.SEEN) {
+            "Seen"
+        } else {
+            "Sent"
+        },
+        modifier = Modifier.size(14.dp),
+        tint = if (deliveryStatus == MessageDeliveryStatus.SEEN) {
+            MaterialTheme.colorScheme.primary
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
+        }
+    )
 }
 
 @Composable

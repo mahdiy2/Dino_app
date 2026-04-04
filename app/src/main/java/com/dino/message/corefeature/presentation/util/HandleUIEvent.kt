@@ -45,7 +45,9 @@ fun HandleUIEvent(
                 }
                 is UIEvent.Navigate -> {
                     // Use event.route instead of event.direction
-                    navController.navigate(event.route)
+                    navController.navigate(event.route) {
+                        launchSingleTop = true
+                    }
                 }
                 is UIEvent.NavigateUp -> {
                     navController.navigateUp()

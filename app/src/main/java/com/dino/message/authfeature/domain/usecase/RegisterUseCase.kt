@@ -1,5 +1,6 @@
 package com.dino.message.authfeature.domain.usecase
 
+import com.dino.message.authfeature.domain.model.RegisterStartUser
 import com.dino.message.authfeature.domain.repository.AuthRepository
 import com.dino.message.corefeature.presentation.util.Resource
 import kotlinx.coroutines.flow.flow
@@ -11,14 +12,16 @@ class RegisterUseCase @Inject constructor(
     fun execute(
         username: String,
         pass: String,
-        publicKey: String
-    ) = flow {
+        publicKey: String,
+        clientNonce: String
+    ) = flow<Resource<RegisterStartUser>> {
         emit(Resource.Loading())
         emit(
-            authRepository.register(
+            authRepository.registerStart(
                 userName = username,
                 pass = pass,
-                publicKey = publicKey
+                publicKey = publicKey,
+                clientNonce = clientNonce
             )
         )
     }

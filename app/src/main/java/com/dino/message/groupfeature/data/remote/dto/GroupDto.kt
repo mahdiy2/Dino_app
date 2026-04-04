@@ -26,6 +26,7 @@ data class GroupDto(
     val name: String,
     val creator: GroupCreatorDto,
     @SerialName("member_count") val memberCount: Int = 0,
+    @SerialName("has_unread") val hasUnread: Boolean = false,
     @SerialName("created_at") val createdAt: String = "",
     val members: List<GroupMemberDto>? = null,
 )

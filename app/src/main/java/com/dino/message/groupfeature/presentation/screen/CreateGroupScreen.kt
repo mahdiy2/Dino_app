@@ -30,7 +30,7 @@ import com.ramcosta.composedestinations.annotation.RootGraph
 fun CreateGroupScreen() {
     val viewModel: CreateGroupViewModel = hiltViewModel()
     val context = LocalContext.current
-    
+
     val isLoadingFollowers by viewModel.isLoadingFollowers.collectAsState()
     val isCreating by viewModel.isCreating.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
@@ -57,11 +57,16 @@ fun CreateGroupScreen() {
                     }
                 },
                 actions = {
-                    if (isCreating) {
-                        CircularProgressIndicator(modifier = Modifier.size(24.dp).padding(end = 16.dp))
-                    } else {
-                        TextButton(onClick = { viewModel.createGroup() }) {
+                    FilledTonalButton(onClick = { viewModel.createGroup() }) {
+                        if (isCreating) {
+                            CircularProgressIndicator(
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .padding(end = 16.dp)
+                            )
+                        } else {
                             Text("Create")
+
                         }
                     }
                 }
@@ -75,14 +80,15 @@ fun CreateGroupScreen() {
                 .padding(horizontal = DPMedium)
         ) {
             Spacer(Modifier.height(DPMedium))
-            
+
             OutlinedTextField(
                 value = viewModel.groupName.value,
                 onValueChange = { viewModel.groupName.value = it },
                 label = { Text("Group Name") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                enabled = !isCreating
+                enabled = !isCreating,
+                shape = MaterialTheme.shapes.extraLarge
             )
 
             Spacer(Modifier.height(DPMedium))
@@ -93,7 +99,8 @@ fun CreateGroupScreen() {
                 label = { Text("Search followers") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                enabled = !isCreating
+                enabled = !isCreating,
+                shape = MaterialTheme.shapes.extraLarge
             )
 
             Spacer(Modifier.height(DPSmall))

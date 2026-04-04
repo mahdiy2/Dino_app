@@ -29,8 +29,10 @@ import com.dino.message.groupfeature.data.remote.GroupApiServiceImpl
 import com.dino.message.groupfeature.data.repository.GroupRepositoryImpl
 import com.dino.message.groupfeature.domain.repository.GroupRepository
 import com.dino.message.corefeature.data.remote.util.HttpAPIUtil
+import com.dino.message.corefeature.data.session.SPrefSessionProvider
 import com.dino.message.corefeature.data.spref.DataStoreUtil
 import com.dino.message.corefeature.data.spref.SPrefManager
+import com.dino.message.corefeature.domain.session.SessionProvider
 import com.dino.message.mainpage.data.remote.MainApiService
 import com.dino.message.mainpage.data.remote.MainApiServiceImpl
 import com.dino.message.mainpage.data.repository.MainRepositoryImpl
@@ -101,6 +103,12 @@ object AppModule {
         @ApplicationContext context: Context,
         gson: Gson
     ) = SPrefManager(gson, context)
+
+    @Provides
+    @Singleton
+    fun provideSessionProvider(
+        sPrefSessionProvider: SPrefSessionProvider
+    ): SessionProvider = sPrefSessionProvider
 
     /**
      * Provides the HttpClient instance with necessary configurations.
@@ -325,7 +333,8 @@ object AppModule {
                  MessageDatabase.MIGRATION_3_4,
                  MessageDatabase.MIGRATION_4_5,
                  MessageDatabase.MIGRATION_5_6,
-                 MessageDatabase.MIGRATION_6_7
+                 MessageDatabase.MIGRATION_6_7,
+                 MessageDatabase.MIGRATION_7_8
              )
              .build()
      }

@@ -9,19 +9,24 @@ package com.dino.message.chatfeature.presentation.component
  import androidx.compose.foundation.lazy.items
  import androidx.compose.foundation.lazy.rememberLazyListState
  import androidx.compose.runtime.Composable
- import androidx.compose.runtime.LaunchedEffect
- import androidx.compose.ui.Alignment
- import androidx.compose.ui.Modifier
- import com.dino.message.chatfeature.domain.model.MessageEntity
- import com.dino.message.corefeature.presentation.ui.theme.DPMedium
- import com.dino.message.corefeature.presentation.ui.theme.DPSmall
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
+import com.dino.message.chatfeature.domain.model.MessageDeliveryStatus
+import com.dino.message.chatfeature.domain.model.MessageEntity
+import com.dino.message.corefeature.presentation.ui.theme.DPMedium
+import com.dino.message.corefeature.presentation.ui.theme.DPSmall
 
  @Composable
- fun ChatSurface(
+fun ChatSurface(
      modifier: Modifier = Modifier,
-     state: LazyListState = rememberLazyListState(),
+    state: LazyListState = rememberLazyListState(),
     items: List<MessageEntity>,
+    messageDeliveryStatuses: Map<String, MessageDeliveryStatus> = emptyMap(),
     sender: String,
+    onMessageClick: ((MessageEntity, IntOffset, IntSize) -> Unit)? = null,
     onAttachmentClick: ((MessageEntity) -> Unit)? = null,
     onMessageLongClick: ((MessageEntity) -> Unit)? = null,
     onSwipeToReply: ((MessageEntity) -> Unit)? = null
@@ -38,11 +43,12 @@ package com.dino.message.chatfeature.presentation.component
          reverseLayout = true
      ) {
          items(items = items, key = { it.id }) {
+            val isMine = it.senderOrReceiver != sender
              Row(
                  modifier = Modifier
                      .fillMaxWidth()
                      .padding(horizontal = DPMedium, vertical = DPSmall),
-                 horizontalArrangement = if (it.senderOrReceiver != sender) Arrangement.End else Arrangement.Start,
+                 horizontalArrangement = if (isMine) Arrangement.End else Arrangement.Start,
                  verticalAlignment = Alignment.CenterVertically
              ) {
                  SwipeToReply(
@@ -51,11 +57,13 @@ package com.dino.message.chatfeature.presentation.component
                  ) {
                      ChatContainer(
                          text = it.content,
-                         sent = it.senderOrReceiver != sender,
+                         sent = isMine,
                          messageType = it.messageType,
                          attachmentUrl = it.attachmentUrl,
                          attachmentMimeType = it.attachmentMimeType,
                          attachmentFileName = it.attachmentFileName,
+                         deliveryStatus = if (isMine) it.messageId?.let { messageDeliveryStatuses[it] } else null,
+                         onClick = { offset, size -> onMessageClick?.invoke(it, offset, size) },
                          onAttachmentClick = { onAttachmentClick?.invoke(it) },
                          onLongClick = { onMessageLongClick?.invoke(it) },
                          replySenderName = it.replyToSender,

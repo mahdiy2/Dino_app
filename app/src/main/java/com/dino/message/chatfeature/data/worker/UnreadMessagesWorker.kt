@@ -9,6 +9,7 @@ import com.dino.message.chatfeature.data.remote.ChatRoute
 import com.dino.message.chatfeature.data.remote.dto.UnreadResponse
 import com.dino.message.chatfeature.data.notification.ActiveChatTracker
 import com.dino.message.chatfeature.data.notification.NotificationHelper
+import com.dino.message.corefeature.data.background.NotificationDedupStore
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.engine.cio.CIO
@@ -29,6 +30,7 @@ class UnreadMessagesWorker(
 
     override suspend fun doWork(): Result {
         val token = getJwtToken() ?: return Result.success()
+        val dedupStore = NotificationDedupStore(applicationContext)
 
         val client = HttpClient(CIO) {
             defaultRequest { url(BuildConfig.BASE_URL) }
@@ -44,7 +46,7 @@ class UnreadMessagesWorker(
             }.body()
 
             if (response.total > 0) {
-                showNotifications(response)
+                showNotifications(response, dedupStore)
             }
             client.close()
             Result.success()
@@ -54,9 +56,13 @@ class UnreadMessagesWorker(
         }
     }
 
-    private fun showNotifications(response: UnreadResponse) {
+    private fun showNotifications(
+        response: UnreadResponse,
+        dedupStore: NotificationDedupStore
+    ) {
         for (sender in response.senders) {
             if (ActiveChatTracker.isChattingWith(sender.sender)) continue
+            if (!dedupStore.shouldNotifyMessage(sender.sender, sender.lastTimestamp)) continue
 
             val body = when (sender.lastType) {
                 "image" -> "Sent you an image"
@@ -69,6 +75,7 @@ class UnreadMessagesWorker(
             }
 
             NotificationHelper.showMessageNotification(applicationContext, sender.sender, body)
+            dedupStore.markMessageNotified(sender.sender, sender.lastTimestamp)
         }
     }
 

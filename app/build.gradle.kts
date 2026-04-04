@@ -20,10 +20,10 @@ android {
 
     defaultConfig {
         applicationId = "com.sec.message"
-        minSdk = 24
+        minSdk = 28
         targetSdk = 36
-        versionCode = 19
-        versionName = "2.5"
+        versionCode = 26
+        versionName = "0.4beta"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -155,4 +155,3 @@ dependencies {
     // WorkManager
     implementation(libs.androidx.work.runtime.ktx)
 }
-

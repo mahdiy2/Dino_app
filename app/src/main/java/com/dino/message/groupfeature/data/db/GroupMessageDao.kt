@@ -13,4 +13,10 @@ interface GroupMessageDao {
 
     @Query("DELETE FROM group_messages WHERE groupId = :groupId")
     suspend fun deleteMessagesByGroupId(groupId: Int)
+
+    @Query("DELETE FROM group_messages WHERE messageId = :messageId")
+    suspend fun deleteMessageByMessageId(messageId: String)
+
+    @Query("UPDATE group_messages SET isSeen = 1 WHERE messageId = :messageId")
+    suspend fun markMessageSeenByMessageId(messageId: String)
 }

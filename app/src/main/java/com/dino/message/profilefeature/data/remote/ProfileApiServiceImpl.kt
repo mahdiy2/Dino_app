@@ -142,10 +142,10 @@ class ProfileApiServiceImpl @Inject constructor(
                     ).url
                 ) {
                     contentType(ContentType.Application.Json)
+                    appendTokenToHeader(sPrefManager.getToken())
                 }
             },
-            callRefreshTokenAPI = this::getToken,
-            needToUpdateToken = false
+            callRefreshTokenAPI = this::getToken
         )
 
     override suspend fun followUser(username: String): Resource<ProfileFollowResult> =

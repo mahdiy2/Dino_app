@@ -12,12 +12,15 @@ import com.dino.message.corefeature.data.remote.util.appendTokenToHeader
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.domain.model.asStringResourceContent
 import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.groupfeature.data.remote.dto.AddGroupMembersRequest
+import com.dino.message.groupfeature.data.remote.dto.AddGroupMembersResponse
 import com.dino.message.groupfeature.data.remote.dto.CreateGroupRequest
 import com.dino.message.groupfeature.data.remote.dto.CreateGroupResponse
 import com.dino.message.groupfeature.data.remote.dto.GroupDetailResponse
 import com.dino.message.groupfeature.data.remote.dto.GroupUploadAttachmentResponse
 import com.dino.message.groupfeature.data.remote.dto.ListGroupsResponse
 import com.dino.message.groupfeature.data.remote.dto.MutualFollowersResponse
+import com.dino.message.groupfeature.domain.model.AddGroupMembersResult
 import com.dino.message.groupfeature.domain.model.Group
 import com.dino.message.groupfeature.domain.model.MutualFollowersPage
 import io.ktor.client.HttpClient
@@ -47,6 +50,21 @@ class GroupApiServiceImpl @Inject constructor(
                     contentType(ContentType.Application.Json)
                     appendTokenToHeader(sPrefManager.getToken())
                     setBody(CreateGroupRequest(name = name, members = members))
+                }
+            },
+            callRefreshTokenAPI = this::getToken
+        )
+
+    override suspend fun addGroupMembers(
+        groupId: Int,
+        usernames: List<String>,
+    ): Resource<AddGroupMembersResult> =
+        httpAPIUtil.callAPIWithErrorHandling<AddGroupMembersResult, AddGroupMembersResponse>(
+            callAPI = {
+                httpClient.post(GroupRoute.GroupMembers(groupId).url) {
+                    contentType(ContentType.Application.Json)
+                    appendTokenToHeader(sPrefManager.getToken())
+                    setBody(AddGroupMembersRequest(usernames = usernames))
                 }
             },
             callRefreshTokenAPI = this::getToken

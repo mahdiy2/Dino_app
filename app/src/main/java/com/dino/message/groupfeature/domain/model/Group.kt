@@ -20,6 +20,7 @@ data class Group(
     val name: String,
     val creator: GroupCreator,
     val memberCount: Int = 0,
+    val hasUnread: Boolean = false,
     val createdAt: String = "",
     val members: List<GroupMember>? = null,
 )

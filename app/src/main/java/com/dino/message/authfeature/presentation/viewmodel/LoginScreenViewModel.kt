@@ -5,7 +5,6 @@ import android.util.Base64
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
 import com.dino.message.chatfeature.data.worker.UnreadPollingScheduler
-import com.dino.message.activitynotificationfeature.data.worker.ActivityPollingScheduler
 import androidx.lifecycle.viewModelScope
 import com.dino.message.DinoOrderApplication
 import com.dino.message.authfeature.domain.usecase.LoginUseCase
@@ -15,6 +14,7 @@ import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.ramcosta.composedestinations.generated.destinations.MainScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.PrivateKeyAlertScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.RegisterScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.ThreadScreenDestination
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -71,7 +71,6 @@ class LoginScreenViewModel @Inject constructor(
                     sPrefManager.setToken(data.data.accessToken)
                     sPrefManager.setRefreshToken(data.data.refreshToken)
                     UnreadPollingScheduler.schedule(getApplication<DinoOrderApplication>())
-                    ActivityPollingScheduler.schedule(getApplication<DinoOrderApplication>())
                     getApplication<DinoOrderApplication>()
                         .inAppNotificationManager
                         .connect(data.data.accessToken)
@@ -112,6 +111,10 @@ class LoginScreenViewModel @Inject constructor(
     }
 
     fun onLoginBtnClicked(){
+        if (sPrefManager.hasPendingRegistration()) {
+            navigateToDestination(PrivateKeyAlertScreenDestination, viewModelScope)
+            return
+        }
         login(userName.value, password.value, privateKey.value)
     }
 

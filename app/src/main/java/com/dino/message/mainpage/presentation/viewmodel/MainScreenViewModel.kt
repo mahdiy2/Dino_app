@@ -33,6 +33,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import org.json.JSONArray
+import org.json.JSONObject
 import java.net.URISyntaxException
 import javax.inject.Inject
 
@@ -179,8 +181,14 @@ class MainScreenViewModel @Inject constructor(
         listGroupsUseCase.execute().collect { res ->
             when (res) {
                 is Resource.Success -> {
+                    val localUnreadByGroupId = _groupList.associate { it.id to it.hasUnread }
                     _groupList.clear()
-                    _groupList.addAll(res.data)
+                    _groupList.addAll(
+                        res.data.map { group ->
+                            val localUnread = localUnreadByGroupId[group.id] == true
+                            group.copy(hasUnread = group.hasUnread || localUnread)
+                        }
+                    )
                 }
                 is Resource.Loading -> { }
                 is Resource.Error -> {
@@ -234,6 +242,34 @@ class MainScreenViewModel @Inject constructor(
             }
         }
 
+        socket.on("new_notification") { args ->
+            viewModelScope.launch {
+                try {
+                    val payload = extractPayloadArg(args) as? JSONObject ?: return@launch
+                    val groupId = payload.optInt("group_id", -1)
+                    if (groupId > 0) {
+                        updateGroupUnreadIndicator(groupId = groupId, hasUnread = true)
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "new_notification handling error", e)
+                }
+            }
+        }
+
+        socket.on("pending_group_messages") { args ->
+            viewModelScope.launch {
+                try {
+                    val payload = extractPayloadArg(args) as? JSONObject ?: return@launch
+                    val groupId = payload.optInt("group_id", -1)
+                    if (groupId > 0) {
+                        updateGroupUnreadIndicator(groupId = groupId, hasUnread = true)
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "pending_group_messages handling error", e)
+                }
+            }
+        }
+
         socket.on("user_status") { args ->
             viewModelScope.launch {
                 try {
@@ -267,6 +303,31 @@ class MainScreenViewModel @Inject constructor(
         socket = null
     }
 
+    private fun updateGroupUnreadIndicator(groupId: Int, hasUnread: Boolean) {
+        val index = _groupList.indexOfFirst { it.id == groupId }
+        if (index >= 0) {
+            _groupList[index] = _groupList[index].copy(hasUnread = hasUnread)
+        }
+    }
+
+    private fun extractPayloadArg(args: Array<out Any>): Any? {
+        for (arg in args) {
+            when (arg) {
+                is JSONObject, is JSONArray -> return arg
+                is String -> {
+                    val trimmed = arg.trim()
+                    if (!trimmed.startsWith("{")) continue
+                    return try {
+                        JSONObject(trimmed)
+                    } catch (_: Exception) {
+                        null
+                    }
+                }
+            }
+        }
+        return args.firstOrNull()
+    }
+
     fun isConnected(context: Context): Boolean {
         val connectivityManager =
             context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
@@ -297,6 +358,7 @@ class MainScreenViewModel @Inject constructor(
     }
 
     fun navigateToGroupChatScreen(group: Group) {
+        updateGroupUnreadIndicator(group.id, hasUnread = false)
         navigateToDestination(
             GroupChatScreenDestination(
                 groupId = group.id,
