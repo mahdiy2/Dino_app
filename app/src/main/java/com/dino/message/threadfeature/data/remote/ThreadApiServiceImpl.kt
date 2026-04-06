@@ -11,10 +11,12 @@ import com.dino.message.threadfeature.data.remote.dto.CreateCommentRequest
 import com.dino.message.threadfeature.data.remote.dto.CreateCommentResponse
 import com.dino.message.threadfeature.data.remote.dto.CreatePostRequest
 import com.dino.message.threadfeature.data.remote.dto.CreatePostResponse
+import com.dino.message.threadfeature.data.remote.dto.BlockUserResponse
 import com.dino.message.threadfeature.data.remote.dto.GetCommentsResponse
 import com.dino.message.threadfeature.data.remote.dto.GetPostsResponse
 import com.dino.message.threadfeature.data.remote.dto.VoteRequest
 import com.dino.message.threadfeature.data.remote.dto.VoteResponse
+import com.dino.message.threadfeature.domain.model.BlockedUserResult
 import com.dino.message.threadfeature.domain.model.Comment
 import com.dino.message.threadfeature.domain.model.CreatedComment
 import com.dino.message.threadfeature.domain.model.CreatedPost
@@ -153,6 +155,17 @@ class ThreadApiServiceImpl @Inject constructor(
                             value = value
                         )
                     )
+                }
+            },
+            callRefreshTokenAPI = this::getToken
+        )
+
+    override suspend fun blockUser(username: String): Resource<BlockedUserResult> =
+        httpAPIUtil.callAPIWithErrorHandling<BlockedUserResult, BlockUserResponse>(
+            callAPI = {
+                httpClient.post(ThreadRoute.BlockUser(username).url) {
+                    contentType(ContentType.Application.Json)
+                    appendTokenToHeader(sPrefManager.getToken())
                 }
             },
             callRefreshTokenAPI = this::getToken

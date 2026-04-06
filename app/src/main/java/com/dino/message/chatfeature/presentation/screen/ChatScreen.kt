@@ -111,6 +111,8 @@ fun ChatScreen(
     val debugLogCount by remember { derivedStateOf { socketDebugEvents.size } }
     val decryptionError by viewModel.decryptionError.collectAsState()
     val socketError by viewModel.socketError.collectAsState()
+    val showBlockedDialog by viewModel.showBlockedDialog.collectAsState()
+    val blockedDialogMessage by viewModel.blockedDialogMessage.collectAsState()
     val debugListState = rememberLazyListState()
     val isRecording by viewModel.isRecording.collectAsState()
     val recordingDurationMs by viewModel.recordingDurationMs.collectAsState()
@@ -260,6 +262,24 @@ fun ChatScreen(
                     enabled = !isFollowLoading
                 ) {
                     Text(text = stringResource(R.string.cancel))
+                }
+            }
+        )
+    }
+
+    if (showBlockedDialog) {
+        AlertDialog(
+            onDismissRequest = { viewModel.acknowledgeBlockedDialogAndExit() },
+            title = { Text("Chat unavailable") },
+            text = {
+                Text(
+                    blockedDialogMessage
+                        ?: "You have been blocked and can no longer chat with this user."
+                )
+            },
+            confirmButton = {
+                Button(onClick = { viewModel.acknowledgeBlockedDialogAndExit() }) {
+                    Text("OK")
                 }
             }
         )

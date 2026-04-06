@@ -19,6 +19,7 @@ import com.dino.message.threadfeature.domain.model.Post
 import com.dino.message.threadfeature.domain.model.VoteTargetType
 import com.dino.message.threadfeature.domain.usecase.VoteUseCase
 import com.ramcosta.composedestinations.generated.destinations.ProfileScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.ReportPostBottomSheetScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.ThreadCommentsBottomSheetScreenDestination
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -216,6 +217,13 @@ class SearchViewModel @Inject constructor(
     fun openCommentsBottomSheet(postId: Long) {
         navigateToDestination(
             ThreadCommentsBottomSheetScreenDestination(postId),
+            viewModelScope
+        )
+    }
+
+    fun openReportBottomSheet(postId: Long) {
+        navigateToDestination(
+            ReportPostBottomSheetScreenDestination(postId),
             viewModelScope
         )
     }

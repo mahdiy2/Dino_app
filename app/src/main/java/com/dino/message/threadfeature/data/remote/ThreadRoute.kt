@@ -16,4 +16,6 @@ sealed class ThreadRoute(url: String) : BaseRoute(url) {
     data class CreateComment(val postId: Long) : ThreadRoute("api/posts/$postId/comments")
 
     object Vote : ThreadRoute("api/votes")
+
+    data class BlockUser(val username: String) : ThreadRoute("api/blocks/$username")
 }

@@ -222,4 +222,34 @@ class ProfileApiServiceImpl @Inject constructor(
             callRefreshTokenAPI = this::getToken,
             needToUpdateToken = false
         )
+
+    override suspend fun getBlockedUsers(
+        page: Int,
+        limit: Int
+    ): Resource<ProfileUsersPage> =
+        httpAPIUtil.callAPIWithErrorHandling<ProfileUsersPage, ProfileUsersPageResponse>(
+            callAPI = {
+                httpClient.get(
+                    ProfileRoute.GetBlockedUsers(
+                        page = page,
+                        limit = limit
+                    ).url
+                ) {
+                    contentType(ContentType.Application.Json)
+                    appendTokenToHeader(sPrefManager.getToken())
+                }
+            },
+            callRefreshTokenAPI = this::getToken
+        )
+
+    override suspend fun unblockUser(username: String): Resource<ProfileFollowResult> =
+        httpAPIUtil.callAPIWithErrorHandling<ProfileFollowResult, ProfileFollowResponse>(
+            callAPI = {
+                httpClient.delete(ProfileRoute.UnblockUser(username).url) {
+                    appendTokenToHeader(sPrefManager.getToken())
+                    contentType(ContentType.Application.Json)
+                }
+            },
+            callRefreshTokenAPI = this::getToken
+        )
 }

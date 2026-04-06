@@ -41,6 +41,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dino.message.R
+import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 
 private val PILL_HEIGHT = 56.dp
 private val CENTER_BUTTON_SIZE = 44.dp
@@ -57,7 +58,7 @@ fun FloatingDockNavigation(
     modifier: Modifier = Modifier
 ) {
     Box(
-        modifier = modifier.padding(bottom = 24.dp),
+        modifier = modifier.padding(bottom = DPMedium),
         contentAlignment = Alignment.Center
     ) {
         Card(

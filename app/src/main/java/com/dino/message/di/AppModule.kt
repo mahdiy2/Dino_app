@@ -40,6 +40,10 @@ import com.dino.message.mainpage.domain.repository.MainRepository
 import com.dino.message.profilefeature.data.remote.ProfileApiService
 import com.dino.message.profilefeature.data.remote.ProfileApiServiceImpl
 import com.dino.message.profilefeature.data.repository.ProfileRepositoryImpl
+import com.dino.message.reportfeature.data.remote.ReportApiService
+import com.dino.message.reportfeature.data.remote.ReportApiServiceImpl
+import com.dino.message.reportfeature.data.repository.ReportRepositoryImpl
+import com.dino.message.reportfeature.domain.repository.ReportRepository
 import com.dino.message.searchfeature.data.remote.SearchApiService
 import com.dino.message.searchfeature.data.remote.SearchApiServiceImpl
 import com.dino.message.searchfeature.data.repository.SearchRepositoryImpl
@@ -288,6 +292,24 @@ object AppModule {
     fun provideSearchRepository(
         searchApiService: SearchApiService
     ): SearchRepository = SearchRepositoryImpl(searchApiService)
+
+    @Singleton
+    @Provides
+    fun provideReportApiService(
+        httpClient: HttpClient,
+        sPrefManager: SPrefManager,
+        httpAPIUtil: HttpAPIUtil
+    ): ReportApiService = ReportApiServiceImpl(
+        httpClient = httpClient,
+        sPrefManager = sPrefManager,
+        httpAPIUtil = httpAPIUtil
+    )
+
+    @Singleton
+    @Provides
+    fun provideReportRepository(
+        reportApiService: ReportApiService
+    ): ReportRepository = ReportRepositoryImpl(reportApiService)
 
     @Singleton
     @Provides

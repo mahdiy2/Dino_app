@@ -22,9 +22,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -33,8 +35,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -53,7 +60,6 @@ import com.dino.message.threadfeature.domain.model.Post
 import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
 import coil.request.CachePolicy
-import androidx.compose.runtime.remember
 
 @Composable
 fun ThreadPostCard(
@@ -65,7 +71,9 @@ fun ThreadPostCard(
     onUpVoteClick: (() -> Unit)? = null,
     onDownVoteClick: (() -> Unit)? = null,
     onCommentsClick: (() -> Unit)? = null,
-    onUserClick: (() -> Unit)? = null
+    onUserClick: (() -> Unit)? = null,
+    onReportClick: (() -> Unit)? = null,
+    onBlockUserClick: (() -> Unit)? = null
 ) {
     val commentsContentColor by animateColorAsState(
         targetValue = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -75,6 +83,7 @@ fun ThreadPostCard(
         ),
         label = "comment"
     )
+    var showPostMenu by remember { mutableStateOf(false) }
 
     PostContainer(
         modifier = modifier
@@ -122,11 +131,53 @@ fun ThreadPostCard(
                         }
                     }
                 }
-                Text(
-                    text = "${getTimeAgo(post.created_at)} ago",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "${getTimeAgo(post.created_at)} ago",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (onReportClick != null || onBlockUserClick != null) {
+                        Box {
+                            IconButton(
+                                onClick = { showPostMenu = true },
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.MoreVert,
+                                    contentDescription = "Post actions",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            DropdownMenu(
+                                expanded = showPostMenu,
+                                onDismissRequest = { showPostMenu = false }
+                            ) {
+                                if (onReportClick != null) {
+                                    DropdownMenuItem(
+                                        text = { Text("Report") },
+                                        onClick = {
+                                            showPostMenu = false
+                                            onReportClick()
+                                        }
+                                    )
+                                }
+                                if (onBlockUserClick != null) {
+                                    DropdownMenuItem(
+                                        text = { Text("Block User") },
+                                        onClick = {
+                                            showPostMenu = false
+                                            onBlockUserClick()
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
 
@@ -172,6 +223,7 @@ fun ThreadPostCard(
                             onClick = { onUpVoteClick?.invoke() },
                             icon = R.drawable.ic_like_filled
                         )
+
                         VoteIconButton(
                             selected = selectedPostVote == (-1L),
                             onClick = { onDownVoteClick?.invoke() },

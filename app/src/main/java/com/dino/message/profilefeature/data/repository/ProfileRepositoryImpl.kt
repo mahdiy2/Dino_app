@@ -54,4 +54,10 @@ class ProfileRepositoryImpl(
         limit: Int
     ): Resource<ProfileUsersPage> =
         profileApiService.getFollowing(username = username, page = page, limit = limit)
+
+    override suspend fun getBlockedUsers(page: Int, limit: Int): Resource<ProfileUsersPage> =
+        profileApiService.getBlockedUsers(page = page, limit = limit)
+
+    override suspend fun unblockUser(username: String): Resource<ProfileFollowResult> =
+        profileApiService.unblockUser(username = username)
 }

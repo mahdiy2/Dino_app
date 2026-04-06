@@ -31,6 +31,7 @@ fun SearchResultsList(
     onUpVoteClick: (Long) -> Unit,
     onDownVoteClick: (Long) -> Unit,
     onCommentsClick: (Long) -> Unit,
+    onReportClick: (Long) -> Unit,
     selectedPostVote: (Long) -> Long,
     postError: (Long) -> String?,
     modifier: Modifier = Modifier
@@ -140,6 +141,7 @@ fun SearchResultsList(
                     onUpVoteClick = { onUpVoteClick(post.id) },
                     onDownVoteClick = { onDownVoteClick(post.id) },
                     onCommentsClick = { onCommentsClick(post.id) },
+                    onReportClick = { onReportClick(post.id) },
                     onUserClick = { onUserClick(post.author.username) },
                 )
             }

@@ -17,6 +17,7 @@ import com.dino.message.profilefeature.domain.model.Profile
 import com.dino.message.profilefeature.domain.usecase.GetMyProfileUseCase
 import com.dino.message.threadfeature.domain.model.Post
 import com.dino.message.threadfeature.domain.model.VoteTargetType
+import com.dino.message.threadfeature.domain.usecase.BlockUserUseCase
 import com.dino.message.threadfeature.domain.usecase.GetPostsUseCase
 import com.dino.message.threadfeature.domain.usecase.VoteUseCase
 import com.dino.message.activitynotificationfeature.domain.usecase.GetUnreadCountUseCase
@@ -27,6 +28,7 @@ import com.ramcosta.composedestinations.generated.destinations.SearchScreenDesti
 import com.ramcosta.composedestinations.generated.destinations.MainScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.ProfileScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.ActivityNotificationScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.ReportPostBottomSheetScreenDestination
 import io.socket.client.IO
 import io.socket.client.Socket
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -42,6 +44,7 @@ class ThreadViewModel @Inject constructor(
     @ApplicationContext app: Context,
     private val getPostsUseCase: GetPostsUseCase,
     private val voteUseCase: VoteUseCase,
+    private val blockUserUseCase: BlockUserUseCase,
     private val getMyProfileUseCase: GetMyProfileUseCase,
     private val sPrefManager: SPrefManager,
     private val getUnreadCountUseCase: GetUnreadCountUseCase
@@ -79,7 +82,11 @@ class ThreadViewModel @Inject constructor(
     private val _unreadNotificationCount = MutableStateFlow(0)
     val unreadNotificationCount: StateFlow<Int> = _unreadNotificationCount.asStateFlow()
 
+    private val _blockFeedback = MutableStateFlow<String?>(null)
+    val blockFeedback: StateFlow<String?> = _blockFeedback.asStateFlow()
+
     private var activitySocket: Socket? = null
+    private val currentUsername: String = sPrefManager.getUsername().orEmpty()
 
     init {
         refresh()
@@ -167,6 +174,13 @@ class ThreadViewModel @Inject constructor(
             ), viewModelScope)
     }
 
+    fun openReportBottomSheet(postId: Long) {
+        navigateToDestination(
+            ReportPostBottomSheetScreenDestination(postId),
+            viewModelScope
+        )
+    }
+
     fun openCreatePostScreen() {
         shouldRefreshWhenScreenResumes = true
         navigateToDestination(
@@ -218,6 +232,35 @@ class ThreadViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    fun blockUser(username: String) = viewModelScope.launch {
+        if (username.isBlank() || username == currentUsername) {
+            return@launch
+        }
+
+        blockUserUseCase.execute(username).collect { res ->
+            when (res) {
+                is Resource.Success -> {
+                    _blockFeedback.value = res.data.message
+                    refresh()
+                }
+
+                is Resource.Loading -> Unit
+
+                is Resource.Error -> {
+                    _blockFeedback.value = res.message.asString(getApplication())
+                }
+            }
+        }
+    }
+
+    fun clearBlockFeedback() {
+        _blockFeedback.value = null
+    }
+
+    fun shouldShowBlockForAuthor(username: String): Boolean {
+        return username.isNotBlank() && username != currentUsername
     }
 
     private fun seedVotesFromPosts(posts: List<Post>) {

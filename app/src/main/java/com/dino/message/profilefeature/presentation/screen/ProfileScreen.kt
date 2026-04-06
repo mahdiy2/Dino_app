@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
@@ -22,10 +23,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBackIosNew
 import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -109,18 +112,21 @@ fun ProfileScreen(username: String? = null) {
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    PullToRefreshBox(
-        isRefreshing = isRefreshing,
-        onRefresh = viewModel::refresh,
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+    Box(
     ) {
-        LazyColumn(
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = viewModel::refresh,
             modifier = Modifier
-                .fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(DPMedium)
+                .fillMaxSize()
+//                .padding(innerPadding)
+                .background(MaterialTheme.colorScheme.background)
         ) {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(DPMedium)
+            ) {
             item {
                 ProfileContainer(
                     modifier = Modifier
@@ -357,8 +363,25 @@ fun ProfileScreen(username: String? = null) {
                         onUpVoteClick = { viewModel.votePost(post.id, 1) },
                         onDownVoteClick = { viewModel.votePost(post.id, -1) },
                         onCommentsClick = { viewModel.openCommentsBottomSheet(post.id) },
+                        onReportClick = { viewModel.openReportBottomSheet(post.id) },
                     )
                 }
+            }
+            }
+        }
+
+        if (isOwnProfile) {
+            FloatingActionButton(
+                onClick = viewModel::openProfileSettingsScreen,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(16.dp)
+                    .windowInsetsPadding(WindowInsets.navigationBars)
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Settings,
+                    contentDescription = "Open settings"
+                )
             }
         }
     }

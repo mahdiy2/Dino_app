@@ -119,6 +119,12 @@ class ChatViewModel @Inject constructor(
     private val _socketError = MutableStateFlow<String?>(null)
     val socketError: StateFlow<String?> = _socketError.asStateFlow()
 
+    private val _showBlockedDialog = MutableStateFlow(false)
+    val showBlockedDialog: StateFlow<Boolean> = _showBlockedDialog.asStateFlow()
+
+    private val _blockedDialogMessage = MutableStateFlow<String?>(null)
+    val blockedDialogMessage: StateFlow<String?> = _blockedDialogMessage.asStateFlow()
+
     private val _replyingTo = MutableStateFlow<MessageEntity?>(null)
     val replyingTo: StateFlow<MessageEntity?> = _replyingTo.asStateFlow()
 
@@ -409,6 +415,12 @@ class ChatViewModel @Inject constructor(
         _socketError.value = null
     }
 
+    fun acknowledgeBlockedDialogAndExit() {
+        _showBlockedDialog.value = false
+        _blockedDialogMessage.value = null
+        navigateUp(viewModelScope)
+    }
+
     fun setReplyingTo(message: MessageEntity) {
         _replyingTo.value = message
     }
@@ -463,6 +475,14 @@ class ChatViewModel @Inject constructor(
 
     private fun showRefreshing() {
         _isRefreshing.value = getPublicKey || isSocketConnecting
+    }
+
+    private fun triggerBlockedDialog(message: String?) {
+        if (_showBlockedDialog.value) {
+            return
+        }
+        _blockedDialogMessage.value = message ?: "You have been blocked and can no longer chat with this user."
+        _showBlockedDialog.value = true
     }
 
     fun sendMessage(message: String) {
@@ -940,6 +960,38 @@ class ChatViewModel @Inject constructor(
                 val detail = raw?.toDebugString() ?: "unknown"
                 pushSocketDebugLog("❌ message_error: $detail")
                 Log.e("ChatViewModel", "message_error from server: $detail")
+
+                val payload = raw as? JSONObject
+                val errorText = payload?.optString("error", "").orEmpty()
+                val errorCode = payload?.optString("code", "").orEmpty()
+                val isBlocked = errorCode.equals("blocked", ignoreCase = true) ||
+                    errorText.contains("blocked", ignoreCase = true)
+
+                if (isBlocked) {
+                    triggerBlockedDialog(
+                        message = errorText.ifBlank {
+                            "You have been blocked and can no longer chat with this user."
+                        }
+                    )
+                } else if (errorText.isNotBlank()) {
+                    _socketError.value = errorText
+                }
+            }
+        }
+
+        createdSocket.on("chat_blocked") { args ->
+            viewModelScope.launch {
+                val payload = parseSocketPayload(args, "chat_blocked") ?: return@launch
+                val blockedBy = payload.optString("blocked_by", "")
+                val targetChat = payload.optString("chat_id", "")
+                if (blockedBy == chatId || targetChat == chatId) {
+                    triggerBlockedDialog(
+                        payload.optString(
+                            "message",
+                            "You have been blocked by $chatId."
+                        )
+                    )
+                }
             }
         }
 

@@ -2,6 +2,7 @@ package com.dino.message.threadfeature.data.repository
 
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.threadfeature.data.remote.ThreadApiService
+import com.dino.message.threadfeature.domain.model.BlockedUserResult
 import com.dino.message.threadfeature.domain.model.Comment
 import com.dino.message.threadfeature.domain.model.CreatedComment
 import com.dino.message.threadfeature.domain.model.CreatedPost
@@ -38,4 +39,7 @@ class ThreadRepositoryImpl(
 
     override suspend fun vote(targetType: String, targetId: Long, value: Long): Resource<VoteResult> =
         threadApiService.vote(targetType = targetType, targetId = targetId, value = value)
+
+    override suspend fun blockUser(username: String): Resource<BlockedUserResult> =
+        threadApiService.blockUser(username = username)
 }

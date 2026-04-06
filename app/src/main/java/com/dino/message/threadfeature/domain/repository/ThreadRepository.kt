@@ -1,6 +1,7 @@
 package com.dino.message.threadfeature.domain.repository
 
 import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.threadfeature.domain.model.BlockedUserResult
 import com.dino.message.threadfeature.domain.model.Comment
 import com.dino.message.threadfeature.domain.model.CreatedComment
 import com.dino.message.threadfeature.domain.model.CreatedPost
@@ -18,4 +19,6 @@ interface ThreadRepository {
     suspend fun createComment(postId: Long, text: String, parentId: Long?): Resource<CreatedComment>
 
     suspend fun vote(targetType: String, targetId: Long, value: Long): Resource<VoteResult>
+
+    suspend fun blockUser(username: String): Resource<BlockedUserResult>
 }

@@ -32,4 +32,11 @@ sealed class ProfileRoute(url: String) : BaseRoute(url) {
         val page: Int,
         val limit: Int
     ) : ProfileRoute("api/follows/$username/following?page=$page&limit=$limit")
+
+    data class GetBlockedUsers(
+        val page: Int,
+        val limit: Int
+    ) : ProfileRoute("api/blocks?page=$page&limit=$limit")
+
+    data class UnblockUser(val username: String) : ProfileRoute("api/blocks/$username")
 }

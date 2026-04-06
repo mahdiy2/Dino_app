@@ -26,6 +26,8 @@ import com.dino.message.threadfeature.domain.usecase.VoteUseCase
 import com.ramcosta.composedestinations.generated.destinations.EditProfileScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.LoginScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.ProfileFollowListScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.ProfileSettingsScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.ReportPostBottomSheetScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.ThreadCommentsBottomSheetScreenDestination
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -222,6 +224,11 @@ class ProfileScreenViewModel @Inject constructor(
         navigateToDestination(EditProfileScreenDestination, viewModelScope)
     }
 
+    fun openProfileSettingsScreen() {
+        if (!_isOwnProfile.value || _isActionLoading.value) return
+        navigateToDestination(ProfileSettingsScreenDestination, viewModelScope)
+    }
+
     fun logout(){
         UnreadPollingScheduler.cancel(getApplication<DinoOrderApplication>())
         getApplication<DinoOrderApplication>()
@@ -294,6 +301,13 @@ class ProfileScreenViewModel @Inject constructor(
     fun openCommentsBottomSheet(postId: Long) {
         navigateToDestination(
             ThreadCommentsBottomSheetScreenDestination(postId),
+            viewModelScope
+        )
+    }
+
+    fun openReportBottomSheet(postId: Long) {
+        navigateToDestination(
+            ReportPostBottomSheetScreenDestination(postId),
             viewModelScope
         )
     }

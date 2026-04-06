@@ -30,4 +30,8 @@ interface ProfileApiService {
     suspend fun getFollowers(username: String, page: Int, limit: Int): Resource<ProfileUsersPage>
 
     suspend fun getFollowing(username: String, page: Int, limit: Int): Resource<ProfileUsersPage>
+
+    suspend fun getBlockedUsers(page: Int, limit: Int): Resource<ProfileUsersPage>
+
+    suspend fun unblockUser(username: String): Resource<ProfileFollowResult>
 }

@@ -116,6 +116,7 @@ fun SearchScreen() {
                 onUpVoteClick = { postId -> viewModel.votePost(postId, 1) },
                 onDownVoteClick = { postId -> viewModel.votePost(postId, -1) },
                 onCommentsClick = viewModel::openCommentsBottomSheet,
+                onReportClick = viewModel::openReportBottomSheet,
                 selectedPostVote = viewModel::selectedPostVote,
                 postError = viewModel::postError,
                 modifier = Modifier.fillMaxSize()

@@ -17,7 +17,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
@@ -35,6 +37,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
@@ -89,7 +93,9 @@ fun ThreadScreen() {
     val density = LocalDensity.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val unreadCount by viewModel.unreadNotificationCount.collectAsState()
+    val blockFeedback by viewModel.blockFeedback.collectAsState()
     var showProfileMenu by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
 
     val coroutineScope = rememberCoroutineScope()
 
@@ -129,7 +135,15 @@ fun ThreadScreen() {
             .collectLatest { viewModel.loadNextPage() }
     }
 
+    LaunchedEffect(blockFeedback) {
+        blockFeedback?.let { message ->
+            snackbarHostState.showSnackbar(message)
+            viewModel.clearBlockFeedback()
+        }
+    }
+
     Scaffold(
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { _ ->
         val animatedTopPadding by animateDpAsState(
             targetValue = if (isDockVisible) topBarHeight else 0.dp,
@@ -198,6 +212,12 @@ fun ThreadScreen() {
                                 onUpVoteClick = { viewModel.votePost(post.id, 1) },
                                 onDownVoteClick = { viewModel.votePost(post.id, -1) },
                                 onCommentsClick = { viewModel.openCommentsBottomSheet(post.id) },
+                                onReportClick = { viewModel.openReportBottomSheet(post.id) },
+                                onBlockUserClick = if (viewModel.shouldShowBlockForAuthor(post.author.username)) {
+                                    { viewModel.blockUser(post.author.username) }
+                                } else {
+                                    null
+                                },
                                 onUserClick = { viewModel.openUserProfile(post.author.username) }
                             )
                         }
@@ -295,7 +315,8 @@ fun ThreadScreen() {
 
             AnimatedVisibility(
                 visible = isDockVisible,
-                modifier = Modifier.align(Alignment.BottomCenter),
+                modifier = Modifier.align(Alignment.BottomCenter)
+                    .windowInsetsPadding(WindowInsets.navigationBars),
                 enter = slideInVertically(initialOffsetY = { it * 2 }),
                 exit = slideOutVertically(targetOffsetY = { it * 2 })
             ) {
