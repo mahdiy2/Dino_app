@@ -1,0 +1,111 @@
+package com.dino.message.profilefeature.presentation.screen
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.dino.message.corefeature.presentation.ui.theme.DPMedium
+import com.dino.message.profilefeature.presentation.viewmodel.DeletePostBottomSheetViewModel
+import com.ramcosta.composedestinations.annotation.Destination
+import com.ramcosta.composedestinations.annotation.RootGraph
+import com.ramcosta.composedestinations.bottomsheet.spec.DestinationStyleBottomSheet
+import com.ramcosta.composedestinations.spec.DestinationStyle
+
+@Destination<RootGraph>(style = DestinationStyle.Dialog::class)
+@Composable
+fun DeletePostBottomSheetScreen(
+    postId: Long,
+) {
+    val viewModel: DeletePostBottomSheetViewModel = hiltViewModel()
+    val isDeleting by viewModel.isDeleting.collectAsState()
+    val error by viewModel.error.collectAsState()
+
+    Surface(
+        shape = MaterialTheme.shapes.extraLarge,
+        color = MaterialTheme.colorScheme.surface
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(DPMedium)
+                .windowInsetsPadding(WindowInsets.navigationBars),
+            verticalArrangement = Arrangement.spacedBy(DPMedium)
+        ) {
+            Text(
+                text = "Delete post?",
+                style = MaterialTheme.typography.titleMedium
+            )
+            Text(
+                text = "This action cannot be undone.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = "Post #$postId",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            if (error != null) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.errorContainer,
+                    shape = MaterialTheme.shapes.medium
+                ) {
+                    Text(
+                        modifier = Modifier.padding(DPMedium),
+                        text = error.orEmpty(),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onErrorContainer
+                    )
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                OutlinedButton(
+                    enabled = !isDeleting,
+                    onClick = viewModel::closeSheet
+                ) {
+                    Text("Cancel")
+                }
+
+                FilledTonalButton(
+                    modifier = Modifier.padding(start = 8.dp),
+                    enabled = !isDeleting,
+                    onClick = viewModel::confirmDelete
+                ) {
+                    if (isDeleting) {
+                        CircularProgressIndicator(strokeWidth = 2.dp)
+                    } else {
+                        Text(
+                            text = "Delete",
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+}

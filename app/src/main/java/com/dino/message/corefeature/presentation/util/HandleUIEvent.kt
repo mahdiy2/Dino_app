@@ -3,6 +3,7 @@ package com.dino.message.corefeature.presentation.util
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.navigation.NavController
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import com.dino.message.DinoOrderApplication
 import kotlinx.coroutines.flow.collectLatest
 
@@ -22,29 +23,28 @@ fun HandleUIEvent(
         app.uIEventFlow.collectLatest { event ->
             when (event) {
                 is UIEvent.NavigateWithPopBackStack -> {
-                    // Use event.route instead of event.direction
-                    navController.navigate(event.route) {
-                        // popUpTo logic remains the same
-                        when (event.level) {
-                            is PopBackStackLevel.ALL -> {
-                                popUpTo(navController.graph.startDestinationId) {
+                    when (event.level) {
+                        is PopBackStackLevel.ALL -> {
+                            navController.navigate(event.route) {
+                                popUpTo(navController.graph.findStartDestination().id) {
                                     inclusive = true
                                 }
+                                launchSingleTop = true
                             }
-                            is PopBackStackLevel.Number -> {
-                                for (index in 0 until event.level.number) {
-                                    if (navController.previousBackStackEntry != null) {
-                                        navController.popBackStack()
-                                    } else {
-                                        break
-                                    }
+                        }
+                        is PopBackStackLevel.Number -> {
+                            for (index in 0 until event.level.number) {
+                                if (!navController.popBackStack()) {
+                                    break
                                 }
+                            }
+                            navController.navigate(event.route) {
+                                launchSingleTop = true
                             }
                         }
                     }
                 }
                 is UIEvent.Navigate -> {
-                    // Use event.route instead of event.direction
                     navController.navigate(event.route) {
                         launchSingleTop = true
                     }

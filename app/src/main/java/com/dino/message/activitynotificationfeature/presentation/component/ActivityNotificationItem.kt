@@ -93,9 +93,7 @@ fun ActivityNotificationItem(
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
@@ -189,7 +187,12 @@ private fun buildNotificationTitle(notification: ActivityNotification): String {
             } ?: "your post"
             "$actorName commented on $postPreview"
         }
-        "comment_reply" -> "$actorName replied to your comment"
+        "comment_reply" -> {
+            val postPreview = notification.extra?.post_text_preview?.let {
+                if (it.length > 40) "\"${it.take(40)}…\"" else "\"$it\""
+            } ?: "your post"
+            "$actorName replied to your comment on $postPreview"
+        }
         "vote" -> {
             val label = notification.extra?.vote_label ?: "voted on"
             val postPreview = notification.extra?.post_text_preview?.let {
@@ -197,13 +200,78 @@ private fun buildNotificationTitle(notification: ActivityNotification): String {
             } ?: "your post"
             "$actorName ${label}d $postPreview"
         }
+        "post_like_milestone" -> {
+            val count = notification.extra?.engagement_count ?: notification.extra?.milestone_count
+            val postPreview = notification.extra?.post_text_preview?.let {
+                if (it.length > 40) "\"${it.take(40)}…\"" else "\"$it\""
+            } ?: "your post"
+            if (count != null) {
+                "Your post $postPreview has received $count likes"
+            } else {
+                "Your post $postPreview has received many likes"
+            }
+        }
+        "post_comment_milestone" -> {
+            val count = notification.extra?.engagement_count ?: notification.extra?.milestone_count
+            val postPreview = notification.extra?.post_text_preview?.let {
+                if (it.length > 40) "\"${it.take(40)}…\"" else "\"$it\""
+            } ?: "your post"
+            if (count != null) {
+                "Your post $postPreview has received comments from $count people"
+            } else {
+                "Your post $postPreview has received many comments"
+            }
+        }
         else -> "$actorName interacted with you"
     }
 }
 
 private fun buildNotificationSubtitle(notification: ActivityNotification): String? {
     return when (notification.kind) {
-        "comment", "comment_reply" -> notification.extra?.comment_preview
+        "comment" -> {
+            val commentPreview = notification.extra?.comment_preview?.trim().orEmpty()
+            val postPreview = notification.extra?.post_text_preview?.trim().orEmpty()
+            when {
+                commentPreview.isNotBlank() && postPreview.isNotBlank() ->
+                    "Comment: \"$commentPreview\"\nPost: \"${postPreview.take(80)}${if (postPreview.length > 80) "…" else ""}\""
+                commentPreview.isNotBlank() -> "Comment: \"$commentPreview\""
+                postPreview.isNotBlank() ->
+                    "Post: \"${postPreview.take(80)}${if (postPreview.length > 80) "…" else ""}\""
+                else -> null
+            }
+        }
+        "comment_reply" -> {
+            val replyPreview = notification.extra?.comment_preview?.trim().orEmpty()
+            val parentPreview = notification.extra?.parent_comment_preview?.trim().orEmpty()
+            val postPreview = notification.extra?.post_text_preview?.trim().orEmpty()
+            val parts = buildList {
+                if (replyPreview.isNotBlank()) {
+                    add("Reply: \"$replyPreview\"")
+                }
+                if (parentPreview.isNotBlank()) {
+                    add(
+                        "On comment: \"${parentPreview.take(80)}" +
+                            "${if (parentPreview.length > 80) "…" else ""}\""
+                    )
+                }
+                if (postPreview.isNotBlank()) {
+                    add(
+                        "Post: \"${postPreview.take(80)}" +
+                            "${if (postPreview.length > 80) "…" else ""}\""
+                    )
+                }
+            }
+            parts.takeIf { it.isNotEmpty() }?.joinToString("\n")
+        }
+        "post_like_milestone", "post_comment_milestone" -> {
+            val thresholdPercent = notification.extra?.percent_threshold
+            val activeUsers = notification.extra?.active_users
+            if (thresholdPercent != null && activeUsers != null) {
+                "Milestone reached: $thresholdPercent% of active users"
+            } else {
+                null
+            }
+        }
         else -> null
     }
 }

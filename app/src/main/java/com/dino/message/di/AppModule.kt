@@ -48,6 +48,8 @@ import com.dino.message.searchfeature.data.remote.SearchApiService
 import com.dino.message.searchfeature.data.remote.SearchApiServiceImpl
 import com.dino.message.searchfeature.data.repository.SearchRepositoryImpl
 import com.dino.message.searchfeature.domain.repository.SearchRepository
+import com.dino.message.spashscreen.data.remote.SplashApiService
+import com.dino.message.spashscreen.data.remote.SplashApiServiceImpl
 import com.dino.message.profilefeature.domain.repository.ProfileRepository
 import com.dino.message.threadfeature.data.remote.ThreadApiService
 import com.dino.message.threadfeature.data.remote.ThreadApiServiceImpl
@@ -127,17 +129,14 @@ object AppModule {
             defaultRequest {
                 url(BuildConfig.BASE_URL)
             }
-            install(Logging){
+            install(Logging) {
                 logger = Logger.DEFAULT
-                level = LogLevel.HEADERS
+                level = if (BuildConfig.DEBUG) LogLevel.ALL else LogLevel.HEADERS
             }
             install(HttpTimeout) {
                 requestTimeoutMillis = 20_000
                 connectTimeoutMillis = 20_000
                 socketTimeoutMillis = 20_000
-            }
-            if (BuildConfig.DEBUG) install(Logging) {
-                level = LogLevel.ALL
             }
             install(ContentNegotiation) {
                 json(
@@ -292,6 +291,16 @@ object AppModule {
     fun provideSearchRepository(
         searchApiService: SearchApiService
     ): SearchRepository = SearchRepositoryImpl(searchApiService)
+
+    @Singleton
+    @Provides
+    fun provideSplashApiService(
+        httpClient: HttpClient,
+        httpAPIUtil: HttpAPIUtil
+    ): SplashApiService = SplashApiServiceImpl(
+        httpClient = httpClient,
+        httpAPIUtil = httpAPIUtil
+    )
 
     @Singleton
     @Provides

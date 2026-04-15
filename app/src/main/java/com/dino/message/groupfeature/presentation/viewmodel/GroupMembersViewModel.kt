@@ -12,6 +12,7 @@ import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.dino.message.groupfeature.domain.model.GroupMember
 import com.dino.message.groupfeature.domain.usecase.GetGroupDetailUseCase
 import com.ramcosta.composedestinations.generated.destinations.AddGroupMembersScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.ProfileScreenDestination
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -80,6 +81,15 @@ class GroupMembersViewModel @Inject constructor(
                 groupId = groupId,
                 groupName = _groupName.value.ifBlank { initialGroupName },
             ),
+            viewModelScope,
+        )
+    }
+
+    fun openMemberProfile(username: String) {
+        val normalizedUsername = username.trim()
+        if (normalizedUsername.isBlank()) return
+        navigateToDestination(
+            ProfileScreenDestination(username = normalizedUsername),
             viewModelScope,
         )
     }

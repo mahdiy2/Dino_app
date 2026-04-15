@@ -1,6 +1,8 @@
 package com.dino.message.groupfeature.presentation.screen
 
 import android.widget.Toast
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,6 +18,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ArrowBackIosNew
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.CircularProgressIndicator
@@ -32,16 +35,25 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import coil.compose.AsyncImage
+import coil.compose.SubcomposeAsyncImage
+import coil.request.ImageRequest
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPSmall
 import com.dino.message.groupfeature.domain.model.GroupMember
@@ -66,6 +78,7 @@ fun GroupMembersScreen(
     val canManageMembers by viewModel.canManageMembers.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
+    var selectedProfileImageUrl by remember { mutableStateOf<String?>(null) }
 
     val resolvedGroupName = title.ifBlank { groupName ?: "Group" }
 
@@ -161,11 +174,26 @@ fun GroupMembersScreen(
                             GroupMemberItem(
                                 member = member,
                                 isCreator = member.username == creatorUsername,
+                                onAvatarClick = { profileImageUrl ->
+                                    if (!profileImageUrl.isNullOrBlank()) {
+                                        selectedProfileImageUrl = profileImageUrl
+                                    }
+                                },
+                                onMemberClick = {
+                                    viewModel.openMemberProfile(member.username)
+                                }
                             )
                         }
                     }
                 }
             }
+        }
+
+        if (!selectedProfileImageUrl.isNullOrBlank()) {
+            GroupMemberProfileImageDialog(
+                imageUrl = selectedProfileImageUrl!!,
+                onDismiss = { selectedProfileImageUrl = null }
+            )
         }
     }
 }
@@ -174,10 +202,14 @@ fun GroupMembersScreen(
 private fun GroupMemberItem(
     member: GroupMember,
     isCreator: Boolean,
+    onAvatarClick: (String?) -> Unit,
+    onMemberClick: () -> Unit,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clip(MaterialTheme.shapes.medium)
+            .clickable(onClick = onMemberClick)
             .padding(vertical = DPSmall),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -186,7 +218,10 @@ private fun GroupMemberItem(
             contentDescription = member.name,
             modifier = Modifier
                 .size(48.dp)
-                .clip(CircleShape),
+                .clip(CircleShape)
+                .clickable {
+                    onAvatarClick(member.profileImageUrl)
+                },
         )
 
         Spacer(modifier = Modifier.size(DPMedium))
@@ -215,6 +250,46 @@ private fun GroupMemberItem(
                     )
                 },
             )
+        }
+    }
+}
+
+@Composable
+private fun GroupMemberProfileImageDialog(
+    imageUrl: String,
+    onDismiss: () -> Unit,
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black),
+        ) {
+            SubcomposeAsyncImage(
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(imageUrl)
+                    .crossfade(true)
+                    .build(),
+                contentDescription = "Member profile image",
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.fillMaxSize(),
+            )
+
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(16.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Close,
+                    contentDescription = "Close",
+                    tint = Color.White,
+                )
+            }
         }
     }
 }

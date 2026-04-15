@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -27,6 +28,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.dino.message.chatfeature.presentation.component.ChatContainer
 import com.dino.message.chatfeature.presentation.component.SwipeToReply
@@ -42,11 +44,13 @@ fun GroupChatSurface(
     modifier: Modifier = Modifier,
     state: LazyListState = rememberLazyListState(),
     items: List<GroupMessageEntity>,
+    topOverlaySpacerHeight: Dp = 0.dp,
     messageDeliveryStatuses: Map<String, MessageDeliveryStatus> = emptyMap(),
     currentUsername: String,
     senderProfileImageUrls: Map<String, String?> = emptyMap(),
     onMessageClick: ((GroupMessageEntity, IntOffset, IntSize) -> Unit)? = null,
     onAttachmentClick: ((GroupMessageEntity) -> Unit)? = null,
+    onPostShareClick: ((Long) -> Unit)? = null,
     onMessageLongClick: ((GroupMessageEntity) -> Unit)? = null,
     onSwipeToReply: ((GroupMessageEntity) -> Unit)? = null,
 ) {
@@ -106,6 +110,7 @@ fun GroupChatSurface(
                                 deliveryStatus = if (isMine) messageDeliveryStatuses[message.messageId] else null,
                                 onClick = { offset, size -> onMessageClick?.invoke(message, offset, size) },
                                 onAttachmentClick = { onAttachmentClick?.invoke(message) },
+                                onPostShareClick = onPostShareClick,
                                 onLongClick = { onMessageLongClick?.invoke(message) },
                                 replySenderName = message.replyToSender,
                                 replyPreviewText = message.replyPreview
@@ -113,6 +118,15 @@ fun GroupChatSurface(
                         }
                     }
                 }
+            }
+        }
+        if (topOverlaySpacerHeight > 0.dp) {
+            item(key = "nowPlayingTopSpacer") {
+                Spacer(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(topOverlaySpacerHeight)
+                )
             }
         }
     }

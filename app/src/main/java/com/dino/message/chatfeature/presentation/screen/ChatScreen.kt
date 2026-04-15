@@ -55,12 +55,14 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -79,6 +81,8 @@ import com.dino.message.chatfeature.presentation.component.MediaViewerDialog
 import com.dino.message.chatfeature.domain.model.MessageEntity
 import com.dino.message.chatfeature.presentation.viewmodel.ChatViewModel
 import com.dino.message.profilefeature.presentation.component.ProfileAvatarMedia
+import com.dino.message.threadfeature.presentation.component.NowPlayingTopBarRow
+import com.dino.message.threadfeature.presentation.music.MusicPlaybackManager
 import com.ramcosta.composedestinations.annotation.Destination
 import com.ramcosta.composedestinations.annotation.RootGraph
 import java.time.Duration
@@ -120,6 +124,12 @@ fun ChatScreen(
     val context = LocalContext.current
     val resolvedName = displayName ?: chatId
     val snackbarHostState = remember { SnackbarHostState() }
+    val playbackState by MusicPlaybackManager.playbackState.collectAsState()
+    val hasNowPlaying = !playbackState.currentTrackUrl.isNullOrBlank()
+    var nowPlayingHeightPx by remember { mutableIntStateOf(0) }
+    val density = LocalDensity.current
+    val nowPlayingHeightDp = with(density) { nowPlayingHeightPx.toDp() }
+    val reservedNowPlayingHeight = if (!hasNowPlaying) 0.dp else nowPlayingHeightDp.takeIf { it > 0.dp } ?: 64.dp
 
     var pendingVoiceAction by remember { mutableStateOf<(() -> Unit)?>(null) }
     var mediaViewerUrl by remember { mutableStateOf<String?>(null) }
@@ -171,6 +181,9 @@ fun ChatScreen(
         if (socketDebugEvents.isNotEmpty()) {
             debugListState.animateScrollToItem(socketDebugEvents.lastIndex)
         }
+    }
+    LaunchedEffect(hasNowPlaying) {
+        if (!hasNowPlaying) nowPlayingHeightPx = 0
     }
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
@@ -388,7 +401,8 @@ fun ChatScreen(
                            modifier = Modifier.size(36.dp),
                            profileImageUrl = profileImageUrl,
                             profileVideoUrl = profileVideoUrl,
-                            autoPlayVideo = true
+                            autoPlayVideo = true,
+                            onClick = viewModel::openPeerProfile
                        )
                         Spacer(Modifier.width(8.dp))
                         Column {
@@ -540,6 +554,7 @@ fun ChatScreen(
                                 ChatSurface(
                                     modifier = Modifier.fillMaxSize(),
                                     items = messages,
+                                    topOverlaySpacerHeight = reservedNowPlayingHeight,
                                     messageDeliveryStatuses = messageDeliveryStatuses,
                                     sender = chatId,
                                     onMessageClick = { message, offset, size ->
@@ -563,12 +578,23 @@ fun ChatScreen(
                                     },
                                     onSwipeToReply = { message ->
                                         viewModel.setReplyingTo(message)
+                                    },
+                                    onPostShareClick = { postId ->
+                                        viewModel.openSharedPost(postId)
                                     }
                                 )
                             }
                         }
                     }
                 }
+            }
+
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .onGloballyPositioned { nowPlayingHeightPx = it.size.height }
+            ) {
+                NowPlayingTopBarRow(onOpenPlaylist = viewModel::openPlaylistBottomSheetIfTrackExists)
             }
         }
 

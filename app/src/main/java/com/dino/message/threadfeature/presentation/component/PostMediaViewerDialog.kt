@@ -53,6 +53,7 @@ import coil.decode.VideoFrameDecoder
 import coil.request.ImageRequest
 import coil.request.videoFrameMillis
 import com.dino.message.threadfeature.domain.model.PostMedia
+import com.dino.message.threadfeature.presentation.music.MusicPlaybackManager
 import kotlinx.coroutines.launch
 
 @Composable
@@ -261,6 +262,7 @@ private fun FullScreenVideoPlayer(
         if (!isCurrentPage) {
             exoPlayer.pause()
         } else {
+            MusicPlaybackManager.pauseForCompetingAudio(context)
             exoPlayer.play()
         }
     }

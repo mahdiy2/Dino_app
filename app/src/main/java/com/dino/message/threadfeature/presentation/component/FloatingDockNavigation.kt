@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Card
@@ -42,18 +43,24 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dino.message.R
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
+import com.dino.message.profilefeature.presentation.component.ProfileAvatarMedia
 
 private val PILL_HEIGHT = 56.dp
 private val CENTER_BUTTON_SIZE = 44.dp
 private val ICON_SIZE = 22.dp
 private val PILL_CORNER = 28.dp
+private val PROFILE_AVATAR_SIZE = 30.dp
 
 @Composable
 fun FloatingDockNavigation(
     selectedIndex: Int,
     unreadNotificationCount: Int,
+    profileImageUrl: String?,
+    profileVideoUrl: String?,
     onChatClick: () -> Unit,
+    onPlaylistClick: () -> Unit,
     onNotificationsClick: () -> Unit,
+    onProfileClick: () -> Unit,
     onFabClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -103,8 +110,6 @@ fun FloatingDockNavigation(
                     onClick = onChatClick
                 )
 
-                CenterCreateButton(onClick = onFabClick)
-
                 DockItemWithBadge(
                     painter = painterResource(R.drawable.ic_notifications),
                     contentDescription = "Notifications",
@@ -112,9 +117,67 @@ fun FloatingDockNavigation(
                     badgeCount = unreadNotificationCount,
                     onClick = onNotificationsClick
                 )
+
+                CenterCreateButton(onClick = onFabClick)
+
+                DockItem(
+                    imageVector = Icons.Rounded.LibraryMusic,
+                    contentDescription = "Playlist",
+                    selected = selectedIndex == 2,
+                    onClick = onPlaylistClick
+                )
+
+                DockProfileItem(
+                    profileImageUrl = profileImageUrl,
+                    profileVideoUrl = profileVideoUrl,
+                    onClick = onProfileClick
+                )
             }
         }
+    }
+}
 
+@Composable
+private fun DockProfileItem(
+    profileImageUrl: String?,
+    profileVideoUrl: String?,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.88f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "profileItemScale"
+    )
+
+    Box(
+        modifier = modifier
+            .widthIn(min = 48.dp)
+            .height(PILL_HEIGHT)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        ProfileAvatarMedia(
+            modifier = Modifier
+                .size(PROFILE_AVATAR_SIZE)
+                .graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                },
+            profileImageUrl = profileImageUrl,
+            profileVideoUrl = profileVideoUrl,
+            autoPlayVideo = true
+        )
     }
 }
 

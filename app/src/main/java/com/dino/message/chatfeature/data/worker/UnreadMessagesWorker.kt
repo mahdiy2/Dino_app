@@ -70,6 +70,7 @@ class UnreadMessagesWorker(
                 "voice" -> "Sent you a voice message"
                 "file" -> "Sent you a file"
                 "mixed" -> "Sent you a message with attachment"
+                "post" -> "Shared a post with you"
                 else -> if (sender.count > 1) "${sender.count} new messages"
                 else "Sent you a message"
             }

@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBackIosNew
@@ -34,6 +35,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -56,6 +58,7 @@ import com.dino.message.corefeature.presentation.ui.theme.DPSmall
 import com.dino.message.threadfeature.domain.model.PostMedia
 import com.dino.message.threadfeature.presentation.component.Carousel
 import com.dino.message.threadfeature.presentation.component.PostContainer
+import com.dino.message.threadfeature.presentation.component.QuotedPostPreviewCard
 import com.dino.message.threadfeature.presentation.viewmodel.CreatePostViewModel
 import com.ramcosta.composedestinations.annotation.Destination
 import com.ramcosta.composedestinations.annotation.RootGraph
@@ -63,10 +66,15 @@ import com.ramcosta.composedestinations.annotation.RootGraph
 @OptIn(ExperimentalMaterial3Api::class)
 @Destination<RootGraph>
 @Composable
-fun CreatePostScreen() {
+fun CreatePostScreen(
+    quotedPostId: Long = 0L
+) {
     val viewModel: CreatePostViewModel = hiltViewModel()
     val isSubmitting by viewModel.isSubmitting.collectAsState()
     val error by viewModel.error.collectAsState()
+    val quotedPost by viewModel.quotedPost.collectAsState()
+    val isQuotedPostLoading by viewModel.isQuotedPostLoading.collectAsState()
+    val quotedPostError by viewModel.quotedPostError.collectAsState()
     val selectedMedia = viewModel.selectedMedia
     val context = LocalContext.current
     val previewMedia = selectedMedia.map {
@@ -105,7 +113,7 @@ fun CreatePostScreen() {
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text(text = "Create Post") },
+                title = { Text(text = "Create Dino") },
                 navigationIcon = {
                     IconButton(
                         onClick = { viewModel.closeScreen() },
@@ -233,6 +241,69 @@ fun CreatePostScreen() {
                                         )
                                     )
                                 }
+                            }
+                        }
+                    }
+
+                    if (viewModel.quotedPostId != null) {
+                        Text(
+                            text = "Quoted post",
+                            style = MaterialTheme.typography.titleSmall
+                        )
+                        QuotedPostPreviewCard(
+                            quotedPostId = viewModel.quotedPostId,
+                            quotedPost = quotedPost
+                        )
+                        if (isQuotedPostLoading) {
+                            Text(
+                                text = "Loading quoted post...",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        if (quotedPostError != null) {
+                            Text(
+                                text = quotedPostError.orEmpty(),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
+
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = MaterialTheme.colorScheme.inversePrimary,
+                        shape = MaterialTheme.shapes.extraLarge
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .selectable(
+                                    selected = viewModel.followersOnly.value,
+                                    enabled = !isSubmitting,
+                                    onClick = {
+                                        viewModel.onFollowersOnlyChanged(!viewModel.followersOnly.value)
+                                    }
+                                )
+                                .padding(horizontal = DPMedium, vertical = DPSmall),
+                            horizontalArrangement = Arrangement.spacedBy(DPSmall),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = viewModel.followersOnly.value,
+                                onClick = { viewModel.onFollowersOnlyChanged(!viewModel.followersOnly.value) },
+                                enabled = !isSubmitting
+                            )
+                            Column {
+                                Text(
+                                    text = "Followers only",
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                                Text(
+                                    text = "Only your followers can see this post in Threads.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                         }
                     }

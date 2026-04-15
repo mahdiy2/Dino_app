@@ -62,6 +62,7 @@ import coil.decode.VideoFrameDecoder
 import coil.request.ImageRequest
 import coil.request.videoFrameMillis
 import com.dino.message.threadfeature.domain.model.PostMedia
+import com.dino.message.threadfeature.presentation.music.MusicPlaybackManager
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -70,6 +71,7 @@ fun Carousel(
     items: List<PostMedia>,
 ) {
     if (items.isEmpty()) return
+    val context = LocalContext.current
 
     var activeVideoId by remember(items) { mutableStateOf<Long?>(null) }
     var viewerOpenIndex by remember { mutableStateOf<Int?>(null) }
@@ -101,7 +103,12 @@ fun Carousel(
             isVideo = isVideo,
             isPlaying = isVideo && activeVideoId == item.id,
             onPlayPauseClick = {
-                activeVideoId = if (activeVideoId == item.id) null else item.id
+                activeVideoId = if (activeVideoId == item.id) {
+                    null
+                } else {
+                    MusicPlaybackManager.pauseForCompetingAudio(context)
+                    item.id
+                }
             },
             onCardClick = {
                 viewerOpenIndex = i
@@ -255,6 +262,10 @@ private fun VideoPlayer(
         }
     }
     var isBuffering by remember { mutableStateOf(true) }
+
+    LaunchedEffect(url) {
+        MusicPlaybackManager.pauseForCompetingAudio(context)
+    }
 
     DisposableEffect(exoPlayer) {
         val listener = object : Player.Listener {

@@ -10,17 +10,20 @@ import com.dino.message.BuildConfig
 import com.dino.message.DinoOrderApplication
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.presentation.util.Resource
-import com.dino.message.corefeature.presentation.util.PopBackStackLevel
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.dino.message.profilefeature.domain.model.Profile
 import com.dino.message.profilefeature.domain.usecase.GetMyProfileUseCase
 import com.dino.message.threadfeature.domain.model.Post
+import com.dino.message.threadfeature.domain.model.PostMedia
 import com.dino.message.threadfeature.domain.model.VoteTargetType
+import com.dino.message.threadfeature.domain.usecase.AddTrackToPlaylistUseCase
 import com.dino.message.threadfeature.domain.usecase.BlockUserUseCase
 import com.dino.message.threadfeature.domain.usecase.GetPostsUseCase
+import com.dino.message.threadfeature.domain.usecase.IsTrackInPlaylistUseCase
 import com.dino.message.threadfeature.domain.usecase.VoteUseCase
 import com.dino.message.activitynotificationfeature.domain.usecase.GetUnreadCountUseCase
+import com.dino.message.threadfeature.presentation.screen.CreatePostOptionsBottomSheetScreen
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import com.ramcosta.composedestinations.generated.destinations.CreatePostScreenDestination
@@ -28,7 +31,13 @@ import com.ramcosta.composedestinations.generated.destinations.SearchScreenDesti
 import com.ramcosta.composedestinations.generated.destinations.MainScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.ProfileScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.ActivityNotificationScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.CreatePostOptionsBottomSheetScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.ReportPostBottomSheetScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.SharePostBottomSheetScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.PostMusicScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.PlaylistBottomSheetScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.SharedPostDetailsScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.TrackPlaylistAddersDialogScreenDestination
 import io.socket.client.IO
 import io.socket.client.Socket
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,6 +45,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import com.ramcosta.composedestinations.generated.destinations.ThreadCommentsBottomSheetScreenDestination
 
@@ -45,6 +56,8 @@ class ThreadViewModel @Inject constructor(
     private val getPostsUseCase: GetPostsUseCase,
     private val voteUseCase: VoteUseCase,
     private val blockUserUseCase: BlockUserUseCase,
+    private val addTrackToPlaylistUseCase: AddTrackToPlaylistUseCase,
+    private val isTrackInPlaylistUseCase: IsTrackInPlaylistUseCase,
     private val getMyProfileUseCase: GetMyProfileUseCase,
     private val sPrefManager: SPrefManager,
     private val getUnreadCountUseCase: GetUnreadCountUseCase
@@ -84,6 +97,9 @@ class ThreadViewModel @Inject constructor(
 
     private val _blockFeedback = MutableStateFlow<String?>(null)
     val blockFeedback: StateFlow<String?> = _blockFeedback.asStateFlow()
+
+    private val _playlistFeedback = MutableStateFlow<String?>(null)
+    val playlistFeedback: StateFlow<String?> = _playlistFeedback.asStateFlow()
 
     private var activitySocket: Socket? = null
     private val currentUsername: String = sPrefManager.getUsername().orEmpty()
@@ -181,10 +197,55 @@ class ThreadViewModel @Inject constructor(
         )
     }
 
+    fun openShareBottomSheet(post: Post) {
+        navigateToDestination(
+            SharePostBottomSheetScreenDestination(
+                postId = post.id,
+                authorUsername = post.author.username,
+                postText = post.text.take(240)
+            ),
+            viewModelScope
+        )
+    }
+
+    fun openQuotePostOptions(post: Post) {
+        shouldRefreshWhenScreenResumes = true
+        navigateToDestination(
+            CreatePostOptionsBottomSheetScreenDestination(
+                quotedPostId = post.id
+            ),
+            viewModelScope
+        )
+    }
+
+    fun openQuotedPost(postId: Long) {
+        if (postId <= 0L) return
+        navigateToDestination(
+            SharedPostDetailsScreenDestination(postId = postId),
+            viewModelScope
+        )
+    }
+
     fun openCreatePostScreen() {
         shouldRefreshWhenScreenResumes = true
         navigateToDestination(
-            CreatePostScreenDestination,
+            CreatePostScreenDestination(),
+            viewModelScope
+        )
+    }
+
+    fun openPostMusicScreen() {
+        shouldRefreshWhenScreenResumes = true
+        navigateToDestination(
+            PostMusicScreenDestination(),
+            viewModelScope
+        )
+    }
+
+    fun showCreateOptionsSheet(){
+        shouldRefreshWhenScreenResumes = true
+        navigateToDestination(
+            CreatePostOptionsBottomSheetScreenDestination(),
             viewModelScope
         )
     }
@@ -259,8 +320,61 @@ class ThreadViewModel @Inject constructor(
         _blockFeedback.value = null
     }
 
+    fun clearPlaylistFeedback() {
+        _playlistFeedback.value = null
+    }
+
+    fun openPlaylistBottomSheet() {
+        navigateToDestination(
+            PlaylistBottomSheetScreenDestination,
+            viewModelScope
+        )
+    }
+
+    fun openPlaylistBottomSheetIfTrackExists(trackUrl: String) = viewModelScope.launch {
+        val normalizedUrl = trackUrl.trim()
+        if (normalizedUrl.isBlank()) return@launch
+
+        isTrackInPlaylistUseCase.execute(trackUrl = normalizedUrl).collect { res ->
+            if (res is Resource.Success) {
+                if (res.data) {
+                    openPlaylistBottomSheet()
+                }
+            }
+        }
+    }
+
     fun shouldShowBlockForAuthor(username: String): Boolean {
         return username.isNotBlank() && username != currentUsername
+    }
+
+    fun addTrackToPlaylist(mediaId: Long) = viewModelScope.launch {
+        if (mediaId <= 0L) return@launch
+
+        addTrackToPlaylistUseCase.execute(mediaId).collect { res ->
+            when (res) {
+                is Resource.Success -> {
+                    _playlistFeedback.value = res.data.message
+                }
+
+                is Resource.Loading -> Unit
+
+                is Resource.Error -> {
+                    _playlistFeedback.value = res.message.asString(getApplication())
+                }
+            }
+        }
+    }
+
+    fun openTrackPlaylistAddersDialog(media: PostMedia, trackTitle: String) {
+        if (media.playlistAdders.isEmpty()) return
+        navigateToDestination(
+            TrackPlaylistAddersDialogScreenDestination(
+                trackTitle = trackTitle,
+                playlistAddersJson = Json.encodeToString(media.playlistAdders)
+            ),
+            viewModelScope
+        )
     }
 
     private fun seedVotesFromPosts(posts: List<Post>) {
@@ -275,10 +389,9 @@ class ThreadViewModel @Inject constructor(
     }
 
     fun navigateChat(){
-        navigateWithPopBackStackToDestination(
+        navigateToDestination(
             direction = MainScreenDestination,
-            scope = viewModelScope,
-            level = PopBackStackLevel.ALL
+            scope = viewModelScope
         )
     }
 

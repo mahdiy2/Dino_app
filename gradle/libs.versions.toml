@@ -8,6 +8,7 @@ desugar_jdk_libs = "2.0.4"
 gson = "2.10.1"
 hiltAndroid = "2.56.1"
 hiltNavigationCompose = "1.2.0"
+graphicsShapes = "1.0.0-beta01"
 kotlin = "2.1.20" # Updated Kotlin version
 composeCompiler = "2.1.20" # Updated Compose Compiler version to match Kotlin
 coreKtx = "1.13.1"
@@ -26,6 +27,7 @@ lifecycleRuntimeKtx = "2.9.1"
 activityCompose = "1.9.1"
 composeBom = "2025.06.01"
 logbackClassic = "1.2.6"
+lottieCompose = "6.4.0"
 media3Exoplayer = "1.6.0"
 media3Ui = "1.6.0"
 securityAppAuthenticator = "1.0.0-beta01"
@@ -48,6 +50,7 @@ androidx-hilt-navigation-compose = { module = "androidx.hilt:hilt-navigation-com
 androidx-media3-common = { module = "androidx.media3:media3-common", version.ref = "media3Exoplayer" }
 androidx-media3-ui = { module = "androidx.media3:media3-ui", version.ref = "media3Ui" }
 androidx-media3-exoplayer = { module = "androidx.media3:media3-exoplayer", version.ref = "media3Exoplayer" }
+androidx-graphics-shapes = { module = "androidx.graphics:graphics-shapes", version.ref = "graphicsShapes" }
 androidx-security-app-authenticator = { module = "androidx.security:security-app-authenticator", version.ref = "securityAppAuthenticator" }
 androidx-security-identity-credential = { module = "androidx.security:security-identity-credential", version.ref = "securityIdentityCredential" }
 androidx-security-crypto = { module = "androidx.security:security-crypto", version.ref = "securityCrypto" }
@@ -85,6 +88,7 @@ ktor-client-logging = { module = "io.ktor:ktor-client-logging", version.ref = "k
 ktor-client-serialization = { module = "io.ktor:ktor-client-serialization", version.ref = "ktorClientSerialization" }
 ktor-serialization-kotlinx-json = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktorSerializationKotlinxJson" }
 logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logbackClassic" }
+lottie-compose = { module = "com.airbnb.android:lottie-compose", version.ref = "lottieCompose" }
 room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
 room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }

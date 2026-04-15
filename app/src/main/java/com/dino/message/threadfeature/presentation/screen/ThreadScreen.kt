@@ -6,12 +6,14 @@ import androidx.compose.animation.core.animateIntOffsetAsState
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.WindowInsets
@@ -20,29 +22,29 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -56,19 +58,26 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Create
+import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material3.ListItemDefaults
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
-import com.dino.message.profilefeature.presentation.component.ProfileAvatarMedia
 import com.dino.message.threadfeature.presentation.component.FloatingDockNavigation
+import com.dino.message.threadfeature.presentation.component.NowPlayingTopBarRow
 import com.dino.message.threadfeature.presentation.component.ThreadPostCard
+import com.dino.message.threadfeature.presentation.music.MusicPlaybackManager
 import com.dino.message.threadfeature.presentation.viewmodel.ThreadViewModel
 import com.ramcosta.composedestinations.annotation.Destination
 import com.ramcosta.composedestinations.annotation.RootGraph
@@ -90,12 +99,14 @@ fun ThreadScreen() {
     val topBarHeight = 64.dp + statusBarTop
     val isLoadingMore by viewModel.isLoadingMore.collectAsState()
     val postsError by viewModel.error.collectAsState()
-    val density = LocalDensity.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val unreadCount by viewModel.unreadNotificationCount.collectAsState()
     val blockFeedback by viewModel.blockFeedback.collectAsState()
-    var showProfileMenu by remember { mutableStateOf(false) }
+    val playlistFeedback by viewModel.playlistFeedback.collectAsState()
+    val playbackState by MusicPlaybackManager.playbackState.collectAsState()
+    val hasNowPlaying = !playbackState.currentTrackUrl.isNullOrBlank()
     val snackbarHostState = remember { SnackbarHostState() }
+    val createOptionsSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     val coroutineScope = rememberCoroutineScope()
 
@@ -110,11 +121,23 @@ fun ThreadScreen() {
     }
 
     var topBarHeightPx by remember { mutableIntStateOf(0) }
+    var nowPlayingHeightPx by remember { mutableIntStateOf(0) }
+    val density = LocalDensity.current
+    val nowPlayingHeightDp = with(density) { nowPlayingHeightPx.toDp() }
+    val reservedNowPlayingHeight = if (!hasNowPlaying) 0.dp else nowPlayingHeightDp.takeIf { it > 0.dp } ?: 64.dp
     val topBarOffsetY by animateIntOffsetAsState(
         targetValue = if (isDockVisible) IntOffset.Zero
         else IntOffset(0, -topBarHeightPx),
         label = "topBarOffset"
     )
+    val nowPlayingTopPadding by animateDpAsState(
+        targetValue = if (isDockVisible) topBarHeight else statusBarTop,
+        label = "nowPlayingTopPadding"
+    )
+
+    LaunchedEffect(hasNowPlaying) {
+        if (!hasNowPlaying) nowPlayingHeightPx = 0
+    }
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -139,6 +162,13 @@ fun ThreadScreen() {
         blockFeedback?.let { message ->
             snackbarHostState.showSnackbar(message)
             viewModel.clearBlockFeedback()
+        }
+    }
+
+    LaunchedEffect(playlistFeedback) {
+        playlistFeedback?.let { message ->
+            snackbarHostState.showSnackbar(message)
+            viewModel.clearPlaylistFeedback()
         }
     }
 
@@ -179,6 +209,16 @@ fun ThreadScreen() {
                         modifier = Modifier.fillMaxSize(),
                         verticalArrangement = Arrangement.spacedBy(DPMedium)
                     ) {
+                        if (reservedNowPlayingHeight > 0.dp) {
+                            item {
+                                Spacer(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(reservedNowPlayingHeight)
+                                )
+                            }
+                        }
+
                         if (postsError != null) {
                             item {
                                 Surface(
@@ -212,13 +252,22 @@ fun ThreadScreen() {
                                 onUpVoteClick = { viewModel.votePost(post.id, 1) },
                                 onDownVoteClick = { viewModel.votePost(post.id, -1) },
                                 onCommentsClick = { viewModel.openCommentsBottomSheet(post.id) },
+                                onQuoteClick = { viewModel.openQuotePostOptions(post) },
+                                onShareClick = { viewModel.openShareBottomSheet(post) },
+                                onQuotedPostClick = viewModel::openQuotedPost,
                                 onReportClick = { viewModel.openReportBottomSheet(post.id) },
                                 onBlockUserClick = if (viewModel.shouldShowBlockForAuthor(post.author.username)) {
                                     { viewModel.blockUser(post.author.username) }
                                 } else {
                                     null
                                 },
-                                onUserClick = { viewModel.openUserProfile(post.author.username) }
+                                onUserClick = { viewModel.openUserProfile(post.author.username) },
+                                onAddTrackToPlaylistClick = { media ->
+                                    viewModel.addTrackToPlaylist(media.id)
+                                },
+                                onShowTrackPlaylistAddersClick = { media, trackTitle ->
+                                    viewModel.openTrackPlaylistAddersDialog(media, trackTitle)
+                                }
                             )
                         }
 
@@ -244,8 +293,8 @@ fun ThreadScreen() {
                     .offset { topBarOffsetY }
                     .onGloballyPositioned { topBarHeightPx = it.size.height }
             ) {
-                CenterAlignedTopAppBar(
-                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                TopAppBar(
+                    colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = MaterialTheme.colorScheme.surface
                     ),
                     title = {
@@ -265,41 +314,6 @@ fun ThreadScreen() {
                             style = MaterialTheme.typography.headlineSmall
                         )
                     },
-                    navigationIcon = {
-                        Box {
-                            ProfileAvatarMedia(
-                               modifier = Modifier
-                                   .size(40.dp)
-                                   .combinedClickable(
-                                       onClick = viewModel::openUserProfile,
-                                       onLongClick = { showProfileMenu = true }
-                                   ),
-                               profileImageUrl = profile?.profile_image_url,
-                                profileVideoUrl = profile?.profile_video_url,
-                                autoPlayVideo = true
-                           )
-
-                            DropdownMenu(
-                                expanded = showProfileMenu,
-                                onDismissRequest = { showProfileMenu = false }
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text("Go to Profile") },
-                                    onClick = {
-                                        showProfileMenu = false
-                                        viewModel.openUserProfile()
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Notifications") },
-                                    onClick = {
-                                        showProfileMenu = false
-                                        viewModel.openActivityNotifications()
-                                    }
-                                )
-                            }
-                        }
-                    },
                     actions = {
                         IconButton(onClick = viewModel::openSearchScreen) {
                             Icon(
@@ -313,6 +327,15 @@ fun ThreadScreen() {
                 )
             }
 
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = nowPlayingTopPadding)
+                    .onGloballyPositioned { nowPlayingHeightPx = it.size.height }
+            ) {
+                NowPlayingTopBarRow(onOpenPlaylist = viewModel::openPlaylistBottomSheetIfTrackExists)
+            }
+
             AnimatedVisibility(
                 visible = isDockVisible,
                 modifier = Modifier.align(Alignment.BottomCenter)
@@ -323,11 +346,16 @@ fun ThreadScreen() {
                 FloatingDockNavigation(
                     selectedIndex = -1,
                     unreadNotificationCount = unreadCount,
+                    profileImageUrl = profile?.profile_image_url,
+                    profileVideoUrl = profile?.profile_video_url,
                     onChatClick = { viewModel.navigateChat() },
+                    onPlaylistClick = { viewModel.openPlaylistBottomSheet() },
                     onNotificationsClick = { viewModel.openActivityNotifications() },
-                    onFabClick = { viewModel.openCreatePostScreen() }
+                    onProfileClick = { viewModel.openUserProfile() },
+                    onFabClick = { viewModel.showCreateOptionsSheet() }
                 )
             }
         }
     }
+
 }

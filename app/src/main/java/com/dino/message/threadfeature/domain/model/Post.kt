@@ -11,5 +11,9 @@ data class Post(
     val created_at: String,
     @SerialName("viewer_vote")
     val viewerVote: Long = 0L,
-    val media: List<PostMedia>
+    val media: List<PostMedia>,
+    @SerialName("quoted_post_id")
+    val quotedPostId: Long? = null,
+    @SerialName("quoted_post")
+    val quotedPost: QuotedPostPreview? = null
 )

@@ -15,11 +15,14 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.ModalBottomSheetValue
+import androidx.compose.material.rememberModalBottomSheetState
+import androidx.compose.material.navigation.BottomSheetNavigator
 import androidx.compose.material.navigation.ModalBottomSheetLayout
-import androidx.compose.material.navigation.rememberBottomSheetNavigator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.navigation.NavController
@@ -42,6 +45,7 @@ import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
 import com.dino.message.corefeature.presentation.util.HandleUIEvent
 import com.dino.message.corefeature.presentation.util.LocaleUtils
 import com.dino.message.corefeature.presentation.viewmodel.MainActivityViewModel
+import com.dino.message.threadfeature.presentation.music.MusicPlaybackManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.ramcosta.composedestinations.generated.NavGraphs
@@ -90,7 +94,13 @@ class MainActivity : ComponentActivity() {
             val theme = viewModel.getSystemTheme(systemTheme).collectAsState(initial = systemTheme)
             val appLanguage = viewModel.appLanguage.collectAsState(initial = AppLanguage.English)
 
-            val bottomSheetNavigator = rememberBottomSheetNavigator()
+            val expandedSheetState = rememberModalBottomSheetState(
+                initialValue = ModalBottomSheetValue.Hidden,
+                skipHalfExpanded = true
+            )
+            val bottomSheetNavigator = remember(expandedSheetState) {
+                BottomSheetNavigator(expandedSheetState)
+            }
 
             // Create a navigation controller
             navController = rememberNavController(bottomSheetNavigator)
@@ -139,6 +149,13 @@ class MainActivity : ComponentActivity() {
         handleNotificationDeepLink(intent)
         handleGroupNotificationDeepLink(intent)
         handleActivityNotificationDeepLink(intent)
+    }
+
+    override fun onStop() {
+        super.onStop()
+        if (isFinishing) {
+            MusicPlaybackManager.stop(applicationContext)
+        }
     }
 
     override fun onDestroy() {

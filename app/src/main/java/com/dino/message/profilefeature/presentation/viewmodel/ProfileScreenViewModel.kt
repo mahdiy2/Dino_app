@@ -21,13 +21,20 @@ import com.dino.message.profilefeature.domain.usecase.GetProfilePostsUseCase
 import com.dino.message.profilefeature.domain.usecase.GetProfileUseCase
 import com.dino.message.profilefeature.domain.usecase.UnfollowUserUseCase
 import com.dino.message.threadfeature.domain.model.Post
+import com.dino.message.threadfeature.domain.model.PostMedia
 import com.dino.message.threadfeature.domain.model.VoteTargetType
+import com.dino.message.threadfeature.domain.usecase.AddTrackToPlaylistUseCase
 import com.dino.message.threadfeature.domain.usecase.VoteUseCase
+import com.ramcosta.composedestinations.generated.destinations.CreatePostOptionsBottomSheetScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.DeletePostBottomSheetScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.EditProfileScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.LoginScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.ProfileFollowListScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.ProfileSettingsScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.ReportPostBottomSheetScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.SharePostBottomSheetScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.SharedPostDetailsScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.TrackPlaylistAddersDialogScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.ThreadCommentsBottomSheetScreenDestination
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -35,6 +42,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import javax.inject.Inject
 
 @HiltViewModel
@@ -47,7 +56,8 @@ class ProfileScreenViewModel @Inject constructor(
     private val getFollowStatusUseCase: GetFollowStatusUseCase,
     private val followUserUseCase: FollowUserUseCase,
     private val unfollowUserUseCase: UnfollowUserUseCase,
-    private val voteUseCase: VoteUseCase
+    private val voteUseCase: VoteUseCase,
+    private val addTrackToPlaylistUseCase: AddTrackToPlaylistUseCase
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
     val profile = mutableStateOf<Profile?>(null)
@@ -70,6 +80,8 @@ class ProfileScreenViewModel @Inject constructor(
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
+    private val _playlistFeedback = MutableStateFlow<String?>(null)
+    val playlistFeedback: StateFlow<String?> = _playlistFeedback.asStateFlow()
 
     private val currentUsername = sPrefManager.getUsername().toString().trim()
     private var requestedUsername: String? = null
@@ -308,6 +320,84 @@ class ProfileScreenViewModel @Inject constructor(
     fun openReportBottomSheet(postId: Long) {
         navigateToDestination(
             ReportPostBottomSheetScreenDestination(postId),
+            viewModelScope
+        )
+    }
+
+    fun openShareBottomSheet(post: Post) {
+        navigateToDestination(
+            SharePostBottomSheetScreenDestination(
+                postId = post.id,
+                authorUsername = post.author.username,
+                postText = post.text.take(240)
+            ),
+            viewModelScope
+        )
+    }
+
+    fun openQuotePostOptions(post: Post) {
+        shouldRefreshWhenScreenResumes = true
+        navigateToDestination(
+            CreatePostOptionsBottomSheetScreenDestination(
+                quotedPostId = post.id
+            ),
+            viewModelScope
+        )
+    }
+
+    fun openQuotedPost(postId: Long) {
+        if (postId <= 0L) return
+        navigateToDestination(
+            SharedPostDetailsScreenDestination(postId = postId),
+            viewModelScope
+        )
+    }
+
+    fun addTrackToPlaylist(mediaId: Long) = viewModelScope.launch {
+        if (mediaId <= 0L) return@launch
+        addTrackToPlaylistUseCase.execute(mediaId).collect { res ->
+            when (res) {
+                is Resource.Success -> {
+                    _playlistFeedback.value = res.data.message
+                }
+
+                is Resource.Loading -> Unit
+
+                is Resource.Error -> {
+                    _playlistFeedback.value = res.message.asString(getApplication())
+                }
+            }
+        }
+    }
+
+    fun clearPlaylistFeedback() {
+        _playlistFeedback.value = null
+    }
+
+    fun openTrackPlaylistAddersDialog(media: PostMedia, trackTitle: String) {
+        if (media.playlistAdders.isEmpty()) return
+        navigateToDestination(
+            TrackPlaylistAddersDialogScreenDestination(
+                trackTitle = trackTitle,
+                playlistAddersJson = Json.encodeToString(media.playlistAdders)
+            ),
+            viewModelScope
+        )
+    }
+
+    fun openDeletePostBottomSheet(postId: Long) {
+        if (!_isOwnProfile.value) return
+        shouldRefreshWhenScreenResumes = true
+        navigateToDestination(
+            DeletePostBottomSheetScreenDestination(postId),
+            viewModelScope
+        )
+    }
+
+    fun showCreateOptionsSheet(){
+        shouldRefreshWhenScreenResumes = true
+        navigateToDestination(
+            CreatePostOptionsBottomSheetScreenDestination(),
             viewModelScope
         )
     }

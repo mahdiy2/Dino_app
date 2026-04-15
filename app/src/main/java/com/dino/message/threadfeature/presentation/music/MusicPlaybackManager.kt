@@ -1,0 +1,172 @@
+package com.dino.message.threadfeature.presentation.music
+
+import android.content.Context
+import android.content.Intent
+import androidx.core.content.ContextCompat
+import kotlinx.coroutines.flow.StateFlow
+
+object MusicPlaybackManager {
+    val playbackState: StateFlow<MusicPlaybackUiState> = MusicPlaybackService.playbackState
+
+    fun toggleTrack(
+        context: Context,
+        trackUrl: String,
+        title: String?,
+        artist: String?,
+    ) {
+        dispatch(
+            context = context,
+            action = MusicPlaybackService.ACTION_TOGGLE,
+            trackUrl = trackUrl,
+            title = title,
+            artist = artist,
+        )
+    }
+
+    fun playTrack(
+        context: Context,
+        trackUrl: String,
+        title: String?,
+        artist: String?,
+    ) {
+        dispatch(
+            context = context,
+            action = MusicPlaybackService.ACTION_PLAY,
+            trackUrl = trackUrl,
+            title = title,
+            artist = artist,
+        )
+    }
+
+    fun playPlaylist(
+        context: Context,
+        tracks: List<PlaybackQueueItem>,
+        startIndex: Int
+    ) {
+        if (tracks.isEmpty()) return
+        val normalizedIndex = startIndex.coerceIn(0, tracks.lastIndex)
+        val intent = Intent(context.applicationContext, MusicPlaybackService::class.java).apply {
+            action = MusicPlaybackService.ACTION_PLAY_PLAYLIST
+            putParcelableArrayListExtra(
+                MusicPlaybackService.EXTRA_QUEUE_TRACKS,
+                ArrayList(tracks)
+            )
+            putExtra(MusicPlaybackService.EXTRA_QUEUE_START_INDEX, normalizedIndex)
+        }
+        ContextCompat.startForegroundService(context.applicationContext, intent)
+    }
+
+    fun pause(context: Context) {
+        dispatch(context = context, action = MusicPlaybackService.ACTION_PAUSE)
+    }
+
+    fun pauseForCompetingAudio(context: Context) {
+        // Avoid starting the service just to pause when nothing is currently playing.
+        if (!playbackState.value.isPlaying) return
+        pause(context)
+    }
+
+    fun resume(context: Context) {
+        dispatch(context = context, action = MusicPlaybackService.ACTION_RESUME)
+    }
+
+    fun seekTo(context: Context, positionMs: Long) {
+        dispatch(
+            context = context,
+            action = MusicPlaybackService.ACTION_SEEK_TO,
+            positionMs = positionMs
+        )
+    }
+
+    fun seekBy(context: Context, deltaMs: Long) {
+        dispatch(
+            context = context,
+            action = MusicPlaybackService.ACTION_SEEK_BY,
+            deltaMs = deltaMs
+        )
+    }
+
+    fun stop(context: Context) {
+        dispatch(context = context, action = MusicPlaybackService.ACTION_STOP)
+    }
+
+    fun setShuffleEnabled(context: Context, enabled: Boolean) {
+        dispatch(
+            context = context,
+            action = MusicPlaybackService.ACTION_SET_SHUFFLE,
+            flagEnabled = enabled
+        )
+    }
+
+    fun setRepeatEnabled(context: Context, enabled: Boolean) {
+        dispatch(
+            context = context,
+            action = MusicPlaybackService.ACTION_SET_REPEAT,
+            flagEnabled = enabled
+        )
+    }
+
+    private fun dispatch(
+        context: Context,
+        action: String,
+        trackUrl: String? = null,
+        title: String? = null,
+        artist: String? = null,
+        positionMs: Long? = null,
+        deltaMs: Long? = null,
+        flagEnabled: Boolean? = null
+    ) {
+        val activeTrackUrl = playbackState.value.currentTrackUrl
+        val hasActiveTrack = !activeTrackUrl.isNullOrBlank()
+
+        when (action) {
+            MusicPlaybackService.ACTION_PLAY -> {
+                if (trackUrl.isNullOrBlank()) return
+            }
+            MusicPlaybackService.ACTION_TOGGLE -> {
+                if (trackUrl.isNullOrBlank() && !hasActiveTrack) return
+            }
+            MusicPlaybackService.ACTION_PAUSE,
+            MusicPlaybackService.ACTION_RESUME,
+            MusicPlaybackService.ACTION_SEEK_TO,
+            MusicPlaybackService.ACTION_SEEK_BY,
+            MusicPlaybackService.ACTION_STOP,
+            MusicPlaybackService.ACTION_SET_SHUFFLE,
+            MusicPlaybackService.ACTION_SET_REPEAT -> {
+                if (!hasActiveTrack) return
+            }
+        }
+
+        val intent = Intent(context.applicationContext, MusicPlaybackService::class.java).apply {
+            this.action = action
+            if (!trackUrl.isNullOrBlank()) {
+                putExtra(MusicPlaybackService.EXTRA_TRACK_URL, trackUrl)
+            }
+            if (!title.isNullOrBlank()) {
+                putExtra(MusicPlaybackService.EXTRA_TITLE, title)
+            }
+            if (!artist.isNullOrBlank()) {
+                putExtra(MusicPlaybackService.EXTRA_ARTIST, artist)
+            }
+            if (positionMs != null) {
+                putExtra(MusicPlaybackService.EXTRA_POSITION_MS, positionMs)
+            }
+            if (deltaMs != null) {
+                putExtra(MusicPlaybackService.EXTRA_DELTA_MS, deltaMs)
+            }
+            if (flagEnabled != null) {
+                putExtra(MusicPlaybackService.EXTRA_ENABLED, flagEnabled)
+            }
+        }
+        val appContext = context.applicationContext
+        val requiresForegroundStart = action == MusicPlaybackService.ACTION_PLAY ||
+            action == MusicPlaybackService.ACTION_TOGGLE ||
+            action == MusicPlaybackService.ACTION_RESUME
+
+        if (requiresForegroundStart) {
+            ContextCompat.startForegroundService(appContext, intent)
+        } else {
+            appContext.startService(intent)
+        }
+    }
+}

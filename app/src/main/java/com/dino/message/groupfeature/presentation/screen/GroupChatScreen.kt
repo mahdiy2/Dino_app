@@ -20,6 +20,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
@@ -35,6 +36,8 @@ import com.dino.message.chatfeature.presentation.component.MediaViewerDialog
 import com.dino.message.groupfeature.domain.model.GroupMessageEntity
 import com.dino.message.groupfeature.presentation.component.GroupChatSurface
 import com.dino.message.groupfeature.presentation.viewmodel.GroupChatViewModel
+import com.dino.message.threadfeature.presentation.component.NowPlayingTopBarRow
+import com.dino.message.threadfeature.presentation.music.MusicPlaybackManager
 import com.ramcosta.composedestinations.annotation.Destination
 import com.ramcosta.composedestinations.annotation.RootGraph
 import com.ramcosta.composedestinations.annotation.parameters.DeepLink
@@ -70,6 +73,12 @@ fun GroupChatScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val resolvedName = groupName ?: viewModel.groupName
     val myUsername = viewModel.getMyUsername()
+    val playbackState by MusicPlaybackManager.playbackState.collectAsState()
+    val hasNowPlaying = !playbackState.currentTrackUrl.isNullOrBlank()
+    var nowPlayingHeightPx by remember { mutableIntStateOf(0) }
+    val density = LocalDensity.current
+    val nowPlayingHeightDp = with(density) { nowPlayingHeightPx.toDp() }
+    val reservedNowPlayingHeight = if (!hasNowPlaying) 0.dp else nowPlayingHeightDp.takeIf { it > 0.dp } ?: 64.dp
 
     var mediaViewerUrl by remember { mutableStateOf<String?>(null) }
     var mediaViewerIsVideo by remember { mutableStateOf(false) }
@@ -103,6 +112,9 @@ fun GroupChatScreen(
             }
             viewModel.dismissDecryptionError()
         }
+    }
+    LaunchedEffect(hasNowPlaying) {
+        if (!hasNowPlaying) nowPlayingHeightPx = 0
     }
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
@@ -311,7 +323,9 @@ fun GroupChatScreen(
                         LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                         Box(modifier = Modifier.fillMaxSize()) {
                             GroupChatSurface(
+                                modifier = Modifier.fillMaxSize(),
                                 items = messages,
+                                topOverlaySpacerHeight = reservedNowPlayingHeight,
                                 messageDeliveryStatuses = messageDeliveryStatuses,
                                 currentUsername = viewModel.getMyUsername(),
                                 senderProfileImageUrls = memberProfileImageUrls,
@@ -328,7 +342,10 @@ fun GroupChatScreen(
                                         }
                                     }
                                 },
-                                onSwipeToReply = { viewModel.setReplyingTo(it) }
+                                onSwipeToReply = { viewModel.setReplyingTo(it) },
+                                onPostShareClick = { postId ->
+                                    viewModel.openSharedPost(postId)
+                                }
                             )
                         }
                     }
@@ -337,6 +354,7 @@ fun GroupChatScreen(
                 else -> GroupChatSurface(
                     modifier = Modifier.fillMaxSize(),
                     items = messages,
+                    topOverlaySpacerHeight = reservedNowPlayingHeight,
                     messageDeliveryStatuses = messageDeliveryStatuses,
                     currentUsername = viewModel.getMyUsername(),
                     senderProfileImageUrls = memberProfileImageUrls,
@@ -353,8 +371,19 @@ fun GroupChatScreen(
                             }
                         }
                     },
-                    onSwipeToReply = { viewModel.setReplyingTo(it) }
+                    onSwipeToReply = { viewModel.setReplyingTo(it) },
+                    onPostShareClick = { postId ->
+                        viewModel.openSharedPost(postId)
+                    }
                 )
+            }
+
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .onGloballyPositioned { nowPlayingHeightPx = it.size.height }
+            ) {
+                NowPlayingTopBarRow(onOpenPlaylist = viewModel::openPlaylistBottomSheetIfTrackExists)
             }
         }
     }

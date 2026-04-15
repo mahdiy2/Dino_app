@@ -46,7 +46,11 @@ import com.dino.message.chatfeature.data.notification.NotificationHelper
 import java.util.ArrayDeque
 import com.dino.message.chatfeature.domain.util.MessageDeduplicator
 import com.dino.message.chatfeature.domain.repository.ChatRepository
+import com.dino.message.threadfeature.domain.usecase.IsTrackInPlaylistUseCase
 import com.ramcosta.composedestinations.generated.destinations.PrivateKeyResetDialogScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.PlaylistBottomSheetScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.ProfileScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.SharedPostDetailsScreenDestination
 import javax.inject.Inject
 
 @HiltViewModel
@@ -60,6 +64,7 @@ class ChatViewModel @Inject constructor(
     private val uploadAttachmentUseCase: UploadAttachmentUseCase,
     private val followUserUseCase: FollowUserUseCase,
     private val chatRepository: ChatRepository,
+    private val isTrackInPlaylistUseCase: IsTrackInPlaylistUseCase,
     savedStateHandle: SavedStateHandle
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
@@ -331,6 +336,37 @@ class ChatViewModel @Inject constructor(
 
     fun openPrivateKeyResetDialog() {
         navigateToDestination(PrivateKeyResetDialogScreenDestination, viewModelScope)
+    }
+
+    fun openSharedPost(postId: Long) {
+        navigateToDestination(
+            SharedPostDetailsScreenDestination(postId = postId),
+            viewModelScope
+        )
+    }
+
+    fun openPeerProfile() {
+        navigateToDestination(
+            ProfileScreenDestination(username = chatId),
+            viewModelScope
+        )
+    }
+
+    fun openPlaylistBottomSheet() {
+        navigateToDestination(PlaylistBottomSheetScreenDestination, viewModelScope)
+    }
+
+    fun openPlaylistBottomSheetIfTrackExists(trackUrl: String) = viewModelScope.launch {
+        val normalizedUrl = trackUrl.trim()
+        if (normalizedUrl.isBlank()) return@launch
+
+        isTrackInPlaylistUseCase.execute(trackUrl = normalizedUrl).collect { res ->
+            if (res is Resource.Success) {
+                if (res.data) {
+                    openPlaylistBottomSheet()
+                }
+            }
+        }
     }
 
     fun retryLoadPublicKey() {
@@ -1108,6 +1144,7 @@ class ChatViewModel @Inject constructor(
                 encryptedKey = encryptedKey,
                 timestamp = timestamp,
                 targetChatId = targetChatId,
+                messageType = type,
                 replyToMessageId = replyToMessageId,
                 replyToSender = replyToSender,
                 replyPreview = decryptedReplyPreview
@@ -1147,6 +1184,7 @@ class ChatViewModel @Inject constructor(
         encryptedKey: String,
         timestamp: String,
         targetChatId: String = chatId,
+        messageType: String = "text",
         replyToMessageId: String? = null,
         replyToSender: String? = null,
         replyPreview: String? = null
@@ -1167,6 +1205,7 @@ class ChatViewModel @Inject constructor(
                     chatId = targetChatId,
                     content = decryptedMsg,
                     timestamp = timestamp,
+                    messageType = messageType,
                     replyToMessageId = replyToMessageId,
                     replyToSender = replyToSender,
                     replyPreview = replyPreview

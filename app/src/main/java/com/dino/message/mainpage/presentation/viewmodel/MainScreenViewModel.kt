@@ -23,9 +23,11 @@ import com.dino.message.mainpage.domain.model.MessageList
 import com.dino.message.mainpage.domain.usecase.AddContactUseCase
 import com.dino.message.mainpage.domain.usecase.GetContactsUseCase
 import com.dino.message.mainpage.domain.usecase.GetDetailedContactsUseCase
+import com.dino.message.threadfeature.domain.usecase.IsTrackInPlaylistUseCase
 import com.ramcosta.composedestinations.generated.destinations.ChatScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.CreateGroupScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.GroupChatScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.PlaylistBottomSheetScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.ProfileScreenDestination
 import io.socket.client.IO
 import io.socket.client.Socket
@@ -45,6 +47,7 @@ class MainScreenViewModel @Inject constructor(
     private val getContactsUseCase: GetContactsUseCase,
     private val getDetailedContactsUseCase: GetDetailedContactsUseCase,
     private val listGroupsUseCase: ListGroupsUseCase,
+    private val isTrackInPlaylistUseCase: IsTrackInPlaylistUseCase,
     private val spref: SPrefManager,
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
@@ -355,6 +358,23 @@ class MainScreenViewModel @Inject constructor(
 
     fun navigateToCreateGroupScreen() {
         navigateToDestination(CreateGroupScreenDestination, viewModelScope)
+    }
+
+    fun openPlaylistBottomSheet() {
+        navigateToDestination(PlaylistBottomSheetScreenDestination, viewModelScope)
+    }
+
+    fun openPlaylistBottomSheetIfTrackExists(trackUrl: String) = viewModelScope.launch {
+        val normalizedUrl = trackUrl.trim()
+        if (normalizedUrl.isBlank()) return@launch
+
+        isTrackInPlaylistUseCase.execute(trackUrl = normalizedUrl).collect { res ->
+            if (res is Resource.Success) {
+                if (res.data) {
+                    openPlaylistBottomSheet()
+                }
+            }
+        }
     }
 
     fun navigateToGroupChatScreen(group: Group) {

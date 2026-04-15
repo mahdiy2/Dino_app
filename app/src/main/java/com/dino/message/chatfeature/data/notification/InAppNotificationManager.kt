@@ -211,6 +211,7 @@ class InAppNotificationManager(
             "voice" -> "Sent you a voice message"
             "file" -> "Sent you a file"
             "mixed" -> "Sent you a message with attachment"
+            "post" -> "Shared a post with you"
             else -> if (count > 1) "$count new messages" else "Sent you a message"
         }
     }
@@ -222,6 +223,7 @@ class InAppNotificationManager(
             "voice" -> "$sender sent a voice message"
             "file" -> "$sender sent a file"
             "mixed" -> "$sender sent a message with attachment"
+            "post" -> "$sender shared a post"
             else -> "$sender sent a message"
         }
     }

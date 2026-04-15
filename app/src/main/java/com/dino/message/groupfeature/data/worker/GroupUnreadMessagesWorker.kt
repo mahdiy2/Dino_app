@@ -71,6 +71,7 @@ class GroupUnreadMessagesWorker(
                 "voice" -> "${group.lastSender} sent a voice message"
                 "file" -> "${group.lastSender} sent a file"
                 "mixed" -> "${group.lastSender} sent a message with attachment"
+                "post" -> "${group.lastSender} shared a post"
                 else -> if (group.count > 1) "${group.count} new messages"
                 else "${group.lastSender} sent a message"
             }

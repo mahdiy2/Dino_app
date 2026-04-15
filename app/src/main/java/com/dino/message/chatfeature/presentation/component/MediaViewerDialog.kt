@@ -38,6 +38,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.dino.message.threadfeature.presentation.music.MusicPlaybackManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -197,6 +198,10 @@ private fun VideoPlayer(
             playWhenReady = true
             prepare()
         }
+    }
+
+    androidx.compose.runtime.LaunchedEffect(url) {
+        MusicPlaybackManager.pauseForCompetingAudio(context)
     }
 
     DisposableEffect(exoPlayer) {

@@ -10,8 +10,20 @@ import javax.inject.Inject
 class CreatePostUseCase @Inject constructor(
     private val threadRepository: ThreadRepository
 ) {
-    fun execute(text: String, mediaFiles: List<CreatePostMedia> = emptyList()) = flow<Resource<CreatedPost>> {
+    fun execute(
+        text: String,
+        mediaFiles: List<CreatePostMedia> = emptyList(),
+        followersOnly: Boolean = false,
+        quotedPostId: Long? = null
+    ) = flow<Resource<CreatedPost>> {
         emit(Resource.Loading())
-        emit(threadRepository.createPost(text = text, mediaFiles = mediaFiles))
+        emit(
+            threadRepository.createPost(
+                text = text,
+                mediaFiles = mediaFiles,
+                followersOnly = followersOnly,
+                quotedPostId = quotedPostId
+            )
+        )
     }
 }

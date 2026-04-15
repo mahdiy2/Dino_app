@@ -2,13 +2,16 @@ package com.dino.message.mainpage.presentation.screen
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyListState
@@ -44,6 +47,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -51,9 +55,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.dino.message.R
 import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPSmall
@@ -62,6 +73,8 @@ import com.dino.message.mainpage.presentation.component.GroupListItem
 import com.dino.message.mainpage.presentation.component.MessageListItems
 import com.dino.message.mainpage.presentation.viewmodel.MainScreenViewModel
 import com.dino.message.nointernetfeature.presentation.screen.NoInternetScreen
+import com.dino.message.threadfeature.presentation.component.NowPlayingTopBarRow
+import com.dino.message.threadfeature.presentation.music.MusicPlaybackManager
 import com.ramcosta.composedestinations.annotation.Destination
 import com.ramcosta.composedestinations.annotation.RootGraph
 import kotlinx.coroutines.delay
@@ -88,11 +101,21 @@ fun MainScreen() {
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val isLoadingMore by viewModel.isLoadingMore.collectAsState()
     val hasMore by viewModel.hasMore.collectAsState()
+    val playbackState by MusicPlaybackManager.playbackState.collectAsState()
+    val hasNowPlaying = !playbackState.currentTrackUrl.isNullOrBlank()
+    var nowPlayingHeightPx by remember { mutableIntStateOf(0) }
+    val density = LocalDensity.current
+    val nowPlayingHeightDp = with(density) { nowPlayingHeightPx.toDp() }
+    val reservedNowPlayingHeight =
+        if (!hasNowPlaying) 0.dp else nowPlayingHeightDp.takeIf { it > 0.dp } ?: 64.dp
 
 
     LaunchedEffect(Unit) {
         delay(1000)
         toolbarExpanded = true
+    }
+    LaunchedEffect(hasNowPlaying) {
+        if (!hasNowPlaying) nowPlayingHeightPx = 0
     }
 
     LaunchedEffect(Unit) {
@@ -120,10 +143,12 @@ fun MainScreen() {
                 title = {
                     Text(text = "Messages")
                 },
-
                 navigationIcon = {
                     IconButton(onClick = { viewModel.navigateUp() }) {
-                        Icon(imageVector = Icons.Rounded.ArrowBackIosNew, contentDescription = "Back")
+                        Icon(
+                            imageVector = Icons.Rounded.ArrowBackIosNew,
+                            contentDescription = "Back"
+                        )
                     }
                 }
             )
@@ -178,76 +203,134 @@ fun MainScreen() {
 
                         }
 
-                        LazyColumn(
-                            state = listState,
-                            modifier = Modifier.fillMaxSize()
-                        ) {
-                            if (viewModel.groupList.isNotEmpty()) {
-                                item {
-                                    Text(
-                                        text = "Groups",
-                                        style = MaterialTheme.typography.titleSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.padding(
-                                            start = DPMedium,
-                                            top = DPSmall,
-                                            bottom = DPSmall
-                                        )
-                                    )
-                                }
-                                items(viewModel.groupList) { group ->
-                                    GroupListItem(
-                                        groupName = group.name,
-                                        memberCount = group.memberCount,
-                                        newMessage = group.hasUnread,
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        viewModel.navigateToGroupChatScreen(group)
-                                    }
-                                }
-                                item {
-                                    Text(
-                                        text = "Contacts",
-                                        style = MaterialTheme.typography.titleSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.padding(
-                                            start = DPMedium,
-                                            top = DPMedium,
-                                            bottom = DPSmall
-                                        )
-                                    )
-                                }
-                            }
-
-                            items(
-                                viewModel.contactList
-                            ) {
-                                if (it != null)
-                                    MessageListItems(
-                                        displayName = it.displayName,
-                                        time = it.time,
-                                        newMessage = it.newMessage,
-                                        profileImageUrl = it.profileImageUrl,
-                                        profileVideoUrl = it.profileVideoUrl,
+                        if (viewModel.groupList.isEmpty() && viewModel.contactList.isEmpty() && !isRefreshing) {
+                                Column(
+                                    Modifier.fillMaxSize(),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center
+                                ) {
+                                    Image(
+                                        painter = painterResource(R.drawable.start_follow),
+                                        contentDescription = null,
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                    ) {
-                                        viewModel.navigateToChatScreen(it.username)
-                                }
-                            }
+                                            .padding(top = DPMedium, end = DPMedium, start = DPMedium)
+                                    )
 
-                            if (isLoadingMore) {
-                                item {
-                                    Box(
-                                        modifier = Modifier.fillMaxWidth().padding(16.dp),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        CircularProgressIndicator()
+                                    Text(
+                                        text = "No contacts yet",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = MaterialTheme.colorScheme.onBackground
+                                    )
+
+                                    Spacer(Modifier.height(8.dp))
+
+                                    Text(
+                                        text = "Follow people to see them here",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        textAlign = TextAlign.Center
+                                    )
+
+                                    Spacer(Modifier.size(DPExtraLarge))
+
+                                }
+                        } else {
+                            LazyColumn(
+                                state = listState,
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                if (reservedNowPlayingHeight > 0.dp) {
+                                    item {
+                                        Spacer(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(reservedNowPlayingHeight)
+                                        )
+                                    }
+                                }
+
+
+                                if (viewModel.groupList.isNotEmpty()) {
+                                    item {
+                                        Text(
+                                            text = "Groups",
+                                            style = MaterialTheme.typography.titleSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.padding(
+                                                start = DPMedium,
+                                                top = DPSmall,
+                                                bottom = DPSmall
+                                            )
+                                        )
+                                    }
+                                    items(viewModel.groupList) { group ->
+                                        GroupListItem(
+                                            groupName = group.name,
+                                            memberCount = group.memberCount,
+                                            newMessage = group.hasUnread,
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            viewModel.navigateToGroupChatScreen(group)
+                                        }
+                                    }
+                                    item {
+                                        Text(
+                                            text = "Contacts",
+                                            style = MaterialTheme.typography.titleSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.padding(
+                                                start = DPMedium,
+                                                top = DPMedium,
+                                                bottom = DPSmall
+                                            )
+                                        )
+                                    }
+                                }
+
+                                items(
+                                    viewModel.contactList
+                                ) {
+                                    if (it != null)
+                                        MessageListItems(
+                                            displayName = it.displayName,
+                                            time = it.time,
+                                            newMessage = it.newMessage,
+                                            profileImageUrl = it.profileImageUrl,
+                                            profileVideoUrl = it.profileVideoUrl,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                        ) {
+                                            viewModel.navigateToChatScreen(it.username)
+                                        }
+                                }
+
+                                if (isLoadingMore) {
+                                    item {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(16.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            CircularProgressIndicator()
+                                        }
                                     }
                                 }
                             }
                         }
+
+
                     }
+
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .onGloballyPositioned { nowPlayingHeightPx = it.size.height }
+                    ) {
+                        NowPlayingTopBarRow(onOpenPlaylist = viewModel::openPlaylistBottomSheetIfTrackExists)
+                    }
+
                     if (isSheetVisible) {
                         ModalBottomSheet(
                             onDismissRequest = { viewModel.hideBottomSheet() },
@@ -310,7 +393,6 @@ fun MainScreen() {
                 }
             }
         }
-
 
 
     }

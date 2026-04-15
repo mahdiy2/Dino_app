@@ -33,6 +33,8 @@ class RegisterScreenViewModel @Inject constructor(
     val registerLoadingState = mutableStateOf(false)
     val registerErrorMessage = mutableStateOf<String?>(null)
 
+    private val usernameAllowedPattern = Regex("^[A-Za-z0-9._-]+$")
+
     init {
         if (sPrefManager.hasPendingRegistration()) {
             navigateToPrivateKeyAlert()
@@ -80,6 +82,19 @@ class RegisterScreenViewModel @Inject constructor(
 
         val trimmedUsername = userName.value.trim()
         val rawPassword = password.value
+        if (trimmedUsername.length < 7) {
+            registerErrorMessage.value = "Username must be at least 7 characters."
+            return
+        }
+        if (!isUsernameFormatValid(trimmedUsername)) {
+            registerErrorMessage.value =
+                "Username can only contain English letters, numbers, '.', '-', and '_'."
+            return
+        }
+        if (rawPassword.length < 10) {
+            registerErrorMessage.value = "Password must be at least 10 characters."
+            return
+        }
 
         val keyPair = RSAUtil.generateKeyPair()
         val publicKeyBase64 = RSAUtil.getPublicKeyBase64(keyPair.public)
@@ -98,6 +113,20 @@ class RegisterScreenViewModel @Inject constructor(
             publicKeyBase64,
             clientNonce
         )
+    }
+
+    fun onUsernameValueChange(value: String) {
+        userName.value = value
+        registerErrorMessage.value = null
+    }
+
+    fun onPasswordValueChange(value: String) {
+        password.value = value
+        registerErrorMessage.value = null
+    }
+
+    fun isUsernameFormatValid(username: String): Boolean {
+        return usernameAllowedPattern.matches(username)
     }
 
     fun navigateToLoginScreen() {

@@ -92,9 +92,24 @@ class ActivityNotificationWorker(
                 if (preview.isNotBlank()) "$actorName commented: $preview"
                 else "$actorName commented on your post"
             }
+            "comment_reply" -> {
+                val preview = extra?.comment_preview ?: ""
+                if (preview.isNotBlank()) "$actorName replied: $preview"
+                else "$actorName replied to your comment"
+            }
             "vote" -> {
                 val label = extra?.vote_label ?: "voted"
                 "$actorName ${label}d your post"
+            }
+            "post_like_milestone" -> {
+                val count = extra?.engagement_count ?: extra?.milestone_count
+                if (count != null) "Your post has received $count likes"
+                else "Your post has received many likes"
+            }
+            "post_comment_milestone" -> {
+                val count = extra?.engagement_count ?: extra?.milestone_count
+                if (count != null) "Your post has received comments from $count people"
+                else "Your post has received many comments"
             }
             else -> "$actorName interacted with your content"
         }

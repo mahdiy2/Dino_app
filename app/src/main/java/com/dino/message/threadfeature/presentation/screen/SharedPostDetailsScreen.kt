@@ -1,0 +1,142 @@
+package com.dino.message.threadfeature.presentation.screen
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.dino.message.corefeature.presentation.ui.theme.DPMedium
+import com.dino.message.threadfeature.presentation.component.ThreadPostCard
+import com.dino.message.threadfeature.presentation.viewmodel.SharedPostDetailsViewModel
+import com.ramcosta.composedestinations.annotation.Destination
+import com.ramcosta.composedestinations.annotation.RootGraph
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Destination<RootGraph>
+@Composable
+fun SharedPostDetailsScreen(
+    postId: Long,
+) {
+    val viewModel: SharedPostDetailsViewModel = hiltViewModel()
+    val post by viewModel.post.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val error by viewModel.error.collectAsState()
+    val selectedVote by viewModel.selectedVote.collectAsState()
+    val playlistFeedback by viewModel.playlistFeedback.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(playlistFeedback) {
+        playlistFeedback?.let { message ->
+            snackbarHostState.showSnackbar(message)
+            viewModel.clearPlaylistFeedback()
+        }
+    }
+
+    Scaffold(
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+        topBar = {
+            TopAppBar(
+                title = { Text("Post") },
+                navigationIcon = {
+                    IconButton(onClick = viewModel::navigateBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                            contentDescription = "Back"
+                        )
+                    }
+                }
+            )
+        }
+    ) { paddingValues ->
+        when {
+            isLoading && post == null -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            }
+
+            post != null -> {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues),
+                    verticalArrangement = Arrangement.spacedBy(DPMedium)
+                ) {
+                    item {
+                        ThreadPostCard(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(DPMedium),
+                            post = post!!,
+                            selectedPostVote = selectedVote,
+                            postError = error,
+                            onUpVoteClick = { viewModel.votePost(1) },
+                            onDownVoteClick = { viewModel.votePost(-1) },
+                            onCommentsClick = viewModel::openCommentsBottomSheet,
+                            onQuoteClick = viewModel::openQuotePostOptions,
+                            onShareClick = viewModel::openShareBottomSheet,
+                            onQuotedPostClick = viewModel::openQuotedPost,
+                            onUserClick = { viewModel.openUserProfile(post!!.author.username) },
+                            onAddTrackToPlaylistClick = { media ->
+                                viewModel.addTrackToPlaylist(media.id)
+                            },
+                            onShowTrackPlaylistAddersClick = { media, trackTitle ->
+                                viewModel.openTrackPlaylistAddersDialog(media, trackTitle)
+                            }
+                        )
+                    }
+                }
+            }
+
+            else -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(DPMedium)
+                    ) {
+                        Text(
+                            text = error ?: "Post not found",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Button(onClick = viewModel::refresh) {
+                            Text("Retry")
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

@@ -10,37 +10,34 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Reply
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
-import androidx.compose.material.icons.rounded.KeyboardArrowUp
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -54,10 +51,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.dino.message.R
 import com.dino.message.corefeature.presentation.activity.theme.DividerColor
@@ -71,6 +73,9 @@ import com.dino.message.threadfeature.presentation.viewmodel.ThreadCommentsViewM
 import com.ramcosta.composedestinations.annotation.Destination
 import com.ramcosta.composedestinations.annotation.RootGraph
 import com.ramcosta.composedestinations.bottomsheet.spec.DestinationStyleBottomSheet
+import coil.compose.SubcomposeAsyncImage
+import coil.request.CachePolicy
+import coil.request.ImageRequest
 
 @Destination<RootGraph>(style = DestinationStyleBottomSheet::class)
 @Composable
@@ -151,51 +156,88 @@ fun ThreadCommentsBottomSheetScreen(
                 .heightIn(max = 560.dp),
             verticalArrangement = Arrangement.spacedBy(DPSmall)
         ) {
-            if (isLoadingComments && viewModel.comments.isEmpty()) {
+            if (!isLoadingComments && viewModel.comments.isEmpty()){
                 item {
-                    Box(
+                    Image(
+                        painter = painterResource(R.drawable.empty_comments),
+                        contentDescription = null,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(DPMedium),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator()
-                    }
+                            .padding(top = DPMedium, end = DPMedium, start = DPMedium)
+                    )
+
+                    Text(
+                        text = "No comments yet",
+                        modifier = Modifier
+                            .fillMaxWidth(),
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            textAlign = TextAlign.Center
+                        ),
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = "We'd love to hear what you think",
+                        modifier = Modifier
+                            .fillMaxWidth(),
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            textAlign = TextAlign.Center,
+                            lineHeight = 20.sp
+                        ),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.size(DPExtraLarge))
                 }
             } else {
-                item {
-                    CommentTree(
-                        comments = viewModel.comments,
-                        depth = 0,
-                        viewModel = viewModel,
-                        expandedNestedRepliesByComment = expandedNestedRepliesByComment
-                    )
+                if (isLoadingComments && viewModel.comments.isEmpty()) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(DPMedium),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator()
+                        }
+                    }
+                } else {
+                    item {
+                        CommentTree(
+                            comments = viewModel.comments,
+                            depth = 0,
+                            viewModel = viewModel,
+                            expandedNestedRepliesByComment = expandedNestedRepliesByComment
+                        )
+                    }
                 }
-            }
 
-            if (isLoadingComments && viewModel.comments.isNotEmpty()) {
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(DPMedium),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator()
+                if (isLoadingComments && viewModel.comments.isNotEmpty()) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(DPMedium),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator()
+                        }
+                    }
+                }
+
+                if (hasMoreComments) {
+                    item {
+                        FilledTonalButton(
+                            onClick = { viewModel.loadMoreComments() },
+                            enabled = !isLoadingComments
+                        ) {
+                            Text(text = if (isLoadingComments) "Loading..." else "Load more comments")
+                        }
                     }
                 }
             }
 
-            if (hasMoreComments) {
-                item {
-                    FilledTonalButton(
-                        onClick = { viewModel.loadMoreComments() },
-                        enabled = !isLoadingComments
-                    ) {
-                        Text(text = if (isLoadingComments) "Loading..." else "Load more comments")
-                    }
-                }
-            }
         }
     }
 }
@@ -229,6 +271,7 @@ private fun CommentTree(
             shouldShowRepliesToggle = shouldShowRepliesToggle,
             areRepliesVisible = areRepliesVisible,
             repliesCount = comment.replies.size,
+            onAuthorClick = { viewModel.openUserProfile(comment.author.username) },
             onToggleReplies = {
                 expandedNestedRepliesByComment[comment.id] = !areRepliesVisible
             }
@@ -258,11 +301,13 @@ private fun CommentItem(
     shouldShowRepliesToggle: Boolean,
     areRepliesVisible: Boolean,
     repliesCount: Int,
+    onAuthorClick: () -> Unit,
     onToggleReplies: () -> Unit
 ) {
     val selectedVote = viewModel.selectedCommentVote(comment.id)
     val isReplyVisible = viewModel.isReplyComposerVisible(comment.id)
     val isSendingComment by viewModel.isCommentSending.collectAsState()
+    val isDeletingComment by viewModel.isCommentDeleting.collectAsState()
     val guideColor = when (depth % 3) {
         0 -> MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
         1 -> MaterialTheme.colorScheme.secondary.copy(alpha = 0.35f)
@@ -297,29 +342,48 @@ private fun CommentItem(
             Column(
                 modifier = Modifier.padding(DPMedium)
             ) {
-                Text(
-                    text = "${comment.author.name?.takeIf { it.isNotBlank() } ?: comment.author.username} • score ${comment.score}",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                if (!comment.author.name.isNullOrBlank()) {
-                    Text(
-                        text = "@${comment.author.username}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onAuthorClick),
+                    horizontalArrangement = Arrangement.spacedBy(DPSmall),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    CommentAuthorAvatar(
+                        imageUrl = comment.author.profile_image_url,
+                        modifier = Modifier.size(34.dp)
                     )
+                    Column {
+                        Text(
+                            text = comment.author.name?.takeIf { it.isNotBlank() }
+                                ?: comment.author.username,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "@${comment.author.username}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
-                Spacer(modifier = Modifier.height(2.dp))
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = comment.text,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface
+                    text = "score ${comment.score}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = getRelativeTimeLabel(comment.created_at),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = comment.text,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
 
                 Spacer(modifier = Modifier.height(DPSmall))
@@ -346,6 +410,17 @@ private fun CommentItem(
                         )
                         Spacer(modifier = Modifier.width(2.dp))
                         Text(text = if (isReplyVisible) "Cancel" else "Reply")
+                    }
+                    if (viewModel.canDeleteComment(comment)) {
+                        TextButton(
+                            onClick = { viewModel.deleteOwnComment(comment.id) },
+                            enabled = !isDeletingComment
+                        ) {
+                            Text(
+                                text = if (isDeletingComment) "Deleting..." else "Delete",
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
                     }
                 }
 
@@ -389,6 +464,72 @@ private fun CommentItem(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun CommentAuthorAvatar(
+    imageUrl: String?,
+    modifier: Modifier = Modifier
+) {
+    val normalizedImageUrl = imageUrl?.takeIf { it.isNotBlank() }
+    val context = LocalContext.current
+
+    Surface(
+        modifier = modifier.clip(CircleShape),
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.surfaceContainerHighest
+    ) {
+        if (normalizedImageUrl == null) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Person,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            return@Surface
+        }
+
+        SubcomposeAsyncImage(
+            model = remember(normalizedImageUrl) {
+                ImageRequest.Builder(context)
+                    .data(normalizedImageUrl)
+                    .crossfade(true)
+                    .diskCachePolicy(CachePolicy.ENABLED)
+                    .memoryCachePolicy(CachePolicy.ENABLED)
+                    .build()
+            },
+            contentDescription = "Comment author avatar",
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize(),
+            loading = {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(12.dp),
+                        strokeWidth = 1.5.dp
+                    )
+                }
+            },
+            error = {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Person,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        )
     }
 }
 

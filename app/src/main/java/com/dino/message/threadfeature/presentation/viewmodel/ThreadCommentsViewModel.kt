@@ -8,14 +8,18 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.dino.message.DinoOrderApplication
+import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.dino.message.threadfeature.domain.model.Comment
 import com.dino.message.threadfeature.domain.model.VoteTargetType
 import com.dino.message.threadfeature.domain.usecase.CreateCommentUseCase
+import com.dino.message.threadfeature.domain.usecase.DeleteCommentUseCase
 import com.dino.message.threadfeature.domain.usecase.GetCommentsUseCase
 import com.dino.message.threadfeature.domain.usecase.VoteUseCase
+import com.dino.message.threadfeature.presentation.util.orderCommentsByScoreAndRecency
+import com.ramcosta.composedestinations.generated.destinations.ProfileScreenDestination
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -29,7 +33,9 @@ class ThreadCommentsViewModel @Inject constructor(
     @ApplicationContext app: Context,
     private val getCommentsUseCase: GetCommentsUseCase,
     private val createCommentUseCase: CreateCommentUseCase,
+    private val deleteCommentUseCase: DeleteCommentUseCase,
     private val voteUseCase: VoteUseCase,
+    private val sPrefManager: SPrefManager,
     savedStateHandle: SavedStateHandle
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
@@ -51,6 +57,9 @@ class ThreadCommentsViewModel @Inject constructor(
     private val _isCommentSending = MutableStateFlow(false)
     val isCommentSending: StateFlow<Boolean> = _isCommentSending.asStateFlow()
 
+    private val _isCommentDeleting = MutableStateFlow(false)
+    val isCommentDeleting: StateFlow<Boolean> = _isCommentDeleting.asStateFlow()
+
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
@@ -58,6 +67,7 @@ class ThreadCommentsViewModel @Inject constructor(
     private val replyDraftByComment = mutableStateMapOf<Long, String>()
     private val replyComposerVisibleByComment = mutableStateMapOf<Long, Boolean>()
     private val commentVoteByComment = mutableStateMapOf<Long, Long>()
+    private val currentUsername = sPrefManager.getUsername().orEmpty().trim()
 
     init {
         refreshComments()
@@ -65,6 +75,16 @@ class ThreadCommentsViewModel @Inject constructor(
 
     fun closeCommentsBottomSheet() {
         navigateUp(viewModelScope)
+    }
+
+    fun openUserProfile(username: String) {
+        val normalizedUsername = username.trim()
+        if (normalizedUsername.isEmpty()) return
+
+        navigateToDestination(
+            ProfileScreenDestination(username = normalizedUsername),
+            viewModelScope
+        )
     }
 
     fun refreshComments() {
@@ -92,6 +112,7 @@ class ThreadCommentsViewModel @Inject constructor(
                 is Resource.Success -> {
                     if (isRefresh) _comments.clear()
                     _comments.addAll(res.data)
+                    reorderComments()
                     nextCommentsPage = targetPage + 1
                     _hasMoreComments.value = res.data.size >= commentsPageSize
                     _error.value = null
@@ -162,6 +183,36 @@ class ThreadCommentsViewModel @Inject constructor(
 
     fun selectedCommentVote(commentId: Long): Long = commentVoteByComment[commentId] ?: 0L
 
+    fun canDeleteComment(comment: Comment): Boolean {
+        return comment.author.username.equals(currentUsername, ignoreCase = true)
+    }
+
+    fun deleteOwnComment(commentId: Long) {
+        if (_isCommentDeleting.value) return
+
+        val targetComment = findCommentById(_comments, commentId) ?: return
+        if (!canDeleteComment(targetComment)) return
+
+        viewModelScope.launch {
+            deleteCommentUseCase.execute(commentId).collect { res ->
+                when (res) {
+                    is Resource.Success -> {
+                        _isCommentDeleting.value = false
+                        _error.value = null
+                        refreshComments()
+                    }
+                    is Resource.Loading -> {
+                        _isCommentDeleting.value = true
+                    }
+                    is Resource.Error -> {
+                        _isCommentDeleting.value = false
+                        _error.value = res.message.asString(getApplication())
+                    }
+                }
+            }
+        }
+    }
+
     fun voteComment(commentId: Long, value: Long) {
         val oldVote = selectedCommentVote(commentId)
         val delta = when {
@@ -205,7 +256,7 @@ class ThreadCommentsViewModel @Inject constructor(
             delta = delta
         )
         _comments.clear()
-        _comments.addAll(updated)
+        _comments.addAll(orderCommentsByScoreAndRecency(updated))
     }
 
     private fun updateCommentScoreRecursive(
@@ -227,5 +278,20 @@ class ThreadCommentsViewModel @Inject constructor(
                 else -> comment
             }
         }
+    }
+
+    private fun findCommentById(comments: List<Comment>, commentId: Long): Comment? {
+        comments.forEach { comment ->
+            if (comment.id == commentId) return comment
+            val fromChild = findCommentById(comment.replies, commentId)
+            if (fromChild != null) return fromChild
+        }
+        return null
+    }
+
+    private fun reorderComments() {
+        val ordered = orderCommentsByScoreAndRecency(_comments.toList())
+        _comments.clear()
+        _comments.addAll(ordered)
     }
 }

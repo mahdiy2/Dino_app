@@ -22,8 +22,8 @@ android {
         applicationId = "com.sec.message"
         minSdk = 28
         targetSdk = 36
-        versionCode = 29
-        versionName = "0.7beta"
+        versionCode = 33
+        versionName = "0.8.2beta"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -77,8 +77,12 @@ dependencies {
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
+    implementation("androidx.compose.material:material")
     implementation(libs.androidx.material3)
     implementation(libs.androidx.swiperefreshlayout)
+
+    implementation(libs.androidx.graphics.shapes)
+
 //    implementation(libs.androidx.navigation.compose)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
@@ -154,4 +158,7 @@ dependencies {
 
     // WorkManager
     implementation(libs.androidx.work.runtime.ktx)
+
+    implementation(libs.lottie.compose)
+
 }

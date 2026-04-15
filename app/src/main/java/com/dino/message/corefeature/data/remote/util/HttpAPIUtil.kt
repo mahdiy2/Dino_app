@@ -41,26 +41,30 @@ class HttpAPIUtil @Inject constructor(
 
             try {
                 val response = callAPI()
+                val status = response.status
+                val rawErrorBody = if (status.isSuccess()) null else readResponseBodySafely(response)
+
                 when {
-                    response.status.isSuccess() -> {
+                    status.isSuccess() -> {
                         val body = response.body<ResponseType>()
                         Resource.Success(body.mapResponseToResult())
                     }
 
-                    response.status == HttpStatusCode.BadRequest -> Resource.Error(
+                    status == HttpStatusCode.BadRequest -> Resource.Error(
                         message = (
-                            extractServerErrorMessage(response)
+                            extractServerErrorMessage(rawErrorBody)
                                 ?: context.getString(R.string.error_bad_request)
                             ).asStringResourceContent()
                     )
 
-                    response.status == HttpStatusCode.Unauthorized -> {
+                    status == HttpStatusCode.Unauthorized -> {
                         handleUnauthorized(callRefreshTokenAPI = callRefreshTokenAPI, needToUpdateToken = needToUpdateToken)
                     }
 
-                    response.status == HttpStatusCode.UnprocessableEntity -> {
-                        val rawBody = runCatching { response.bodyAsText() }.getOrDefault("")
-                        val isAuthorizationHeaderError = rawBody.contains("Bad Authorization header", ignoreCase = true)
+                    status == HttpStatusCode.UnprocessableEntity -> {
+                        val isAuthorizationHeaderError = rawErrorBody
+                            .orEmpty()
+                            .contains("Bad Authorization header", ignoreCase = true)
 
                         if (isAuthorizationHeaderError) {
                             Log.w("HttpAPIUtil", "422 with bad authorization header; trying token refresh")
@@ -69,61 +73,56 @@ class HttpAPIUtil @Inject constructor(
                             Resource.Error(
                                 message = context.getString(
                                     R.string.error_with_http_status_code,
-                                    response.status.value
+                                    status.value
                                 ).asStringResourceContent()
                             )
                         }
                     }
 
-                    response.status == HttpStatusCode.Forbidden -> {
-                        val rawBody = runCatching { response.bodyAsText() }.getOrDefault("")
-                        val serverError = runCatching {
-                            Json.decodeFromString<JsonObject>(rawBody)
-                                .get("error")
-                                ?.jsonPrimitive?.content
-                        }.getOrNull()
+                    status == HttpStatusCode.Forbidden -> {
+                        val serverError = extractServerErrorMessage(rawErrorBody)
                         Resource.Error(
                             message = (serverError ?: context.getString(R.string.error_forbidden))
                                 .asStringResourceContent()
                         )
                     }
 
-                    response.status == HttpStatusCode.NotFound -> Resource.Error(
+                    status == HttpStatusCode.NotFound -> Resource.Error(
                         message = (
-                            extractServerErrorMessage(response)
+                            extractServerErrorMessage(rawErrorBody)
                                 ?: context.getString(R.string.error_not_found)
                             ).asStringResourceContent()
                     )
 
-                    response.status == HttpStatusCode.Conflict -> Resource.Error(
+                    status == HttpStatusCode.Conflict -> Resource.Error(
                         message = (
-                            extractServerErrorMessage(response)
+                            extractServerErrorMessage(rawErrorBody)
                                 ?: context.getString(R.string.error_conflict)
                             ).asStringResourceContent()
                     )
 
-                    response.status == HttpStatusCode.Gone -> Resource.Error(
+                    status == HttpStatusCode.Gone -> Resource.Error(
                         message = (
-                            extractServerErrorMessage(response)
+                            extractServerErrorMessage(rawErrorBody)
                                 ?: context.getString(
                                     R.string.error_with_http_status_code,
-                                    response.status.value
+                                    status.value
                                 )
                             ).asStringResourceContent()
                     )
 
-                    response.status.value == 413 -> Resource.Error(
+                    status.value == 413 -> Resource.Error(
                         message = R.string.error_payload_too_large.asStringResourceContent()
                     )
 
-                    response.status == HttpStatusCode.InternalServerError -> Resource.Error(
+                    status == HttpStatusCode.InternalServerError -> Resource.Error(
                         message = R.string.internal_server_error.asStringResourceContent()
                     )
 
                     else -> Resource.Error(
                         message = context.getString(
                             R.string.error_with_http_status_code,
-                            response.status.value
+                            status.value
                         ).asStringResourceContent()
                     )
                 }
@@ -172,16 +171,24 @@ class HttpAPIUtil @Inject constructor(
         )
     }
 
-    suspend fun extractServerErrorMessage(response: HttpResponse): String? {
-        val rawBody = runCatching { response.bodyAsText() }.getOrNull() ?: return null
+    fun extractServerErrorMessage(rawBody: String?): String? {
+        val content = rawBody ?: return null
         return runCatching {
-            Json.decodeFromString<JsonObject>(rawBody)
+            Json.decodeFromString<JsonObject>(content)
                 .get("error")
                 ?.jsonPrimitive
                 ?.content
                 ?.trim()
                 ?.takeIf { it.isNotBlank() }
         }.getOrNull()
+    }
+
+    suspend fun readResponseBodySafely(response: HttpResponse): String? {
+        return runCatching { response.bodyAsText() }
+            .onFailure {
+                Log.w("HttpAPIUtil", "Failed to consume error response body", it)
+            }
+            .getOrNull()
     }
 
 

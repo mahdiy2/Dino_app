@@ -16,10 +16,16 @@ import com.dino.message.searchfeature.domain.usecase.SearchAllUseCase
 import com.dino.message.searchfeature.domain.usecase.SearchPostsUseCase
 import com.dino.message.searchfeature.domain.usecase.SearchUsersUseCase
 import com.dino.message.threadfeature.domain.model.Post
+import com.dino.message.threadfeature.domain.model.PostMedia
 import com.dino.message.threadfeature.domain.model.VoteTargetType
+import com.dino.message.threadfeature.domain.usecase.AddTrackToPlaylistUseCase
 import com.dino.message.threadfeature.domain.usecase.VoteUseCase
+import com.ramcosta.composedestinations.generated.destinations.CreatePostOptionsBottomSheetScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.ProfileScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.ReportPostBottomSheetScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.SharePostBottomSheetScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.SharedPostDetailsScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.TrackPlaylistAddersDialogScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.ThreadCommentsBottomSheetScreenDestination
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -29,6 +35,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import javax.inject.Inject
 
 @HiltViewModel
@@ -37,7 +45,8 @@ class SearchViewModel @Inject constructor(
     private val searchUsersUseCase: SearchUsersUseCase,
     private val searchPostsUseCase: SearchPostsUseCase,
     private val searchAllUseCase: SearchAllUseCase,
-    private val voteUseCase: VoteUseCase
+    private val voteUseCase: VoteUseCase,
+    private val addTrackToPlaylistUseCase: AddTrackToPlaylistUseCase
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
 
@@ -55,6 +64,8 @@ class SearchViewModel @Inject constructor(
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
+    private val _playlistFeedback = MutableStateFlow<String?>(null)
+    val playlistFeedback: StateFlow<String?> = _playlistFeedback.asStateFlow()
 
     private var searchJob: Job? = null
     private val searchLimit = 20
@@ -224,6 +235,66 @@ class SearchViewModel @Inject constructor(
     fun openReportBottomSheet(postId: Long) {
         navigateToDestination(
             ReportPostBottomSheetScreenDestination(postId),
+            viewModelScope
+        )
+    }
+
+    fun openShareBottomSheet(post: Post) {
+        navigateToDestination(
+            SharePostBottomSheetScreenDestination(
+                postId = post.id,
+                authorUsername = post.author.username,
+                postText = post.text.take(240)
+            ),
+            viewModelScope
+        )
+    }
+
+    fun openQuotePostOptions(post: Post) {
+        navigateToDestination(
+            CreatePostOptionsBottomSheetScreenDestination(
+                quotedPostId = post.id
+            ),
+            viewModelScope
+        )
+    }
+
+    fun openQuotedPost(postId: Long) {
+        if (postId <= 0L) return
+        navigateToDestination(
+            SharedPostDetailsScreenDestination(postId = postId),
+            viewModelScope
+        )
+    }
+
+    fun addTrackToPlaylist(mediaId: Long) = viewModelScope.launch {
+        if (mediaId <= 0L) return@launch
+        addTrackToPlaylistUseCase.execute(mediaId).collect { res ->
+            when (res) {
+                is Resource.Success -> {
+                    _playlistFeedback.value = res.data.message
+                }
+
+                is Resource.Loading -> Unit
+
+                is Resource.Error -> {
+                    _playlistFeedback.value = res.message.asString(getApplication())
+                }
+            }
+        }
+    }
+
+    fun clearPlaylistFeedback() {
+        _playlistFeedback.value = null
+    }
+
+    fun openTrackPlaylistAddersDialog(media: PostMedia, trackTitle: String) {
+        if (media.playlistAdders.isEmpty()) return
+        navigateToDestination(
+            TrackPlaylistAddersDialogScreenDestination(
+                trackTitle = trackTitle,
+                playlistAddersJson = Json.encodeToString(media.playlistAdders)
+            ),
             viewModelScope
         )
     }

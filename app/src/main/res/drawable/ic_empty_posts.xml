@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+
+    <!-- Background Glow -->
+    <path
+        android:pathData="M100,100m-70,0a70,70 0,1 1,140 0a70,70 0,1 1,-140 0"
+        android:fillAlpha="0.1"
+        android:fillColor="#6C63FF"/>
+
+    <!-- Main Camera Body -->
+    <path
+        android:pathData="M65,75H135C140.52,75 145,79.48 145,85V125C145,130.52 140.52,135 135,135H65C59.48,135 55,130.52 55,125V85C55,79.48 59.48,75 65,75Z"
+        android:fillColor="#F5F5F5"
+        android:strokeWidth="3"
+        android:strokeColor="#E0E0E0"/>
+
+    <!-- Lens Outer -->
+    <path
+        android:pathData="M100,105m-20,0a20,20 0,1 1,40 0a20,20 0,1 1,-40 0"
+        android:fillColor="#FFFFFF"
+        android:strokeWidth="2"
+        android:strokeColor="#D1D1D1"/>
+
+    <!-- Lens Inner (Gradient) -->
+    <path
+        android:pathData="M100,105m-14,0a14,14 0,1 1,28 0a14,14 0,1 1,-28 0">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="86"
+                android:startY="91"
+                android:endX="114"
+                android:endY="119"
+                android:type="linear">
+                <item android:color="#6C63FF" android:offset="0" />
+                <item android:color="#00C2FF" android:offset="1" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Plus Icon on Lens -->
+    <path
+        android:pathData="M100,100V110M95,105H105"
+        android:strokeWidth="2.5"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round"/>
+
+    <!-- Floating Heart (Using Path instead of Circle) -->
+    <path
+        android:pathData="M155,70C155,67.79 153.21,66 151,66C148.79,66 147,67.79 147,70C147,73 151,76 151,76C151,76 155,73 155,70Z"
+        android:fillColor="#FF4B7D"
+        android:fillAlpha="0.6"/>
+
+    <!-- Floating Dots (Using Path instead of Circle) -->
+    <path
+        android:pathData="M45,90m-3,0a3,3 0,1 1,6 0a3,3 0,1 1,-6 0"
+        android:fillColor="#6C63FF"
+        android:fillAlpha="0.4"/>
+    <path
+        android:pathData="M160,115m-4,0a4,4 0,1 1,8 0a4,4 0,1 1,-8 0"
+        android:fillColor="#00C2FF"
+        android:fillAlpha="0.4"/>
+
+</vector>

@@ -10,11 +10,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AttachFile
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -29,7 +33,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
@@ -103,6 +109,84 @@ fun EditProfileScreen() {
                 .padding(horizontal = DPExtraLarge, vertical = DPMedium),
             verticalArrangement = Arrangement.spacedBy(DPMedium)
         ) {
+
+            Text(
+                text = "Profile media",
+                style = MaterialTheme.typography.titleMedium
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(DPMedium)
+            ) {
+
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Card(
+                        modifier = Modifier
+                            .size(120.dp),
+                        shape = CircleShape,
+                        onClick = { imagePickerLauncher.launch(arrayOf("image/*")) },
+                        enabled = isFormEnabled,
+
+                        ) {
+                        Column(
+                            Modifier
+                                .fillMaxSize(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Add,
+                                contentDescription = null,
+                                tint = Color.White
+                            )
+                        }
+
+                    }
+
+                    Spacer(modifier = Modifier.size(DPMedium))
+                    Text(text = if (selectedImage == null) "Pick image" else "Change image")
+                }
+
+
+
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Card(
+                        modifier = Modifier
+                            .size(120.dp),
+                        shape = CircleShape,
+                        onClick = { videoPickerLauncher.launch(arrayOf("video/*")) },
+                        enabled = isFormEnabled,
+
+                        ) {
+
+                        Column(
+                            Modifier
+                                .fillMaxSize(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Add,
+                                contentDescription = null,
+                                tint = Color.White
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.size(DPMedium))
+                    Text(text = if (selectedVideo == null) "Pick video" else "Change video")
+                }
+            }
+
+
+            Spacer(Modifier.size(DPMedium))
+
+
             OutlinedTextField(
                 modifier = Modifier.fillMaxWidth(),
                 value = viewModel.nameDraft.value,
@@ -122,77 +206,11 @@ fun EditProfileScreen() {
                 shape = MaterialTheme.shapes.extraLarge
             )
 
-            Text(
-                text = "Profile media",
-                style = MaterialTheme.typography.titleMedium
-            )
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(DPMedium)
-            ) {
-                FilledTonalButton(
-                    onClick = { imagePickerLauncher.launch(arrayOf("image/*")) },
-                    enabled = isFormEnabled
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.AttachFile,
-                        contentDescription = null
-                    )
-                    Spacer(modifier = Modifier.size(DPMedium))
-                    Text(text = if (selectedImage == null) "Pick image" else "Change image")
-                }
 
-                FilledTonalButton(
-                    onClick = { videoPickerLauncher.launch(arrayOf("video/*")) },
-                    enabled = isFormEnabled
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.AttachFile,
-                        contentDescription = null
-                    )
-                    Spacer(modifier = Modifier.size(DPMedium))
-                    Text(text = if (selectedVideo == null) "Pick video" else "Change video")
-                }
-            }
+            Spacer(Modifier.size(DPExtraLarge))
 
-            if (selectedImage != null) {
-                AssistChip(
-                    onClick = viewModel::clearSelectedImage,
-                    label = { Text("Image: ${selectedImage.displayName}") },
-                    trailingIcon = {
-                        Icon(
-                            imageVector = Icons.Rounded.Close,
-                            contentDescription = "Clear selected image"
-                        )
-                    }
-                )
-            } else if (currentProfileImageUrl != null) {
-                Text(
-                    text = "Current profile image is set",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
 
-            if (selectedVideo != null) {
-                AssistChip(
-                    onClick = viewModel::clearSelectedVideo,
-                    label = { Text("Video: ${selectedVideo.displayName}") },
-                    trailingIcon = {
-                        Icon(
-                            imageVector = Icons.Rounded.Close,
-                            contentDescription = "Clear selected video"
-                        )
-                    }
-                )
-            } else if (currentProfileVideoUrl != null) {
-                Text(
-                    text = "Current profile video is set",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
 
             if (isLoading) {
                 Row(

@@ -7,13 +7,17 @@ import android.provider.OpenableColumns
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.dino.message.DinoOrderApplication
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.dino.message.threadfeature.domain.model.CreatePostMedia
+import com.dino.message.threadfeature.domain.model.Post
+import com.dino.message.threadfeature.domain.model.QuotedPostPreview
 import com.dino.message.threadfeature.domain.usecase.CreatePostUseCase
+import com.dino.message.threadfeature.domain.usecase.GetPostUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -34,7 +38,9 @@ data class SelectedPostMedia(
 @HiltViewModel
 class CreatePostViewModel @Inject constructor(
     @ApplicationContext app: Context,
-    private val createPostUseCase: CreatePostUseCase
+    private val createPostUseCase: CreatePostUseCase,
+    private val getPostUseCase: GetPostUseCase,
+    savedStateHandle: SavedStateHandle
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
     companion object {
@@ -49,7 +55,11 @@ class CreatePostViewModel @Inject constructor(
         )
     }
 
+    private val quotedPostIdArg: Long = savedStateHandle.get<Long>("quotedPostId") ?: 0L
+    val quotedPostId: Long? = quotedPostIdArg.takeIf { it > 0L }
+
     val postDraft = mutableStateOf("")
+    val followersOnly = mutableStateOf(false)
     private val _selectedMedia = mutableStateListOf<SelectedPostMedia>()
     val selectedMedia: List<SelectedPostMedia> = _selectedMedia
     private var mediaIdSequence = 0L
@@ -59,10 +69,25 @@ class CreatePostViewModel @Inject constructor(
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
+    private val _quotedPost = MutableStateFlow<QuotedPostPreview?>(null)
+    val quotedPost: StateFlow<QuotedPostPreview?> = _quotedPost.asStateFlow()
+    private val _isQuotedPostLoading = MutableStateFlow(false)
+    val isQuotedPostLoading: StateFlow<Boolean> = _isQuotedPostLoading.asStateFlow()
+    private val _quotedPostError = MutableStateFlow<String?>(null)
+    val quotedPostError: StateFlow<String?> = _quotedPostError.asStateFlow()
+
+    init {
+        loadQuotedPostPreviewIfNeeded()
+    }
+
 
     fun onPostDraftChanged(value: String) {
         postDraft.value = value
         if (_error.value != null) _error.value = null
+    }
+
+    fun onFollowersOnlyChanged(value: Boolean) {
+        followersOnly.value = value
     }
 
     fun onMediaPicked(uris: List<Uri>) {
@@ -144,12 +169,18 @@ class CreatePostViewModel @Inject constructor(
                 return@launch
             }
 
-            createPostUseCase.execute(text = text, mediaFiles = mediaFiles).collect { res ->
+            createPostUseCase.execute(
+                text = text,
+                mediaFiles = mediaFiles,
+                followersOnly = followersOnly.value,
+                quotedPostId = quotedPostId
+            ).collect { res ->
                 when (res) {
                     is Resource.Success -> {
                         _isSubmitting.value = false
                         _error.value = null
                         postDraft.value = ""
+                        followersOnly.value = false
                         _selectedMedia.clear()
                         navigateUp(viewModelScope)
                     }
@@ -169,6 +200,32 @@ class CreatePostViewModel @Inject constructor(
 
     fun closeScreen() {
         navigateUp(viewModelScope)
+    }
+
+    private fun loadQuotedPostPreviewIfNeeded() {
+        val quotedPostId = quotedPostId ?: return
+
+        viewModelScope.launch {
+            getPostUseCase.execute(quotedPostId).collect { res ->
+                when (res) {
+                    is Resource.Loading -> {
+                        _isQuotedPostLoading.value = true
+                        _quotedPostError.value = null
+                    }
+
+                    is Resource.Success -> {
+                        _isQuotedPostLoading.value = false
+                        _quotedPostError.value = null
+                        _quotedPost.value = res.data.toQuotedPostPreview()
+                    }
+
+                    is Resource.Error -> {
+                        _isQuotedPostLoading.value = false
+                        _quotedPostError.value = res.message.asString(getApplication())
+                    }
+                }
+            }
+        }
     }
 
     private fun buildCreatePostMedia(): List<CreatePostMedia>? {
@@ -218,4 +275,12 @@ class CreatePostViewModel @Inject constructor(
             }
         }
     }
+
+    private fun Post.toQuotedPostPreview(): QuotedPostPreview = QuotedPostPreview(
+        id = id,
+        text = text,
+        author = author,
+        created_at = created_at,
+        media = media
+    )
 }

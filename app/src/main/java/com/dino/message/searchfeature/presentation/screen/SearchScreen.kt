@@ -13,6 +13,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
@@ -42,13 +44,22 @@ fun SearchScreen() {
     val selectedTab = viewModel.selectedTab.value
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
+    val playlistFeedback by viewModel.playlistFeedback.collectAsState()
     val focusRequester = remember { FocusRequester() }
+    val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
     }
+    LaunchedEffect(playlistFeedback) {
+        playlistFeedback?.let { message ->
+            snackbarHostState.showSnackbar(message)
+            viewModel.clearPlaylistFeedback()
+        }
+    }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = {
@@ -116,7 +127,12 @@ fun SearchScreen() {
                 onUpVoteClick = { postId -> viewModel.votePost(postId, 1) },
                 onDownVoteClick = { postId -> viewModel.votePost(postId, -1) },
                 onCommentsClick = viewModel::openCommentsBottomSheet,
+                onQuoteClick = viewModel::openQuotePostOptions,
+                onShareClick = viewModel::openShareBottomSheet,
+                onQuotedPostClick = viewModel::openQuotedPost,
                 onReportClick = viewModel::openReportBottomSheet,
+                onAddTrackToPlaylistClick = viewModel::addTrackToPlaylist,
+                onShowTrackPlaylistAddersClick = viewModel::openTrackPlaylistAddersDialog,
                 selectedPostVote = viewModel::selectedPostVote,
                 postError = viewModel::postError,
                 modifier = Modifier.fillMaxSize()

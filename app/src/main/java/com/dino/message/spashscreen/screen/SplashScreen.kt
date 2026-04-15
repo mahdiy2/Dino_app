@@ -1,88 +1,110 @@
 package com.dino.message.spashscreen.screen
 
-import android.content.Intent
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.TweenSpec
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
-import com.ramcosta.composedestinations.annotation.Destination
 import com.dino.message.R
-import com.dino.message.corefeature.presentation.activity.MainActivity
 import com.dino.message.spashscreen.viewmodel.SpashViewModel
+import com.ramcosta.composedestinations.annotation.Destination
 import com.ramcosta.composedestinations.annotation.RootGraph
-import kotlinx.coroutines.delay
-
+import androidx.compose.runtime.collectAsState
 
 @Destination<RootGraph>(start = true)
 @Composable
 fun SplashScreen(navController: NavController) {
     val viewModel: SpashViewModel = hiltViewModel()
+    val uiState by viewModel.uiState.collectAsState()
 
-
-    val context = LocalContext.current
-
-    // Delay the navigation to the next screen after a certain time
-    // This part is just for caution and actually navigation to next screen done in viewModel!
-    LaunchedEffect(key1 = true) {
-        delay(3_000L + 200)
-        val intent = Intent(context, MainActivity::class.java)
-
-        // Navigate to the main page and pop the splash screen from the back stack
-        viewModel.navigateToNextScreen()
-    }
-    // Create an infinite animation transition for the app logo
-    val infiniteTransition = rememberInfiniteTransition()
+    val infiniteTransition = rememberInfiniteTransition(label = "splash_pulse")
     val animationCoefficient by infiniteTransition.animateFloat(
         initialValue = 0.7f,
         targetValue = 1.1f,
         animationSpec = infiniteRepeatable(
-            TweenSpec(durationMillis = 3_000L.toInt()),
-            repeatMode = RepeatMode.Reverse
-        )
+            animation = TweenSpec(durationMillis = 3_000),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "logo_scale",
     )
 
-    // Display the splash screen with the app logo
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .padding(16.dp)
+            .padding(16.dp),
     ) {
         Icon(
-            painterResource(R.drawable.ic_dino),
+            painter = painterResource(R.drawable.ic_dino),
             contentDescription = null,
             modifier = Modifier
                 .size(180.dp)
                 .scale(animationCoefficient),
-            tint = Color.Unspecified // Prevents forced color tinting
-//            tint = if (isSystemInDarkTheme()) Color.White else Color.Black
+            tint = Color.Unspecified,
         )
+
+        if (uiState.isChecking) {
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 56.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.5.dp)
+                Text(
+                    text = "Checking app version...",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onBackground,
+                )
+            }
+        } else if (uiState.errorMessage != null) {
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(horizontal = 20.dp, vertical = 56.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(
+                    text = uiState.errorMessage?.asString().orEmpty(),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    textAlign = TextAlign.Center,
+                )
+                Button(onClick = viewModel::retryVersionCheck) {
+                    Text(text = stringResource(id = R.string.retry))
+                }
+            }
+        }
 
         Text(
             modifier = Modifier
@@ -90,7 +112,7 @@ fun SplashScreen(navController: NavController) {
                 .windowInsetsPadding(WindowInsets.navigationBars),
             text = stringResource(R.string.built_in_war),
             color = MaterialTheme.colorScheme.onBackground,
-            style = MaterialTheme.typography.titleSmall
+            style = MaterialTheme.typography.titleSmall,
         )
     }
 }

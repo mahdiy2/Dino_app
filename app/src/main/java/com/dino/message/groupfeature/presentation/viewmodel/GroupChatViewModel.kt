@@ -26,8 +26,11 @@ import com.dino.message.groupfeature.domain.usecase.GetGroupDetailUseCase
 import com.dino.message.groupfeature.domain.usecase.UploadGroupAttachmentUseCase
 import com.dino.message.groupfeature.domain.usecase.SaveGroupMessageUseCase
 import com.dino.message.groupfeature.domain.usecase.GetGroupMessagesFromDbUseCase
+import com.dino.message.threadfeature.domain.usecase.IsTrackInPlaylistUseCase
 import com.ramcosta.composedestinations.generated.destinations.GroupMembersScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.PlaylistBottomSheetScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.PrivateKeyResetDialogScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.SharedPostDetailsScreenDestination
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.socket.client.IO
@@ -53,6 +56,7 @@ class GroupChatViewModel @Inject constructor(
     private val uploadGroupAttachmentUseCase: UploadGroupAttachmentUseCase,
     private val saveGroupMessageUseCase: SaveGroupMessageUseCase,
     private val getGroupMessagesFromDbUseCase: GetGroupMessagesFromDbUseCase,
+    private val isTrackInPlaylistUseCase: IsTrackInPlaylistUseCase,
     private val groupRepository: GroupRepository,
     savedStateHandle: SavedStateHandle,
 ) : AndroidViewModel(app as DinoOrderApplication),
@@ -768,6 +772,13 @@ class GroupChatViewModel @Inject constructor(
         navigateToDestination(PrivateKeyResetDialogScreenDestination, viewModelScope)
     }
 
+    fun openSharedPost(postId: Long) {
+        navigateToDestination(
+            SharedPostDetailsScreenDestination(postId = postId),
+            viewModelScope
+        )
+    }
+
     fun openGroupMembersScreen(currentGroupName: String) {
         navigateToDestination(
             GroupMembersScreenDestination(
@@ -776,6 +787,23 @@ class GroupChatViewModel @Inject constructor(
             ),
             viewModelScope,
         )
+    }
+
+    fun openPlaylistBottomSheet() {
+        navigateToDestination(PlaylistBottomSheetScreenDestination, viewModelScope)
+    }
+
+    fun openPlaylistBottomSheetIfTrackExists(trackUrl: String) = viewModelScope.launch {
+        val normalizedUrl = trackUrl.trim()
+        if (normalizedUrl.isBlank()) return@launch
+
+        isTrackInPlaylistUseCase.execute(trackUrl = normalizedUrl).collect { res ->
+            if (res is Resource.Success) {
+                if (res.data) {
+                    openPlaylistBottomSheet()
+                }
+            }
+        }
     }
 
     private fun sendGroupAck(messageIds: List<String>) {

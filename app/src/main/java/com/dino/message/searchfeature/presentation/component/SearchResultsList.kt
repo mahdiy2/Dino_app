@@ -17,6 +17,7 @@ import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.searchfeature.domain.model.SearchTab
 import com.dino.message.searchfeature.domain.model.SearchUser
 import com.dino.message.threadfeature.domain.model.Post
+import com.dino.message.threadfeature.domain.model.PostMedia
 import com.dino.message.threadfeature.presentation.component.ThreadPostCard
 
 @Composable
@@ -31,7 +32,12 @@ fun SearchResultsList(
     onUpVoteClick: (Long) -> Unit,
     onDownVoteClick: (Long) -> Unit,
     onCommentsClick: (Long) -> Unit,
+    onQuoteClick: (Post) -> Unit,
+    onShareClick: (Post) -> Unit,
+    onQuotedPostClick: (Long) -> Unit,
     onReportClick: (Long) -> Unit,
+    onAddTrackToPlaylistClick: (Long) -> Unit,
+    onShowTrackPlaylistAddersClick: (postMedia: PostMedia, trackTitle: String) -> Unit,
     selectedPostVote: (Long) -> Long,
     postError: (Long) -> String?,
     modifier: Modifier = Modifier
@@ -141,8 +147,15 @@ fun SearchResultsList(
                     onUpVoteClick = { onUpVoteClick(post.id) },
                     onDownVoteClick = { onDownVoteClick(post.id) },
                     onCommentsClick = { onCommentsClick(post.id) },
+                    onQuoteClick = { onQuoteClick(post) },
+                    onShareClick = { onShareClick(post) },
+                    onQuotedPostClick = onQuotedPostClick,
                     onReportClick = { onReportClick(post.id) },
                     onUserClick = { onUserClick(post.author.username) },
+                    onAddTrackToPlaylistClick = { media ->
+                        onAddTrackToPlaylistClick(media.id)
+                    },
+                    onShowTrackPlaylistAddersClick = onShowTrackPlaylistAddersClick
                 )
             }
         }

@@ -57,6 +57,9 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalLayoutDirection
 import com.dino.message.corefeature.presentation.util.getTimeAgo
 import com.dino.message.threadfeature.domain.model.Post
+import com.dino.message.threadfeature.domain.model.PostMedia
+import com.dino.message.threadfeature.presentation.util.artistTextOrUnknown
+import com.dino.message.threadfeature.presentation.util.resolveMusicMetadata
 import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
 import coil.request.CachePolicy
@@ -71,9 +74,15 @@ fun ThreadPostCard(
     onUpVoteClick: (() -> Unit)? = null,
     onDownVoteClick: (() -> Unit)? = null,
     onCommentsClick: (() -> Unit)? = null,
+    onQuoteClick: (() -> Unit)? = null,
+    onShareClick: (() -> Unit)? = null,
+    onQuotedPostClick: ((Long) -> Unit)? = null,
     onUserClick: (() -> Unit)? = null,
     onReportClick: (() -> Unit)? = null,
-    onBlockUserClick: (() -> Unit)? = null
+    onBlockUserClick: (() -> Unit)? = null,
+    onDeletePostClick: (() -> Unit)? = null,
+    onAddTrackToPlaylistClick: ((PostMedia) -> Unit)? = null,
+    onShowTrackPlaylistAddersClick: ((PostMedia, String) -> Unit)? = null
 ) {
     val commentsContentColor by animateColorAsState(
         targetValue = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -107,16 +116,21 @@ fun ThreadPostCard(
                     horizontalArrangement = Arrangement.spacedBy(DPSmall),
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = if (onUserClick != null) {
-                        Modifier.clickable { onUserClick() }
+                        Modifier
+                            .clip(MaterialTheme.shapes.extraLarge)
+                            .clickable { onUserClick() }
                     } else {
                         Modifier
+                            .clip(MaterialTheme.shapes.extraLarge)
                     }
                 ) {
                     PostAuthorAvatar(
                         imageUrl = post.author.profile_image_url,
-                        modifier = Modifier.size(30.dp)
+                        modifier = Modifier.size(46.dp)
                     )
-                    Column {
+                    Column(
+                        modifier = Modifier.padding(end = DPMedium)
+                    ) {
                         Text(
                             text = post.author.name?.takeIf { it.isNotBlank() }
                                 ?: post.author.username,
@@ -140,7 +154,7 @@ fun ThreadPostCard(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    if (onReportClick != null || onBlockUserClick != null) {
+                    if (onReportClick != null || onBlockUserClick != null || onDeletePostClick != null) {
                         Box {
                             IconButton(
                                 onClick = { showPostMenu = true },
@@ -174,6 +188,15 @@ fun ThreadPostCard(
                                         }
                                     )
                                 }
+                                if (onDeletePostClick != null) {
+                                    DropdownMenuItem(
+                                        text = { Text("Delete") },
+                                        onClick = {
+                                            showPostMenu = false
+                                            onDeletePostClick()
+                                        }
+                                    )
+                                }
                             }
                         }
                     }
@@ -182,19 +205,62 @@ fun ThreadPostCard(
 
 
             Spacer(modifier = Modifier.height(DPSmall))
-            CompositionLocalProvider(LocalLayoutDirection provides rememberLayoutDirection(post.text)) {
-                Text(
-                    text = post.text,
-                    style = MaterialTheme.typography.bodyLarge
+            if (post.text.isNotBlank()) {
+                CompositionLocalProvider(LocalLayoutDirection provides rememberLayoutDirection(post.text)) {
+                    Text(
+                        text = post.text,
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                }
+            }
+
+            val musicMedia = post.media.firstOrNull { it.mime_type.startsWith("audio/", ignoreCase = true) }
+            if (musicMedia != null) {
+                val resolvedMusicMetadata = resolveMusicMetadata(
+                    displayName = musicMedia.display_name,
+                    title = musicMedia.title,
+                    artist = musicMedia.artist
+                )
+                MusicTrackPlayerCard(
+                    modifier = Modifier.padding(top = DPMedium),
+                    trackUrl = musicMedia.url,
+                    trackTitle = resolvedMusicMetadata.title,
+                    trackSubtitle = artistTextOrUnknown(resolvedMusicMetadata.artist),
+                    playlistAdders = musicMedia.playlistAdders,
+                    onPlaylistAddersClick = if (onShowTrackPlaylistAddersClick != null) {
+                        {
+                            onShowTrackPlaylistAddersClick(
+                                musicMedia,
+                                resolvedMusicMetadata.title
+                            )
+                        }
+                    } else {
+                        null
+                    },
+                    onAddToPlaylistClick = if (onAddTrackToPlaylistClick != null) {
+                        { onAddTrackToPlaylistClick(musicMedia) }
+                    } else {
+                        null
+                    }
                 )
             }
 
-            if (post.media.isNotEmpty()) {
+            val visualMedia = post.media.filterNot { it.mime_type.startsWith("audio/", ignoreCase = true) }
+            if (visualMedia.isNotEmpty()) {
                 Carousel(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = DPMedium),
-                    items = post.media
+                    items = visualMedia
+                )
+            }
+
+            if (post.quotedPostId != null || post.quotedPost != null) {
+                QuotedPostPreviewCard(
+                    modifier = Modifier.padding(top = DPMedium),
+                    quotedPostId = post.quotedPostId,
+                    quotedPost = post.quotedPost,
+                    onClick = onQuotedPostClick
                 )
             }
 
@@ -229,18 +295,46 @@ fun ThreadPostCard(
                             onClick = { onDownVoteClick?.invoke() },
                             icon = R.drawable.ic_dislike_filled
                         )
+
+                        IconButton(
+                            onClick = { onCommentsClick?.invoke() },
+                            colors = IconButtonDefaults.iconButtonColors(
+                                contentColor = commentsContentColor
+                            )
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_commets_filled),
+                                contentDescription = "Comments"
+                            )
+                        }
                     }
 
-                    IconButton(
-                        onClick = { onCommentsClick?.invoke() },
-                        colors = IconButtonDefaults.iconButtonColors(
-                            contentColor = commentsContentColor
-                        )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(2.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_commets_filled),
-                            contentDescription = null
-                        )
+                        IconButton(
+                            onClick = { onQuoteClick?.invoke() },
+                            colors = IconButtonDefaults.iconButtonColors(
+                                contentColor = commentsContentColor
+                            )
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_quote_post_filled),
+                                contentDescription = "Quote post"
+                            )
+                        }
+                        IconButton(
+                            onClick = { onShareClick?.invoke() },
+                            colors = IconButtonDefaults.iconButtonColors(
+                                contentColor = commentsContentColor
+                            )
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_send_filled),
+                                contentDescription = "Share post"
+                            )
+                        }
                     }
                 }
             }

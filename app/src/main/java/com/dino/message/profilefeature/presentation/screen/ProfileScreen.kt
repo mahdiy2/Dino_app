@@ -1,10 +1,12 @@
 package com.dino.message.profilefeature.presentation.screen
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -20,10 +22,15 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.rounded.ArrowBackIosNew
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -32,6 +39,8 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -48,11 +57,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -96,7 +110,10 @@ fun ProfileScreen(username: String? = null) {
     val isActionLoading by viewModel.isActionLoading.collectAsState()
     val isFollowing by viewModel.isFollowing.collectAsState()
     val error by viewModel.error.collectAsState()
+    val playlistFeedback by viewModel.playlistFeedback.collectAsState()
     val isRefreshing = isProfileLoading || isPostsLoading
+    val snackbarHostState = remember { SnackbarHostState() }
+    var isProfileImageViewerOpen by remember { mutableStateOf(false) }
 
     LaunchedEffect(username) {
         viewModel.initialize(username)
@@ -110,6 +127,13 @@ fun ProfileScreen(username: String? = null) {
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    LaunchedEffect(playlistFeedback) {
+        playlistFeedback?.let { message ->
+            snackbarHostState.showSnackbar(message)
+            viewModel.clearPlaylistFeedback()
+        }
     }
 
     Box(
@@ -150,7 +174,12 @@ fun ProfileScreen(username: String? = null) {
                                    modifier = Modifier.size(60.dp),
                                    profileImageUrl = profile?.profile_image_url,
                                     profileVideoUrl = profile?.profile_video_url,
-                                    autoPlayVideo = true
+                                    autoPlayVideo = true,
+                                    onClick = {
+                                        if (!profile?.profile_image_url.isNullOrBlank()) {
+                                            isProfileImageViewerOpen = true
+                                        }
+                                    }
                                )
 
                                 Column {
@@ -341,12 +370,67 @@ fun ProfileScreen(username: String? = null) {
                 }
             } else if (posts.isEmpty()) {
                 item {
-                    Text(
-                        text = "No posts yet.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier
-                            .padding(DPMedium)
-                    )
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.ic_empty_posts),
+                            contentDescription = null,
+                            modifier = Modifier.size(180.dp)
+                        )
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        Text(
+                            text = "No posts yet",
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            ),
+                            textAlign = TextAlign.Center
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Text(
+                            text = "Share your first moment with friends and start building your world.",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            ),
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 48.dp)
+                        )
+
+                        Spacer(modifier = Modifier.height(32.dp))
+
+                        Button(
+                            onClick = {
+                                viewModel.showCreateOptionsSheet()
+                            },
+                            shape = MaterialTheme.shapes.extraLarge,
+                            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary
+                            )
+                        ) {
+
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = null
+                            )
+
+                            Spacer(modifier = Modifier.width(8.dp))
+
+                            Text(
+                                text = "Create your first post",
+                                style = MaterialTheme.typography.labelLarge.copy(
+                                    fontWeight = FontWeight.Bold
+                                )
+                            )
+                        }
+                    }
                 }
             } else {
                 items(
@@ -363,7 +447,23 @@ fun ProfileScreen(username: String? = null) {
                         onUpVoteClick = { viewModel.votePost(post.id, 1) },
                         onDownVoteClick = { viewModel.votePost(post.id, -1) },
                         onCommentsClick = { viewModel.openCommentsBottomSheet(post.id) },
-                        onReportClick = { viewModel.openReportBottomSheet(post.id) },
+                        onQuoteClick = { viewModel.openQuotePostOptions(post) },
+                        onShareClick = { viewModel.openShareBottomSheet(post) },
+                        onQuotedPostClick = viewModel::openQuotedPost,
+                        onReportClick = if (isOwnProfile) null else {
+                            { viewModel.openReportBottomSheet(post.id) }
+                        },
+                        onDeletePostClick = if (isOwnProfile) {
+                            { viewModel.openDeletePostBottomSheet(post.id) }
+                        } else {
+                            null
+                        },
+                        onAddTrackToPlaylistClick = { media ->
+                            viewModel.addTrackToPlaylist(media.id)
+                        },
+                        onShowTrackPlaylistAddersClick = { media, trackTitle ->
+                            viewModel.openTrackPlaylistAddersDialog(media, trackTitle)
+                        }
                     )
                 }
             }
@@ -381,6 +481,61 @@ fun ProfileScreen(username: String? = null) {
                 Icon(
                     imageVector = Icons.Rounded.Settings,
                     contentDescription = "Open settings"
+                )
+            }
+        }
+
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .windowInsetsPadding(WindowInsets.navigationBars)
+                .padding(horizontal = DPMedium)
+        )
+
+        if (isProfileImageViewerOpen && !profile?.profile_image_url.isNullOrBlank()) {
+            ProfileImageFullScreenDialog(
+                imageUrl = profile!!.profile_image_url!!,
+                onDismiss = { isProfileImageViewerOpen = false }
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProfileImageFullScreenDialog(
+    imageUrl: String,
+    onDismiss: () -> Unit
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black)
+        ) {
+            SubcomposeAsyncImage(
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(imageUrl)
+                    .crossfade(true)
+                    .build(),
+                contentDescription = "Profile image",
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.fillMaxSize()
+            )
+
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(16.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Close,
+                    contentDescription = "Close",
+                    tint = Color.White
                 )
             }
         }

@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Done
 import androidx.compose.material.icons.rounded.DoneAll
+import androidx.compose.material.icons.rounded.Forum
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Videocam
@@ -32,6 +33,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -57,7 +59,9 @@ import coil.request.ImageRequest
 import com.dino.message.chatfeature.domain.model.MessageDeliveryStatus
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPSmall
+import com.dino.message.corefeature.presentation.util.decodePostShareMessage
 import com.dino.message.corefeature.presentation.util.rememberLayoutDirection
+import com.dino.message.threadfeature.presentation.music.MusicPlaybackManager
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalLayoutDirection
 import kotlinx.coroutines.delay
@@ -74,6 +78,7 @@ fun ChatContainer(
     deliveryStatus: MessageDeliveryStatus? = null,
     onClick: ((IntOffset, IntSize) -> Unit)? = null,
     onAttachmentClick: (() -> Unit)? = null,
+    onPostShareClick: ((Long) -> Unit)? = null,
     onLongClick: (() -> Unit)? = null,
     replySenderName: String? = null,
     replyPreviewText: String? = null
@@ -116,6 +121,12 @@ fun ChatContainer(
                     interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
                )
         ) {
+            val postSharePayload = remember(text) { decodePostShareMessage(text) }
+            val effectiveMessageType = if (messageType == "post" || postSharePayload != null) {
+                "post"
+            } else {
+                messageType
+            }
             val hasReply = !replySenderName.isNullOrBlank() && replySenderName != "null" &&
                     !replyPreviewText.isNullOrBlank() && replyPreviewText != "null"
             if (hasReply) {
@@ -165,7 +176,7 @@ fun ChatContainer(
                 Spacer(modifier = Modifier.height(DPSmall))
             }
             val showStatus = sent && deliveryStatus != null
-            if (messageType == "text" && text.isNotBlank() && showStatus) {
+            if (effectiveMessageType == "text" && text.isNotBlank() && showStatus) {
                 Row(verticalAlignment = Alignment.Bottom) {
                     DeliveryStatusIcon(deliveryStatus = deliveryStatus)
                     Spacer(modifier = Modifier.width(6.dp))
@@ -177,7 +188,7 @@ fun ChatContainer(
                     }
                 }
             } else {
-                when (messageType) {
+                when (effectiveMessageType) {
                     "image" -> ImageBubble(
                         attachmentUrl = attachmentUrl,
                         attachmentFileName = attachmentFileName,
@@ -197,6 +208,12 @@ fun ChatContainer(
                         sent = sent
                     )
 
+                    "post" -> PostShareBubble(
+                        rawText = text,
+                        payload = postSharePayload,
+                        onClick = onPostShareClick
+                    )
+
                     else -> {
                         if (text.isNotBlank()) {
                             CompositionLocalProvider(LocalLayoutDirection provides rememberLayoutDirection(text)) {
@@ -209,12 +226,74 @@ fun ChatContainer(
                     }
                 }
             }
-            if (showStatus && messageType != "text") {
+            if (showStatus && effectiveMessageType != "text") {
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(modifier = Modifier.align(Alignment.Start)) {
                     DeliveryStatusIcon(deliveryStatus = deliveryStatus)
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun PostShareBubble(
+    rawText: String,
+    payload: com.dino.message.corefeature.presentation.util.PostSharePayload?,
+    onClick: ((Long) -> Unit)?,
+) {
+    if (payload == null) {
+        if (rawText.isNotBlank()) {
+            Text(
+                text = rawText,
+                style = MaterialTheme.typography.bodyLarge
+            )
+        }
+        return
+    }
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable { onClick?.invoke(payload.postId) },
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.55f),
+        tonalElevation = 1.dp,
+        shadowElevation = 0.dp
+    ) {
+        Column(modifier = Modifier.padding(DPMedium)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Forum,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(16.dp)
+                )
+                Text(
+                    text = "Shared post from @${payload.authorUsername}",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            if (payload.previewText.isNotBlank()) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = payload.previewText,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 4,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = "Tap to open post",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary
+            )
         }
     }
 }
@@ -340,6 +419,7 @@ private fun VoiceBubble(
     sent: Boolean
 ) {
     if (attachmentUrl.isNullOrBlank()) return
+    val context = LocalContext.current
 
     var isPlaying by remember { mutableStateOf(false) }
     var progress by remember { mutableFloatStateOf(0f) }
@@ -411,6 +491,7 @@ private fun VoiceBubble(
                     mediaPlayer.pause()
                     isPlaying = false
                 } else {
+                    MusicPlaybackManager.pauseForCompetingAudio(context)
                     mediaPlayer.start()
                     isPlaying = true
                 }

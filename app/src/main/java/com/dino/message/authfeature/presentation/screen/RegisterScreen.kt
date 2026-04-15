@@ -48,6 +48,11 @@ fun RegisterScreen() {
     val registerErrorMessage by viewModel.registerErrorMessage
     val minUsernameLength = 7
     val minPasswordLength = 10
+    val trimmedUsername = viewModel.userName.value.trim()
+    val usernameTooShort = viewModel.userName.value.isNotEmpty() &&
+        trimmedUsername.length < minUsernameLength
+    val usernameHasInvalidChars = viewModel.userName.value.isNotEmpty() &&
+        !viewModel.isUsernameFormatValid(trimmedUsername)
 
     Scaffold { innerPadding ->
         Box(
@@ -88,17 +93,20 @@ fun RegisterScreen() {
                         ),
                         shape = MaterialTheme.shapes.extraLarge,
                         value = viewModel.userName.value,
-                        onValueChange = { viewModel.userName.value = it },
-                        isError = viewModel.userName.value.isNotEmpty() &&
-                            viewModel.userName.value.length < minUsernameLength,
+                        onValueChange = { viewModel.onUsernameValueChange(it) },
+                        isError = usernameTooShort || usernameHasInvalidChars,
                         placeholder = {
                             Text("Username")
                         },
                         supportingText = {
-                            Text(
-                                text = "Minimum $minUsernameLength characters " +
-                                    "(${viewModel.userName.value.length}/$minUsernameLength)"
-                            )
+                            if (usernameHasInvalidChars) {
+                                Text("Allowed: A-Z, a-z, 0-9, ., -, _")
+                            } else {
+                                Text(
+                                    text = "Minimum $minUsernameLength characters " +
+                                        "(${trimmedUsername.length}/$minUsernameLength)"
+                                )
+                            }
                         },
                         maxLines = 1
                     )
@@ -119,7 +127,7 @@ fun RegisterScreen() {
                         ),
                         shape = MaterialTheme.shapes.extraLarge,
                         value = viewModel.password.value,
-                        onValueChange = { viewModel.password.value = it },
+                        onValueChange = { viewModel.onPasswordValueChange(it) },
                         isError = viewModel.password.value.isNotEmpty() &&
                             viewModel.password.value.length < minPasswordLength,
                         placeholder = {
@@ -138,7 +146,8 @@ fun RegisterScreen() {
                         modifier = Modifier
                             .align(Alignment.CenterHorizontally),
                         visible = (
-                            viewModel.userName.value.length >= minUsernameLength &&
+                            trimmedUsername.length >= minUsernameLength &&
+                                !usernameHasInvalidChars &&
                                 viewModel.password.value.length >= minPasswordLength
                             )
                     ) {
