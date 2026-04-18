@@ -210,7 +210,7 @@ fun ThreadScreen() {
                         verticalArrangement = Arrangement.spacedBy(DPMedium)
                     ) {
                         if (reservedNowPlayingHeight > 0.dp) {
-                            item {
+                            item(key = "thread_now_playing_spacer") {
                                 Spacer(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -220,7 +220,7 @@ fun ThreadScreen() {
                         }
 
                         if (postsError != null) {
-                            item {
+                            item(key = "thread_posts_error_banner") {
                                 Surface(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -272,7 +272,7 @@ fun ThreadScreen() {
                         }
 
                         if (isLoadingMore) {
-                            item {
+                            item(key = "thread_loading_more_indicator") {
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()

@@ -118,6 +118,17 @@ class ProfileApiServiceImpl @Inject constructor(
         )
     }
 
+    override suspend fun deleteMyAccount(): Resource<ProfileFollowResult> =
+        httpAPIUtil.callAPIWithErrorHandling<ProfileFollowResult, ProfileFollowResponse>(
+            callAPI = {
+                httpClient.delete(ProfileRoute.DeleteMyProfile.url) {
+                    appendTokenToHeader(sPrefManager.getToken())
+                    contentType(ContentType.Application.Json)
+                }
+            },
+            callRefreshTokenAPI = this::getToken
+        )
+
     override suspend fun getProfile(username: String): Resource<Profile> =
         httpAPIUtil.callAPIWithErrorHandling<Profile, ProfileResponse>(
             callAPI = {

@@ -160,8 +160,12 @@ class ThreadViewModel @Inject constructor(
                 is Resource.Success -> {
                     if (isRefresh) _posts.clear()
                     totalPosts = res.data.total
-                    _posts.addAll(res.data.posts)
-                    seedVotesFromPosts(res.data.posts)
+                    val existingPostIds = _posts.mapTo(mutableSetOf()) { it.id }
+                    val incomingUniquePosts = res.data.posts.filter { post ->
+                        existingPostIds.add(post.id)
+                    }
+                    _posts.addAll(incomingUniquePosts)
+                    seedVotesFromPosts(incomingUniquePosts)
                     if (res.data.posts.isNotEmpty()) {
                         currentPostsPage = res.data.page + 1
                     }

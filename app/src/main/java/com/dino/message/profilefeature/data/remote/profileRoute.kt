@@ -7,6 +7,8 @@ sealed class ProfileRoute(url: String) : BaseRoute(url) {
 
     object UpdateMyProfile : ProfileRoute("api/profiles/me")
 
+    object DeleteMyProfile : ProfileRoute("api/profiles/me")
+
     data class GetProfile(val username: String) : ProfileRoute("api/profiles/$username")
 
     data class GetUserPosts(

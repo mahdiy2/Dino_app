@@ -51,4 +51,8 @@
     <string name="follow">Follow</string>
     <string name="cancel">Cancel</string>
     <string name="built_in_war">Built in war!</string>
+    <string name="crash_title">We are sorry, something went wrong.</string>
+    <string name="crash_message">The app ran into an unexpected issue. We captured a crash report and will send it now or automatically the next time you open the app so our team can investigate and fix it quickly.</string>
+    <string name="crash_restart_button">Restart App</string>
+    <string name="crash_reference_id">Reference ID: %1$s</string>
 </resources>

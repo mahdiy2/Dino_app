@@ -8,7 +8,7 @@ import android.os.Build
 import dagger.hilt.android.HiltAndroidApp
 import com.dino.message.chatfeature.data.notification.ActiveChatTracker
 import com.dino.message.chatfeature.data.notification.ActiveGroupTracker
-import com.dino.message.corefeature.data.background.NotificationStartupCoordinator
+import com.dino.message.crashfeature.data.service.CrashReporter
 import com.dino.message.corefeature.presentation.util.UIEvent
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -17,6 +17,9 @@ import javax.inject.Inject
 
 @HiltAndroidApp
 class DinoOrderApplication: Application() {
+
+    @Inject
+    lateinit var crashReporter: CrashReporter
 
     /**
      * A mutable shared flow used for emitting UI events.
@@ -29,14 +32,26 @@ class DinoOrderApplication: Application() {
     val uIEventFlow: SharedFlow<UIEvent> = mutableUIEventFlow
 
     val inAppNotificationManager: InAppNotificationManager by lazy { InAppNotificationManager(this) }
-    @Inject lateinit var notificationStartupCoordinator: NotificationStartupCoordinator
     private var startedActivitiesCount: Int = 0
 
     override fun onCreate() {
         super.onCreate()
+        if (isCrashUiProcess()) {
+            return
+        }
+        crashReporter.installGlobalExceptionHandler()
+        crashReporter.flushPendingLogsAsync()
         createNotificationChannel()
-        notificationStartupCoordinator.sync()
         registerAppBackgroundTracker()
+    }
+
+    private fun isCrashUiProcess(): Boolean {
+        val processName = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            Application.getProcessName()
+        } else {
+            null
+        }
+        return processName?.endsWith(":crash_report") == true
     }
 
     private fun createNotificationChannel() {
@@ -68,6 +83,7 @@ class DinoOrderApplication: Application() {
                 if (startedActivitiesCount == 0) {
                     ActiveChatTracker.clearActiveChat()
                     ActiveGroupTracker.clearActiveGroup()
+                    inAppNotificationManager.disconnect()
                 }
             }
 

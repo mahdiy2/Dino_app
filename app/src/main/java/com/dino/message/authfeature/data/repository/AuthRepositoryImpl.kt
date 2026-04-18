@@ -29,6 +29,8 @@ class AuthRepositoryImpl(
         pass: String
     ) = authAPIService.login(userName, pass)
 
+    override suspend fun getKeyStatus() = authAPIService.getKeyStatus()
+
     override suspend fun rotatePublicKey(
         publicKey: String
     ) = authAPIService.rotatePublicKey(publicKey)

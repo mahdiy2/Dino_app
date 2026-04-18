@@ -5,9 +5,9 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
-import com.dino.message.chatfeature.data.worker.UnreadPollingScheduler
 import androidx.lifecycle.viewModelScope
 import com.dino.message.DinoOrderApplication
+import com.dino.message.corefeature.domain.usecase.ClearLocalSessionUseCase
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.presentation.util.PopBackStackLevel
 import com.dino.message.corefeature.presentation.util.Resource
@@ -57,7 +57,8 @@ class ProfileScreenViewModel @Inject constructor(
     private val followUserUseCase: FollowUserUseCase,
     private val unfollowUserUseCase: UnfollowUserUseCase,
     private val voteUseCase: VoteUseCase,
-    private val addTrackToPlaylistUseCase: AddTrackToPlaylistUseCase
+    private val addTrackToPlaylistUseCase: AddTrackToPlaylistUseCase,
+    private val clearLocalSessionUseCase: ClearLocalSessionUseCase
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
     val profile = mutableStateOf<Profile?>(null)
@@ -241,11 +242,8 @@ class ProfileScreenViewModel @Inject constructor(
         navigateToDestination(ProfileSettingsScreenDestination, viewModelScope)
     }
 
-    fun logout(){
-        UnreadPollingScheduler.cancel(getApplication<DinoOrderApplication>())
-        getApplication<DinoOrderApplication>()
-            .inAppNotificationManager
-            .disconnect()
+    fun logout() = viewModelScope.launch {
+        clearLocalSessionUseCase.execute()
         navigateWithPopBackStackToDestination(
             LoginScreenDestination,
             viewModelScope,

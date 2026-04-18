@@ -159,9 +159,13 @@ object MusicPlaybackManager {
             }
         }
         val appContext = context.applicationContext
+        val isTogglePauseForCurrentTrack = action == MusicPlaybackService.ACTION_TOGGLE &&
+            !trackUrl.isNullOrBlank() &&
+            trackUrl == activeTrackUrl &&
+            playbackState.value.isPlaying
         val requiresForegroundStart = action == MusicPlaybackService.ACTION_PLAY ||
-            action == MusicPlaybackService.ACTION_TOGGLE ||
-            action == MusicPlaybackService.ACTION_RESUME
+            action == MusicPlaybackService.ACTION_RESUME ||
+            (action == MusicPlaybackService.ACTION_TOGGLE && !isTogglePauseForCurrentTrack)
 
         if (requiresForegroundStart) {
             ContextCompat.startForegroundService(appContext, intent)

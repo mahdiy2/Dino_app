@@ -1,6 +1,7 @@
 package com.dino.message.authfeature.data.remote
 
 import com.dino.message.authfeature.domain.model.LoginUser
+import com.dino.message.authfeature.domain.model.KeyStatusUser
 import com.dino.message.authfeature.domain.model.RegisterConfirmUser
 import com.dino.message.authfeature.domain.model.RegisterStartUser
 import com.dino.message.authfeature.domain.model.RegisterUser
@@ -30,6 +31,8 @@ interface AuthAPIService {
         userName: String,
         pass: String,
     ): Resource<LoginUser>
+
+    suspend fun getKeyStatus(): Resource<KeyStatusUser>
 
     suspend fun rotatePublicKey(
         publicKey: String,

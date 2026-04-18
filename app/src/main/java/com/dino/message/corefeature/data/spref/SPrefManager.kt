@@ -192,4 +192,8 @@ class SPrefManager @Inject constructor(
             .apply()
     }
 
+    fun clearAll() {
+        editor.clear().apply()
+    }
+
 }

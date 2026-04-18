@@ -22,8 +22,8 @@ android {
         applicationId = "com.sec.message"
         minSdk = 28
         targetSdk = 36
-        versionCode = 33
-        versionName = "0.8.2beta"
+        versionCode = 36
+        versionName = "0.8.5beta"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -106,7 +106,7 @@ dependencies {
 
     //Ktor
     implementation (libs.ktor.client.core)
-    implementation (libs.ktor.client.cio)
+    implementation (libs.ktor.client.okhttp)
     implementation (libs.ktor.client.content.negotiation)
     implementation (libs.ktor.serialization.kotlinx.json)
     implementation (libs.ktor.client.serialization)
@@ -154,10 +154,6 @@ dependencies {
     ksp(libs.room.compiler)
 
     coreLibraryDesugaring(libs.desugar.jdk.libs)
-
-
-    // WorkManager
-    implementation(libs.androidx.work.runtime.ktx)
 
     implementation(libs.lottie.compose)
 

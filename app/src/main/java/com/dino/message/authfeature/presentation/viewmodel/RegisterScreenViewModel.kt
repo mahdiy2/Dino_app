@@ -5,14 +5,16 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.dino.message.DinoOrderApplication
+import com.dino.message.authfeature.domain.util.RegisterConfirmErrorPolicy
+import com.dino.message.authfeature.domain.usecase.ConfirmRegistrationUseCase
 import com.dino.message.authfeature.domain.usecase.RegisterUseCase
 import com.dino.message.corefeature.data.spref.SPrefManager
+import com.dino.message.corefeature.presentation.util.PopBackStackLevel
 import com.dino.message.corefeature.presentation.util.RSAUtil
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.ramcosta.composedestinations.generated.destinations.LoginScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.PrivateKeyAlertScreenDestination
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.launch
@@ -23,6 +25,7 @@ import javax.inject.Inject
 class RegisterScreenViewModel @Inject constructor(
     @ApplicationContext app: Context,
     private val registerUseCase: RegisterUseCase,
+    private val confirmRegistrationUseCase: ConfirmRegistrationUseCase,
     private val sPrefManager: SPrefManager,
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
@@ -37,7 +40,12 @@ class RegisterScreenViewModel @Inject constructor(
 
     init {
         if (sPrefManager.hasPendingRegistration()) {
-            navigateToPrivateKeyAlert()
+            val registrationId = sPrefManager.getPendingRegistrationId()
+            if (registrationId.isNullOrBlank()) {
+                sPrefManager.clearPendingRegistration()
+            } else {
+                confirmPendingRegistration(registrationId)
+            }
         }
     }
 
@@ -55,13 +63,12 @@ class RegisterScreenViewModel @Inject constructor(
         ).collect { res ->
             when (res) {
                 is Resource.Success -> {
-                    registerLoadingState.value = false
                     registerErrorMessage.value = null
                     sPrefManager.savePendingRegistrationId(res.data.registrationId)
                     val expiresAt =
                         System.currentTimeMillis() + (res.data.expiresInSeconds * 1000L)
                     sPrefManager.savePendingRegistrationExpiresAt(expiresAt)
-                    navigateToPrivateKeyAlert()
+                    confirmPendingRegistration(res.data.registrationId)
                 }
                 is Resource.Loading -> {
                     registerLoadingState.value = true
@@ -70,6 +77,31 @@ class RegisterScreenViewModel @Inject constructor(
                     registerLoadingState.value = false
                     registerErrorMessage.value =
                         res.message.asString(getApplication<DinoOrderApplication>())
+                }
+            }
+        }
+    }
+
+    private fun confirmPendingRegistration(registrationId: String) = viewModelScope.launch {
+        confirmRegistrationUseCase.execute(registrationId).collect { res ->
+            when (res) {
+                is Resource.Loading -> {
+                    registerLoadingState.value = true
+                }
+                is Resource.Success -> {
+                    registerLoadingState.value = false
+                    registerErrorMessage.value = null
+                    sPrefManager.finalizePendingRegistration()
+                    navigateToLoginAfterRegistration()
+                }
+                is Resource.Error -> {
+                    registerLoadingState.value = false
+                    val errorMessage =
+                        res.message.asString(getApplication<DinoOrderApplication>())
+                    registerErrorMessage.value = errorMessage
+                    if (RegisterConfirmErrorPolicy.shouldClearPendingSession(errorMessage)) {
+                        sPrefManager.clearPendingRegistration()
+                    }
                 }
             }
         }
@@ -130,16 +162,14 @@ class RegisterScreenViewModel @Inject constructor(
     }
 
     fun navigateToLoginScreen() {
-        if (sPrefManager.hasPendingRegistration()) {
-            registerErrorMessage.value =
-                "You must finish private key backup before going to login."
-            navigateToPrivateKeyAlert()
-            return
-        }
         navigateToDestination(LoginScreenDestination, viewModelScope)
     }
 
-    fun navigateToPrivateKeyAlert() {
-        navigateToDestination(PrivateKeyAlertScreenDestination, viewModelScope)
+    private fun navigateToLoginAfterRegistration() {
+        navigateWithPopBackStackToDestination(
+            direction = LoginScreenDestination,
+            scope = viewModelScope,
+            level = PopBackStackLevel.ALL
+        )
     }
 }

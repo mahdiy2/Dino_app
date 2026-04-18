@@ -125,6 +125,29 @@ fun GroupChatScreen(
         ActivityResultContracts.PickVisualMedia()
     ) { uri -> uri?.let { viewModel.sendAttachment(it, "video") } }
 
+    val mediaPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val accessLevel = MediaPermissionHandler.resolveAccessLevel(permissions)
+        if (accessLevel == MediaAccessLevel.DENIED) {
+            Toast.makeText(
+                context,
+                "Media access is required to send photos and videos",
+                Toast.LENGTH_SHORT
+            ).show()
+        } else {
+            when (pendingMediaType) {
+                "image" -> imagePickerLauncher.launch(
+                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                )
+                "video" -> videoPickerLauncher.launch(
+                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)
+                )
+            }
+        }
+        pendingMediaType = null
+    }
+
     val voicePermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
@@ -277,6 +300,7 @@ fun GroupChatScreen(
                         imagePickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                     } else {
                         pendingMediaType = "image"
+                        mediaPermissionLauncher.launch(MediaPermissionHandler.getRequiredPermissions())
                     }
                 },
                 onPickVideo = {
@@ -284,6 +308,7 @@ fun GroupChatScreen(
                         videoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly))
                     } else {
                         pendingMediaType = "video"
+                        mediaPermissionLauncher.launch(MediaPermissionHandler.getRequiredPermissions())
                     }
                 },
                 onVoiceRecordStart = {

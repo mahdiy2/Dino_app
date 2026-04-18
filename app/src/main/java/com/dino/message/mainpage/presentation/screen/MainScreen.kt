@@ -23,6 +23,8 @@ import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ArrowBackIosNew
 import androidx.compose.material.icons.rounded.Group
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -40,6 +42,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -97,6 +100,7 @@ fun MainScreen() {
     val isSheetVisible by viewModel.isBottomSheetVisible.collectAsState()
 
     var toolbarExpanded by rememberSaveable { mutableStateOf(false) }
+    var showMessageSecurityDialog by rememberSaveable { mutableStateOf(false) }
 
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val isLoadingMore by viewModel.isLoadingMore.collectAsState()
@@ -150,6 +154,14 @@ fun MainScreen() {
                             contentDescription = "Back"
                         )
                     }
+                },
+                actions = {
+                    IconButton(onClick = { showMessageSecurityDialog = true }) {
+                        Icon(
+                            imageVector = Icons.Rounded.Info,
+                            contentDescription = "Message security info"
+                        )
+                    }
                 }
             )
         },
@@ -167,6 +179,24 @@ fun MainScreen() {
             }
         }
     ) { innerPadding ->
+        if (showMessageSecurityDialog) {
+            AlertDialog(
+                onDismissRequest = { showMessageSecurityDialog = false },
+                title = { Text("Your chats stay private") },
+                text = {
+                    Text(
+                        "Your messages are encrypted.\n\n" +
+                            "We do not keep chat history on our servers. A message is stored only until the recipient sees it, then it is deleted.\n\n" +
+                            "If it is not seen, it is still deleted automatically after 24 hours."
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = { showMessageSecurityDialog = false }) {
+                        Text("Got it")
+                    }
+                }
+            )
+        }
 
         Box(
             modifier = Modifier

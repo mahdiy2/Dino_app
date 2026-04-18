@@ -25,6 +25,7 @@ sealed class AuthRoute(url: String) : BaseRoute(url) {
     object RegisterStart : AuthRoute("api/auth/register/start")
     object RegisterConfirm : AuthRoute("api/auth/register/confirm")
     object RotateKey : AuthRoute("api/auth/keys/rotate")
+    object KeyStatus : AuthRoute("api/auth/keys/status")
 
     // Kept for backward compatibility with older clients that still call /register.
     object RegisterLegacy : AuthRoute("api/auth/register")

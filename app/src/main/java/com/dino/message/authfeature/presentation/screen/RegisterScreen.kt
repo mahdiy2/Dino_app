@@ -142,6 +142,12 @@ fun RegisterScreen() {
                         maxLines = 1
                     )
 
+                    Text(
+                        text = "Encryption keys are generated and saved automatically.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
                     AnimatedVisibility(
                         modifier = Modifier
                             .align(Alignment.CenterHorizontally),
@@ -196,7 +202,7 @@ fun RegisterScreen() {
                         viewModel.navigateToLoginScreen()
                     }
                 ) {
-                    Text("Do you have account?")
+                    Text("Already have an account?")
                 }
             }
         }

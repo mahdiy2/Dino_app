@@ -135,6 +135,10 @@ class MusicPlaybackService : Service() {
             return START_NOT_STICKY
         }
 
+        if (action.requiresImmediateForeground()) {
+            startForeground(NOTIFICATION_ID, buildNotification(_playbackState.value))
+        }
+
         when (action) {
             ACTION_PLAY -> {
                 handlePlayIntent(intent)
@@ -646,6 +650,13 @@ class MusicPlaybackService : Service() {
             setSound(null, null)
         }
         manager.createNotificationChannel(channel)
+    }
+
+    private fun String.requiresImmediateForeground(): Boolean {
+        return this == ACTION_PLAY ||
+            this == ACTION_PLAY_PLAYLIST ||
+            this == ACTION_TOGGLE ||
+            this == ACTION_RESUME
     }
 
     private fun startProgressUpdates() {

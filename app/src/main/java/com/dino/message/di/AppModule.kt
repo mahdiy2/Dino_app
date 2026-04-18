@@ -19,6 +19,7 @@ import com.dino.message.authfeature.data.repository.AuthRepositoryImpl
 import com.dino.message.authfeature.domain.repository.AuthRepository
 import com.dino.message.chatfeature.data.db.MessageDao
 import com.dino.message.groupfeature.data.db.GroupMessageDao
+import com.dino.message.crashfeature.data.local.CrashLogDao
 import com.dino.message.chatfeature.data.remote.ChatApiService
 import com.dino.message.chatfeature.data.remote.ChatApiServiceImpl
 import com.dino.message.chatfeature.data.repository.ChatRepositoryImpl
@@ -58,7 +59,7 @@ import com.dino.message.threadfeature.domain.repository.ThreadRepository
 import com.google.gson.Gson
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.ktor.client.HttpClient
-import io.ktor.client.engine.cio.CIO
+import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
@@ -125,7 +126,7 @@ object AppModule {
     @Provides
     @Singleton
     fun provideHttpClient() =
-        HttpClient(CIO) {
+        HttpClient(OkHttp) {
             defaultRequest {
                 url(BuildConfig.BASE_URL)
             }
@@ -365,7 +366,8 @@ object AppModule {
                  MessageDatabase.MIGRATION_4_5,
                  MessageDatabase.MIGRATION_5_6,
                  MessageDatabase.MIGRATION_6_7,
-                 MessageDatabase.MIGRATION_7_8
+                 MessageDatabase.MIGRATION_7_8,
+                 MessageDatabase.MIGRATION_8_9,
              )
              .build()
      }
@@ -380,6 +382,12 @@ object AppModule {
     @Singleton
     fun provideGroupMessageDao(database: MessageDatabase): GroupMessageDao {
         return database.groupMessageDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideCrashLogDao(database: MessageDatabase): CrashLogDao {
+        return database.crashLogDao()
     }
 
     @Singleton

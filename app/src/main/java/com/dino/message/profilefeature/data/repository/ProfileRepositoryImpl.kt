@@ -26,6 +26,9 @@ class ProfileRepositoryImpl(
         profileVideo = profileVideo
     )
 
+    override suspend fun deleteMyAccount(): Resource<ProfileFollowResult> =
+        profileApiService.deleteMyAccount()
+
     override suspend fun getProfile(username: String): Resource<Profile> =
         profileApiService.getProfile(username = username)
 

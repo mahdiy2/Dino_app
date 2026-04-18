@@ -153,6 +153,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onStop() {
         super.onStop()
+        val dinoApp = applicationContext as? DinoOrderApplication
+        dinoApp?.inAppNotificationManager?.disconnect()
         if (isFinishing) {
             MusicPlaybackManager.stop(applicationContext)
         }

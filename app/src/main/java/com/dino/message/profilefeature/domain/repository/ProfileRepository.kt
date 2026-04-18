@@ -17,6 +17,8 @@ interface ProfileRepository {
         profileVideo: ProfileUpdateImage? = null
     ): Resource<Profile>
 
+    suspend fun deleteMyAccount(): Resource<ProfileFollowResult>
+
     suspend fun getProfile(username: String): Resource<Profile>
 
     suspend fun getUserPosts(username: String, page: Int, limit: Int): Resource<PostsPage>

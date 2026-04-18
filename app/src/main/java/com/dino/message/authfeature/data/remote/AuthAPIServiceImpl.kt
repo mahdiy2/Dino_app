@@ -2,6 +2,7 @@ package com.dino.message.authfeature.data.remote
 
 import com.dino.message.authfeature.data.remote.dto.LoginRequest
 import com.dino.message.authfeature.data.remote.dto.LoginResponse
+import com.dino.message.authfeature.data.remote.dto.KeyStatusResponse
 import com.dino.message.authfeature.data.remote.dto.RegisterConfirmRequest
 import com.dino.message.authfeature.data.remote.dto.RegisterConfirmResponse
 import com.dino.message.authfeature.data.remote.dto.RegisterRequest
@@ -11,6 +12,7 @@ import com.dino.message.authfeature.data.remote.dto.RegisterStartRequest
 import com.dino.message.authfeature.data.remote.dto.RegisterStartResponse
 import com.dino.message.authfeature.data.remote.dto.RegisterResponse
 import com.dino.message.authfeature.domain.model.LoginUser
+import com.dino.message.authfeature.domain.model.KeyStatusUser
 import com.dino.message.authfeature.domain.model.RegisterConfirmUser
 import com.dino.message.authfeature.domain.model.RegisterStartUser
 import com.dino.message.authfeature.domain.model.RegisterUser
@@ -23,6 +25,7 @@ import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.presentation.util.Resource
 import io.ktor.client.HttpClient
 import io.ktor.client.request.post
+import io.ktor.client.request.get
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
@@ -128,6 +131,17 @@ class AuthAPIServiceImpl @Inject constructor(
                             public_key = publicKey
                         )
                     )
+                }
+            },
+            callRefreshTokenAPI = this::getToken
+        )
+
+    override suspend fun getKeyStatus(): Resource<KeyStatusUser> =
+        httpAPIUtil.callAPIWithErrorHandling<KeyStatusUser, KeyStatusResponse>(
+            callAPI = {
+                httpClient.get(AuthRoute.KeyStatus.url) {
+                    contentType(ContentType.Application.Json)
+                    appendTokenToHeader(sPrefManager.getToken())
                 }
             },
             callRefreshTokenAPI = this::getToken

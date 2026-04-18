@@ -7,13 +7,8 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
-    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
-    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <!-- Media permissions: full gallery access on API 33+ -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
@@ -35,7 +30,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.sec_message"
-        android:usesCleartextTraffic="true"
+        android:usesCleartextTraffic="false"
         tools:targetApi="31">
         
         <activity
@@ -49,28 +44,13 @@
             </intent-filter>
         </activity>
 
-        <receiver
-            android:name=".corefeature.data.background.NotificationAlarmReceiver"
-            android:enabled="true"
-            android:exported="false" />
-
-        <receiver
-            android:name=".corefeature.data.background.NotificationBootReceiver"
-            android:directBootAware="true"
-            android:enabled="true"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
-                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
-            </intent-filter>
-        </receiver>
-
-        <service
-            android:name=".chatfeature.data.notification.BackgroundSocketService"
-            android:enabled="true"
+        <activity
+            android:name=".crashfeature.presentation.activity.CrashReportActivity"
+            android:excludeFromRecents="true"
             android:exported="false"
-            android:foregroundServiceType="dataSync" />
+            android:noHistory="true"
+            android:process=":crash_report"
+            android:theme="@style/Theme.sec_message" />
 
         <service
             android:name=".threadfeature.presentation.music.MusicPlaybackService"

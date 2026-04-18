@@ -211,17 +211,6 @@ fun ProfileScreen(username: String? = null) {
                                             contentDescription = null
                                         )
                                     }
-
-                                    IconButton(
-                                        onClick = viewModel::logout,
-                                        enabled = !isActionLoading,
-                                        modifier = Modifier
-                                    ) {
-                                        Icon(
-                                            painter = painterResource(R.drawable.round_logout_24),
-                                            contentDescription = null
-                                        )
-                                    }
                                 }
 
                             } else {
