@@ -3,6 +3,7 @@ package com.dino.message.profilefeature.presentation.screen
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,10 +15,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.AttachFile
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
@@ -35,6 +32,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -43,6 +42,10 @@ import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.profilefeature.presentation.viewmodel.EditProfileViewModel
 import com.ramcosta.composedestinations.annotation.Destination
 import com.ramcosta.composedestinations.annotation.RootGraph
+import coil.compose.SubcomposeAsyncImage
+import coil.decode.VideoFrameDecoder
+import coil.request.ImageRequest
+import coil.request.videoFrameMillis
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Destination<RootGraph>
@@ -57,6 +60,8 @@ fun EditProfileScreen() {
     val currentProfileImageUrl = viewModel.currentProfileImageUrl.value
     val currentProfileVideoUrl = viewModel.currentProfileVideoUrl.value
     val isFormEnabled = !isLoading && !isSaving
+    val imagePreviewModel: Any? = selectedImage?.uri ?: currentProfileImageUrl?.takeIf { it.isNotBlank() }
+    val videoPreviewModel: Any? = selectedVideo?.uri ?: currentProfileVideoUrl?.takeIf { it.isNotBlank() }
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
@@ -123,31 +128,17 @@ fun EditProfileScreen() {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Card(
-                        modifier = Modifier
-                            .size(120.dp),
-                        shape = CircleShape,
-                        onClick = { imagePickerLauncher.launch(arrayOf("image/*")) },
+                    ProfileMediaPickerCircle(
+                        previewModel = imagePreviewModel,
+                        isVideoPreview = false,
                         enabled = isFormEnabled,
-
-                        ) {
-                        Column(
-                            Modifier
-                                .fillMaxSize(),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Add,
-                                contentDescription = null,
-                                tint = Color.White
-                            )
-                        }
-
-                    }
+                        onClick = { imagePickerLauncher.launch(arrayOf("image/*")) }
+                    )
 
                     Spacer(modifier = Modifier.size(DPMedium))
-                    Text(text = if (selectedImage == null) "Pick image" else "Change image")
+                    Text(
+                        text = if (imagePreviewModel == null) "Pick image" else "Change image"
+                    )
                 }
 
 
@@ -155,31 +146,17 @@ fun EditProfileScreen() {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Card(
-                        modifier = Modifier
-                            .size(120.dp),
-                        shape = CircleShape,
-                        onClick = { videoPickerLauncher.launch(arrayOf("video/*")) },
+                    ProfileMediaPickerCircle(
+                        previewModel = videoPreviewModel,
+                        isVideoPreview = true,
                         enabled = isFormEnabled,
-
-                        ) {
-
-                        Column(
-                            Modifier
-                                .fillMaxSize(),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Add,
-                                contentDescription = null,
-                                tint = Color.White
-                            )
-                        }
-                    }
+                        onClick = { videoPickerLauncher.launch(arrayOf("video/*")) }
+                    )
 
                     Spacer(modifier = Modifier.size(DPMedium))
-                    Text(text = if (selectedVideo == null) "Pick video" else "Change video")
+                    Text(
+                        text = if (videoPreviewModel == null) "Pick video" else "Change video"
+                    )
                 }
             }
 
@@ -236,5 +213,75 @@ fun EditProfileScreen() {
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun ProfileMediaPickerCircle(
+    previewModel: Any?,
+    isVideoPreview: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier.size(120.dp),
+        shape = CircleShape,
+        onClick = onClick,
+        enabled = enabled
+    ) {
+        if (previewModel == null) {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Add,
+                    contentDescription = null,
+                    tint = Color.White
+                )
+            }
+            return@Card
+        }
+
+        val context = LocalContext.current
+        SubcomposeAsyncImage(
+            model = ImageRequest.Builder(context)
+                .data(previewModel)
+                .apply {
+                    if (isVideoPreview) {
+                        decoderFactory(VideoFrameDecoder.Factory())
+                        videoFrameMillis(0)
+                    }
+                }
+                .crossfade(true)
+                .build(),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize(),
+            loading = {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp
+                    )
+                }
+            },
+            error = {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Add,
+                        contentDescription = null,
+                        tint = Color.White
+                    )
+                }
+            }
+        )
     }
 }

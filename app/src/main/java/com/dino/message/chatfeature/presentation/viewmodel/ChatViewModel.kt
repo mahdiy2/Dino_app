@@ -8,7 +8,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
-import com.dino.message.BuildConfig
 import com.dino.message.DinoOrderApplication
 import com.dino.message.chatfeature.domain.model.MessageDeliveryStatus
 import com.dino.message.chatfeature.domain.model.MessageEntity
@@ -17,6 +16,7 @@ import com.dino.message.chatfeature.domain.usecase.GetMessageFromDBUseCase
 import com.dino.message.chatfeature.domain.usecase.GetReceiverPublicKeyUseCase
 import com.dino.message.chatfeature.domain.usecase.SaveMessageInDbUseCase
 import com.dino.message.chatfeature.domain.usecase.UploadAttachmentUseCase
+import com.dino.message.corefeature.data.socket.AppSocketManager
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.profilefeature.domain.usecase.FollowUserUseCase
 import com.dino.message.corefeature.presentation.util.CryptoUtil
@@ -26,9 +26,9 @@ import com.dino.message.corefeature.presentation.util.decodePublicKey
 import com.dino.message.corefeature.presentation.util.decryptMessage
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
+import com.dino.message.corefeature.domain.util.LocalHistoryPaging
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
-import io.socket.client.IO
 import io.socket.client.Socket
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -40,10 +40,15 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
-import java.net.URISyntaxException
 import com.dino.message.chatfeature.data.notification.ActiveChatTracker
 import com.dino.message.chatfeature.data.notification.NotificationHelper
+import com.dino.message.chatfeature.domain.model.PrivateHistoryMessage
 import java.util.ArrayDeque
+import java.util.UUID
+import java.time.Duration
+import java.time.Instant
+import java.time.format.DateTimeParseException
+import kotlin.math.abs
 import com.dino.message.chatfeature.domain.util.MessageDeduplicator
 import com.dino.message.chatfeature.domain.repository.ChatRepository
 import com.dino.message.threadfeature.domain.usecase.IsTrackInPlaylistUseCase
@@ -65,9 +70,28 @@ class ChatViewModel @Inject constructor(
     private val followUserUseCase: FollowUserUseCase,
     private val chatRepository: ChatRepository,
     private val isTrackInPlaylistUseCase: IsTrackInPlaylistUseCase,
+    private val appSocketManager: AppSocketManager,
     savedStateHandle: SavedStateHandle
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
+
+    companion object {
+        private const val HISTORY_PAGE_SIZE = 50
+        private const val LOCAL_DB_PAGE_SIZE = 100
+        private val HISTORY_STALE_AFTER: Duration = Duration.ofMinutes(2)
+        private const val PRIVATE_DECRYPTION_FALLBACK = "Could not decrypt this message"
+        private const val SENT_MESSAGE_PLACEHOLDER = "Sent message"
+    }
+
+    private data class SenderEncryptedPayload(
+        val encryptedMessage: String,
+        val encryptedKey: String,
+    )
+
+    private data class PendingSentResolution(
+        val clientMessageId: String,
+        val message: MessageEntity,
+    )
 
     private val chatId: String = checkNotNull(savedStateHandle["chatId"])
 
@@ -84,6 +108,12 @@ class ChatViewModel @Inject constructor(
 
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
+    private val _isLoadingOlderHistory = MutableStateFlow(false)
+    val isLoadingOlderHistory: StateFlow<Boolean> = _isLoadingOlderHistory.asStateFlow()
+
+    private val _canLoadOlderHistory = MutableStateFlow(false)
+    val canLoadOlderHistory: StateFlow<Boolean> = _canLoadOlderHistory.asStateFlow()
 
     private val _isPeerOnline = MutableStateFlow(false)
     val isPeerOnline: StateFlow<Boolean> = _isPeerOnline.asStateFlow()
@@ -135,18 +165,28 @@ class ChatViewModel @Inject constructor(
 
     private var getPublicKey = false
     private var isSocketConnecting = false
-    private var hasSocketConnectionStarted = false
-    private var socket: Socket? = null
-    private val pendingOutgoingMessages = ArrayDeque<String>()
+    private val socketOwner = "ChatViewModel-$chatId"
     private val currentUsername: String = spref.getUsername().orEmpty().ifBlank { "self" }
-
-    private val pendingSentMessages = ArrayDeque<MessageEntity>()
+    private val pendingSentMessagesByClientId = linkedMapOf<String, MessageEntity>()
+    private val pendingSentMessageOrder = ArrayDeque<String>()
+    private val pendingVisibleMessagesByClientId = linkedMapOf<String, MessageEntity>()
+    private var latestDbMessages: List<MessageEntity> = emptyList()
+    private var lastPendingMessageTimestamp: Instant = Instant.EPOCH
 
     private val deduplicator = MessageDeduplicator(app)
     private val messagesMutex = Mutex()
+    private val historyMutex = Mutex()
+    private var privateHistoryCursorInitialized = false
+    private var privateHistoryHasMore = false
+    private var privateHistoryNextBefore: String? = null
+    private var loadedLocalMessageCount = 0
+    private var totalLocalMessageCount = 0
 
     init {
-        loadMessages()
+        loadMessages(resetPaging = true)
+        viewModelScope.launch {
+            syncHistoryOnOpen()
+        }
         prepareEncryptionSession()
         ActiveChatTracker.setActiveChat(chatId)
         NotificationHelper.clearNotificationForUser(app, chatId)
@@ -221,14 +261,10 @@ class ChatViewModel @Inject constructor(
         return isPublicKeyLoaded
     }
 
-    fun loadMessages() = viewModelScope.launch {
+    fun loadMessages(resetPaging: Boolean = false) = viewModelScope.launch {
         messagesMutex.withLock {
-            getMessageFromDBUseCase.execute(chatId).collect { dbMessages ->
-                _messages.value = dbMessages
-                syncOutgoingStatuses(dbMessages)
-                requestSeenStatuses(dbMessages)
-                requestDeletedStatuses(dbMessages)
-            }
+            val dbMessages = loadMessagesFromDb(resetPaging = resetPaging)
+            onMessagesLoaded(dbMessages)
         }
     }
 
@@ -240,16 +276,242 @@ class ChatViewModel @Inject constructor(
     fun saveMessage(message: MessageEntity) = viewModelScope.launch {
         saveMessageToDb(message)
         messagesMutex.withLock {
-            getMessageFromDBUseCase.execute(chatId).collect { dbMessages ->
-                _messages.value = dbMessages
-            }
+            val dbMessages = loadMessagesFromDb(resetPaging = false)
+            onMessagesLoaded(dbMessages)
         }
     }
 
     fun clearMessages() = viewModelScope.launch {
         clearMessageFromDBUseCase.execute(chatId).collect {
+            latestDbMessages = emptyList()
+            pendingVisibleMessagesByClientId.clear()
+            lastPendingMessageTimestamp = Instant.EPOCH
+            _messageDeliveryStatuses.value = emptyMap()
             _messages.value = emptyList()
+            privateHistoryCursorInitialized = false
+            privateHistoryNextBefore = null
+            privateHistoryHasMore = false
+            loadedLocalMessageCount = 0
+            totalLocalMessageCount = 0
+            updateCanLoadOlderHistoryFlag()
         }
+    }
+
+    fun loadOlderHistoryIfNeeded() = viewModelScope.launch {
+        historyMutex.withLock {
+            if (_isLoadingOlderHistory.value) {
+                return@withLock
+            }
+
+            if (loadOlderMessagesFromLocalIfAvailable()) {
+                return@withLock
+            }
+
+            if (!privateHistoryHasMore) {
+                updateCanLoadOlderHistoryFlag()
+                return@withLock
+            }
+
+            val beforeCursor = privateHistoryNextBefore
+                ?: oldestTimestampFromMessages(_messages.value)
+                ?: run {
+                    privateHistoryHasMore = false
+                    updateCanLoadOlderHistoryFlag()
+                    return@withLock
+                }
+
+            _isLoadingOlderHistory.value = true
+            fetchPrivateHistoryPage(before = beforeCursor)
+            _isLoadingOlderHistory.value = false
+        }
+    }
+
+    private suspend fun syncHistoryOnOpen() {
+        historyMutex.withLock {
+            // Always merge the latest page on open to self-heal stale local cache entries.
+            fetchPrivateHistoryPage(before = null)
+        }
+    }
+
+    private suspend fun fetchPrivateHistoryPage(before: String?) {
+        when (
+            val result = chatRepository.getPrivateHistory(
+                chatId = chatId,
+                limit = HISTORY_PAGE_SIZE,
+                before = before,
+            )
+        ) {
+            is Resource.Success -> {
+                val page = result.data
+                val mappedMessages = page.messages.mapNotNull { historyMessage ->
+                    mapHistoryMessageToEntity(historyMessage)
+                }
+                mappedMessages.forEach { message ->
+                    message.messageId?.let { deduplicator.isDuplicate(it) }
+                }
+                if (mappedMessages.isNotEmpty()) {
+                    chatRepository.upsertMessagesByMessageId(mappedMessages)
+                }
+                updatePrivateHistoryCursor(page.hasMore, page.nextBefore, mappedMessages)
+                loadMessages()
+            }
+            is Resource.Error -> {
+                pushSocketDebugLog("History fetch failed: ${result.message.asString(getApplication())}")
+            }
+            is Resource.Loading -> Unit
+        }
+    }
+
+    private fun seedPrivateHistoryCursorFromLocal(localMessages: List<MessageEntity>) {
+        val oldestTimestamp = oldestTimestampFromMessages(localMessages)
+        if (!privateHistoryCursorInitialized) {
+            privateHistoryHasMore = !oldestTimestamp.isNullOrBlank()
+            privateHistoryCursorInitialized = true
+        }
+        if (!oldestTimestamp.isNullOrBlank()) {
+            privateHistoryNextBefore = oldestTimestamp
+        }
+        if (privateHistoryHasMore && privateHistoryNextBefore.isNullOrBlank()) {
+            privateHistoryHasMore = false
+        }
+        updateCanLoadOlderHistoryFlag()
+    }
+
+    private fun shouldRefreshLatestHistory(localMessages: List<MessageEntity>): Boolean {
+        val newestTimestamp = newestTimestampFromMessages(localMessages) ?: return true
+        val newestInstant = runCatching { Instant.parse(newestTimestamp) }.getOrNull() ?: return true
+        val age = Duration.between(newestInstant, Instant.now())
+        return age > HISTORY_STALE_AFTER
+    }
+
+    private fun updatePrivateHistoryCursor(
+        hasMore: Boolean,
+        nextBefore: String?,
+        mergedMessages: List<MessageEntity>,
+    ) {
+        privateHistoryCursorInitialized = true
+        privateHistoryHasMore = hasMore
+        privateHistoryNextBefore = nextBefore?.takeIf { it.isNotBlank() }
+            ?: oldestTimestampFromMessages(mergedMessages)
+            ?: privateHistoryNextBefore
+
+        if (privateHistoryHasMore && privateHistoryNextBefore.isNullOrBlank()) {
+            privateHistoryHasMore = false
+        }
+        updateCanLoadOlderHistoryFlag()
+    }
+
+    private suspend fun loadMessagesFromDb(resetPaging: Boolean): List<MessageEntity> {
+        val previouslyLoadedCount = loadedLocalMessageCount
+        val previousTotalCount = totalLocalMessageCount
+        totalLocalMessageCount = chatRepository.getMessageCount(chatId)
+        val queryLimit = LocalHistoryPaging.resolveQueryLimit(
+            resetPaging = resetPaging,
+            previouslyLoadedCount = previouslyLoadedCount,
+            previousTotalCount = previousTotalCount,
+            currentTotalCount = totalLocalMessageCount,
+            pageSize = LOCAL_DB_PAGE_SIZE,
+        )
+        var dbMessages: List<MessageEntity> = emptyList()
+        if (queryLimit > 0) {
+            getMessageFromDBUseCase.execute(chatId = chatId, limit = queryLimit, offset = 0).collect { loaded ->
+                dbMessages = loaded
+            }
+        }
+        loadedLocalMessageCount = queryLimit
+        latestDbMessages = dbMessages
+        resolvePendingVisibleMessagesFromDb(dbMessages)
+        _messages.value = mergeDbAndPendingMessages(dbMessages)
+        seedPrivateHistoryCursorFromLocal(dbMessages)
+        return dbMessages
+    }
+
+    private suspend fun loadOlderMessagesFromLocalIfAvailable(): Boolean {
+        if (loadedLocalMessageCount >= totalLocalMessageCount) {
+            return false
+        }
+        loadedLocalMessageCount = (loadedLocalMessageCount + LOCAL_DB_PAGE_SIZE).coerceAtMost(totalLocalMessageCount)
+        val dbMessages = loadMessagesFromDb(resetPaging = false)
+        onMessagesLoaded(dbMessages)
+        return true
+    }
+
+    private fun onMessagesLoaded(dbMessages: List<MessageEntity>) {
+        syncOutgoingStatuses(dbMessages)
+        requestDeliveredStatuses(dbMessages)
+        requestSeenStatuses(dbMessages)
+        requestDeletedStatuses(dbMessages)
+    }
+
+    private fun updateCanLoadOlderHistoryFlag() {
+        val hasMoreLocal = loadedLocalMessageCount < totalLocalMessageCount
+        _canLoadOlderHistory.value = hasMoreLocal || privateHistoryHasMore
+    }
+
+    private fun newestTimestampFromMessages(messages: List<MessageEntity>): String? {
+        return messages.firstOrNull { !it.messageId.isNullOrBlank() && it.timestamp.isNotBlank() }?.timestamp
+    }
+
+    private fun oldestTimestampFromMessages(messages: List<MessageEntity>): String? {
+        return messages.lastOrNull { !it.messageId.isNullOrBlank() && it.timestamp.isNotBlank() }?.timestamp
+    }
+
+    private fun mapHistoryMessageToEntity(historyMessage: PrivateHistoryMessage): MessageEntity? {
+        val sender = historyMessage.from.trim()
+        if (sender.isBlank()) return null
+
+        val messageContent = decryptHistoryMessageText(historyMessage)
+        val replyPreview = decryptHistoryReplyPreview(historyMessage)
+
+        return MessageEntity(
+            messageId = historyMessage.messageId,
+            chatId = chatId,
+            senderOrReceiver = sender,
+            content = messageContent,
+            timestamp = historyMessage.timestamp,
+            messageType = historyMessage.type,
+            attachmentType = historyMessage.attachment?.type,
+            attachmentUrl = historyMessage.attachment?.url,
+            attachmentMimeType = historyMessage.attachment?.mimeType,
+            attachmentFileName = historyMessage.attachment?.fileName,
+            attachmentSizeBytes = historyMessage.attachment?.sizeBytes,
+            replyToMessageId = historyMessage.replyToMessageId,
+            replyToSender = historyMessage.replyToSender,
+            replyPreview = replyPreview,
+        )
+    }
+
+    private fun decryptHistoryMessageText(historyMessage: PrivateHistoryMessage): String {
+        val encryptedMessage = historyMessage.message.orEmpty()
+        val encryptedKey = historyMessage.encryptedKey.orEmpty()
+        if (encryptedMessage.isBlank() || encryptedKey.isBlank()) {
+            return ""
+        }
+        return runCatching {
+            decryptMessage(
+                encryptedMessage = encryptedMessage,
+                encryptedAESKey = encryptedKey,
+                privateKey = decodePrivateKey(spref.getPrivateKey() ?: ""),
+            )
+        }.getOrElse {
+            if (historyMessage.from == currentUsername) {
+                SENT_MESSAGE_PLACEHOLDER
+            } else {
+                PRIVATE_DECRYPTION_FALLBACK
+            }
+        }
+    }
+
+    private fun decryptHistoryReplyPreview(historyMessage: PrivateHistoryMessage): String? {
+        val encryptedPreview = historyMessage.encryptedReplyPreview ?: return null
+        val decryptKey = historyMessage.encryptedReplyKey ?: historyMessage.encryptedKey ?: return null
+        return runCatching {
+            decryptMessage(
+                encryptedMessage = encryptedPreview,
+                encryptedAESKey = decryptKey,
+                privateKey = decodePrivateKey(spref.getPrivateKey() ?: ""),
+            )
+        }.getOrNull()
     }
 
     private fun syncOutgoingStatuses(dbMessages: List<MessageEntity>) {
@@ -258,10 +520,11 @@ class ChatViewModel @Inject constructor(
         dbMessages.forEach { message ->
             val messageId = message.messageId
             if (!messageId.isNullOrBlank() && message.senderOrReceiver != chatId) {
-                updated[messageId] = if (message.isSeen) {
-                    MessageDeliveryStatus.SEEN
-                } else {
-                    MessageDeliveryStatus.SENT
+                val existingStatus = updated[messageId]
+                updated[messageId] = when {
+                    message.isSeen || existingStatus == MessageDeliveryStatus.SEEN -> MessageDeliveryStatus.SEEN
+                    existingStatus == MessageDeliveryStatus.DELIVERED -> MessageDeliveryStatus.DELIVERED
+                    else -> MessageDeliveryStatus.SENT
                 }
             }
         }
@@ -271,7 +534,7 @@ class ChatViewModel @Inject constructor(
     private fun markMessageAsSent(messageId: String?) {
         if (messageId.isNullOrBlank()) return
         val updated = _messageDeliveryStatuses.value.toMutableMap()
-        updated.putIfAbsent(messageId, MessageDeliveryStatus.SENT)
+        updated[messageId] = MessageDeliveryStatus.SENT
         _messageDeliveryStatuses.value = updated
     }
 
@@ -283,6 +546,15 @@ class ChatViewModel @Inject constructor(
         _messageDeliveryStatuses.value = updated
     }
 
+    private fun markMessageAsDelivered(messageId: String?) {
+        if (messageId.isNullOrBlank()) return
+        val updated = _messageDeliveryStatuses.value.toMutableMap()
+        if (updated[messageId] != MessageDeliveryStatus.SEEN) {
+            updated[messageId] = MessageDeliveryStatus.DELIVERED
+            _messageDeliveryStatuses.value = updated
+        }
+    }
+
     private fun clearMessageStatus(messageId: String?) {
         if (messageId.isNullOrBlank()) return
         val updated = _messageDeliveryStatuses.value.toMutableMap()
@@ -290,9 +562,28 @@ class ChatViewModel @Inject constructor(
         _messageDeliveryStatuses.value = updated
     }
 
-    private fun requestSeenStatuses(messages: List<MessageEntity> = _messages.value) {
-        val activeSocket = socket ?: return
-        if (!activeSocket.connected()) return
+    private fun requestDeliveredStatuses(messages: List<MessageEntity> = latestDbMessages) {
+        if (!appSocketManager.isConnected()) return
+
+        val outgoingIds = messages
+            .asSequence()
+            .filter { it.senderOrReceiver != chatId }
+            .mapNotNull { it.messageId?.takeIf { id -> id.isNotBlank() } }
+            .distinct()
+            .toList()
+        if (outgoingIds.isEmpty()) return
+
+        appSocketManager.emit(
+            "get_delivered_messages",
+            JSONObject().apply {
+                put("chat_id", chatId)
+                put("message_ids", JSONArray(outgoingIds))
+            }
+        )
+    }
+
+    private fun requestSeenStatuses(messages: List<MessageEntity> = latestDbMessages) {
+        if (!appSocketManager.isConnected()) return
 
         val pendingIds = messages
             .asSequence()
@@ -303,7 +594,7 @@ class ChatViewModel @Inject constructor(
             .toList()
         if (pendingIds.isEmpty()) return
 
-        activeSocket.emit(
+        appSocketManager.emit(
             "get_seen_messages",
             JSONObject().apply {
                 put("chat_id", chatId)
@@ -312,16 +603,15 @@ class ChatViewModel @Inject constructor(
         )
     }
 
-    private fun requestDeletedStatuses(messages: List<MessageEntity> = _messages.value) {
-        val activeSocket = socket ?: return
-        if (!activeSocket.connected()) return
+    private fun requestDeletedStatuses(messages: List<MessageEntity> = latestDbMessages) {
+        if (!appSocketManager.isConnected()) return
 
         val existingIds = messages
             .mapNotNull { it.messageId?.takeIf { id -> id.isNotBlank() } }
             .distinct()
         if (existingIds.isEmpty()) return
 
-        activeSocket.emit(
+        appSocketManager.emit(
             "get_deleted_messages",
             JSONObject().apply {
                 put("chat_id", chatId)
@@ -487,21 +777,26 @@ class ChatViewModel @Inject constructor(
             return@launch
         }
 
-        val activeSocket = socket
-        if (activeSocket == null || !activeSocket.connected()) {
+        if (!appSocketManager.isConnected()) {
             connectSocketIfNeeded(forceReconnect = true)
             _socketError.value = "Unable to delete for everyone while disconnected."
             return@launch
         }
 
-        activeSocket.emit(
-            "delete_message",
-            JSONObject().apply {
+        val emitted = appSocketManager.emitNonRetryable(
+            event = "delete_message",
+            payload = JSONObject().apply {
                 put("chat_id", chatId)
                 put("message_id", messageId)
-            }
+            },
+            reason = "delete_for_everyone_user_action",
         )
-        pushSocketDebugLog("Requested delete_message for $messageId")
+        if (emitted) {
+            pushSocketDebugLog("Requested delete_message for $messageId")
+        } else {
+            _socketError.value = "Unable to delete for everyone right now."
+            pushSocketDebugLog("delete_message emit failed for $messageId")
+        }
     }
 
     fun retrySocketConnection() {
@@ -527,6 +822,8 @@ class ChatViewModel @Inject constructor(
             pushSocketDebugLog("Ignoring empty message")
             return
         }
+        val clientMessageId = generateClientMessageId()
+        val replyTo = _replyingTo.value
 
         val publicKey = receiverPublicKey.value
         if (publicKey.isNullOrBlank()) {
@@ -534,16 +831,11 @@ class ChatViewModel @Inject constructor(
             return
         }
 
-        val activeSocket = socket
-        if (activeSocket == null || !activeSocket.connected()) {
-            pushSocketDebugLog("⚠️ Socket unavailable (null=${activeSocket == null}, connected=${activeSocket?.connected()}), queuing & reconnecting")
-            Log.w("ChatViewModel", "sendMessage: socket unavailable, queuing message and reconnecting")
-            pendingOutgoingMessages.addLast(trimmedMessage)
-            connectSocketIfNeeded(forceReconnect = true)
-            return
-        }
-
-        emitEncryptedMessage(trimmedMessage, activeSocket)
+        emitEncryptedMessage(
+            message = trimmedMessage,
+            replyTo = replyTo,
+            clientMessageId = clientMessageId,
+        )
     }
 
     fun sendAttachment(fileUri: Uri, caption: String? = null) {
@@ -569,17 +861,9 @@ class ChatViewModel @Inject constructor(
                         val attachment = result.data
                         pushSocketDebugLog("Upload success: ${attachment.type} (${attachment.fileName})")
 
-                        val activeSocket = socket
-                        if (activeSocket == null || !activeSocket.connected()) {
-                            pushSocketDebugLog("Socket unavailable after upload, reconnecting")
-                            connectSocketIfNeeded(forceReconnect = true)
-                            return@collect
-                        }
-
                         emitAttachmentMessage(
                             attachment = attachment,
                             caption = caption,
-                            activeSocket = activeSocket
                         )
                     }
 
@@ -597,14 +881,15 @@ class ChatViewModel @Inject constructor(
     private fun emitAttachmentMessage(
         attachment: com.dino.message.chatfeature.data.remote.dto.MessageAttachment,
         caption: String?,
-        activeSocket: Socket,
-        replyTo: MessageEntity? = _replyingTo.value
+        replyTo: MessageEntity? = _replyingTo.value,
+        clientMessageId: String = generateClientMessageId(),
     ) {
         val publicKey = receiverPublicKey.value ?: return
 
         try {
             val encryptedCaption: String?
             val encryptedKey: String
+            val senderEncryptedCaption: SenderEncryptedPayload?
 
             if (!caption.isNullOrBlank()) {
                 val (ek, em) = CryptoUtil.encryptMessage(
@@ -613,6 +898,7 @@ class ChatViewModel @Inject constructor(
                 )
                 encryptedKey = ek
                 encryptedCaption = em
+                senderEncryptedCaption = encryptForCurrentUser(caption)
             } else {
                 val (ek, _) = CryptoUtil.encryptMessage(
                     message = "",
@@ -620,6 +906,7 @@ class ChatViewModel @Inject constructor(
                 )
                 encryptedKey = ek
                 encryptedCaption = null
+                senderEncryptedCaption = null
             }
 
             val attachmentJson = JSONObject().apply {
@@ -635,8 +922,13 @@ class ChatViewModel @Inject constructor(
                 put("type", attachment.type)
                 put("encrypted_key", encryptedKey)
                 put("attachment", attachmentJson)
+                put("client_message_id", clientMessageId)
                 if (encryptedCaption != null) {
                     put("message", encryptedCaption)
+                }
+                if (senderEncryptedCaption != null) {
+                    put("sender_encrypted_message", senderEncryptedCaption.encryptedMessage)
+                    put("sender_encrypted_key", senderEncryptedCaption.encryptedKey)
                 }
                 if (replyTo != null) {
                     put("reply_to_message_id", replyTo.messageId ?: "")
@@ -654,23 +946,48 @@ class ChatViewModel @Inject constructor(
             }
 
             pushSocketDebugLog("Socket emit send_message (${attachment.type}) to $chatId")
-            activeSocket.emit("send_message", payload)
-
-            pendingSentMessages.addLast(MessageEntity(
-                senderOrReceiver = currentUsername,
-                chatId = chatId,
-                content = caption ?: "",
-                timestamp = "",
-                messageType = attachment.type,
-                attachmentType = attachment.type,
-                attachmentUrl = attachment.url,
-                attachmentMimeType = attachment.mimeType,
-                attachmentFileName = attachment.fileName,
-                attachmentSizeBytes = attachment.sizeBytes,
-                replyToMessageId = replyTo?.messageId,
-                replyToSender = replyTo?.senderOrReceiver,
-                replyPreview = replyTo?.content?.take(100)
-            ))
+            trackPendingSentMessage(
+                clientMessageId = clientMessageId,
+                pendingMessage = MessageEntity(
+                    senderOrReceiver = currentUsername,
+                    chatId = chatId,
+                    content = caption ?: "",
+                    timestamp = "",
+                    messageType = attachment.type,
+                    attachmentType = attachment.type,
+                    attachmentUrl = attachment.url,
+                    attachmentMimeType = attachment.mimeType,
+                    attachmentFileName = attachment.fileName,
+                    attachmentSizeBytes = attachment.sizeBytes,
+                    replyToMessageId = replyTo?.messageId,
+                    replyToSender = replyTo?.senderOrReceiver,
+                    replyPreview = replyTo?.content?.take(100)
+                )
+            )
+            addPendingVisibleMessage(
+                clientMessageId = clientMessageId,
+                pendingMessage = MessageEntity(
+                    messageId = "pending:$clientMessageId",
+                    senderOrReceiver = currentUsername,
+                    chatId = chatId,
+                    content = caption ?: "",
+                    timestamp = nextPendingMessageTimestamp().toString(),
+                    messageType = attachment.type,
+                    attachmentType = attachment.type,
+                    attachmentUrl = attachment.url,
+                    attachmentMimeType = attachment.mimeType,
+                    attachmentFileName = attachment.fileName,
+                    attachmentSizeBytes = attachment.sizeBytes,
+                    replyToMessageId = replyTo?.messageId,
+                    replyToSender = replyTo?.senderOrReceiver,
+                    replyPreview = replyTo?.content?.take(100)
+                )
+            )
+            schedulePendingHistoryReconcile(clientMessageId)
+            emitPrivateMessageWithRetry(
+                payload = payload,
+                clientMessageId = clientMessageId,
+            )
             _replyingTo.value = null
         } catch (e: Exception) {
             pushSocketDebugLog("Attachment send failed: ${e.message ?: "unknown error"}")
@@ -678,7 +995,11 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    private fun emitEncryptedMessage(message: String, activeSocket: Socket, replyTo: MessageEntity? = _replyingTo.value) {
+    private fun emitEncryptedMessage(
+        message: String,
+        replyTo: MessageEntity? = _replyingTo.value,
+        clientMessageId: String = generateClientMessageId(),
+    ) {
         val publicKey = receiverPublicKey.value ?: return
 
         try {
@@ -686,12 +1007,18 @@ class ChatViewModel @Inject constructor(
                 message = message,
                 receiverPublicKey = decodePublicKey(publicKey)
             )
+            val senderEncryptedMessage = encryptForCurrentUser(message)
 
             val payload = JSONObject().apply {
                 put("to", chatId)
                 put("message", encryptedMessage)
                 put("encrypted_key", encryptedKey)
+                if (senderEncryptedMessage != null) {
+                    put("sender_encrypted_message", senderEncryptedMessage.encryptedMessage)
+                    put("sender_encrypted_key", senderEncryptedMessage.encryptedKey)
+                }
                 put("type", "text")
+                put("client_message_id", clientMessageId)
                 if (replyTo != null) {
                     put("reply_to_message_id", replyTo.messageId ?: "")
                     put("reply_to_sender", replyTo.senderOrReceiver)
@@ -708,20 +1035,40 @@ class ChatViewModel @Inject constructor(
             }
 
             pushSocketDebugLog("Socket emit send_message to $chatId")
-            activeSocket.emit("send_message", payload)
-            Log.d("ChatViewModel", "sendMessage: emitted send_message to=$chatId, socketConnected=${activeSocket.connected()}")
-            
-            pendingSentMessages.addLast(MessageEntity(
-                senderOrReceiver = currentUsername,
-                chatId = chatId,
-                content = message,
-                timestamp = "",
-                messageType = "text",
-                replyToMessageId = replyTo?.messageId,
-                replyToSender = replyTo?.senderOrReceiver,
-                replyPreview = replyTo?.content?.take(100)
-            ))
-            
+            trackPendingSentMessage(
+                clientMessageId = clientMessageId,
+                pendingMessage = MessageEntity(
+                    senderOrReceiver = currentUsername,
+                    chatId = chatId,
+                    content = message,
+                    timestamp = "",
+                    messageType = "text",
+                    replyToMessageId = replyTo?.messageId,
+                    replyToSender = replyTo?.senderOrReceiver,
+                    replyPreview = replyTo?.content?.take(100)
+                )
+            )
+            addPendingVisibleMessage(
+                clientMessageId = clientMessageId,
+                pendingMessage = MessageEntity(
+                    messageId = "pending:$clientMessageId",
+                    senderOrReceiver = currentUsername,
+                    chatId = chatId,
+                    content = message,
+                    timestamp = nextPendingMessageTimestamp().toString(),
+                    messageType = "text",
+                    replyToMessageId = replyTo?.messageId,
+                    replyToSender = replyTo?.senderOrReceiver,
+                    replyPreview = replyTo?.content?.take(100)
+                )
+            )
+            schedulePendingHistoryReconcile(clientMessageId)
+            emitPrivateMessageWithRetry(
+                payload = payload,
+                clientMessageId = clientMessageId,
+            )
+            Log.d("ChatViewModel", "sendMessage: queued/emitted send_message to=$chatId")
+
             _replyingTo.value = null
         } catch (e: Exception) {
             pushSocketDebugLog("Encryption/send failed: ${e.message ?: "unknown error"}")
@@ -729,80 +1076,125 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    private fun emitPrivateMessageWithRetry(
+        payload: JSONObject,
+        clientMessageId: String,
+    ) {
+        when (
+            appSocketManager.emitWithRetry(
+                event = "send_message",
+                payload = payload,
+                dedupeKey = "private:$chatId:$clientMessageId",
+            )
+        ) {
+            AppSocketManager.EmitWithRetryResult.EMITTED -> Unit
+            AppSocketManager.EmitWithRetryResult.QUEUED,
+            AppSocketManager.EmitWithRetryResult.ALREADY_QUEUED -> {
+                _socketError.value = "Disconnected. Message queued and will retry automatically."
+            }
+            AppSocketManager.EmitWithRetryResult.QUEUE_FULL -> {
+                _socketError.value = "Send queue is full. Please retry in a moment."
+                markPendingMessageFailed(clientMessageId)
+            }
+        }
+    }
+
     private fun connectSocketIfNeeded(forceReconnect: Boolean = false) {
-        if (!forceReconnect && hasSocketConnectionStarted && socket?.connected() == true) {
-            requestPeerStatus()
-            return
-        }
-        if (!forceReconnect && isSocketConnecting) {
-            return
-        }
+        val connectPlan = ChatSocketConnectPlanner.plan(
+            forceReconnect = forceReconnect,
+            isConnected = appSocketManager.isConnected(),
+            isSocketConnecting = isSocketConnecting,
+        )
 
-        disconnectSocket()
-
-        val token = spref.getToken().removePrefix("Bearer ").trim()
-        if (token.isBlank()) {
-            pushSocketDebugLog("Socket token is missing")
-            return
+        if (connectPlan.shouldRegisterListeners) {
+            // The app-wide notification manager may connect first, so always
+            // attach chat listeners before making connect/return decisions.
+            registerSocketListeners()
         }
 
-        val baseUrl = BuildConfig.BASE_URL.trimEnd('/')
-        val opts = IO.Options.builder()
-            .setForceNew(true)
-            .setMultiplex(false)
-            .setReconnection(true)
-            .setReconnectionAttempts(Int.MAX_VALUE)
-            .setReconnectionDelay(1_000)
-            .setReconnectionDelayMax(10_000)
-            .setTimeout(20_000)
-            .setPath("/socket.io/")
-            .setTransports(arrayOf("websocket", "polling"))
-            .setAuth(mapOf("token" to token))
-            .build()
-
-        try {
-            val createdSocket = IO.socket(baseUrl, opts)
-            registerSocketListeners(createdSocket)
-            socket = createdSocket
-            hasSocketConnectionStarted = true
-            isSocketConnecting = true
+        if (connectPlan.shouldRunConnectedSync) {
+            isSocketConnecting = false
             showRefreshing()
-            pushSocketDebugLog("Socket connecting to $baseUrl")
-            createdSocket.connect()
-        } catch (e: URISyntaxException) {
-            pushSocketDebugLog("Socket URL invalid: ${e.message ?: "unknown error"}")
-            Log.e("ChatViewModel", "connectSocketIfNeeded: invalid socket url", e)
-        } catch (e: Exception) {
-            pushSocketDebugLog("Socket connect failed: ${e.message ?: "unknown error"}")
-            Log.e("ChatViewModel", "connectSocketIfNeeded: failed", e)
+            pushSocketDebugLog("Socket already connected; chat listeners ready")
+            requestPeerStatus()
+            requestDeliveredStatuses()
+            requestSeenStatuses()
+            requestDeletedStatuses()
+            syncPrivateChatReadState()
+            return
         }
+
+        if (!connectPlan.shouldConnectSocket) {
+            return
+        }
+
+        val connectStarted = appSocketManager.connect(forceReconnect = forceReconnect)
+        if (!connectStarted) {
+            pushSocketDebugLog("Socket token is missing")
+            isSocketConnecting = false
+            showRefreshing()
+            return
+        }
+        isSocketConnecting = !appSocketManager.isConnected()
+        showRefreshing()
+        pushSocketDebugLog("Socket connect requested")
     }
 
     private fun sendAck(messageIds: List<String>) {
-        val activeSocket = socket ?: return
         if (messageIds.isEmpty()) return
+        if (!ActiveChatTracker.isChattingWith(chatId)) {
+            pushSocketDebugLog("Skipping ack for inactive chat $chatId")
+            return
+        }
         val payload = JSONObject().apply {
+            put("chat_id", chatId)
             put("message_ids", JSONArray(messageIds))
         }
-        activeSocket.emit("ack_messages", payload)
+        appSocketManager.emit("ack_messages", payload)
         pushSocketDebugLog("Sent ack for ${messageIds.size} message(s)")
     }
 
-    private fun registerSocketListeners(createdSocket: Socket) {
-        createdSocket.on(Socket.EVENT_CONNECT) {
+    private fun sendRead(messageIds: List<String>) {
+        if (messageIds.isEmpty()) return
+        if (!ActiveChatTracker.isChattingWith(chatId)) {
+            pushSocketDebugLog("Skipping read for inactive chat $chatId")
+            return
+        }
+        val payload = JSONObject().apply {
+            put("chat_id", chatId)
+            put("message_ids", JSONArray(messageIds))
+        }
+        appSocketManager.emit("mark_read_messages", payload)
+        pushSocketDebugLog("Sent read for ${messageIds.size} message(s)")
+    }
+
+    private fun syncPrivateChatReadState() {
+        if (!appSocketManager.isConnected()) return
+        appSocketManager.emit(
+            "sync_private_chat_read_state",
+            JSONObject().apply {
+                put("chat_id", chatId)
+            }
+        )
+        pushSocketDebugLog("Requested private chat read sync for $chatId")
+    }
+
+    private fun registerSocketListeners() {
+        appSocketManager.registerListener(socketOwner, Socket.EVENT_CONNECT) {
             viewModelScope.launch {
                 isSocketConnecting = false
                 _socketError.value = null
                 showRefreshing()
                 pushSocketDebugLog("Socket connected")
                 requestPeerStatus()
-                flushPendingOutgoingMessages()
+                requestDeliveredStatuses()
                 requestSeenStatuses()
                 requestDeletedStatuses()
+                syncPrivateChatReadState()
             }
         }
 
-        createdSocket.on(Socket.EVENT_CONNECT_ERROR) { args ->
+        appSocketManager.registerListener(socketOwner, Socket.EVENT_CONNECT_ERROR) { args ->
             viewModelScope.launch {
                 isSocketConnecting = false
                 showRefreshing()
@@ -812,7 +1204,7 @@ class ChatViewModel @Inject constructor(
             }
         }
 
-        createdSocket.on(Socket.EVENT_DISCONNECT) { args ->
+        appSocketManager.registerListener(socketOwner, Socket.EVENT_DISCONNECT) { args ->
             viewModelScope.launch {
                 isSocketConnecting = false
                 showRefreshing()
@@ -822,14 +1214,24 @@ class ChatViewModel @Inject constructor(
             }
         }
 
-        createdSocket.on("connected") { args ->
+        appSocketManager.registerListener(socketOwner, "connected") { args ->
             viewModelScope.launch {
                 val raw = extractPayloadArg(args, "connected")
                 pushSocketDebugLog("Socket auth ok: ${raw?.toDebugString() ?: "no payload"}")
             }
         }
 
-        createdSocket.on("pending_messages") { args ->
+        appSocketManager.registerListener(socketOwner, "private_chat_state_synced") { args ->
+            viewModelScope.launch {
+                val payload = parseSocketPayload(args, "private_chat_state_synced") ?: return@launch
+                if (payload.optString("chat_id", "") != chatId) return@launch
+                pushSocketDebugLog(
+                    "Private read sync done: delivered=${payload.optInt("marked_delivered", 0)} seen=${payload.optInt("marked_seen", 0)}"
+                )
+            }
+        }
+
+        appSocketManager.registerListener(socketOwner, "pending_messages") { args ->
             viewModelScope.launch {
                 val raw = extractPayloadArg(args, "pending_messages")
                 Log.d("ChatViewModel", "pending_messages raw type=${raw?.javaClass?.name}, value=${raw?.toString()?.take(500)}")
@@ -870,14 +1272,21 @@ class ChatViewModel @Inject constructor(
                     repeat(messages.length()) { index ->
                         val item = messages.optJSONObject(index) ?: return@repeat
                         val msgId = item.optString("message_id", "")
+                        val ackableMessageId = PrivateAckScope.ackableMessageId(
+                            payload = item,
+                            chatId = chatId,
+                            currentlyActiveChatId = ActiveChatTracker.activeChatId.value,
+                        )
                         if (msgId.isNotBlank() && deduplicator.isDuplicate(msgId)) {
                             pushSocketDebugLog("Skipping duplicate pending message $msgId")
-                            processedIds.add(msgId)
+                            if (ackableMessageId != null) {
+                                processedIds.add(ackableMessageId)
+                            }
                             return@repeat
                         }
                         handleIncomingMessage(item)
-                        if (msgId.isNotBlank()) {
-                            processedIds.add(msgId)
+                        if (ackableMessageId != null) {
+                            processedIds.add(ackableMessageId)
                         }
                     }
                     processedIds
@@ -885,11 +1294,12 @@ class ChatViewModel @Inject constructor(
                 loadMessages()
                 if (ackedIds.isNotEmpty()) {
                     sendAck(ackedIds)
+                    sendRead(ackedIds)
                 }
             }
         }
 
-        createdSocket.on("new_message") { args ->
+        appSocketManager.registerListener(socketOwner, "new_message") { args ->
             viewModelScope.launch {
                 val raw = extractPayloadArg(args, "new_message")
                 Log.d("ChatViewModel", "new_message raw type=${raw?.javaClass?.name}, value=${raw?.toString()?.take(500)}")
@@ -907,9 +1317,17 @@ class ChatViewModel @Inject constructor(
                     return@launch
                 }
                 val msgId = payload.optString("message_id", "")
+                val ackableMessageId = PrivateAckScope.ackableMessageId(
+                    payload = payload,
+                    chatId = chatId,
+                    currentlyActiveChatId = ActiveChatTracker.activeChatId.value,
+                )
                 if (msgId.isNotBlank() && deduplicator.isDuplicate(msgId)) {
                     pushSocketDebugLog("Skipping duplicate new_message $msgId")
-                    sendAck(listOf(msgId))
+                    if (ackableMessageId != null) {
+                        sendAck(listOf(ackableMessageId))
+                        sendRead(listOf(ackableMessageId))
+                    }
                     return@launch
                 }
                 pushSocketDebugLog("Received live message from ${payload.optString("from")}")
@@ -917,54 +1335,62 @@ class ChatViewModel @Inject constructor(
                     handleIncomingMessage(payload)
                 }
                 loadMessages()
-                if (msgId.isNotBlank()) {
-                    sendAck(listOf(msgId))
+                if (ackableMessageId != null) {
+                    sendAck(listOf(ackableMessageId))
+                    sendRead(listOf(ackableMessageId))
                 }
             }
         }
 
-        createdSocket.on("message_sent") { args ->
+        appSocketManager.registerListener(socketOwner, "message_sent") { args ->
             viewModelScope.launch {
-                val raw = extractPayloadArg(args, "message_sent")
-               val detail = raw?.toDebugString() ?: "no payload"
-               pushSocketDebugLog("✅ message_sent: $detail")
-               Log.d("ChatViewModel", "message_sent ack received: $detail")
-
-                val payload = raw as? JSONObject ?: return@launch
+                val payload = parseSocketPayload(args, "message_sent") ?: return@launch
+                val detail = payload.toDebugString()
+                pushSocketDebugLog("✅ message_sent: $detail")
+                Log.d("ChatViewModel", "message_sent ack received: $detail")
                 val to = payload.optString("to", "")
                 val serverTimestamp = payload.optString("timestamp", "")
                 val serverMessageId = payload.optString("message_id", "")
-                
-                if (serverMessageId.isNotBlank() && to == chatId) {
-                    val pendingMsg = if (pendingSentMessages.isNotEmpty()) pendingSentMessages.removeFirst() else null
-                    
-                    if (pendingMsg != null) {
-                        val message = MessageEntity(
-                            messageId = serverMessageId,
-                            senderOrReceiver = pendingMsg.senderOrReceiver,
-                            chatId = pendingMsg.chatId,
-                            content = pendingMsg.content,
-                            timestamp = serverTimestamp,
-                            messageType = pendingMsg.messageType,
-                            attachmentType = pendingMsg.attachmentType,
-                            attachmentUrl = pendingMsg.attachmentUrl,
-                            attachmentMimeType = pendingMsg.attachmentMimeType,
-                            attachmentFileName = pendingMsg.attachmentFileName,
-                            attachmentSizeBytes = pendingMsg.attachmentSizeBytes,
-                            replyToMessageId = pendingMsg.replyToMessageId,
-                            replyToSender = pendingMsg.replyToSender,
-                            replyPreview = pendingMsg.replyPreview
-                        )
-                        saveMessageToDb(message)
-                        loadMessages()
-                        markMessageAsSent(serverMessageId)
-                        pushSocketDebugLog("Saved sent message")
-                    }
+                val clientMessageId = payload.optString("client_message_id", "").ifBlank { null }
+
+                if (serverMessageId.isBlank()) return@launch
+                if (to.isNotBlank() && to != chatId) return@launch
+
+                val pending = consumePendingSentMessage(clientMessageId)
+
+                if (pending != null) {
+                    val message = MessageEntity(
+                        messageId = serverMessageId,
+                        senderOrReceiver = pending.message.senderOrReceiver,
+                        chatId = pending.message.chatId,
+                        content = pending.message.content,
+                        timestamp = serverTimestamp,
+                        messageType = pending.message.messageType,
+                        attachmentType = pending.message.attachmentType,
+                        attachmentUrl = pending.message.attachmentUrl,
+                        attachmentMimeType = pending.message.attachmentMimeType,
+                        attachmentFileName = pending.message.attachmentFileName,
+                        attachmentSizeBytes = pending.message.attachmentSizeBytes,
+                        replyToMessageId = pending.message.replyToMessageId,
+                        replyToSender = pending.message.replyToSender,
+                        replyPreview = pending.message.replyPreview
+                    )
+                    saveMessageToDb(message)
+                    loadMessages()
+                    markMessageAsSent(serverMessageId)
+                    pushSocketDebugLog("Saved sent message")
+                } else {
+                    clientMessageId?.let { removePendingVisibleMessage(it) }
+                    pushSocketDebugLog(
+                        "message_sent could not resolve pending message (client_message_id=${clientMessageId ?: "none"})"
+                    )
+                    // Recover from missed in-memory correlation by re-syncing latest server history.
+                    fetchPrivateHistoryPage(before = null)
                 }
             }
         }
 
-        createdSocket.on("message_seen") { args ->
+        appSocketManager.registerListener(socketOwner, "message_seen") { args ->
             viewModelScope.launch {
                 val payload = parseSocketPayload(args, "message_seen") ?: return@launch
                 val targetChat = payload.optString("chat_id", "")
@@ -976,7 +1402,33 @@ class ChatViewModel @Inject constructor(
             }
         }
 
-        createdSocket.on("seen_messages_status") { args ->
+        appSocketManager.registerListener(socketOwner, "message_delivered") { args ->
+            viewModelScope.launch {
+                val payload = parseSocketPayload(args, "message_delivered") ?: return@launch
+                val targetChat = payload.optString("chat_id", "")
+                val messageId = payload.optString("message_id", "")
+                if (targetChat != chatId || messageId.isBlank()) return@launch
+
+                markMessageAsDelivered(messageId)
+                pushSocketDebugLog("📬 message_delivered: $messageId")
+            }
+        }
+
+        appSocketManager.registerListener(socketOwner, "delivered_messages_status") { args ->
+            viewModelScope.launch {
+                val payload = parseSocketPayload(args, "delivered_messages_status") ?: return@launch
+                if (payload.optString("chat_id", "") != chatId) return@launch
+                val messageIds = payload.optJSONArray("message_ids") ?: return@launch
+                for (index in 0 until messageIds.length()) {
+                    val messageId = messageIds.optString(index, "").trim()
+                    if (messageId.isNotBlank()) {
+                        markMessageAsDelivered(messageId)
+                    }
+                }
+            }
+        }
+
+        appSocketManager.registerListener(socketOwner, "seen_messages_status") { args ->
             viewModelScope.launch {
                 val payload = parseSocketPayload(args, "seen_messages_status") ?: return@launch
                 if (payload.optString("chat_id", "") != chatId) return@launch
@@ -990,16 +1442,17 @@ class ChatViewModel @Inject constructor(
             }
         }
 
-        createdSocket.on("message_error") { args ->
+        appSocketManager.registerListener(socketOwner, "message_error") { args ->
             viewModelScope.launch {
                 val raw = extractPayloadArg(args, "message_error")
-                val detail = raw?.toDebugString() ?: "unknown"
+                val payload = parseSocketPayload(args, "message_error")
+                val detail = payload?.toDebugString() ?: raw?.toDebugString() ?: "unknown"
                 pushSocketDebugLog("❌ message_error: $detail")
                 Log.e("ChatViewModel", "message_error from server: $detail")
 
-                val payload = raw as? JSONObject
                 val errorText = payload?.optString("error", "").orEmpty()
                 val errorCode = payload?.optString("code", "").orEmpty()
+                val clientMessageId = payload?.optString("client_message_id", "").orEmpty().ifBlank { null }
                 val isBlocked = errorCode.equals("blocked", ignoreCase = true) ||
                     errorText.contains("blocked", ignoreCase = true)
 
@@ -1010,12 +1463,15 @@ class ChatViewModel @Inject constructor(
                         }
                     )
                 } else if (errorText.isNotBlank()) {
+                    if (clientMessageId != null) {
+                        markPendingMessageFailed(clientMessageId)
+                    }
                     _socketError.value = errorText
                 }
             }
         }
 
-        createdSocket.on("chat_blocked") { args ->
+        appSocketManager.registerListener(socketOwner, "chat_blocked") { args ->
             viewModelScope.launch {
                 val payload = parseSocketPayload(args, "chat_blocked") ?: return@launch
                 val blockedBy = payload.optString("blocked_by", "")
@@ -1031,7 +1487,7 @@ class ChatViewModel @Inject constructor(
             }
         }
 
-        createdSocket.on("message_deleted") { args ->
+        appSocketManager.registerListener(socketOwner, "message_deleted") { args ->
             viewModelScope.launch {
                 val payload = parseSocketPayload(args, "message_deleted") ?: return@launch
                 val messageId = payload.optString("message_id", "").ifBlank { return@launch }
@@ -1042,7 +1498,7 @@ class ChatViewModel @Inject constructor(
             }
         }
 
-        createdSocket.on("deleted_messages_status") { args ->
+        appSocketManager.registerListener(socketOwner, "deleted_messages_status") { args ->
             viewModelScope.launch {
                 val payload = parseSocketPayload(args, "deleted_messages_status") ?: return@launch
                 if (payload.optString("chat_id", "") != chatId) return@launch
@@ -1058,7 +1514,7 @@ class ChatViewModel @Inject constructor(
             }
         }
 
-        createdSocket.on("user_status") { args ->
+        appSocketManager.registerListener(socketOwner, "user_status") { args ->
             viewModelScope.launch {
                 val payload = extractPayloadArg(args, "user_status") as? JSONObject ?: return@launch
                 val username = payload.optString("username")
@@ -1070,7 +1526,7 @@ class ChatViewModel @Inject constructor(
             }
         }
 
-        createdSocket.on("user_public_key_updated") { args ->
+        appSocketManager.registerListener(socketOwner, "user_public_key_updated") { args ->
             viewModelScope.launch {
                 val payload = parseSocketPayload(args, "user_public_key_updated") ?: return@launch
                 val updatedUsername = payload.optString("username", "")
@@ -1153,7 +1609,7 @@ class ChatViewModel @Inject constructor(
     }
 
     private fun requestPeerStatus() {
-        socket?.emit(
+        appSocketManager.emit(
             "get_user_status",
             JSONObject().apply {
                 put("username", chatId)
@@ -1162,19 +1618,185 @@ class ChatViewModel @Inject constructor(
         pushSocketDebugLog("Requested status for $chatId")
     }
 
-    private fun flushPendingOutgoingMessages() {
-        val activeSocket = socket ?: return
-        while (pendingOutgoingMessages.isNotEmpty()) {
-            val pendingMessage = pendingOutgoingMessages.removeFirst()
-            pushSocketDebugLog("Flushing queued message to $chatId")
-            emitEncryptedMessage(pendingMessage, activeSocket)
+    private fun generateClientMessageId(): String = UUID.randomUUID().toString()
+
+    private fun encryptForCurrentUser(plainText: String): SenderEncryptedPayload? {
+        if (plainText.isBlank()) return null
+        val selfPublicKey = spref.getPublicKey().orEmpty()
+        if (selfPublicKey.isBlank()) return null
+
+        return runCatching {
+            val (encryptedKey, encryptedMessage) = CryptoUtil.encryptMessage(
+                message = plainText,
+                receiverPublicKey = decodePublicKey(selfPublicKey)
+            )
+            SenderEncryptedPayload(
+                encryptedMessage = encryptedMessage,
+                encryptedKey = encryptedKey,
+            )
+        }.getOrNull()
+    }
+
+    private fun trackPendingSentMessage(clientMessageId: String, pendingMessage: MessageEntity) {
+        if (!pendingSentMessagesByClientId.containsKey(clientMessageId)) {
+            pendingSentMessageOrder.addLast(clientMessageId)
+        }
+        pendingSentMessagesByClientId[clientMessageId] = pendingMessage
+    }
+
+    private fun addPendingVisibleMessage(clientMessageId: String, pendingMessage: MessageEntity) {
+        pendingVisibleMessagesByClientId[clientMessageId] = pendingMessage
+        pendingMessage.messageId?.let { clearMessageStatus(it) }
+        refreshVisibleMessages()
+    }
+
+    private fun removePendingVisibleMessage(clientMessageId: String) {
+        val removed = pendingVisibleMessagesByClientId.remove(clientMessageId)
+        removed?.messageId?.let { clearMessageStatus(it) }
+        if (removed != null) {
+            refreshVisibleMessages()
         }
     }
 
+    private fun markPendingMessageFailed(clientMessageId: String) {
+        pendingSentMessagesByClientId.remove(clientMessageId)
+        pendingSentMessageOrder.remove(clientMessageId)
+
+        val pendingVisible = pendingVisibleMessagesByClientId[clientMessageId] ?: return
+        val pendingMessageId = pendingVisible.messageId ?: return
+        val updated = _messageDeliveryStatuses.value.toMutableMap()
+        updated[pendingMessageId] = MessageDeliveryStatus.FAILED
+        _messageDeliveryStatuses.value = updated
+        refreshVisibleMessages()
+    }
+
+    private fun refreshVisibleMessages() {
+        _messages.value = mergeDbAndPendingMessages(latestDbMessages)
+    }
+
+    private fun mergeDbAndPendingMessages(dbMessages: List<MessageEntity>): List<MessageEntity> {
+        if (pendingVisibleMessagesByClientId.isEmpty()) {
+            return dbMessages
+        }
+        return (dbMessages + pendingVisibleMessagesByClientId.values)
+            .sortedWith(
+                compareByDescending<MessageEntity> { parseMessageTimestamp(it.timestamp) }
+                    .thenByDescending { it.messageId.orEmpty() }
+                    .thenByDescending { it.id }
+            )
+    }
+
+    private fun parseMessageTimestamp(value: String): Instant {
+        if (value.isBlank()) return Instant.EPOCH
+        return try {
+            Instant.parse(value)
+        } catch (_: DateTimeParseException) {
+            Instant.EPOCH
+        }
+    }
+
+    private fun nextPendingMessageTimestamp(): Instant {
+        val latestKnownInstant = (
+            latestDbMessages.asSequence().map { parseMessageTimestamp(it.timestamp) } +
+                pendingVisibleMessagesByClientId.values.asSequence().map { parseMessageTimestamp(it.timestamp) }
+            )
+            .maxOrNull()
+            ?: Instant.EPOCH
+
+        val now = Instant.now()
+        var candidate = if (latestKnownInstant.isAfter(now)) {
+            latestKnownInstant.plusMillis(1)
+        } else {
+            now
+        }
+        if (!candidate.isAfter(lastPendingMessageTimestamp)) {
+            candidate = lastPendingMessageTimestamp.plusMillis(1)
+        }
+        lastPendingMessageTimestamp = candidate
+        return candidate
+    }
+
+    private fun timestampsAreClose(first: Instant, second: Instant): Boolean {
+        if (first == Instant.EPOCH || second == Instant.EPOCH) return false
+        return abs(Duration.between(first, second).seconds) <= 180
+    }
+
+    private fun resolvePendingVisibleMessagesFromDb(dbMessages: List<MessageEntity>) {
+        if (pendingVisibleMessagesByClientId.isEmpty()) return
+
+        val pendingCandidates = pendingVisibleMessagesByClientId.toMap()
+        val unmatchedOutgoingMessages = dbMessages
+            .filter { message ->
+                !message.messageId.isNullOrBlank() &&
+                    message.senderOrReceiver == currentUsername &&
+                    message.chatId == chatId
+            }
+            .toMutableList()
+
+        val resolvedClientIds = mutableListOf<String>()
+
+        pendingCandidates.forEach { (clientMessageId, pendingMessage) ->
+            val pendingTimestamp = parseMessageTimestamp(pendingMessage.timestamp)
+            val matchIndex = unmatchedOutgoingMessages.indexOfFirst { dbMessage ->
+                dbMessage.messageType == pendingMessage.messageType &&
+                    dbMessage.content == pendingMessage.content &&
+                    dbMessage.attachmentType == pendingMessage.attachmentType &&
+                    dbMessage.attachmentUrl == pendingMessage.attachmentUrl &&
+                    timestampsAreClose(
+                        parseMessageTimestamp(dbMessage.timestamp),
+                        pendingTimestamp
+                    )
+            }
+            if (matchIndex < 0) return@forEach
+
+            val matchedMessage = unmatchedOutgoingMessages.removeAt(matchIndex)
+            resolvedClientIds.add(clientMessageId)
+            pendingSentMessagesByClientId.remove(clientMessageId)
+            pendingSentMessageOrder.remove(clientMessageId)
+            matchedMessage.messageId?.let { markMessageAsSent(it) }
+        }
+
+        if (resolvedClientIds.isEmpty()) return
+
+        resolvedClientIds.forEach { clientMessageId ->
+            pendingVisibleMessagesByClientId[clientMessageId]?.messageId?.let { clearMessageStatus(it) }
+            pendingVisibleMessagesByClientId.remove(clientMessageId)
+        }
+    }
+
+    private fun schedulePendingHistoryReconcile(clientMessageId: String) {
+        viewModelScope.launch {
+            kotlinx.coroutines.delay(1500)
+            if (!pendingVisibleMessagesByClientId.containsKey(clientMessageId)) {
+                return@launch
+            }
+            if (!appSocketManager.isConnected()) {
+                return@launch
+            }
+            historyMutex.withLock {
+                if (!pendingVisibleMessagesByClientId.containsKey(clientMessageId)) {
+                    return@withLock
+                }
+                pushSocketDebugLog("Reconciling pending message via history sync")
+                fetchPrivateHistoryPage(before = null)
+            }
+        }
+    }
+
+    private fun consumePendingSentMessage(clientMessageId: String?): PendingSentResolution? {
+        val resolved = ClientMessageCorrelationResolver.consumePending(
+            pendingByClientId = pendingSentMessagesByClientId,
+            pendingOrder = pendingSentMessageOrder,
+            clientMessageId = clientMessageId,
+        ) ?: return null
+        return PendingSentResolution(
+            clientMessageId = resolved.clientMessageId,
+            message = resolved.item,
+        )
+    }
+
     private fun disconnectSocket() {
-        socket?.off()
-        socket?.disconnect()
-        socket = null
+        appSocketManager.unregisterOwner(socketOwner)
     }
 
     private suspend fun decryptAndSaveMessage(
@@ -1240,7 +1862,27 @@ class ChatViewModel @Inject constructor(
         return when (raw) {
             is JSONObject -> raw
             is String -> runCatching { JSONObject(raw) }.getOrNull()
+            is Map<*, *> -> mapToJsonObject(raw)
             else -> null
+        }
+    }
+
+    private fun mapToJsonObject(raw: Map<*, *>): JSONObject {
+        val json = JSONObject()
+        raw.forEach { (key, value) ->
+            val safeKey = key as? String ?: return@forEach
+            json.put(safeKey, convertToJsonCompatibleValue(value))
+        }
+        return json
+    }
+
+    private fun convertToJsonCompatibleValue(value: Any?): Any? {
+        return when (value) {
+            null -> JSONObject.NULL
+            is Map<*, *> -> mapToJsonObject(value)
+            is Iterable<*> -> JSONArray(value.map { convertToJsonCompatibleValue(it) })
+            is Array<*> -> JSONArray(value.map { convertToJsonCompatibleValue(it) })
+            else -> value
         }
     }
 
@@ -1264,6 +1906,7 @@ class ChatViewModel @Inject constructor(
 
     override fun onCleared() {
         ActiveChatTracker.clearActiveChat()
+        pendingVisibleMessagesByClientId.clear()
         voiceRecorder?.release()
         disconnectSocket()
         super.onCleared()

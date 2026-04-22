@@ -6,8 +6,8 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.dino.message.BuildConfig
 import com.dino.message.DinoOrderApplication
+import com.dino.message.corefeature.data.socket.AppSocketManager
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
@@ -38,8 +38,6 @@ import com.ramcosta.composedestinations.generated.destinations.PostMusicScreenDe
 import com.ramcosta.composedestinations.generated.destinations.PlaylistBottomSheetScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.SharedPostDetailsScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.TrackPlaylistAddersDialogScreenDestination
-import io.socket.client.IO
-import io.socket.client.Socket
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -60,7 +58,8 @@ class ThreadViewModel @Inject constructor(
     private val isTrackInPlaylistUseCase: IsTrackInPlaylistUseCase,
     private val getMyProfileUseCase: GetMyProfileUseCase,
     private val sPrefManager: SPrefManager,
-    private val getUnreadCountUseCase: GetUnreadCountUseCase
+    private val getUnreadCountUseCase: GetUnreadCountUseCase,
+    private val appSocketManager: AppSocketManager,
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
 
@@ -101,7 +100,7 @@ class ThreadViewModel @Inject constructor(
     private val _playlistFeedback = MutableStateFlow<String?>(null)
     val playlistFeedback: StateFlow<String?> = _playlistFeedback.asStateFlow()
 
-    private var activitySocket: Socket? = null
+    private val socketOwner = "ThreadViewModel.activity"
     private val currentUsername: String = sPrefManager.getUsername().orEmpty()
 
     init {
@@ -420,42 +419,14 @@ class ThreadViewModel @Inject constructor(
     }
 
     private fun connectActivitySocket() {
-        val token = sPrefManager.getToken().trim()
-        if (token.isBlank()) return
-
-        val cleanToken = token.removePrefix("Bearer ").removePrefix("bearer ").trim()
-        val baseUrl = BuildConfig.BASE_URL.trimEnd('/')
-
-        try {
-            val opts = IO.Options.builder()
-                .setForceNew(false)
-                .setMultiplex(true)
-                .setReconnection(true)
-                .setReconnectionAttempts(Int.MAX_VALUE)
-                .setReconnectionDelay(2_000)
-                .setReconnectionDelayMax(15_000)
-                .setTimeout(20_000)
-                .setPath("/socket.io/")
-                .setTransports(arrayOf("websocket", "polling"))
-                .setAuth(mapOf("token" to cleanToken))
-                .build()
-
-            val socket = IO.socket(baseUrl, opts)
-
-            socket.on("activity_notification") {
-                _unreadNotificationCount.value = _unreadNotificationCount.value + 1
-            }
-
-            activitySocket = socket
-            socket.connect()
-        } catch (_: Exception) {
+        appSocketManager.registerListener(socketOwner, "activity_notification") {
+            _unreadNotificationCount.value = _unreadNotificationCount.value + 1
         }
+        appSocketManager.connect()
     }
 
     override fun onCleared() {
-        activitySocket?.off("activity_notification")
-        activitySocket?.disconnect()
-        activitySocket = null
+        appSocketManager.unregisterOwner(socketOwner)
         super.onCleared()
     }
 }

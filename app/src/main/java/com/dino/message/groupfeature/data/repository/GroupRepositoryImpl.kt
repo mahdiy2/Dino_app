@@ -6,6 +6,7 @@ import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.groupfeature.domain.model.AddGroupMembersResult
  import com.dino.message.groupfeature.data.remote.GroupApiService
  import com.dino.message.groupfeature.domain.model.Group
+import com.dino.message.groupfeature.domain.model.GroupHistoryPage
 import com.dino.message.groupfeature.domain.model.GroupMessageEntity
  import com.dino.message.groupfeature.domain.model.MutualFollowersPage
  import com.dino.message.groupfeature.domain.repository.GroupRepository
@@ -31,6 +32,16 @@ import com.dino.message.groupfeature.data.db.GroupMessageDao
     override suspend fun getGroupDetail(groupId: Int): Resource<Group> =
         apiService.getGroupDetail(groupId)
 
+    override suspend fun getGroupHistory(
+        groupId: Int,
+        limit: Int,
+        before: String?,
+    ): Resource<GroupHistoryPage> = apiService.getGroupHistory(
+        groupId = groupId,
+        limit = limit,
+        before = before,
+    )
+
     override suspend fun getMutualFollowers(page: Int, limit: Int): Resource<MutualFollowersPage> =
         apiService.getMutualFollowers(page, limit)
 
@@ -40,8 +51,14 @@ import com.dino.message.groupfeature.data.db.GroupMessageDao
     override suspend fun saveGroupMessage(message: GroupMessageEntity) =
         groupMessageDao.insertMessage(message)
 
-    override suspend fun getGroupMessagesFromDb(groupId: Int): List<GroupMessageEntity> =
-        groupMessageDao.getMessagesByGroupId(groupId)
+    override suspend fun getGroupMessagesFromDb(groupId: Int, limit: Int, offset: Int): List<GroupMessageEntity> =
+        groupMessageDao.getMessagesByGroupId(groupId = groupId, limit = limit, offset = offset)
+
+    override suspend fun getGroupMessageCount(groupId: Int): Int =
+        groupMessageDao.getMessageCountByGroupId(groupId)
+
+    override suspend fun upsertGroupMessagesByMessageId(messages: List<GroupMessageEntity>) =
+        groupMessageDao.upsertMessagesByMessageId(messages)
 
     override suspend fun clearGroupMessages(groupId: Int) =
         groupMessageDao.deleteMessagesByGroupId(groupId)

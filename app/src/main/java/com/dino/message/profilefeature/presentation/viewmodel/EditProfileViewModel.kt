@@ -165,7 +165,7 @@ class EditProfileViewModel @Inject constructor(
                 _isSaving.value = false
                 return@launch
             }
-            if (videoPayload != null && videoPayload.bytes.size > MAX_PROFILE_VIDEO_SIZE_BYTES) {
+            if (videoPayload?.sizeBytes != null && videoPayload.sizeBytes > MAX_PROFILE_VIDEO_SIZE_BYTES) {
                 _error.value = "Profile video is too large. Maximum allowed size is 15.0MB."
                 _isSaving.value = false
                 return@launch
@@ -223,16 +223,18 @@ class EditProfileViewModel @Inject constructor(
 
     private fun buildProfileUpdateMedia(media: SelectedProfileMedia): ProfileUpdateImage? {
         val resolver = getApplication<DinoOrderApplication>().contentResolver
-        val bytes = try {
-            resolver.openInputStream(media.uri)?.use { it.readBytes() }
+        val canRead = try {
+            resolver.openInputStream(media.uri)?.use { true } ?: false
         } catch (_: Exception) {
-            null
-        } ?: return null
+            false
+        }
+        if (!canRead) return null
 
         return ProfileUpdateImage(
-            bytes = bytes,
+            uri = media.uri,
             fileName = media.displayName,
-            mimeType = media.mimeType
+            mimeType = media.mimeType,
+            sizeBytes = queryFileSize(media.uri),
         )
     }
 

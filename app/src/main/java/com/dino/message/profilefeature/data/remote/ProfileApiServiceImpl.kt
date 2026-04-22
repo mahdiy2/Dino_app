@@ -1,5 +1,7 @@
 package com.dino.message.profilefeature.data.remote
 
+import android.content.Context
+import android.provider.OpenableColumns
 import com.dino.message.corefeature.data.remote.HaveRefreshTokenAPI
 import com.dino.message.corefeature.data.remote.HaveRefreshTokenAPIImpl
 import com.dino.message.corefeature.data.remote.util.HttpAPIUtil
@@ -18,8 +20,10 @@ import com.dino.message.profilefeature.domain.model.ProfileFollowResult
 import com.dino.message.profilefeature.domain.model.ProfileUpdateImage
 import com.dino.message.profilefeature.domain.model.ProfileUsersPage
 import com.dino.message.threadfeature.domain.model.PostsPage
+import dagger.hilt.android.qualifiers.ApplicationContext
 import io.ktor.client.HttpClient
 import io.ktor.client.request.delete
+import io.ktor.client.request.forms.InputProvider
 import io.ktor.client.request.forms.MultiPartFormDataContent
 import io.ktor.client.request.forms.formData
 import io.ktor.client.request.get
@@ -30,12 +34,15 @@ import io.ktor.http.ContentType
 import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
+import io.ktor.utils.io.streams.asInput
+import java.io.File
 import javax.inject.Inject
 
 class ProfileApiServiceImpl @Inject constructor(
     private val httpClient: HttpClient,
     private val sPrefManager: SPrefManager,
-    private val httpAPIUtil: HttpAPIUtil
+    private val httpAPIUtil: HttpAPIUtil,
+    @ApplicationContext private val appContext: Context,
 ) : ProfileApiService, HaveRefreshTokenAPI by HaveRefreshTokenAPIImpl(httpClient, sPrefManager) {
 
     override suspend fun getMyProfile(): Resource<Profile> =
@@ -85,7 +92,9 @@ class ProfileApiServiceImpl @Inject constructor(
                                     profileImage?.let {
                                         append(
                                             key = "profile_image",
-                                            value = it.bytes,
+                                            value = InputProvider(size = resolveFileSize(it)) {
+                                                openInputStream(it).asInput()
+                                            },
                                             headers = Headers.build {
                                                 append(
                                                     HttpHeaders.ContentDisposition,
@@ -98,7 +107,9 @@ class ProfileApiServiceImpl @Inject constructor(
                                     profileVideo?.let {
                                         append(
                                             key = "profile_video",
-                                            value = it.bytes,
+                                            value = InputProvider(size = resolveFileSize(it)) {
+                                                openInputStream(it).asInput()
+                                            },
                                             headers = Headers.build {
                                                 append(
                                                     HttpHeaders.ContentDisposition,
@@ -116,6 +127,35 @@ class ProfileApiServiceImpl @Inject constructor(
             },
             callRefreshTokenAPI = this::getToken
         )
+    }
+
+    private fun resolveFileSize(media: ProfileUpdateImage): Long? {
+        media.sizeBytes?.let { if (it >= 0) return it }
+        val uri = media.uri
+        if (uri.scheme == "file") {
+            val path = uri.path ?: return null
+            val file = File(path)
+            return if (file.exists()) file.length() else null
+        }
+        val cursor = appContext.contentResolver.query(uri, null, null, null, null)
+            ?: return null
+        return cursor.use {
+            if (!it.moveToFirst()) return@use null
+            val index = it.getColumnIndex(OpenableColumns.SIZE)
+            if (index >= 0 && !it.isNull(index)) it.getLong(index) else null
+        }
+    }
+
+    private fun openInputStream(media: ProfileUpdateImage): java.io.InputStream {
+        val uri = media.uri
+        if (uri.scheme == "file") {
+            val path = uri.path ?: error("File path is missing")
+            val file = File(path)
+            if (!file.exists()) error("File does not exist")
+            return file.inputStream()
+        }
+        return appContext.contentResolver.openInputStream(uri)
+            ?: error("Unable to open input stream")
     }
 
     override suspend fun deleteMyAccount(): Resource<ProfileFollowResult> =

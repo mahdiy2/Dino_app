@@ -10,6 +10,7 @@ import com.dino.message.chatfeature.data.remote.dto.PendingMessage
 import com.dino.message.chatfeature.data.remote.dto.UnreadResponse
 import com.dino.message.chatfeature.domain.model.Inbox
 import com.dino.message.chatfeature.domain.model.MessageEntity
+import com.dino.message.chatfeature.domain.model.PrivateHistoryPage
 import com.dino.message.chatfeature.domain.model.ReceiverPublicKey
 import com.dino.message.chatfeature.domain.model.SendMessage
 import com.dino.message.chatfeature.domain.repository.ChatRepository
@@ -22,6 +23,16 @@ class ChatRepositoryImpl(
 
     override suspend fun getInbox(): Resource<List<Inbox>?> =
         chatApiService.getInbox()
+
+    override suspend fun getPrivateHistory(
+        chatId: String,
+        limit: Int,
+        before: String?,
+    ): Resource<PrivateHistoryPage> = chatApiService.getPrivateHistory(
+        chatId = chatId,
+        limit = limit,
+        before = before,
+    )
 
     override suspend fun getReceiverPublicKey(username: String): Resource<ReceiverPublicKey> =
         chatApiService.getReceiverPublicKey(username)
@@ -36,7 +47,11 @@ class ChatRepositoryImpl(
         chatApiService.uploadAttachment(fileUri)
 
     override suspend fun saveMessage(message: MessageEntity) = dao.insertMessage(message)
-    override suspend fun getMessages(chatId: String) = dao.getMessagesByChatId(chatId)
+    override suspend fun getMessages(chatId: String, limit: Int, offset: Int) =
+        dao.getMessagesByChatId(chatId = chatId, limit = limit, offset = offset)
+    override suspend fun getMessageCount(chatId: String) = dao.getMessageCountByChatId(chatId)
+    override suspend fun upsertMessagesByMessageId(messages: List<MessageEntity>) =
+        dao.upsertMessagesByMessageId(messages)
     override suspend fun clearMessages(chatId: String) = dao.deleteMessagesByChatId(chatId)
     override suspend fun deleteMessageByLocalId(localId: Int) = dao.deleteMessageByLocalId(localId)
     override suspend fun deleteMessageByMessageId(messageId: String) = dao.deleteMessageByMessageId(messageId)

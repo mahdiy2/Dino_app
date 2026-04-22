@@ -1,6 +1,7 @@
 package com.dino.message.mainpage.data.repository
 
 import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.mainpage.data.remote.dto.DetailedContact
 import com.dino.message.mainpage.data.remote.MainApiService
 import com.dino.message.mainpage.data.remote.dto.PaginatedContacts
 import com.dino.message.mainpage.domain.model.AddContact
@@ -20,4 +21,7 @@ class MainRepositoryImpl(
 
     override suspend fun getDetailedContacts(page: Int, limit: Int): Resource<PaginatedContacts> =
         mainApiService.getDetailedContacts(page, limit)
+
+    override suspend fun getContactsDelta(usernames: List<String>): Resource<List<DetailedContact>> =
+        mainApiService.getContactsDelta(usernames)
 }

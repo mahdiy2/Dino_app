@@ -30,6 +30,7 @@ class ClearLocalSessionUseCase @Inject constructor(
 
         runCatching { sPrefManager.clearAll() }
         runCatching { NotificationHelper.clearAllNotifications(app) }
+        runCatching { app.inAppNotificationManager.clearPrivateMessageNotificationDedupe() }
         ActiveChatTracker.clearActiveChat()
         ActiveGroupTracker.clearActiveGroup()
         app.inAppNotificationManager.disconnect()

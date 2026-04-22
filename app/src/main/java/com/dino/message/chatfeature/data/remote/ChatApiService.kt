@@ -1,18 +1,22 @@
 package com.dino.message.chatfeature.data.remote
 
 import android.net.Uri
- import com.dino.message.chatfeature.domain.model.Inbox
- import com.dino.message.chatfeature.domain.model.ReceiverPublicKey
- import com.dino.message.chatfeature.domain.model.SendMessage
- import com.dino.message.chatfeature.data.remote.dto.MessageSent
- import com.dino.message.chatfeature.data.remote.dto.MessageAttachment
- import com.dino.message.chatfeature.data.remote.dto.NewMessage
- import com.dino.message.chatfeature.data.remote.dto.PendingMessage
+import com.dino.message.chatfeature.data.remote.dto.MessageAttachment
 import com.dino.message.chatfeature.data.remote.dto.UnreadResponse
+import com.dino.message.chatfeature.domain.model.Inbox
+import com.dino.message.chatfeature.domain.model.PrivateHistoryPage
+import com.dino.message.chatfeature.domain.model.ReceiverPublicKey
+import com.dino.message.chatfeature.domain.model.SendMessage
 import com.dino.message.corefeature.presentation.util.Resource
 
 interface ChatApiService {
     suspend fun getInbox(): Resource<List<Inbox>?>
+
+    suspend fun getPrivateHistory(
+        chatId: String,
+        limit: Int,
+        before: String? = null,
+    ): Resource<PrivateHistoryPage>
 
     suspend fun getReceiverPublicKey(username: String): Resource<ReceiverPublicKey>
 

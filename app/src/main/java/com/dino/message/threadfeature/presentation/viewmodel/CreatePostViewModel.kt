@@ -233,17 +233,19 @@ class CreatePostViewModel @Inject constructor(
         val result = mutableListOf<CreatePostMedia>()
 
         selectedMedia.forEach { media ->
-            val bytes = try {
-                resolver.openInputStream(media.uri)?.use { it.readBytes() }
+            val canRead = try {
+                resolver.openInputStream(media.uri)?.use { true } ?: false
             } catch (_: Exception) {
-                null
-            } ?: return null
+                false
+            }
+            if (!canRead) return null
 
             result.add(
                 CreatePostMedia(
-                    bytes = bytes,
+                    uri = media.uri,
                     fileName = media.displayName,
-                    mimeType = media.mimeType
+                    mimeType = media.mimeType,
+                    sizeBytes = queryFileSize(media.uri),
                 )
             )
         }
@@ -258,6 +260,17 @@ class CreatePostViewModel @Inject constructor(
             val nameIndex = it.getColumnIndex(OpenableColumns.DISPLAY_NAME)
             if (nameIndex == -1 || !it.moveToFirst()) return@use null
             it.getString(nameIndex)
+        }
+    }
+
+    private fun queryFileSize(uri: Uri): Long? {
+        val resolver = getApplication<DinoOrderApplication>().contentResolver
+        val cursor = resolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)
+        return cursor?.use {
+            val sizeIndex = it.getColumnIndex(OpenableColumns.SIZE)
+            if (sizeIndex == -1 || !it.moveToFirst()) return@use null
+            if (it.isNull(sizeIndex)) return@use null
+            it.getLong(sizeIndex)
         }
     }
 

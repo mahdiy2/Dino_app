@@ -6,8 +6,8 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
-import com.dino.message.BuildConfig
 import com.dino.message.DinoOrderApplication
+import com.dino.message.corefeature.data.socket.AppSocketManager
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.presentation.util.CryptoUtil
 import com.dino.message.corefeature.presentation.util.encodePostShareMessage
@@ -15,9 +15,7 @@ import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.corefeature.presentation.util.decodePublicKey
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
-import com.dino.message.chatfeature.domain.model.MessageEntity
 import com.dino.message.chatfeature.domain.usecase.GetReceiverPublicKeyUseCase
-import com.dino.message.chatfeature.domain.usecase.SaveMessageInDbUseCase
 import com.dino.message.groupfeature.domain.model.GroupMessageEntity
 import com.dino.message.groupfeature.domain.usecase.GetGroupDetailUseCase
 import com.dino.message.groupfeature.domain.usecase.ListGroupsUseCase
@@ -25,24 +23,18 @@ import com.dino.message.groupfeature.domain.usecase.SaveGroupMessageUseCase
 import com.dino.message.mainpage.domain.usecase.GetDetailedContactsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
-import io.socket.client.IO
-import io.socket.client.Socket
-import io.socket.emitter.Emitter
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
+import org.json.JSONArray
 import org.json.JSONObject
-import java.net.URISyntaxException
 import java.security.PublicKey
 import java.time.Instant
 import java.util.UUID
 import javax.inject.Inject
 
 private const val CONTACTS_PAGE_SIZE = 50
-private const val SOCKET_CONNECT_TIMEOUT_MS = 7000L
 
 data class ShareTargetContact(
     val username: String,
@@ -56,6 +48,17 @@ data class ShareTargetGroup(
     val memberCount: Int,
 )
 
+private enum class ShareDispatchStatus {
+    SENT,
+    QUEUED,
+    FAILED,
+}
+
+private data class ShareDispatchResult(
+    val status: ShareDispatchStatus,
+    val error: String? = null,
+)
+
 @HiltViewModel
 class SharePostBottomSheetViewModel @Inject constructor(
     @ApplicationContext app: Context,
@@ -63,9 +66,9 @@ class SharePostBottomSheetViewModel @Inject constructor(
     private val listGroupsUseCase: ListGroupsUseCase,
     private val getReceiverPublicKeyUseCase: GetReceiverPublicKeyUseCase,
     private val getGroupDetailUseCase: GetGroupDetailUseCase,
-    private val saveMessageInDbUseCase: SaveMessageInDbUseCase,
     private val saveGroupMessageUseCase: SaveGroupMessageUseCase,
     private val sPrefManager: SPrefManager,
+    private val appSocketManager: AppSocketManager,
     savedStateHandle: SavedStateHandle,
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
@@ -92,14 +95,12 @@ class SharePostBottomSheetViewModel @Inject constructor(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
-    private var socket: Socket? = null
-
     val selectedCount: Int
         get() = selectedContacts.values.count { it } + selectedGroups.values.count { it }
 
     init {
         loadRecipients()
-        connectSocketIfNeeded()
+        appSocketManager.connect()
     }
 
     fun isContactSelected(username: String): Boolean = selectedContacts[username] == true
@@ -130,49 +131,50 @@ class SharePostBottomSheetViewModel @Inject constructor(
             _isSending.value = true
             _error.value = null
 
-            val activeSocket = connectSocketIfNeeded()
-            if (activeSocket == null || !ensureSocketConnected(activeSocket)) {
-                _isSending.value = false
-                _error.value = "Unable to connect to messaging server."
-                return@launch
-            }
+            connectSocketIfNeeded()
 
             val message = buildSharedPostMessage()
-            var successCount = 0
+            var sentCount = 0
+            var queuedCount = 0
             val failedTargets = mutableListOf<String>()
 
             targetsContacts.forEach { username ->
-                val error = sendPrivateSharedMessage(
-                    activeSocket = activeSocket,
+                val result = sendPrivateSharedMessage(
                     username = username,
                     message = message,
                 )
-                if (error == null) {
-                    successCount++
-                } else {
-                    failedTargets.add("@$username ($error)")
+                when (result.status) {
+                    ShareDispatchStatus.SENT -> sentCount++
+                    ShareDispatchStatus.QUEUED -> queuedCount++
+                    ShareDispatchStatus.FAILED -> failedTargets.add("@$username (${result.error})")
                 }
             }
 
             targetGroups.forEach { groupId ->
                 val group = groups.firstOrNull { it.id == groupId }
-                val error = sendGroupSharedMessage(
-                    activeSocket = activeSocket,
+                val result = sendGroupSharedMessage(
                     groupId = groupId,
                     message = message,
                 )
-                if (error == null) {
-                    successCount++
-                } else {
-                    failedTargets.add("${group?.name ?: "Group $groupId"} ($error)")
+                when (result.status) {
+                    ShareDispatchStatus.SENT -> sentCount++
+                    ShareDispatchStatus.QUEUED -> queuedCount++
+                    ShareDispatchStatus.FAILED -> failedTargets.add(
+                        "${group?.name ?: "Group $groupId"} (${result.error})"
+                    )
                 }
             }
 
             _isSending.value = false
             when {
-                successCount > 0 && failedTargets.isEmpty() -> navigateUp(viewModelScope)
-                successCount > 0 -> {
-                    _error.value = "Sent to $successCount target(s). Failed for: ${failedTargets.joinToString(", ")}"
+                failedTargets.isEmpty() && queuedCount == 0 && sentCount > 0 -> {
+                    navigateUp(viewModelScope)
+                }
+                failedTargets.isEmpty() && queuedCount > 0 -> {
+                    _error.value = "Queued $queuedCount target(s). They will send automatically after reconnect."
+                }
+                sentCount > 0 || queuedCount > 0 -> {
+                    _error.value = "Sent: $sentCount, queued: $queuedCount. Failed for: ${failedTargets.joinToString(", ")}"
                 }
                 else -> {
                     _error.value = "Failed to send. ${failedTargets.joinToString(", ")}"
@@ -253,59 +255,139 @@ class SharePostBottomSheetViewModel @Inject constructor(
     }
 
     private suspend fun sendPrivateSharedMessage(
-        activeSocket: Socket,
         username: String,
         message: String,
-    ): String? {
+    ): ShareDispatchResult {
         val receiverPublicKey = fetchReceiverPublicKey(username)
-            ?: return "Could not fetch encryption key"
+            ?: return ShareDispatchResult(
+                status = ShareDispatchStatus.FAILED,
+                error = "Could not fetch encryption key",
+            )
         return try {
+            val clientMessageId = UUID.randomUUID().toString()
             val (encryptedKey, encryptedMessage) = CryptoUtil.encryptMessage(
                 message = message,
                 receiverPublicKey = decodePublicKey(receiverPublicKey)
             )
+            val senderEncrypted = runCatching {
+                val selfPublicKey = sPrefManager.getPublicKey().orEmpty()
+                if (selfPublicKey.isBlank()) {
+                    null
+                } else {
+                    val (selfKey, selfMessage) = CryptoUtil.encryptMessage(
+                        message = message,
+                        receiverPublicKey = decodePublicKey(selfPublicKey)
+                    )
+                    selfMessage to selfKey
+                }
+            }.getOrNull()
             val payload = JSONObject().apply {
                 put("to", username)
                 put("message", encryptedMessage)
                 put("encrypted_key", encryptedKey)
+                if (senderEncrypted != null) {
+                    put("sender_encrypted_message", senderEncrypted.first)
+                    put("sender_encrypted_key", senderEncrypted.second)
+                }
                 put("type", "post")
+                put("client_message_id", clientMessageId)
             }
-            activeSocket.emit("send_message", payload)
-            runCatching {
-                saveLocalPrivateShare(username = username, encodedMessage = message)
+            val dispatchResult = appSocketManager.emitWithRetry(
+                event = "send_message",
+                payload = payload,
+                dedupeKey = "share-private:$username:$clientMessageId",
+            )
+            when (dispatchResult) {
+                AppSocketManager.EmitWithRetryResult.EMITTED ->
+                    ShareDispatchResult(status = ShareDispatchStatus.SENT)
+                AppSocketManager.EmitWithRetryResult.QUEUED,
+                AppSocketManager.EmitWithRetryResult.ALREADY_QUEUED -> {
+                    ShareDispatchResult(status = ShareDispatchStatus.QUEUED)
+                }
+                AppSocketManager.EmitWithRetryResult.QUEUE_FULL -> {
+                    ShareDispatchResult(
+                        status = ShareDispatchStatus.FAILED,
+                        error = "Send queue is full",
+                    )
+                }
             }
-            null
         } catch (e: Exception) {
             val detail = e.message?.takeIf { it.isNotBlank() } ?: "invalid public key"
-            "Encryption failed: $detail"
+            ShareDispatchResult(
+                status = ShareDispatchStatus.FAILED,
+                error = "Encryption failed: $detail",
+            )
         }
     }
 
     private suspend fun sendGroupSharedMessage(
-        activeSocket: Socket,
         groupId: Int,
         message: String,
-    ): String? {
+    ): ShareDispatchResult {
         val memberKeys = fetchGroupMemberKeys(groupId)
-        if (memberKeys.isEmpty()) return "No valid group member keys"
+        if (memberKeys.isEmpty()) {
+            return ShareDispatchResult(
+                status = ShareDispatchStatus.FAILED,
+                error = "No valid group member keys",
+            )
+        }
 
         return try {
+            val clientMessageId = UUID.randomUUID().toString()
             val encryptedResult = CryptoUtil.encryptGroupMessage(message, memberKeys)
             val payload = JSONObject().apply {
                 put("group_id", groupId)
                 put("message", encryptedResult.encryptedMessage)
-                put("encrypted_keys", JSONObject(encryptedResult.encryptedKeys))
+                put("group_key_ref", UUID.randomUUID().toString())
+                put("recipient_key_records", buildRecipientKeyRecordsJson(encryptedResult.encryptedKeys))
                 put("type", "post")
+                put("client_message_id", clientMessageId)
             }
-            activeSocket.emit("send_group_message", payload)
-            runCatching {
-                saveLocalGroupShare(groupId = groupId, encodedMessage = message)
+            val dispatchResult = appSocketManager.emitWithRetry(
+                event = "send_group_message",
+                payload = payload,
+                dedupeKey = "share-group:$groupId:$clientMessageId",
+            )
+            when (dispatchResult) {
+                AppSocketManager.EmitWithRetryResult.EMITTED -> {
+                    runCatching {
+                        saveLocalGroupShare(groupId = groupId, encodedMessage = message)
+                    }
+                    ShareDispatchResult(status = ShareDispatchStatus.SENT)
+                }
+                AppSocketManager.EmitWithRetryResult.QUEUED,
+                AppSocketManager.EmitWithRetryResult.ALREADY_QUEUED -> {
+                    ShareDispatchResult(status = ShareDispatchStatus.QUEUED)
+                }
+                AppSocketManager.EmitWithRetryResult.QUEUE_FULL -> {
+                    ShareDispatchResult(
+                        status = ShareDispatchStatus.FAILED,
+                        error = "Send queue is full",
+                    )
+                }
             }
-            null
         } catch (e: Exception) {
             val detail = e.message?.takeIf { it.isNotBlank() } ?: "invalid group key data"
-            "Group encryption failed: $detail"
+            ShareDispatchResult(
+                status = ShareDispatchStatus.FAILED,
+                error = "Group encryption failed: $detail",
+            )
         }
+    }
+
+    private fun buildRecipientKeyRecordsJson(keys: Map<String, String>): JSONArray {
+        val records = JSONArray()
+        keys.entries
+            .sortedBy { it.key }
+            .forEach { entry ->
+                records.put(
+                    JSONObject().apply {
+                        put("recipient", entry.key)
+                        put("encrypted_key", entry.value)
+                    }
+                )
+            }
+        return records
     }
 
     private suspend fun fetchReceiverPublicKey(username: String): String? {
@@ -358,20 +440,6 @@ class SharePostBottomSheetViewModel @Inject constructor(
         )
     }
 
-    private suspend fun saveLocalPrivateShare(username: String, encodedMessage: String) {
-        val currentUsername = sPrefManager.getUsername().orEmpty().ifBlank { "self" }
-        saveMessageInDbUseCase.execute(
-            MessageEntity(
-                messageId = null,
-                chatId = username,
-                senderOrReceiver = currentUsername,
-                content = encodedMessage,
-                timestamp = Instant.now().toString(),
-                messageType = "post",
-            )
-        ).collect { }
-    }
-
     private suspend fun saveLocalGroupShare(groupId: Int, encodedMessage: String) {
         val currentUsername = sPrefManager.getUsername().orEmpty().ifBlank { "self" }
         saveGroupMessageUseCase.execute(
@@ -386,69 +454,11 @@ class SharePostBottomSheetViewModel @Inject constructor(
         ).collect { }
     }
 
-    private fun connectSocketIfNeeded(): Socket? {
-        if (socket?.connected() == true) {
-            return socket
-        }
-        if (socket == null) {
-            socket = createSocket()
-        }
-        socket?.connect()
-        return socket
-    }
-
-    private fun createSocket(): Socket? {
-        val token = sPrefManager.getToken()
-            .removePrefix("Bearer ")
-            .removePrefix("bearer ")
-            .trim()
-        if (token.isBlank()) return null
-
-        val opts = IO.Options.builder()
-            .setForceNew(true)
-            .setMultiplex(false)
-            .setReconnection(true)
-            .setReconnectionAttempts(Int.MAX_VALUE)
-            .setReconnectionDelay(1_000)
-            .setReconnectionDelayMax(8_000)
-            .setTimeout(20_000)
-            .setPath("/socket.io/")
-            .setTransports(arrayOf("websocket", "polling"))
-            .setAuth(mapOf("token" to token))
-            .build()
-
-        return try {
-            IO.socket(BuildConfig.BASE_URL.trimEnd('/'), opts)
-        } catch (_: URISyntaxException) {
-            null
-        }
-    }
-
-    private suspend fun ensureSocketConnected(socket: Socket): Boolean {
-        if (socket.connected()) return true
-
-        val connected = CompletableDeferred<Boolean>()
-        val onConnect = Emitter.Listener {
-            if (!connected.isCompleted) connected.complete(true)
-        }
-        val onError = Emitter.Listener {
-            if (!connected.isCompleted) connected.complete(false)
-        }
-
-        socket.once(Socket.EVENT_CONNECT, onConnect)
-        socket.once(Socket.EVENT_CONNECT_ERROR, onError)
-        socket.connect()
-
-        val result = withTimeoutOrNull(SOCKET_CONNECT_TIMEOUT_MS) { connected.await() } ?: false
-        socket.off(Socket.EVENT_CONNECT, onConnect)
-        socket.off(Socket.EVENT_CONNECT_ERROR, onError)
-        return result
+    private fun connectSocketIfNeeded() {
+        appSocketManager.connect()
     }
 
     override fun onCleared() {
-        socket?.off()
-        socket?.disconnect()
-        socket = null
         super.onCleared()
     }
 }

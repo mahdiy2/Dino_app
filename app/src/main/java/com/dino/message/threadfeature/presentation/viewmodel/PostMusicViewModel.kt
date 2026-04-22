@@ -191,16 +191,18 @@ class PostMusicViewModel @Inject constructor(
 
     private fun buildMedia(track: SelectedMusicTrack): CreatePostMedia? {
         val resolver = getApplication<DinoOrderApplication>().contentResolver
-        val bytes = try {
-            resolver.openInputStream(track.uri)?.use { it.readBytes() }
+        val canRead = try {
+            resolver.openInputStream(track.uri)?.use { true } ?: false
         } catch (_: Exception) {
-            null
-        } ?: return null
+            false
+        }
+        if (!canRead) return null
 
         return CreatePostMedia(
-            bytes = bytes,
+            uri = track.uri,
             fileName = track.displayName,
             mimeType = track.mimeType,
+            sizeBytes = queryFileSize(track.uri),
             trackTitle = track.title,
             trackArtist = track.artist
         )
@@ -213,6 +215,17 @@ class PostMusicViewModel @Inject constructor(
             val nameIndex = it.getColumnIndex(OpenableColumns.DISPLAY_NAME)
             if (nameIndex == -1 || !it.moveToFirst()) return@use null
             it.getString(nameIndex)
+        }
+    }
+
+    private fun queryFileSize(uri: Uri): Long? {
+        val resolver = getApplication<DinoOrderApplication>().contentResolver
+        val cursor = resolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)
+        return cursor?.use {
+            val sizeIndex = it.getColumnIndex(OpenableColumns.SIZE)
+            if (sizeIndex == -1 || !it.moveToFirst()) return@use null
+            if (it.isNull(sizeIndex)) return@use null
+            it.getLong(sizeIndex)
         }
     }
 

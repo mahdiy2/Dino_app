@@ -1,5 +1,7 @@
 package com.dino.message.threadfeature.data.remote
 
+import android.content.Context
+import android.provider.OpenableColumns
 import com.dino.message.corefeature.data.remote.HaveRefreshTokenAPI
 import com.dino.message.corefeature.data.remote.HaveRefreshTokenAPIImpl
 import com.dino.message.corefeature.data.remote.util.HttpAPIUtil
@@ -33,10 +35,12 @@ import com.dino.message.threadfeature.domain.model.PostsPage
 import com.dino.message.threadfeature.domain.model.PlaylistPage
 import com.dino.message.threadfeature.domain.model.PlaylistTrackMutation
 import com.dino.message.threadfeature.domain.model.VoteResult
+import dagger.hilt.android.qualifiers.ApplicationContext
 import io.ktor.client.HttpClient
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.post
+import io.ktor.client.request.forms.InputProvider
 import io.ktor.client.request.forms.MultiPartFormDataContent
 import io.ktor.client.request.forms.formData
 import io.ktor.client.request.parameter
@@ -45,12 +49,15 @@ import io.ktor.http.ContentType
 import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
+import io.ktor.utils.io.streams.asInput
+import java.io.File
 import javax.inject.Inject
 
 class ThreadApiServiceImpl @Inject constructor(
     private val httpClient: HttpClient,
     private val sPrefManager: SPrefManager,
-    private val httpAPIUtil: HttpAPIUtil
+    private val httpAPIUtil: HttpAPIUtil,
+    @ApplicationContext private val appContext: Context,
 ) : ThreadApiService, HaveRefreshTokenAPI by HaveRefreshTokenAPIImpl(httpClient, sPrefManager) {
     companion object {
         private const val MAX_MEDIA_FILES_PER_POST = 8
@@ -103,13 +110,16 @@ class ThreadApiServiceImpl @Inject constructor(
                                         ?.takeIf { it.isNotBlank() }
                                         ?.let { append("track_artist", it) }
                                     mediaFiles.forEach { mediaFile ->
+                                        val fileName = mediaFile.fileName.ifBlank { "media_file" }
                                         append(
                                             key = "media[]",
-                                            value = mediaFile.bytes,
+                                            value = InputProvider(size = resolveFileSize(mediaFile)) {
+                                                openInputStream(mediaFile).asInput()
+                                            },
                                             headers = Headers.build {
                                                 append(
                                                     HttpHeaders.ContentDisposition,
-                                                    "form-data; name=\"media[]\"; filename=\"${mediaFile.fileName}\""
+                                                    "form-data; name=\"media[]\"; filename=\"$fileName\""
                                                 )
                                                 append(HttpHeaders.ContentType, mediaFile.mimeType)
                                             }
@@ -123,6 +133,35 @@ class ThreadApiServiceImpl @Inject constructor(
             },
             callRefreshTokenAPI = this::getToken
         )
+    }
+
+    private fun resolveFileSize(mediaFile: CreatePostMedia): Long? {
+        mediaFile.sizeBytes?.let { if (it >= 0) return it }
+        val uri = mediaFile.uri
+        if (uri.scheme == "file") {
+            val path = uri.path ?: return null
+            val file = File(path)
+            return if (file.exists()) file.length() else null
+        }
+        val cursor = appContext.contentResolver.query(uri, null, null, null, null)
+            ?: return null
+        return cursor.use {
+            if (!it.moveToFirst()) return@use null
+            val index = it.getColumnIndex(OpenableColumns.SIZE)
+            if (index >= 0 && !it.isNull(index)) it.getLong(index) else null
+        }
+    }
+
+    private fun openInputStream(mediaFile: CreatePostMedia): java.io.InputStream {
+        val uri = mediaFile.uri
+        if (uri.scheme == "file") {
+            val path = uri.path ?: error("File path is missing")
+            val file = File(path)
+            if (!file.exists()) error("File does not exist")
+            return file.inputStream()
+        }
+        return appContext.contentResolver.openInputStream(uri)
+            ?: error("Unable to open input stream")
     }
 
     override suspend fun getPosts(page: Int, limit: Int): Resource<PostsPage> =

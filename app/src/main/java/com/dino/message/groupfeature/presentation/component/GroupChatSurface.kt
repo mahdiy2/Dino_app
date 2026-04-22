@@ -1,6 +1,7 @@
 package com.dino.message.groupfeature.presentation.component
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -16,12 +17,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -38,6 +41,7 @@ import com.dino.message.corefeature.presentation.ui.theme.DPSmall
 import com.dino.message.groupfeature.domain.model.GroupMessageEntity
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import kotlinx.coroutines.flow.distinctUntilChanged
 
 @Composable
 fun GroupChatSurface(
@@ -46,6 +50,8 @@ fun GroupChatSurface(
     items: List<GroupMessageEntity>,
     topOverlaySpacerHeight: Dp = 0.dp,
     messageDeliveryStatuses: Map<String, MessageDeliveryStatus> = emptyMap(),
+    canLoadOlder: Boolean = false,
+    isLoadingOlder: Boolean = false,
     currentUsername: String,
     senderProfileImageUrls: Map<String, String?> = emptyMap(),
     onMessageClick: ((GroupMessageEntity, IntOffset, IntSize) -> Unit)? = null,
@@ -53,12 +59,38 @@ fun GroupChatSurface(
     onPostShareClick: ((Long) -> Unit)? = null,
     onMessageLongClick: ((GroupMessageEntity) -> Unit)? = null,
     onSwipeToReply: ((GroupMessageEntity) -> Unit)? = null,
+    onLoadOlder: (() -> Unit)? = null,
 ) {
     val itemCount = items.size
-    LaunchedEffect(itemCount) {
-        if (itemCount > 0 && state.firstVisibleItemIndex <= 1) {
+    val latestMessage = items.firstOrNull()
+    val latestMessageKey = latestMessage?.messageId
+    val latestIsMine = latestMessage?.sender == currentUsername
+    LaunchedEffect(latestMessageKey, latestIsMine) {
+        if (latestMessageKey == null) return@LaunchedEffect
+        val nearLatest = state.firstVisibleItemIndex <= 1
+        val shouldSnapToLatest = nearLatest || latestIsMine
+        if (shouldSnapToLatest && (state.firstVisibleItemIndex != 0 || state.firstVisibleItemScrollOffset != 0)) {
             state.animateScrollToItem(0)
         }
+    }
+    LaunchedEffect(state, canLoadOlder, isLoadingOlder, itemCount, onLoadOlder) {
+        if (onLoadOlder == null) return@LaunchedEffect
+        snapshotFlow {
+            if (!canLoadOlder || isLoadingOlder || itemCount == 0) {
+                false
+            } else {
+                val hasUserScrolled = state.firstVisibleItemIndex > 0 || state.firstVisibleItemScrollOffset > 0
+                val lastVisibleIndex = state.layoutInfo.visibleItemsInfo.maxOfOrNull { it.index } ?: 0
+                val threshold = (state.layoutInfo.totalItemsCount - 3).coerceAtLeast(0)
+                hasUserScrolled && lastVisibleIndex >= threshold
+            }
+        }
+            .distinctUntilChanged()
+            .collect { shouldLoad ->
+                if (shouldLoad) {
+                    onLoadOlder()
+                }
+            }
     }
     LazyColumn(
         modifier = modifier,
@@ -117,6 +149,18 @@ fun GroupChatSurface(
                             )
                         }
                     }
+                }
+            }
+        }
+        if (isLoadingOlder) {
+            item(key = "olderGroupHistoryLoading") {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = DPSmall),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
                 }
             }
         }

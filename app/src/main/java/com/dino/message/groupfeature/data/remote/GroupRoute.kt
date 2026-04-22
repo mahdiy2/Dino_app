@@ -9,5 +9,6 @@ sealed class GroupRoute(url: String) : BaseRoute(url) {
     data class GroupDetail(val groupId: Int) : GroupRoute("api/groups/$groupId")
     data class GroupMembers(val groupId: Int) : GroupRoute("api/groups/$groupId/members")
     data class GroupAttachments(val groupId: Int) : GroupRoute("api/groups/$groupId/attachments")
+    data class GroupHistory(val groupId: Int) : GroupRoute("api/messages/history/group/$groupId")
     object MutualFollowers : GroupRoute("api/groups/mutual-followers")
 }

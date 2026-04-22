@@ -36,9 +36,17 @@ class CrashReporter @Inject constructor(
     private val crashLogApiService: CrashLogApiService,
     private val sPrefManager: SPrefManager,
 ) {
+    private data class CrashBreadcrumb(
+        val timestampEpochMillis: Long,
+        val category: String,
+        val message: String,
+    )
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val isHandlerInstalled = AtomicBoolean(false)
     private val isFlushing = AtomicBoolean(false)
+    private val breadcrumbLock = Any()
+    private val breadcrumbs = ArrayDeque<CrashBreadcrumb>()
 
     fun installGlobalExceptionHandler() {
         if (!isHandlerInstalled.compareAndSet(false, true)) return
@@ -54,7 +62,118 @@ class CrashReporter @Inject constructor(
         }
     }
 
+    fun addBreadcrumb(
+        message: String,
+        category: String = DEFAULT_BREADCRUMB_CATEGORY,
+    ) {
+        val normalizedMessage = message.trim().trimTo(MAX_BREADCRUMB_MESSAGE_LENGTH)
+        if (normalizedMessage.isBlank()) return
+        val normalizedCategory = category.trim()
+            .ifBlank { DEFAULT_BREADCRUMB_CATEGORY }
+            .trimTo(MAX_BREADCRUMB_CATEGORY_LENGTH)
+
+        synchronized(breadcrumbLock) {
+            if (breadcrumbs.size >= MAX_BREADCRUMBS) {
+                if (breadcrumbs.isNotEmpty()) {
+                    breadcrumbs.removeFirst()
+                }
+            }
+            breadcrumbs.addLast(
+                CrashBreadcrumb(
+                    timestampEpochMillis = System.currentTimeMillis(),
+                    category = normalizedCategory,
+                    message = normalizedMessage
+                )
+            )
+        }
+    }
+
+    fun reportSocketOutboundQueueIssue(
+        issueType: String,
+        event: String,
+        reason: String,
+        attempts: Int,
+        dedupeKey: String?,
+    ) {
+        val now = System.currentTimeMillis()
+        val normalizedIssueType = issueType.trim().ifBlank { "SocketOutboundQueueIssue" }
+        val normalizedEvent = event.trim().ifBlank { "unknown_event" }
+        val normalizedReason = reason.trim().ifBlank { "unspecified" }
+        val normalizedDedupeKey = dedupeKey?.trim()?.takeIf { it.isNotBlank() }
+        addBreadcrumb(
+            category = "socket_queue",
+            message = "$normalizedIssueType event=$normalizedEvent reason=$normalizedReason attempts=$attempts"
+        )
+
+        val detailMessage = buildString {
+            append("event=")
+            append(normalizedEvent)
+            append(" reason=")
+            append(normalizedReason)
+            append(" attempts=")
+            append(attempts)
+            if (normalizedDedupeKey != null) {
+                append(" dedupe_key=")
+                append(normalizedDedupeKey)
+            }
+        }.trimTo(MAX_EXCEPTION_MESSAGE_LENGTH)
+
+        val stackTrace = buildString {
+            append("issue_type=")
+            append(normalizedIssueType)
+            append('\n')
+            append("event=")
+            append(normalizedEvent)
+            append('\n')
+            append("reason=")
+            append(normalizedReason)
+            append('\n')
+            append("attempts=")
+            append(attempts)
+            if (normalizedDedupeKey != null) {
+                append('\n')
+                append("dedupe_key=")
+                append(normalizedDedupeKey)
+            }
+        }.trimTo(MAX_STACK_TRACE_LENGTH)
+
+        val crashLog = CrashLogEntity(
+            eventId = UUID.randomUUID().toString(),
+            appVersion = BuildConfig.VERSION_NAME,
+            appVersionCode = BuildConfig.VERSION_CODE,
+            threadName = Thread.currentThread().name.ifBlank { "unknown" }.trimTo(MAX_THREAD_NAME_LENGTH),
+            exceptionType = normalizedIssueType.trimTo(MAX_EXCEPTION_TYPE_LENGTH),
+            exceptionMessage = detailMessage,
+            stackTrace = stackTrace,
+            occurredAtEpochMillis = now,
+            createdAtEpochMillis = now,
+            deviceModel = Build.MODEL.orEmpty().ifBlank { "unknown" }.trimTo(MAX_DEVICE_FIELD_LENGTH),
+            deviceManufacturer = Build.MANUFACTURER.orEmpty()
+                .ifBlank { "unknown" }
+                .trimTo(MAX_DEVICE_FIELD_LENGTH),
+            osVersion = Build.VERSION.RELEASE.orEmpty()
+                .ifBlank { "unknown" }
+                .trimTo(MAX_DEVICE_FIELD_LENGTH),
+            sdkInt = Build.VERSION.SDK_INT,
+            buildType = BuildConfig.BUILD_TYPE.trimTo(MAX_BUILD_TYPE_LENGTH),
+            username = sPrefManager.getUsername()?.trimTo(MAX_USERNAME_LENGTH),
+        )
+
+        scope.launch {
+            runCatching {
+                crashLogDao.insert(crashLog)
+                flushPendingLogsInternal(maxBatchSize = 5)
+            }.onFailure { error ->
+                Log.e(TAG, "Failed to persist socket queue issue log", error)
+            }
+        }
+    }
+
     private fun handleUncaughtException(thread: Thread, throwable: Throwable) {
+        addBreadcrumb(
+            category = "crash",
+            message = "Unhandled exception type=${throwable.javaClass.name} thread=${thread.name}"
+        )
         val crashLog = buildCrashLogEntity(thread = thread, throwable = throwable)
 
         runCatching {
@@ -141,13 +260,17 @@ class CrashReporter @Inject constructor(
 
     private fun buildCrashLogEntity(thread: Thread, throwable: Throwable): CrashLogEntity {
         val now = System.currentTimeMillis()
+        val breadcrumbSection = buildBreadcrumbSection()
         return CrashLogEntity(
             eventId = UUID.randomUUID().toString(),
             appVersion = BuildConfig.VERSION_NAME,
             appVersionCode = BuildConfig.VERSION_CODE,
             threadName = thread.name.ifBlank { "unknown" }.trimTo(MAX_THREAD_NAME_LENGTH),
             exceptionType = throwable.javaClass.name.trimTo(MAX_EXCEPTION_TYPE_LENGTH),
-            exceptionMessage = throwable.message?.trimTo(MAX_EXCEPTION_MESSAGE_LENGTH),
+            exceptionMessage = buildExceptionMessage(
+                original = throwable.message,
+                breadcrumbSection = breadcrumbSection
+            ),
             stackTrace = throwable.asStackTraceString().trimTo(MAX_STACK_TRACE_LENGTH),
             occurredAtEpochMillis = now,
             createdAtEpochMillis = now,
@@ -162,6 +285,64 @@ class CrashReporter @Inject constructor(
             buildType = BuildConfig.BUILD_TYPE.trimTo(MAX_BUILD_TYPE_LENGTH),
             username = sPrefManager.getUsername()?.trimTo(MAX_USERNAME_LENGTH),
         )
+    }
+
+    private fun buildBreadcrumbSection(): String? {
+        val snapshot = synchronized(breadcrumbLock) {
+            if (breadcrumbs.isEmpty()) return null
+            breadcrumbs.takeLast(MAX_BREADCRUMBS_IN_REPORT)
+        }
+
+        val builder = StringBuilder()
+        for (breadcrumb in snapshot) {
+            val line = buildString {
+                append(Instant.ofEpochMilli(breadcrumb.timestampEpochMillis).toString())
+                append(" [")
+                append(breadcrumb.category)
+                append("] ")
+                append(breadcrumb.message)
+            }
+
+            val additionalLength = if (builder.isEmpty()) line.length else line.length + 1
+            if (builder.length + additionalLength > MAX_BREADCRUMB_SECTION_LENGTH) {
+                break
+            }
+            if (builder.isNotEmpty()) {
+                builder.append('\n')
+            }
+            builder.append(line)
+        }
+
+        return builder.toString().takeIf { it.isNotBlank() }
+    }
+
+    private fun buildExceptionMessage(
+        original: String?,
+        breadcrumbSection: String?,
+    ): String? {
+        val normalizedOriginal = original?.trim()?.takeIf { it.isNotBlank() }
+        if (breadcrumbSection.isNullOrBlank()) {
+            return normalizedOriginal?.trimTo(MAX_EXCEPTION_MESSAGE_LENGTH)
+        }
+
+        val breadcrumbHeader = "Breadcrumbs:"
+        val breadcrumbBlock = "$breadcrumbHeader\n$breadcrumbSection"
+
+        if (normalizedOriginal.isNullOrBlank()) {
+            return breadcrumbBlock.trimTo(MAX_EXCEPTION_MESSAGE_LENGTH)
+        }
+
+        val separator = "\n\n"
+        val maxOriginalLength = (
+            MAX_EXCEPTION_MESSAGE_LENGTH -
+                separator.length -
+                breadcrumbBlock.length
+            ).coerceAtLeast(0)
+        val trimmedOriginal = normalizedOriginal.trimTo(maxOriginalLength)
+        if (trimmedOriginal.isBlank()) {
+            return breadcrumbBlock.trimTo(MAX_EXCEPTION_MESSAGE_LENGTH)
+        }
+        return "$trimmedOriginal$separator$breadcrumbBlock".trimTo(MAX_EXCEPTION_MESSAGE_LENGTH)
     }
 
     private fun CrashLogEntity.toUploadRequest(): CrashLogUploadRequest {
@@ -204,5 +385,11 @@ class CrashReporter @Inject constructor(
         private const val MAX_DEVICE_FIELD_LENGTH = 120
         private const val MAX_BUILD_TYPE_LENGTH = 40
         private const val MAX_USERNAME_LENGTH = 80
+        private const val MAX_BREADCRUMBS = 40
+        private const val MAX_BREADCRUMBS_IN_REPORT = 20
+        private const val MAX_BREADCRUMB_CATEGORY_LENGTH = 40
+        private const val MAX_BREADCRUMB_MESSAGE_LENGTH = 220
+        private const val MAX_BREADCRUMB_SECTION_LENGTH = 1_200
+        private const val DEFAULT_BREADCRUMB_CATEGORY = "app"
     }
 }

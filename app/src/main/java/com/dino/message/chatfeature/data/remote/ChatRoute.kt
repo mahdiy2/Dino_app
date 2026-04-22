@@ -4,6 +4,7 @@ import com.dino.message.corefeature.data.remote.BaseRoute
 
 sealed class ChatRoute(url: String) : BaseRoute(url){
     object GetInbox : ChatRoute("api/messages/inbox")
+    data class GetPrivateHistory(val chatId: String) : ChatRoute("api/messages/history/private/$chatId")
 
     object SendMessage : ChatRoute("api/messages/send")
 

@@ -6,6 +6,8 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.dino.message.chatfeature.data.db.MessageDao
 import com.dino.message.chatfeature.domain.model.MessageEntity
+import com.dino.message.corefeature.data.socket.SocketOutboundQueueDao
+import com.dino.message.corefeature.data.socket.SocketOutboundQueueEntity
 import com.dino.message.crashfeature.data.local.CrashLogDao
 import com.dino.message.crashfeature.data.local.CrashLogEntity
 import com.dino.message.groupfeature.data.db.GroupMessageDao
@@ -16,13 +18,15 @@ import com.dino.message.groupfeature.domain.model.GroupMessageEntity
         MessageEntity::class,
         GroupMessageEntity::class,
         CrashLogEntity::class,
+        SocketOutboundQueueEntity::class,
     ],
-    version = 9,
+    version = 12,
 )
 abstract class MessageDatabase : RoomDatabase() {
     abstract fun messageDao(): MessageDao
     abstract fun groupMessageDao(): GroupMessageDao
     abstract fun crashLogDao(): CrashLogDao
+    abstract fun socketOutboundQueueDao(): SocketOutboundQueueDao
 
     companion object {
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -132,6 +136,73 @@ abstract class MessageDatabase : RoomDatabase() {
                     """
                     CREATE INDEX IF NOT EXISTS index_crash_logs_queue_createdAtEpochMillis
                     ON crash_logs_queue (createdAtEpochMillis)
+                    """.trimIndent()
+                )
+            }
+        }
+
+        val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE INDEX IF NOT EXISTS index_messages_chatId
+                    ON messages (chatId)
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    CREATE INDEX IF NOT EXISTS index_group_messages_groupId
+                    ON group_messages (groupId)
+                    """.trimIndent()
+                )
+            }
+        }
+
+        val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE INDEX IF NOT EXISTS index_messages_chatId_timestamp_id
+                    ON messages (chatId, timestamp, id)
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    CREATE INDEX IF NOT EXISTS index_group_messages_groupId_timestamp_id
+                    ON group_messages (groupId, timestamp, id)
+                    """.trimIndent()
+                )
+            }
+        }
+
+        val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS socket_outbound_queue (
+                        queueId TEXT NOT NULL,
+                        event TEXT NOT NULL,
+                        ownerUsername TEXT NOT NULL,
+                        payloadType TEXT NOT NULL,
+                        payloadBody TEXT,
+                        dedupeKey TEXT,
+                        attempts INTEGER NOT NULL,
+                        nextAttemptAtMs INTEGER NOT NULL,
+                        createdAtMs INTEGER NOT NULL,
+                        PRIMARY KEY(queueId)
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    CREATE INDEX IF NOT EXISTS index_socket_outbound_queue_nextAttemptAtMs
+                    ON socket_outbound_queue (nextAttemptAtMs)
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    CREATE UNIQUE INDEX IF NOT EXISTS index_socket_outbound_queue_dedupeKey
+                    ON socket_outbound_queue (dedupeKey)
                     """.trimIndent()
                 )
             }

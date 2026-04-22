@@ -10,7 +10,9 @@ import android.media.MediaMetadata
 import android.media.session.MediaSession
 import android.media.session.PlaybackState
 import android.os.Build
+import android.os.Bundle
 import android.os.IBinder
+import android.util.Log
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.net.toUri
 import androidx.media3.common.AudioAttributes
@@ -65,6 +67,10 @@ class MusicPlaybackService : Service() {
         const val EXTRA_POSITION_MS = "music.extra.POSITION_MS"
         const val EXTRA_DELTA_MS = "music.extra.DELTA_MS"
         const val EXTRA_QUEUE_TRACKS = "music.extra.QUEUE_TRACKS"
+        const val EXTRA_QUEUE_TRACK_BUNDLES = "music.extra.QUEUE_TRACK_BUNDLES"
+        const val EXTRA_QUEUE_ITEM_TRACK_URL = "music.extra.QUEUE_ITEM_TRACK_URL"
+        const val EXTRA_QUEUE_ITEM_TITLE = "music.extra.QUEUE_ITEM_TITLE"
+        const val EXTRA_QUEUE_ITEM_ARTIST = "music.extra.QUEUE_ITEM_ARTIST"
         const val EXTRA_QUEUE_START_INDEX = "music.extra.QUEUE_START_INDEX"
         const val EXTRA_ENABLED = "music.extra.ENABLED"
 
@@ -72,6 +78,7 @@ class MusicPlaybackService : Service() {
         private const val NOTIFICATION_ID = 1066
         private const val MUSIC_CACHE_MAX_BYTES = 256L * 1024L * 1024L
         private const val IDLE_SERVICE_STOP_DELAY_MS = 90_000L
+        private const val TAG = "MusicPlaybackService"
 
         private val _playbackState = MutableStateFlow(MusicPlaybackUiState())
         val playbackState: StateFlow<MusicPlaybackUiState> = _playbackState.asStateFlow()
@@ -136,7 +143,11 @@ class MusicPlaybackService : Service() {
         }
 
         if (action.requiresImmediateForeground()) {
-            startForeground(NOTIFICATION_ID, buildNotification(_playbackState.value))
+            val startedInForeground = startForegroundSafely(buildNotification(_playbackState.value))
+            if (!startedInForeground) {
+                stopPlaybackAndService()
+                return START_NOT_STICKY
+            }
         }
 
         when (action) {
@@ -256,12 +267,7 @@ class MusicPlaybackService : Service() {
     }
 
     private fun handlePlayPlaylistIntent(intent: Intent) {
-        val incomingQueue = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            intent.getParcelableArrayListExtra(EXTRA_QUEUE_TRACKS, PlaybackQueueItem::class.java)
-        } else {
-            @Suppress("DEPRECATION")
-            intent.getParcelableArrayListExtra(EXTRA_QUEUE_TRACKS)
-        }.orEmpty()
+        val incomingQueue = readQueueFromIntent(intent)
 
         val sanitizedQueue = incomingQueue.mapNotNull { queueItem ->
             val normalizedUrl = queueItem.trackUrl.trim()
@@ -279,6 +285,49 @@ class MusicPlaybackService : Service() {
         playbackOrder = buildInitialPlaybackOrder(startIndex)
         currentPlaybackOrderPosition = 0
         playQueueIndex(playbackOrder.firstOrNull() ?: startIndex)
+    }
+
+    private fun readQueueFromIntent(intent: Intent): List<PlaybackQueueItem> {
+        intent.setExtrasClassLoader(PlaybackQueueItem::class.java.classLoader)
+
+        val queueFromBundles = runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                intent.getParcelableArrayListExtra(EXTRA_QUEUE_TRACK_BUNDLES, Bundle::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                intent.getParcelableArrayListExtra<Bundle>(EXTRA_QUEUE_TRACK_BUNDLES)
+            }.orEmpty()
+        }.getOrElse { throwable ->
+            Log.w(TAG, "Ignoring malformed bundled playlist payload", throwable)
+            emptyList()
+        }
+
+        if (queueFromBundles.isNotEmpty()) {
+            return queueFromBundles.mapNotNull { itemBundle ->
+                val trackUrl = itemBundle.getString(EXTRA_QUEUE_ITEM_TRACK_URL)?.trim().orEmpty()
+                if (trackUrl.isBlank()) {
+                    null
+                } else {
+                    PlaybackQueueItem(
+                        trackUrl = trackUrl,
+                        title = itemBundle.getString(EXTRA_QUEUE_ITEM_TITLE),
+                        artist = itemBundle.getString(EXTRA_QUEUE_ITEM_ARTIST)
+                    )
+                }
+            }
+        }
+
+        return runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                intent.getParcelableArrayListExtra(EXTRA_QUEUE_TRACKS, PlaybackQueueItem::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                intent.getParcelableArrayListExtra<PlaybackQueueItem>(EXTRA_QUEUE_TRACKS)
+            }.orEmpty()
+        }.getOrElse { throwable ->
+            Log.w(TAG, "Ignoring malformed playlist payload", throwable)
+            emptyList()
+        }
     }
 
     private fun handleToggleIntent(intent: Intent) {
@@ -538,7 +587,9 @@ class MusicPlaybackService : Service() {
         val notification = buildNotification(state)
         val keepForeground = state.isPlaying || state.isBuffering
         if (keepForeground) {
-            startForeground(NOTIFICATION_ID, notification)
+            if (!startForegroundSafely(notification)) {
+                notificationManager.notify(NOTIFICATION_ID, notification)
+            }
         } else {
             stopForeground(STOP_FOREGROUND_DETACH)
             notificationManager.notify(NOTIFICATION_ID, notification)
@@ -555,30 +606,13 @@ class MusicPlaybackService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val rewindIntent = PendingIntent.getService(
-            this,
-            5011,
-            serviceIntent(ACTION_REWIND_10),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        val rewindIntent = buildServicePendingIntent(5011, ACTION_REWIND_10)
+        val toggleIntent = buildServicePendingIntent(
+            requestCode = 5012,
+            action = if (state.isPlaying) ACTION_PAUSE else ACTION_RESUME
         )
-        val toggleIntent = PendingIntent.getService(
-            this,
-            5012,
-            serviceIntent(if (state.isPlaying) ACTION_PAUSE else ACTION_RESUME),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        val forwardIntent = PendingIntent.getService(
-            this,
-            5013,
-            serviceIntent(ACTION_FORWARD_10),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        val stopIntent = PendingIntent.getService(
-            this,
-            5014,
-            serviceIntent(ACTION_STOP),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+        val forwardIntent = buildServicePendingIntent(5013, ACTION_FORWARD_10)
+        val stopIntent = buildServicePendingIntent(5014, ACTION_STOP)
 
         val builder = Notification.Builder(this, NOTIFICATION_CHANNEL_ID)
             .setContentTitle(state.title ?: "Music track")
@@ -633,6 +667,16 @@ class MusicPlaybackService : Service() {
     private fun serviceIntent(action: String): Intent {
         return Intent(this, MusicPlaybackService::class.java).apply {
             this.action = action
+        }
+    }
+
+    private fun buildServicePendingIntent(requestCode: Int, action: String): PendingIntent {
+        val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        val intent = serviceIntent(action)
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && action.requiresImmediateForeground()) {
+            PendingIntent.getForegroundService(this, requestCode, intent, flags)
+        } else {
+            PendingIntent.getService(this, requestCode, intent, flags)
         }
     }
 
@@ -708,6 +752,29 @@ class MusicPlaybackService : Service() {
     private fun cancelIdleStop() {
         idleStopJob?.cancel()
         idleStopJob = null
+    }
+
+    private fun startForegroundSafely(notification: Notification): Boolean {
+        return runCatching {
+            startForeground(NOTIFICATION_ID, notification)
+            true
+        }.getOrElse { throwable ->
+            val runtimeException = throwable as? RuntimeException
+            if (runtimeException != null && runtimeException.isForegroundStartBlocked()) {
+                Log.w(TAG, "Foreground start not allowed right now", runtimeException)
+                false
+            } else if (runtimeException is IllegalStateException) {
+                Log.w(TAG, "Foreground start failed due to illegal service state", runtimeException)
+                false
+            } else {
+                throw throwable
+            }
+        }
+    }
+
+    private fun RuntimeException.isForegroundStartBlocked(): Boolean {
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+            javaClass.name == "android.app.ForegroundServiceStartNotAllowedException"
     }
 
     private fun Long?.safeDuration(): Long {

@@ -1,9 +1,11 @@
 package com.dino.message.authfeature.domain.usecase
 
 import com.dino.message.authfeature.domain.model.LoginUser
+import com.dino.message.authfeature.domain.model.KeyStatusUser
 import com.dino.message.authfeature.domain.model.RegisterConfirmUser
 import com.dino.message.authfeature.domain.model.RegisterStartUser
 import com.dino.message.authfeature.domain.model.RegisterUser
+import com.dino.message.authfeature.domain.model.RotatePublicKeyUser
 import com.dino.message.authfeature.domain.repository.AuthRepository
 import com.dino.message.corefeature.domain.model.asStringResourceContent
 import com.dino.message.corefeature.presentation.util.Resource
@@ -68,6 +70,14 @@ class ConfirmRegistrationUseCaseTest {
 
         override suspend fun login(userName: String, pass: String): Resource<LoginUser> {
             return Resource.Success(LoginUser("", ""))
+        }
+
+        override suspend fun getKeyStatus(): Resource<KeyStatusUser> {
+            return Resource.Success(KeyStatusUser(hasServerPublicKey = true))
+        }
+
+        override suspend fun rotatePublicKey(publicKey: String): Resource<RotatePublicKeyUser> {
+            return Resource.Success(RotatePublicKeyUser())
         }
     }
 }

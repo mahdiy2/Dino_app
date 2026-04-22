@@ -2,6 +2,7 @@ package com.dino.message.threadfeature.presentation.music
 
 import android.content.Context
 import android.content.Intent
+import android.os.Bundle
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.flow.StateFlow
 
@@ -45,11 +46,22 @@ object MusicPlaybackManager {
     ) {
         if (tracks.isEmpty()) return
         val normalizedIndex = startIndex.coerceIn(0, tracks.lastIndex)
+        val queueBundles = ArrayList<Bundle>(tracks.size).apply {
+            tracks.forEach { track ->
+                add(
+                    Bundle().apply {
+                        putString(MusicPlaybackService.EXTRA_QUEUE_ITEM_TRACK_URL, track.trackUrl)
+                        putString(MusicPlaybackService.EXTRA_QUEUE_ITEM_TITLE, track.title)
+                        putString(MusicPlaybackService.EXTRA_QUEUE_ITEM_ARTIST, track.artist)
+                    }
+                )
+            }
+        }
         val intent = Intent(context.applicationContext, MusicPlaybackService::class.java).apply {
             action = MusicPlaybackService.ACTION_PLAY_PLAYLIST
             putParcelableArrayListExtra(
-                MusicPlaybackService.EXTRA_QUEUE_TRACKS,
-                ArrayList(tracks)
+                MusicPlaybackService.EXTRA_QUEUE_TRACK_BUNDLES,
+                queueBundles
             )
             putExtra(MusicPlaybackService.EXTRA_QUEUE_START_INDEX, normalizedIndex)
         }

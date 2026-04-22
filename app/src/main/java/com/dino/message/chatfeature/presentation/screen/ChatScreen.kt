@@ -102,6 +102,8 @@ fun ChatScreen(
     val viewModel: ChatViewModel = hiltViewModel()
     val isPeerOnline by viewModel.isPeerOnline.collectAsState()
     val isUploading by viewModel.isUploading.collectAsState()
+    val isLoadingOlderHistory by viewModel.isLoadingOlderHistory.collectAsState()
+    val canLoadOlderHistory by viewModel.canLoadOlderHistory.collectAsState()
     val uploadError by viewModel.uploadError.collectAsState()
     val messages by viewModel.messages.collectAsState()
     val messageDeliveryStatuses by viewModel.messageDeliveryStatuses.collectAsState()
@@ -118,6 +120,7 @@ fun ChatScreen(
     val showBlockedDialog by viewModel.showBlockedDialog.collectAsState()
     val blockedDialogMessage by viewModel.blockedDialogMessage.collectAsState()
     val debugListState = rememberLazyListState()
+    val chatListState = rememberLazyListState()
     val isRecording by viewModel.isRecording.collectAsState()
     val recordingDurationMs by viewModel.recordingDurationMs.collectAsState()
     val replyingTo by viewModel.replyingTo.collectAsState()
@@ -553,9 +556,12 @@ fun ChatScreen(
                             Box(modifier = Modifier.fillMaxSize()) {
                                 ChatSurface(
                                     modifier = Modifier.fillMaxSize(),
+                                    state = chatListState,
                                     items = messages,
                                     topOverlaySpacerHeight = reservedNowPlayingHeight,
                                     messageDeliveryStatuses = messageDeliveryStatuses,
+                                    canLoadOlder = canLoadOlderHistory,
+                                    isLoadingOlder = isLoadingOlderHistory,
                                     sender = chatId,
                                     onMessageClick = { message, offset, size ->
                                         selectedMessage = message
@@ -581,7 +587,8 @@ fun ChatScreen(
                                     },
                                     onPostShareClick = { postId ->
                                         viewModel.openSharedPost(postId)
-                                    }
+                                    },
+                                    onLoadOlder = viewModel::loadOlderHistoryIfNeeded
                                 )
                             }
                         }

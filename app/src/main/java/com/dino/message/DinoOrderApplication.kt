@@ -3,6 +3,7 @@ package com.dino.message
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Application
+import android.app.Activity
 import android.os.Bundle
 import android.os.Build
 import dagger.hilt.android.HiltAndroidApp
@@ -31,7 +32,8 @@ class DinoOrderApplication: Application() {
      */
     val uIEventFlow: SharedFlow<UIEvent> = mutableUIEventFlow
 
-    val inAppNotificationManager: InAppNotificationManager by lazy { InAppNotificationManager(this) }
+    @Inject
+    lateinit var inAppNotificationManager: InAppNotificationManager
     private var startedActivitiesCount: Int = 0
 
     override fun onCreate() {
@@ -39,6 +41,10 @@ class DinoOrderApplication: Application() {
         if (isCrashUiProcess()) {
             return
         }
+        crashReporter.addBreadcrumb(
+            category = "lifecycle",
+            message = "Application created version=${BuildConfig.VERSION_NAME} buildType=${BuildConfig.BUILD_TYPE}"
+        )
         crashReporter.installGlobalExceptionHandler()
         crashReporter.flushPendingLogsAsync()
         createNotificationChannel()
@@ -72,26 +78,51 @@ class DinoOrderApplication: Application() {
 
     private fun registerAppBackgroundTracker() {
         registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
-            override fun onActivityStarted(activity: android.app.Activity) {
+            override fun onActivityStarted(activity: Activity) {
                 startedActivitiesCount += 1
+                crashReporter.addBreadcrumb(
+                    category = "lifecycle",
+                    message = "Activity started=${activity.simpleScreenName()} activeCount=$startedActivitiesCount"
+                )
             }
 
-            override fun onActivityStopped(activity: android.app.Activity) {
+            override fun onActivityStopped(activity: Activity) {
                 if (activity.isChangingConfigurations) return
 
                 startedActivitiesCount = (startedActivitiesCount - 1).coerceAtLeast(0)
+                crashReporter.addBreadcrumb(
+                    category = "lifecycle",
+                    message = "Activity stopped=${activity.simpleScreenName()} activeCount=$startedActivitiesCount"
+                )
                 if (startedActivitiesCount == 0) {
+                    crashReporter.addBreadcrumb(
+                        category = "lifecycle",
+                        message = "Application moved to background"
+                    )
                     ActiveChatTracker.clearActiveChat()
                     ActiveGroupTracker.clearActiveGroup()
                     inAppNotificationManager.disconnect()
                 }
             }
 
-            override fun onActivityCreated(activity: android.app.Activity, savedInstanceState: Bundle?) = Unit
-            override fun onActivityResumed(activity: android.app.Activity) = Unit
-            override fun onActivityPaused(activity: android.app.Activity) = Unit
-            override fun onActivitySaveInstanceState(activity: android.app.Activity, outState: Bundle) = Unit
-            override fun onActivityDestroyed(activity: android.app.Activity) = Unit
+            override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) = Unit
+
+            override fun onActivityResumed(activity: Activity) {
+                crashReporter.addBreadcrumb(
+                    category = "navigation",
+                    message = "Visible screen=${activity.simpleScreenName()}"
+                )
+            }
+
+            override fun onActivityPaused(activity: Activity) = Unit
+            override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
+            override fun onActivityDestroyed(activity: Activity) = Unit
         })
+    }
+
+    private fun Activity.simpleScreenName(): String {
+        val simpleName = javaClass.simpleName
+        if (simpleName.isNotBlank()) return simpleName
+        return javaClass.name
     }
 }

@@ -7,6 +7,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -61,9 +62,12 @@ fun GroupChatScreen(
     val messages by viewModel.messages.collectAsState()
     val messageDeliveryStatuses by viewModel.messageDeliveryStatuses.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val isLoadingOlderHistory by viewModel.isLoadingOlderHistory.collectAsState()
+    val canLoadOlderHistory by viewModel.canLoadOlderHistory.collectAsState()
     val isUploading by viewModel.isUploading.collectAsState()
     val uploadError by viewModel.uploadError.collectAsState()
     val socketError by viewModel.socketError.collectAsState()
+    val exitChatReason by viewModel.exitChatReason.collectAsState()
     val decryptionError by viewModel.decryptionError.collectAsState()
     val isRecording by viewModel.isRecording.collectAsState()
     val recordingDurationMs by viewModel.recordingDurationMs.collectAsState()
@@ -79,6 +83,7 @@ fun GroupChatScreen(
     val density = LocalDensity.current
     val nowPlayingHeightDp = with(density) { nowPlayingHeightPx.toDp() }
     val reservedNowPlayingHeight = if (!hasNowPlaying) 0.dp else nowPlayingHeightDp.takeIf { it > 0.dp } ?: 64.dp
+    val groupListState = rememberLazyListState()
 
     var mediaViewerUrl by remember { mutableStateOf<String?>(null) }
     var mediaViewerIsVideo by remember { mutableStateOf(false) }
@@ -98,6 +103,13 @@ fun GroupChatScreen(
         socketError?.let {
             snackbarHostState.showSnackbar(it)
             viewModel.dismissSocketError()
+        }
+    }
+    LaunchedEffect(exitChatReason) {
+        exitChatReason?.let {
+            Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+            viewModel.consumeExitChatReason()
+            viewModel.navigateUp()
         }
     }
     LaunchedEffect(decryptionError) {
@@ -349,9 +361,12 @@ fun GroupChatScreen(
                         Box(modifier = Modifier.fillMaxSize()) {
                             GroupChatSurface(
                                 modifier = Modifier.fillMaxSize(),
+                                state = groupListState,
                                 items = messages,
                                 topOverlaySpacerHeight = reservedNowPlayingHeight,
                                 messageDeliveryStatuses = messageDeliveryStatuses,
+                                canLoadOlder = canLoadOlderHistory,
+                                isLoadingOlder = isLoadingOlderHistory,
                                 currentUsername = viewModel.getMyUsername(),
                                 senderProfileImageUrls = memberProfileImageUrls,
                                 onMessageClick = { msg, offset, size ->
@@ -370,7 +385,8 @@ fun GroupChatScreen(
                                 onSwipeToReply = { viewModel.setReplyingTo(it) },
                                 onPostShareClick = { postId ->
                                     viewModel.openSharedPost(postId)
-                                }
+                                },
+                                onLoadOlder = viewModel::loadOlderHistoryIfNeeded
                             )
                         }
                     }
@@ -378,9 +394,12 @@ fun GroupChatScreen(
 
                 else -> GroupChatSurface(
                     modifier = Modifier.fillMaxSize(),
+                    state = groupListState,
                     items = messages,
                     topOverlaySpacerHeight = reservedNowPlayingHeight,
                     messageDeliveryStatuses = messageDeliveryStatuses,
+                    canLoadOlder = canLoadOlderHistory,
+                    isLoadingOlder = isLoadingOlderHistory,
                     currentUsername = viewModel.getMyUsername(),
                     senderProfileImageUrls = memberProfileImageUrls,
                     onMessageClick = { msg, offset, size ->
@@ -399,7 +418,8 @@ fun GroupChatScreen(
                     onSwipeToReply = { viewModel.setReplyingTo(it) },
                     onPostShareClick = { postId ->
                         viewModel.openSharedPost(postId)
-                    }
+                    },
+                    onLoadOlder = viewModel::loadOlderHistoryIfNeeded
                 )
             }
 

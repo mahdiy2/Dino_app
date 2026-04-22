@@ -1,7 +1,10 @@
 package com.dino.message.profilefeature.domain.model
 
+import android.net.Uri
+
 data class ProfileUpdateImage(
-    val bytes: ByteArray,
+    val uri: Uri,
     val fileName: String,
-    val mimeType: String
+    val mimeType: String,
+    val sizeBytes: Long? = null,
 )

@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Done
 import androidx.compose.material.icons.rounded.DoneAll
+import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.Forum
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -176,17 +177,12 @@ fun ChatContainer(
                 Spacer(modifier = Modifier.height(DPSmall))
             }
             val showStatus = sent && deliveryStatus != null
-            if (effectiveMessageType == "text" && text.isNotBlank() && showStatus) {
-                Row(verticalAlignment = Alignment.Bottom) {
-                    DeliveryStatusIcon(deliveryStatus = deliveryStatus)
-                    Spacer(modifier = Modifier.width(6.dp))
-                    CompositionLocalProvider(LocalLayoutDirection provides rememberLayoutDirection(text)) {
-                        Text(
-                            text = text,
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                    }
-                }
+            if (effectiveMessageType == "text" && text.isNotBlank()) {
+                TextWithDeliveryStatus(
+                    text = text,
+                    sent = sent,
+                    deliveryStatus = deliveryStatus,
+                )
             } else {
                 when (effectiveMessageType) {
                     "image" -> ImageBubble(
@@ -226,11 +222,53 @@ fun ChatContainer(
                     }
                 }
             }
-            if (showStatus && effectiveMessageType != "text") {
+            if (sent && effectiveMessageType != "text") {
                 Spacer(modifier = Modifier.height(4.dp))
-                Row(modifier = Modifier.align(Alignment.Start)) {
-                    DeliveryStatusIcon(deliveryStatus = deliveryStatus)
+                Row(modifier = Modifier.align(Alignment.End)) {
+                    Box(
+                        modifier = Modifier.width(14.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (showStatus) {
+                            DeliveryStatusIcon(deliveryStatus = deliveryStatus)
+                        }
+                    }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TextWithDeliveryStatus(
+    text: String,
+    sent: Boolean,
+    deliveryStatus: MessageDeliveryStatus?,
+) {
+    if (!sent) {
+        CompositionLocalProvider(LocalLayoutDirection provides rememberLayoutDirection(text)) {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodyLarge
+            )
+        }
+        return
+    }
+
+    Row(verticalAlignment = Alignment.Bottom) {
+        CompositionLocalProvider(LocalLayoutDirection provides rememberLayoutDirection(text)) {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodyLarge
+            )
+        }
+        Spacer(modifier = Modifier.width(6.dp))
+        Box(
+            modifier = Modifier.width(14.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            if (deliveryStatus != null) {
+                DeliveryStatusIcon(deliveryStatus = deliveryStatus)
             }
         }
     }
@@ -300,20 +338,33 @@ private fun PostShareBubble(
 
 @Composable
 private fun DeliveryStatusIcon(deliveryStatus: MessageDeliveryStatus) {
+    val isDelivered = deliveryStatus == MessageDeliveryStatus.DELIVERED
+    val isSeen = deliveryStatus == MessageDeliveryStatus.SEEN
+    val isFailed = deliveryStatus == MessageDeliveryStatus.FAILED
     Icon(
-        imageVector = if (deliveryStatus == MessageDeliveryStatus.SEEN) {
+        imageVector = if (isFailed) {
+            Icons.Rounded.ErrorOutline
+        } else if (isDelivered || isSeen) {
             Icons.Rounded.DoneAll
         } else {
             Icons.Rounded.Done
         },
-        contentDescription = if (deliveryStatus == MessageDeliveryStatus.SEEN) {
+        contentDescription = if (isFailed) {
+            "Failed"
+        } else if (isSeen) {
             "Seen"
+        } else if (isDelivered) {
+            "Delivered"
         } else {
             "Sent"
         },
         modifier = Modifier.size(14.dp),
-        tint = if (deliveryStatus == MessageDeliveryStatus.SEEN) {
+        tint = if (isFailed) {
+            MaterialTheme.colorScheme.error
+        } else if (isSeen) {
             MaterialTheme.colorScheme.primary
+        } else if (isDelivered) {
+            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f)
         } else {
             MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
         }

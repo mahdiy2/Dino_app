@@ -7,7 +7,11 @@ package com.dino.message.chatfeature.domain.model
 
  @Entity(
      tableName = "messages",
-     indices = [Index(value = ["messageId"], unique = true)]
+     indices = [
+         Index(name = "index_messages_messageId", value = ["messageId"], unique = true),
+         Index(name = "index_messages_chatId", value = ["chatId"]),
+         Index(name = "index_messages_chatId_timestamp_id", value = ["chatId", "timestamp", "id"]),
+     ]
  )
  data class MessageEntity(
      @PrimaryKey(autoGenerate = true) val id: Int = 0,

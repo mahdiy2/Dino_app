@@ -8,12 +8,18 @@ import com.dino.message.chatfeature.data.remote.dto.PendingMessage
 import com.dino.message.chatfeature.data.remote.dto.UnreadResponse
 import com.dino.message.chatfeature.domain.model.Inbox
 import com.dino.message.chatfeature.domain.model.MessageEntity
+import com.dino.message.chatfeature.domain.model.PrivateHistoryPage
 import com.dino.message.chatfeature.domain.model.ReceiverPublicKey
 import com.dino.message.chatfeature.domain.model.SendMessage
 import com.dino.message.corefeature.presentation.util.Resource
 
 interface ChatRepository {
     suspend fun getInbox(): Resource<List<Inbox>?>
+    suspend fun getPrivateHistory(
+        chatId: String,
+        limit: Int,
+        before: String? = null,
+    ): Resource<PrivateHistoryPage>
 
     suspend fun getReceiverPublicKey(username: String): Resource<ReceiverPublicKey>
 
@@ -22,7 +28,9 @@ interface ChatRepository {
     suspend fun uploadAttachment(fileUri: Uri): Resource<MessageAttachment>
 
     suspend fun saveMessage(message: MessageEntity)
-    suspend fun getMessages(chatId: String): List<MessageEntity>
+    suspend fun getMessages(chatId: String, limit: Int, offset: Int = 0): List<MessageEntity>
+    suspend fun getMessageCount(chatId: String): Int
+    suspend fun upsertMessagesByMessageId(messages: List<MessageEntity>)
     suspend fun clearMessages(chatId: String)
     suspend fun deleteMessageByLocalId(localId: Int)
     suspend fun deleteMessageByMessageId(messageId: String)

@@ -2,112 +2,86 @@ package com.dino.message.chatfeature.data.notification
 
 import android.content.Context
 import android.util.Log
-import com.dino.message.BuildConfig
-import io.socket.client.IO
-import io.socket.client.Socket
+import com.dino.message.corefeature.data.socket.AppSocketManager
+import dagger.hilt.android.qualifiers.ApplicationContext
 import org.json.JSONObject
+import javax.inject.Inject
+import javax.inject.Singleton
 
-class InAppNotificationManager(
-    private val context: Context
+@Singleton
+class InAppNotificationManager @Inject constructor(
+    @ApplicationContext private val context: Context,
+    private val appSocketManager: AppSocketManager,
 ) {
     companion object {
         private const val TAG = "InAppNotifManager"
+        private const val LISTENER_OWNER = "InAppNotificationManager"
+        private const val PRIVATE_NOTIFICATION_CHANNEL = "private"
+        private const val PRIVATE_DEDUPE_PREFS = "private_notification_dedupe"
+        private const val PRIVATE_DEDUPE_PREFS_KEY = "message_ids"
+        private const val PRIVATE_DEDUPE_TTL_MS = 30 * 60 * 1000L
+        private const val PRIVATE_DEDUPE_MAX_ENTRIES = 4_000
     }
 
-    private var socket: Socket? = null
-    private var isConnected = false
-    private var isConnecting = false
+    private val privateMessageDeduper = MessageNotificationDeduper(
+        ttlMs = PRIVATE_DEDUPE_TTL_MS,
+        maxEntries = PRIVATE_DEDUPE_MAX_ENTRIES,
+        snapshotLoader = ::loadPrivateNotificationSnapshot,
+        snapshotSaver = ::savePrivateNotificationSnapshot,
+    )
 
     fun connect(token: String) {
-        if ((isConnected || isConnecting) && socket != null) {
-            Log.d(TAG, "Already connected, skipping")
-            return
-        }
-
-        disconnect()
-
         val cleanToken = token.removePrefix("Bearer ").trim()
         if (cleanToken.isBlank()) {
             Log.w(TAG, "Token is blank, cannot connect")
             return
         }
-
-        val baseUrl = BuildConfig.BASE_URL.trimEnd('/')
-
-        val opts = IO.Options.builder()
-            .setForceNew(true)
-            .setMultiplex(false)
-            .setReconnection(true)
-            .setReconnectionAttempts(Int.MAX_VALUE)
-            .setReconnectionDelay(2_000)
-            .setReconnectionDelayMax(15_000)
-            .setTimeout(20_000)
-            .setPath("/socket.io/")
-            .setTransports(arrayOf("websocket", "polling"))
-            .setAuth(mapOf("token" to cleanToken))
-            .build()
-
-        try {
-            val createdSocket = IO.socket(baseUrl, opts)
-            registerListeners(createdSocket)
-            socket = createdSocket
-            isConnecting = true
-            createdSocket.connect()
-            Log.d(TAG, "Socket connecting to $baseUrl")
-        } catch (e: Exception) {
-            isConnecting = false
-            Log.e(TAG, "Failed to create socket", e)
-        }
+        registerListeners()
+        appSocketManager.connect()
     }
 
     fun disconnect() {
-        socket?.off()
-        socket?.disconnect()
-        socket = null
-        isConnected = false
-        isConnecting = false
+        appSocketManager.disconnect(clearListeners = false)
     }
 
-    private fun registerListeners(createdSocket: Socket) {
-        createdSocket.on(Socket.EVENT_CONNECT) {
-            isConnected = true
-            isConnecting = false
+    fun clearPrivateMessageNotificationDedupe() {
+        privateMessageDeduper.clear()
+    }
+
+    private fun registerListeners() {
+        appSocketManager.registerListener(LISTENER_OWNER, io.socket.client.Socket.EVENT_CONNECT) {
             Log.d(TAG, "Socket connected for notifications")
         }
 
-        createdSocket.on(Socket.EVENT_DISCONNECT) {
-            isConnected = false
-            isConnecting = false
+        appSocketManager.registerListener(LISTENER_OWNER, io.socket.client.Socket.EVENT_DISCONNECT) {
             Log.d(TAG, "Socket disconnected")
         }
 
-        createdSocket.on(Socket.EVENT_CONNECT_ERROR) { args ->
-            isConnected = false
-            isConnecting = false
+        appSocketManager.registerListener(LISTENER_OWNER, io.socket.client.Socket.EVENT_CONNECT_ERROR) { args ->
             Log.w(TAG, "Socket connect error: ${args.firstOrNull()}")
         }
 
-        createdSocket.on("pending_messages") { args ->
+        appSocketManager.registerListener(LISTENER_OWNER, "pending_messages") { args ->
             handlePendingMessages(args)
         }
 
-        createdSocket.on("new_notification") { args ->
+        appSocketManager.registerListener(LISTENER_OWNER, "new_notification") { args ->
             handleNewNotification(args)
         }
 
-        createdSocket.on("new_message") { args ->
+        appSocketManager.registerListener(LISTENER_OWNER, "new_message") { args ->
             handleNewMessage(args)
         }
 
-        createdSocket.on("pending_group_messages") { args ->
+        appSocketManager.registerListener(LISTENER_OWNER, "pending_group_messages") { args ->
             handlePendingGroupMessages(args)
         }
 
-        createdSocket.on("activity_notification") { args ->
+        appSocketManager.registerListener(LISTENER_OWNER, "activity_notification") { args ->
             handleActivityNotification(args)
         }
 
-        createdSocket.on("pending_activity_notifications") { args ->
+        appSocketManager.registerListener(LISTENER_OWNER, "pending_activity_notifications") { args ->
             handlePendingActivityNotifications(args)
         }
     }
@@ -127,6 +101,10 @@ class InAppNotificationManager(
                 val msg = messagesArray.optJSONObject(i) ?: continue
                 val sender = msg.optString("from", "")
                 if (sender.isNotBlank()) {
+                    val messageId = msg.optString("message_id", "").trim()
+                    if (!privateMessageDeduper.shouldNotify(PRIVATE_NOTIFICATION_CHANNEL, messageId)) {
+                        continue
+                    }
                     senderCounts[sender] = (senderCounts[sender] ?: 0) + 1
                     senderLastType[sender] = msg.optString("type", "text")
                 }
@@ -171,12 +149,9 @@ class InAppNotificationManager(
                 )
                 return
             }
-
-            if (ActiveChatTracker.isChattingWith(sender)) return
-
-            val type = payload.optString("type", "text")
-            val body = buildNotificationBody(type, 1)
-            NotificationHelper.showMessageNotification(context, sender, body)
+            // Deterministic overlap policy: private notification UI is driven by `new_message`.
+            // This keeps behavior stable when legacy sockets emit both `new_notification` and `new_message`.
+            return
         } catch (e: Exception) {
             Log.e(TAG, "Error handling new_notification", e)
         }
@@ -194,6 +169,10 @@ class InAppNotificationManager(
             val sender = payload.optString("from", "")
             if (sender.isBlank()) return
 
+            val messageId = payload.optString("message_id", "").trim()
+            if (!privateMessageDeduper.shouldNotify(PRIVATE_NOTIFICATION_CHANNEL, messageId)) {
+                return
+            }
             if (ActiveChatTracker.isChattingWith(sender)) return
 
             val type = payload.optString("type", "text")
@@ -255,9 +234,9 @@ class InAppNotificationManager(
 
             val kind = payload.optString("kind", "")
             val actorObj = payload.optJSONObject("actor")
-            val actorName = actorObj?.optString("name", null)
-                ?: actorObj?.optString("username", "Someone")
-                ?: "Someone"
+            val actorName = actorObj?.optString("name").orEmpty()
+                .ifBlank { actorObj?.optString("username").orEmpty() }
+                .ifBlank { "Someone" }
 
             val body = buildActivityNotificationBody(kind, actorName, payload)
             val notifId = payload.optLong("id", System.currentTimeMillis()).toInt()
@@ -322,9 +301,9 @@ class InAppNotificationManager(
                 if (first != null) {
                     val kind = first.optString("kind", "")
                     val actorObj = first.optJSONObject("actor")
-                    val actorName = actorObj?.optString("name", null)
-                        ?: actorObj?.optString("username", "Someone")
-                        ?: "Someone"
+                    val actorName = actorObj?.optString("name").orEmpty()
+                        .ifBlank { actorObj?.optString("username").orEmpty() }
+                        .ifBlank { "Someone" }
 
                     val body = if (unreadCount == 1) {
                         buildActivityNotificationBody(kind, actorName, first)
@@ -360,5 +339,42 @@ class InAppNotificationManager(
             }
             else -> "$actorName interacted with your content"
         }
+    }
+
+    private fun loadPrivateNotificationSnapshot(): Map<String, Long> {
+        val rawSnapshot = context
+            .getSharedPreferences(PRIVATE_DEDUPE_PREFS, Context.MODE_PRIVATE)
+            .getString(PRIVATE_DEDUPE_PREFS_KEY, null)
+            ?: return emptyMap()
+
+        return try {
+            val snapshotJson = JSONObject(rawSnapshot)
+            val parsed = mutableMapOf<String, Long>()
+            val keys = snapshotJson.keys()
+            while (keys.hasNext()) {
+                val key = keys.next()
+                val timestamp = snapshotJson.optLong(key, 0L)
+                if (key.isNotBlank() && timestamp > 0L) {
+                    parsed[key] = timestamp
+                }
+            }
+            parsed
+        } catch (_: Exception) {
+            emptyMap()
+        }
+    }
+
+    private fun savePrivateNotificationSnapshot(snapshot: Map<String, Long>) {
+        val prefs = context.getSharedPreferences(PRIVATE_DEDUPE_PREFS, Context.MODE_PRIVATE)
+        if (snapshot.isEmpty()) {
+            prefs.edit().remove(PRIVATE_DEDUPE_PREFS_KEY).apply()
+            return
+        }
+
+        val snapshotJson = JSONObject()
+        snapshot.forEach { (key, timestamp) ->
+            snapshotJson.put(key, timestamp)
+        }
+        prefs.edit().putString(PRIVATE_DEDUPE_PREFS_KEY, snapshotJson.toString()).apply()
     }
 }

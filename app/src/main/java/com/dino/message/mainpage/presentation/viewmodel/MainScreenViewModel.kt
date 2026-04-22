@@ -11,33 +11,32 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
-import com.dino.message.BuildConfig
 import com.dino.message.DinoOrderApplication
-import com.dino.message.corefeature.data.spref.SPrefManager
+import com.dino.message.corefeature.data.socket.AppSocketManager
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.dino.message.groupfeature.domain.model.Group
 import com.dino.message.groupfeature.domain.usecase.ListGroupsUseCase
+import com.dino.message.mainpage.data.remote.dto.DetailedContact
 import com.dino.message.mainpage.domain.model.MessageList
 import com.dino.message.mainpage.domain.usecase.AddContactUseCase
 import com.dino.message.mainpage.domain.usecase.GetContactsUseCase
+import com.dino.message.mainpage.domain.usecase.GetContactsDeltaUseCase
 import com.dino.message.mainpage.domain.usecase.GetDetailedContactsUseCase
+import com.dino.message.mainpage.presentation.util.ContactsDeltaReducer
 import com.dino.message.threadfeature.domain.usecase.IsTrackInPlaylistUseCase
 import com.ramcosta.composedestinations.generated.destinations.ChatScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.CreateGroupScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.GroupChatScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.PlaylistBottomSheetScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.ProfileScreenDestination
-import io.socket.client.IO
-import io.socket.client.Socket
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
-import java.net.URISyntaxException
 import javax.inject.Inject
 
 @HiltViewModel
@@ -45,16 +44,20 @@ class MainScreenViewModel @Inject constructor(
     @ApplicationContext app: Context,
     private val addContactUseCase: AddContactUseCase,
     private val getContactsUseCase: GetContactsUseCase,
+    private val getContactsDeltaUseCase: GetContactsDeltaUseCase,
     private val getDetailedContactsUseCase: GetDetailedContactsUseCase,
     private val listGroupsUseCase: ListGroupsUseCase,
     private val isTrackInPlaylistUseCase: IsTrackInPlaylistUseCase,
-    private val spref: SPrefManager,
+    private val appSocketManager: AppSocketManager,
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
 
     companion object {
         private const val TAG = "MainScreenVM"
         private const val PAGE_SIZE = 20
+        private const val SOCKET_OWNER = "MainScreenViewModel"
+        private const val FULL_REFRESH_STALE_MS = 90_000L
+        private const val DELTA_EVENTS_BEFORE_FULL_REFRESH = 40
     }
 
     var isError = mutableStateOf(false)
@@ -84,26 +87,38 @@ class MainScreenViewModel @Inject constructor(
     private var totalContacts = 0
     private var isGettingContacts = false
     private var isAddingContacts = false
+    private var lastFullRefreshAtMs = 0L
+    private var pendingReconnectRefresh = false
+    private var pendingDeltaEvents = 0
+    private val pendingDeltaContactFetches = mutableSetOf<String>()
 
     private val context: Context = app.applicationContext
 
-    private var socket: Socket? = null
-    private var hasSocketStarted = false
-
     init {
-        getDetailedContacts(page = 1, isRefresh = true)
-        loadGroups()
+        refreshFromServer(force = true)
         connectSocket()
     }
 
     fun refresh() {
-        getDetailedContacts(page = 1, isRefresh = true)
-        loadGroups()
+        refreshFromServer(force = true)
     }
 
     fun loadNextPage() {
         if (_isLoadingMore.value || !_hasMore.value || isGettingContacts) return
         getDetailedContacts(page = currentPage + 1, isRefresh = false)
+    }
+
+    private fun refreshFromServer(force: Boolean = false) {
+        val now = System.currentTimeMillis()
+        val isStale = now - lastFullRefreshAtMs >= FULL_REFRESH_STALE_MS
+        val shouldRefreshContacts = force || pendingReconnectRefresh || isStale
+
+        if (shouldRefreshContacts && !isGettingContacts) {
+            getDetailedContacts(page = 1, isRefresh = true)
+        }
+        if (shouldRefreshContacts) {
+            loadGroups()
+        }
     }
 
     private fun addContact(contact: String) = viewModelScope.launch {
@@ -156,6 +171,11 @@ class MainScreenViewModel @Inject constructor(
                     currentPage = paginated.page
                     totalContacts = paginated.total
                     _hasMore.value = paginated.hasMore
+                    if (isRefresh) {
+                        lastFullRefreshAtMs = System.currentTimeMillis()
+                        pendingReconnectRefresh = false
+                        pendingDeltaEvents = 0
+                    }
 
                     isGettingContacts = false
                     _isLoadingMore.value = false
@@ -202,50 +222,23 @@ class MainScreenViewModel @Inject constructor(
     }
 
     private fun connectSocket() {
-        if (hasSocketStarted && socket?.connected() == true) return
-
-        disconnectSocket()
-
-        val token = spref.getToken().removePrefix("Bearer ").trim()
-        if (token.isBlank()) return
-
-        val baseUrl = BuildConfig.BASE_URL.trimEnd('/')
-        val opts = IO.Options.builder()
-            .setForceNew(true)
-            .setMultiplex(false)
-            .setReconnection(true)
-            .setReconnectionAttempts(Int.MAX_VALUE)
-            .setReconnectionDelay(1_000)
-            .setReconnectionDelayMax(10_000)
-            .setTimeout(20_000)
-            .setPath("/socket.io/")
-            .setTransports(arrayOf("websocket", "polling"))
-            .setAuth(mapOf("token" to token))
-            .build()
-
-        try {
-            val createdSocket = IO.socket(baseUrl, opts)
-            registerSocketListeners(createdSocket)
-            socket = createdSocket
-            hasSocketStarted = true
-            createdSocket.connect()
-            Log.d(TAG, "Socket connecting to $baseUrl")
-        } catch (e: URISyntaxException) {
-            Log.e(TAG, "Socket URL invalid", e)
-        } catch (e: Exception) {
-            Log.e(TAG, "Socket connect failed", e)
-        }
+        registerSocketListeners()
+        appSocketManager.connect()
     }
 
-    private fun registerSocketListeners(socket: Socket) {
-        socket.on("contacts_updated") {
-            Log.d(TAG, "Received contacts_updated event")
+    private fun registerSocketListeners() {
+        appSocketManager.registerListener(SOCKET_OWNER, "contacts_updated") { args ->
             viewModelScope.launch {
-                getDetailedContacts(page = 1, isRefresh = true)
+                try {
+                    val payload = extractPayloadArg(args) as? JSONObject ?: return@launch
+                    applyContactsDelta(payload)
+                } catch (e: Exception) {
+                    Log.e(TAG, "contacts_updated handling error", e)
+                }
             }
         }
 
-        socket.on("new_notification") { args ->
+        appSocketManager.registerListener(SOCKET_OWNER, "new_notification") { args ->
             viewModelScope.launch {
                 try {
                     val payload = extractPayloadArg(args) as? JSONObject ?: return@launch
@@ -259,7 +252,7 @@ class MainScreenViewModel @Inject constructor(
             }
         }
 
-        socket.on("pending_group_messages") { args ->
+        appSocketManager.registerListener(SOCKET_OWNER, "pending_group_messages") { args ->
             viewModelScope.launch {
                 try {
                     val payload = extractPayloadArg(args) as? JSONObject ?: return@launch
@@ -273,7 +266,7 @@ class MainScreenViewModel @Inject constructor(
             }
         }
 
-        socket.on("user_status") { args ->
+        appSocketManager.registerListener(SOCKET_OWNER, "user_status") { args ->
             viewModelScope.launch {
                 try {
                     val payload = args.firstOrNull()
@@ -291,19 +284,21 @@ class MainScreenViewModel @Inject constructor(
             }
         }
 
-        socket.on(Socket.EVENT_CONNECT) {
+        appSocketManager.registerListener(SOCKET_OWNER, io.socket.client.Socket.EVENT_CONNECT) {
             Log.d(TAG, "Socket connected")
+            viewModelScope.launch {
+                refreshFromServer(force = false)
+            }
         }
 
-        socket.on(Socket.EVENT_DISCONNECT) {
+        appSocketManager.registerListener(SOCKET_OWNER, io.socket.client.Socket.EVENT_DISCONNECT) {
             Log.d(TAG, "Socket disconnected")
+            pendingReconnectRefresh = true
         }
     }
 
     private fun disconnectSocket() {
-        socket?.off()
-        socket?.disconnect()
-        socket = null
+        appSocketManager.unregisterOwner(SOCKET_OWNER)
     }
 
     private fun updateGroupUnreadIndicator(groupId: Int, hasUnread: Boolean) {
@@ -311,6 +306,119 @@ class MainScreenViewModel @Inject constructor(
         if (index >= 0) {
             _groupList[index] = _groupList[index].copy(hasUnread = hasUnread)
         }
+    }
+
+    private fun applyContactsDelta(payload: JSONObject) {
+        val contactUsername = resolveContactUsername(payload)
+        if (contactUsername.isBlank()) return
+
+        val messageTimestamp = payload.optString("timestamp").trim()
+        val messageType = payload.optString("type").trim().ifBlank { null }
+        val existingIndex = _contactList.indexOfFirst { it?.username == contactUsername }
+        val existingItem = if (existingIndex >= 0) _contactList[existingIndex] else null
+
+        val hasUnread = if (payload.has("has_unread")) {
+            payload.optBoolean("has_unread", existingItem?.newMessage == true)
+        } else {
+            inferLegacyUnreadState(payload, contactUsername, existingItem)
+        }
+        val reduced = ContactsDeltaReducer.apply(
+            currentContacts = _contactList,
+            contactUsername = contactUsername,
+            hasUnread = hasUnread,
+            messageTimestamp = messageTimestamp,
+            messageType = messageType,
+        )
+        _contactList.clear()
+        _contactList.addAll(reduced.contacts)
+        if (reduced.insertedNewContact) {
+            totalContacts += 1
+            fetchMissingContactDetails(contactUsername)
+        }
+
+        pendingDeltaEvents += 1
+        if (pendingDeltaEvents >= DELTA_EVENTS_BEFORE_FULL_REFRESH) {
+            refreshFromServer(force = true)
+        }
+    }
+
+    private fun fetchMissingContactDetails(contactUsername: String) {
+        if (!pendingDeltaContactFetches.add(contactUsername)) return
+
+        viewModelScope.launch {
+            try {
+                getContactsDeltaUseCase.execute(listOf(contactUsername)).collect { res ->
+                    when (res) {
+                        is Resource.Success -> {
+                            val detailed = res.data.firstOrNull { it.username == contactUsername }
+                            if (detailed != null) {
+                                mergeContactDeltaDetails(detailed)
+                            }
+                        }
+                        is Resource.Loading -> Unit
+                        is Resource.Error -> Unit
+                    }
+                }
+            } finally {
+                pendingDeltaContactFetches.remove(contactUsername)
+            }
+        }
+    }
+
+    private fun mergeContactDeltaDetails(detailed: DetailedContact) {
+        val index = _contactList.indexOfFirst { it?.username == detailed.username }
+        if (index < 0) return
+
+        val item = _contactList[index] ?: return
+        _contactList[index] = item.copy(
+            displayName = detailed.name?.takeIf { it.isNotBlank() } ?: item.displayName,
+            profileImageUrl = detailed.profileImageUrl ?: item.profileImageUrl,
+            profileVideoUrl = detailed.profileVideoUrl ?: item.profileVideoUrl,
+            online = detailed.online,
+            newMessage = item.newMessage || detailed.hasMessage,
+            lastMessageType = detailed.lastMessage?.type ?: item.lastMessageType,
+            time = item.time.ifBlank { detailed.lastMessage?.timestamp.orEmpty() },
+        )
+    }
+
+    private fun resolveContactUsername(payload: JSONObject): String {
+        val directContact = payload.optString("contact").trim()
+        if (directContact.isNotBlank()) return directContact
+
+        val from = payload.optString("from").trim()
+        val to = payload.optString("to").trim()
+
+        val fromIndex = _contactList.indexOfFirst { it?.username == from }
+        val toIndex = _contactList.indexOfFirst { it?.username == to }
+
+        return when {
+            from.isNotBlank() && to.isBlank() -> from
+            to.isNotBlank() && from.isBlank() -> to
+            fromIndex >= 0 && toIndex < 0 -> from
+            toIndex >= 0 && fromIndex < 0 -> to
+            from.isNotBlank() -> from
+            else -> to
+        }
+    }
+
+    private fun inferLegacyUnreadState(
+        payload: JSONObject,
+        contactUsername: String,
+        existingItem: MessageList?,
+    ): Boolean {
+        val from = payload.optString("from").trim()
+        return when {
+            from.isBlank() -> existingItem?.newMessage == true
+            from == contactUsername -> true
+            else -> existingItem?.newMessage == true
+        }
+    }
+
+    private fun clearLocalUnreadForContact(username: String) {
+        val index = _contactList.indexOfFirst { it?.username == username }
+        if (index < 0) return
+        val item = _contactList[index] ?: return
+        _contactList[index] = item.copy(newMessage = false)
     }
 
     private fun extractPayloadArg(args: Array<out Any>): Any? {
@@ -345,6 +453,7 @@ class MainScreenViewModel @Inject constructor(
 
     fun navigateToChatScreen(username: String) {
         val contact = _contactList.firstOrNull { it?.username == username }
+        clearLocalUnreadForContact(username)
         navigateToDestination(
             ChatScreenDestination(
                 chatId = username,

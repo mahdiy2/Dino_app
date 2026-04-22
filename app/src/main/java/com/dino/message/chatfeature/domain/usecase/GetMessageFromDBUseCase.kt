@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.flow
 class GetMessageFromDBUseCase @Inject constructor(
     private val chatRepository: ChatRepository
 ) {
-    fun execute(chatId: String) = flow {
-        emit(chatRepository.getMessages(chatId))
+    fun execute(chatId: String, limit: Int, offset: Int = 0) = flow {
+        emit(chatRepository.getMessages(chatId = chatId, limit = limit, offset = offset))
     }
 }

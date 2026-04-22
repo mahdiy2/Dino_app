@@ -6,7 +6,11 @@ import androidx.room.PrimaryKey
 
 @Entity(
     tableName = "group_messages",
-    indices = [Index(value = ["messageId"], unique = true)]
+    indices = [
+        Index(name = "index_group_messages_messageId", value = ["messageId"], unique = true),
+        Index(name = "index_group_messages_groupId", value = ["groupId"]),
+        Index(name = "index_group_messages_groupId_timestamp_id", value = ["groupId", "timestamp", "id"]),
+    ]
 )
 data class GroupMessageEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,

@@ -8,6 +8,8 @@ import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.mainpage.data.remote.dto.AddContactRequest
 import com.dino.message.mainpage.data.remote.dto.AddContactResponse
+import com.dino.message.mainpage.data.remote.dto.ContactsDeltaResponse
+import com.dino.message.mainpage.data.remote.dto.DetailedContact
 import com.dino.message.mainpage.data.remote.dto.DetailedContactResponse
 import com.dino.message.mainpage.data.remote.dto.GetContactsResponse
 import com.dino.message.mainpage.domain.model.AddContact
@@ -70,4 +72,24 @@ class MainApiServiceImpl @Inject constructor(
             },
             callRefreshTokenAPI = this::getToken
         )
+
+    override suspend fun getContactsDelta(usernames: List<String>): Resource<List<DetailedContact>> {
+        val normalized = usernames
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+            .distinct()
+        if (normalized.isEmpty()) {
+            return Resource.Success(emptyList())
+        }
+
+        return httpAPIUtil.callAPIWithErrorHandling<List<DetailedContact>, ContactsDeltaResponse>(
+            callAPI = {
+                httpClient.get(MainRoute.GetContactsDelta.url) {
+                    appendTokenToHeader(sPrefManager.getToken())
+                    parameter("users", normalized.joinToString(","))
+                }
+            },
+            callRefreshTokenAPI = this::getToken
+        )
+    }
 }

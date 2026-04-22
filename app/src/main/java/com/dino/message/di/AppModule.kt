@@ -20,6 +20,7 @@ import com.dino.message.authfeature.domain.repository.AuthRepository
 import com.dino.message.chatfeature.data.db.MessageDao
 import com.dino.message.groupfeature.data.db.GroupMessageDao
 import com.dino.message.crashfeature.data.local.CrashLogDao
+import com.dino.message.corefeature.data.socket.SocketOutboundQueueDao
 import com.dino.message.chatfeature.data.remote.ChatApiService
 import com.dino.message.chatfeature.data.remote.ChatApiServiceImpl
 import com.dino.message.chatfeature.data.repository.ChatRepositoryImpl
@@ -244,11 +245,13 @@ object AppModule {
     fun provideThreadApiService(
         httpClient: HttpClient,
         sPrefManager: SPrefManager,
-        httpAPIUtil: HttpAPIUtil
+        httpAPIUtil: HttpAPIUtil,
+        @ApplicationContext context: Context,
     ): ThreadApiService = ThreadApiServiceImpl(
         httpClient = httpClient,
         sPrefManager = sPrefManager,
-        httpAPIUtil = httpAPIUtil
+        httpAPIUtil = httpAPIUtil,
+        appContext = context,
     )
 
     @Singleton
@@ -262,11 +265,13 @@ object AppModule {
     fun provideProfileApiService(
         httpClient: HttpClient,
         sPrefManager: SPrefManager,
-        httpAPIUtil: HttpAPIUtil
+        httpAPIUtil: HttpAPIUtil,
+        @ApplicationContext context: Context,
     ): ProfileApiService = ProfileApiServiceImpl(
         httpClient = httpClient,
         sPrefManager = sPrefManager,
-        httpAPIUtil = httpAPIUtil
+        httpAPIUtil = httpAPIUtil,
+        appContext = context,
     )
 
     @Singleton
@@ -368,6 +373,9 @@ object AppModule {
                  MessageDatabase.MIGRATION_6_7,
                  MessageDatabase.MIGRATION_7_8,
                  MessageDatabase.MIGRATION_8_9,
+                 MessageDatabase.MIGRATION_9_10,
+                 MessageDatabase.MIGRATION_10_11,
+                 MessageDatabase.MIGRATION_11_12,
              )
              .build()
      }
@@ -388,6 +396,12 @@ object AppModule {
     @Singleton
     fun provideCrashLogDao(database: MessageDatabase): CrashLogDao {
         return database.crashLogDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideSocketOutboundQueueDao(database: MessageDatabase): SocketOutboundQueueDao {
+        return database.socketOutboundQueueDao()
     }
 
     @Singleton
