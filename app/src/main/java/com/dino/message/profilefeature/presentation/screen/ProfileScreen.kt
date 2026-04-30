@@ -1,5 +1,10 @@
 package com.dino.message.profilefeature.presentation.screen
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -21,11 +26,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.rounded.ArrowBackIosNew
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Settings
@@ -38,6 +43,7 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -54,6 +60,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -61,6 +68,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -82,6 +90,7 @@ import coil.compose.SubcomposeAsyncImage
 import coil.imageLoader
 import coil.request.ImageRequest
 import com.dino.message.R
+import com.dino.message.corefeature.presentation.component.UserBadgeIcon
 import com.dino.message.corefeature.presentation.ui.theme.CardBordersPadding
 import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
 import com.dino.message.corefeature.presentation.ui.theme.DPLarge
@@ -91,6 +100,7 @@ import com.dino.message.profilefeature.presentation.component.ProfileAvatarMedia
 import com.dino.message.profilefeature.presentation.component.ProfileContainer
 import com.dino.message.profilefeature.presentation.component.ProfileFollowStatusContainer
 import com.dino.message.profilefeature.presentation.viewmodel.ProfileScreenViewModel
+import com.dino.message.threadfeature.data.upload.PendingPostUpload
 import com.dino.message.threadfeature.presentation.component.PostContainer
 import com.dino.message.threadfeature.presentation.component.ThreadPostCard
 import com.ramcosta.composedestinations.annotation.Destination
@@ -107,11 +117,16 @@ fun ProfileScreen(username: String? = null) {
     val isOwnProfile by viewModel.isOwnProfile.collectAsState()
     val isProfileLoading by viewModel.isProfileLoading.collectAsState()
     val isPostsLoading by viewModel.isPostsLoading.collectAsState()
+    val isLoadingMore by viewModel.isLoadingMore.collectAsState()
+    val hasMorePosts by viewModel.hasMorePosts.collectAsState()
     val isActionLoading by viewModel.isActionLoading.collectAsState()
     val isFollowing by viewModel.isFollowing.collectAsState()
     val error by viewModel.error.collectAsState()
     val playlistFeedback by viewModel.playlistFeedback.collectAsState()
+    val pendingPostUploads by viewModel.pendingPostUploads.collectAsState()
+    val viewerHasBadge by viewModel.viewerHasBadge.collectAsState()
     val isRefreshing = isProfileLoading || isPostsLoading
+    val listState = rememberLazyListState()
     val snackbarHostState = remember { SnackbarHostState() }
     var isProfileImageViewerOpen by remember { mutableStateOf(false) }
 
@@ -136,6 +151,16 @@ fun ProfileScreen(username: String? = null) {
         }
     }
 
+    LaunchedEffect(listState, posts.size, hasMorePosts) {
+        snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1 }
+            .collect { lastVisibleIndex ->
+                val triggerIndex = (posts.lastIndex - 2).coerceAtLeast(0)
+                if (posts.isNotEmpty() && hasMorePosts && lastVisibleIndex >= triggerIndex) {
+                    viewModel.loadNextPosts()
+                }
+            }
+    }
+
     Box(
     ) {
         PullToRefreshBox(
@@ -147,6 +172,7 @@ fun ProfileScreen(username: String? = null) {
                 .background(MaterialTheme.colorScheme.background)
         ) {
             LazyColumn(
+                state = listState,
                 modifier = Modifier
                     .fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(DPMedium)
@@ -173,6 +199,8 @@ fun ProfileScreen(username: String? = null) {
                                 ProfileAvatarMedia(
                                    modifier = Modifier.size(60.dp),
                                    profileImageUrl = profile?.profile_image_url,
+                                   badge = profile?.badge,
+                                   profileImageShape = profile?.profile_image_shape,
                                     profileVideoUrl = profile?.profile_video_url,
                                     autoPlayVideo = true,
                                     onClick = {
@@ -183,11 +211,20 @@ fun ProfileScreen(username: String? = null) {
                                )
 
                                 Column {
-                                    Text(
-                                        text = profile?.name?.takeIf { it.isNotBlank() }
-                                            ?: profile?.username.orEmpty(),
-                                        style = MaterialTheme.typography.titleLarge
-                                    )
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = profile?.name?.takeIf { it.isNotBlank() }
+                                                ?: profile?.username.orEmpty(),
+                                            style = MaterialTheme.typography.titleLarge
+                                        )
+                                        UserBadgeIcon(
+                                            badge = profile?.badge,
+                                            size = 20.dp
+                                        )
+                                    }
                                     Spacer(modifier = Modifier.height(DPSmall))
                                     Text(
                                         text = "@${profile?.username.orEmpty()}",
@@ -225,7 +262,13 @@ fun ProfileScreen(username: String? = null) {
                                             strokeWidth = 2.dp
                                         )
                                     } else {
-                                        Text(if (isFollowing) "Unfollow" else "Follow")
+                                        Text(
+                                            if (isFollowing) {
+                                                stringResource(R.string.unfollow)
+                                            } else {
+                                                stringResource(R.string.follow)
+                                            }
+                                        )
                                     }
                                 }
                             }
@@ -259,7 +302,7 @@ fun ProfileScreen(username: String? = null) {
                                     verticalArrangement = Arrangement.Center
                                 ) {
                                     Text(
-                                        text = "Followers"
+                                        text = stringResource(R.string.followers)
                                     )
 
                                     Text(
@@ -282,7 +325,7 @@ fun ProfileScreen(username: String? = null) {
                                     verticalArrangement = Arrangement.Center
                                 ) {
                                     Text(
-                                        text = "Following"
+                                        text = stringResource(R.string.following)
                                     )
                                     Text(
                                         text = "${profile?.following_count ?: 0}"
@@ -302,7 +345,7 @@ fun ProfileScreen(username: String? = null) {
                                     horizontalAlignment = Alignment.CenterHorizontally,
                                     verticalArrangement = Arrangement.Center
                                 ) {
-                                    Text(text = "Posts")
+                                    Text(text = stringResource(R.string.posts))
 
                                     Text(text = "${profile?.posts_count ?: 0}")
                                 }
@@ -337,7 +380,7 @@ fun ProfileScreen(username: String? = null) {
 
             item {
                 Text(
-                    text = "Posts",
+                    text = stringResource(R.string.posts),
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier
                         .padding(DPMedium),
@@ -357,7 +400,7 @@ fun ProfileScreen(username: String? = null) {
                         CircularProgressIndicator()
                     }
                 }
-            } else if (posts.isEmpty()) {
+            } else if (posts.isEmpty() && pendingPostUploads.isEmpty()) {
                 item {
                     Column(
                         modifier = Modifier.fillMaxSize(),
@@ -373,7 +416,7 @@ fun ProfileScreen(username: String? = null) {
                         Spacer(modifier = Modifier.height(24.dp))
 
                         Text(
-                            text = "No posts yet",
+                            text = stringResource(R.string.no_posts_yet),
                             style = MaterialTheme.typography.titleLarge.copy(
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
@@ -381,47 +424,73 @@ fun ProfileScreen(username: String? = null) {
                             textAlign = TextAlign.Center
                         )
 
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        Text(
-                            text = "Share your first moment with friends and start building your world.",
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            ),
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(horizontal = 48.dp)
-                        )
-
-                        Spacer(modifier = Modifier.height(32.dp))
-
-                        Button(
-                            onClick = {
-                                viewModel.showCreateOptionsSheet()
-                            },
-                            shape = MaterialTheme.shapes.extraLarge,
-                            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary
-                            )
-                        ) {
-
-                            Icon(
-                                imageVector = Icons.Default.Add,
-                                contentDescription = null
-                            )
-
-                            Spacer(modifier = Modifier.width(8.dp))
+                        if (isOwnProfile) {
+                            Spacer(modifier = Modifier.height(8.dp))
 
                             Text(
-                                text = "Create your first post",
-                                style = MaterialTheme.typography.labelLarge.copy(
-                                    fontWeight = FontWeight.Bold
-                                )
+                                text = stringResource(R.string.first_post_description),
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                ),
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(horizontal = 48.dp)
                             )
+
+                            Spacer(modifier = Modifier.height(32.dp))
+
+                            Button(
+                                onClick = {
+                                    viewModel.showCreateOptionsSheet()
+                                },
+                                shape = MaterialTheme.shapes.extraLarge,
+                                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary
+                                )
+                            ) {
+
+                                Icon(
+                                    imageVector = Icons.Default.Add,
+                                    contentDescription = null
+                                )
+
+                                Spacer(modifier = Modifier.width(8.dp))
+
+                                Text(
+                                    text = stringResource(R.string.create_first_post),
+                                    style = MaterialTheme.typography.labelLarge.copy(
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                )
+                            }
                         }
                     }
                 }
             } else {
+                if (isOwnProfile && pendingPostUploads.isNotEmpty()) {
+                    items(
+                        items = pendingPostUploads,
+                        key = { "pending-${it.workId}" }
+                    ) { pendingUpload ->
+                        AnimatedVisibility(
+                            visible = true,
+                            enter = fadeIn() + slideInVertically(initialOffsetY = { it / 3 }),
+                            exit = fadeOut() + slideOutVertically(targetOffsetY = { -it / 3 })
+                        ) {
+                            PendingUploadCard(
+                                upload = pendingUpload,
+                                onCancelClick = {
+                                    viewModel.cancelPendingUpload(pendingUpload.workId.toString())
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = DPMedium)
+                                    .padding(top = DPSmall)
+                            )
+                        }
+                    }
+                }
+
                 items(
                     items = posts,
                     key = { it.id }
@@ -431,6 +500,7 @@ fun ProfileScreen(username: String? = null) {
                             .fillMaxWidth()
                             .padding(DPMedium),
                         post = post,
+                        canDownloadMedia = viewerHasBadge,
                         selectedPostVote = viewModel.selectedPostVote(post.id),
                         postError = viewModel.postError(post.id),
                         onUpVoteClick = { viewModel.votePost(post.id, 1) },
@@ -455,6 +525,22 @@ fun ProfileScreen(username: String? = null) {
                         }
                     )
                 }
+
+                if (isLoadingMore) {
+                    item {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(DPMedium),
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.dp
+                            )
+                        }
+                    }
+                }
             }
             }
         }
@@ -469,7 +555,7 @@ fun ProfileScreen(username: String? = null) {
             ) {
                 Icon(
                     imageVector = Icons.Rounded.Settings,
-                    contentDescription = "Open settings"
+                    contentDescription = stringResource(R.string.settings)
                 )
             }
         }
@@ -486,6 +572,57 @@ fun ProfileScreen(username: String? = null) {
             ProfileImageFullScreenDialog(
                 imageUrl = profile!!.profile_image_url!!,
                 onDismiss = { isProfileImageViewerOpen = false }
+            )
+        }
+    }
+}
+
+@Composable
+private fun PendingUploadCard(
+    upload: PendingPostUpload,
+    onCancelClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    PostContainer(modifier = modifier) {
+        Column(
+            modifier = Modifier.padding(DPMedium),
+            verticalArrangement = Arrangement.spacedBy(DPSmall)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = if (upload.isRunning) {
+                        stringResource(R.string.uploading_post_status, upload.progressPercent)
+                    } else {
+                        stringResource(R.string.uploading_post_waiting)
+                    },
+                    style = MaterialTheme.typography.labelLarge
+                )
+                IconButton(onClick = onCancelClick) {
+                    Icon(
+                        imageVector = Icons.Rounded.Close,
+                        contentDescription = stringResource(R.string.cancel_upload)
+                    )
+                }
+            }
+            if (upload.text.isNotBlank()) {
+                Text(
+                    text = upload.text,
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 3
+                )
+            }
+            Text(
+                text = stringResource(R.string.uploading_post_media_count, upload.mediaCount),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            LinearProgressIndicator(
+                progress = { (upload.progressPercent.coerceIn(0, 100) / 100f) },
+                modifier = Modifier.fillMaxWidth(),
             )
         }
     }
@@ -510,7 +647,7 @@ private fun ProfileImageFullScreenDialog(
                     .data(imageUrl)
                     .crossfade(true)
                     .build(),
-                contentDescription = "Profile image",
+                contentDescription = stringResource(R.string.profile_image),
                 contentScale = ContentScale.Fit,
                 modifier = Modifier.fillMaxSize()
             )
@@ -523,7 +660,7 @@ private fun ProfileImageFullScreenDialog(
             ) {
                 Icon(
                     imageVector = Icons.Rounded.Close,
-                    contentDescription = "Close",
+                    contentDescription = stringResource(R.string.close),
                     tint = Color.White
                 )
             }

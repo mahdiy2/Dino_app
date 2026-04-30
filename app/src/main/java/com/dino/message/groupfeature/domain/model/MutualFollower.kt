@@ -5,6 +5,8 @@ data class MutualFollower(
     val username: String,
     val name: String,
     val profileImageUrl: String? = null,
+    val profileImageShape: String? = null,
+    val badge: String? = null,
 )
 
 data class MutualFollowersPage(

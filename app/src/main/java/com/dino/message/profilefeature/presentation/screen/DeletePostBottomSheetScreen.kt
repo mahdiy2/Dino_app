@@ -20,8 +20,10 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.dino.message.R
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.profilefeature.presentation.viewmodel.DeletePostBottomSheetViewModel
 import com.ramcosta.composedestinations.annotation.Destination
@@ -50,16 +52,16 @@ fun DeletePostBottomSheetScreen(
             verticalArrangement = Arrangement.spacedBy(DPMedium)
         ) {
             Text(
-                text = "Delete post?",
+                text = stringResource(R.string.delete_post_title),
                 style = MaterialTheme.typography.titleMedium
             )
             Text(
-                text = "This action cannot be undone.",
+                text = stringResource(R.string.delete_post_body),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
-                text = "Post #$postId",
+                text = stringResource(R.string.report_post_post_id, postId),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -87,7 +89,7 @@ fun DeletePostBottomSheetScreen(
                     enabled = !isDeleting,
                     onClick = viewModel::closeSheet
                 ) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.cancel))
                 }
 
                 FilledTonalButton(
@@ -99,7 +101,7 @@ fun DeletePostBottomSheetScreen(
                         CircularProgressIndicator(strokeWidth = 2.dp)
                     } else {
                         Text(
-                            text = "Delete",
+                            text = stringResource(R.string.delete),
                             color = MaterialTheme.colorScheme.error
                         )
                     }

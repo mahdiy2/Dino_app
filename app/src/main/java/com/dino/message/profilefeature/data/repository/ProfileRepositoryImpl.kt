@@ -2,6 +2,7 @@ package com.dino.message.profilefeature.data.repository
 
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.profilefeature.data.remote.ProfileApiService
+import com.dino.message.profilefeature.domain.model.AboutUs
 import com.dino.message.profilefeature.domain.model.Profile
 import com.dino.message.profilefeature.domain.model.ProfileFollowResult
 import com.dino.message.profilefeature.domain.model.ProfileUpdateImage
@@ -12,16 +13,20 @@ import com.dino.message.threadfeature.domain.model.PostsPage
 class ProfileRepositoryImpl(
     private val profileApiService: ProfileApiService
 ) : ProfileRepository {
+    override suspend fun getAboutUs(): Resource<AboutUs> = profileApiService.getAboutUs()
+
     override suspend fun getMyProfile(): Resource<Profile> = profileApiService.getMyProfile()
 
     override suspend fun updateMyProfile(
         name: String?,
         bio: String?,
+        profileImageShape: String?,
         profileImage: ProfileUpdateImage?,
         profileVideo: ProfileUpdateImage?
     ): Resource<Profile> = profileApiService.updateMyProfile(
         name = name,
         bio = bio,
+        profileImageShape = profileImageShape,
         profileImage = profileImage,
         profileVideo = profileVideo
     )

@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.ArrowBackIosNew
 import androidx.compose.material.icons.rounded.Clear
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -28,7 +27,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.dino.message.R
+import com.dino.message.corefeature.presentation.util.backIconModifier
 import com.dino.message.searchfeature.presentation.component.SearchResultsList
 import com.dino.message.searchfeature.presentation.component.SearchTabRow
 import com.dino.message.searchfeature.presentation.viewmodel.SearchViewModel
@@ -44,6 +46,7 @@ fun SearchScreen() {
     val selectedTab = viewModel.selectedTab.value
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
+    val viewerHasBadge by viewModel.viewerHasBadge.collectAsState()
     val playlistFeedback by viewModel.playlistFeedback.collectAsState()
     val focusRequester = remember { FocusRequester() }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -68,7 +71,7 @@ fun SearchScreen() {
                         onValueChange = viewModel::onQueryChange,
                         placeholder = {
                             Text(
-                                text = "Search...",
+                                text = stringResource(R.string.search_placeholder),
                                 style = MaterialTheme.typography.bodyLarge
                             )
                         },
@@ -89,7 +92,8 @@ fun SearchScreen() {
                     IconButton(onClick = viewModel::navigateBack) {
                         Icon(
                             imageVector = Icons.Rounded.ArrowBackIosNew,
-                            contentDescription = "Back"
+                            contentDescription = stringResource(R.string.back),
+                            modifier = backIconModifier()
                         )
                     }
                 },
@@ -98,7 +102,7 @@ fun SearchScreen() {
                         IconButton(onClick = { viewModel.onQueryChange("") }) {
                             Icon(
                                 imageVector = Icons.Rounded.Clear,
-                                contentDescription = "Clear"
+                                contentDescription = stringResource(R.string.clear)
                             )
                         }
                     }
@@ -120,6 +124,7 @@ fun SearchScreen() {
                 selectedTab = selectedTab,
                 users = viewModel.users,
                 posts = viewModel.posts,
+                canDownloadPostMedia = viewerHasBadge,
                 isLoading = isLoading,
                 error = error,
                 query = query,

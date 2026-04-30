@@ -192,6 +192,15 @@ class SPrefManager @Inject constructor(
             .apply()
     }
 
+    fun clearAuthSession() {
+        editor
+            .remove(TOKEN_KEY)
+            .remove(REFRESH_TOKEN_KEY)
+            .remove(USER_NAME)
+            .putBoolean(USER_LOG_IN, false)
+            .apply()
+    }
+
     fun clearAll() {
         editor.clear().apply()
     }

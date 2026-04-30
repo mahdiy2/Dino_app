@@ -23,15 +23,18 @@ import androidx.compose.ui.unit.dp
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPSmall
 import com.dino.message.corefeature.presentation.util.getTimeAgo
+import com.dino.message.corefeature.presentation.component.UserBadgeIcon
 import com.dino.message.profilefeature.presentation.component.ProfileAvatarMedia
 
 @Composable
 fun MessageListItems(
     modifier: Modifier = Modifier,
     displayName: String,
+    badge: String? = null,
     time: String,
     newMessage: Boolean = false,
     profileImageUrl: String? = null,
+    profileImageShape: String? = null,
     profileVideoUrl: String? = null,
     onClick: () -> Unit
 ) {
@@ -56,6 +59,8 @@ fun MessageListItems(
                         .size(60.dp)
                         .clip(MaterialTheme.shapes.medium),
                     profileImageUrl = profileImageUrl,
+                    badge = badge,
+                    profileImageShape = profileImageShape,
                     profileVideoUrl = profileVideoUrl
                 )
 
@@ -65,10 +70,16 @@ fun MessageListItems(
                     verticalArrangement = Arrangement.SpaceBetween,
                     horizontalAlignment = Alignment.Start
                 ) {
-                    Text(
-                        text = displayName,
-                        style = MaterialTheme.typography.titleMedium
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = displayName,
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        UserBadgeIcon(badge = badge)
+                    }
                     AnimatedVisibility(newMessage) {
                         Column {
                             Spacer(Modifier.size(DPMedium))

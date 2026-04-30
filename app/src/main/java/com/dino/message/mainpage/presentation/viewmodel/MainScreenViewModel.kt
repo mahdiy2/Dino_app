@@ -12,6 +12,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import com.dino.message.DinoOrderApplication
+import com.dino.message.R
 import com.dino.message.corefeature.data.socket.AppSocketManager
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
@@ -125,7 +126,7 @@ class MainScreenViewModel @Inject constructor(
         addContactUseCase.execute(contact).collect { res ->
             when (res) {
                 is Resource.Success -> {
-                    Toast.makeText(context, "Success", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, context.getString(R.string.success), Toast.LENGTH_SHORT).show()
                     hideBottomSheet()
                     getDetailedContacts(page = 1, isRefresh = true)
                     isAddingContacts = false
@@ -136,7 +137,7 @@ class MainScreenViewModel @Inject constructor(
                 }
 
                 is Resource.Error -> {
-                    Toast.makeText(context, "not found", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, context.getString(R.string.not_found_short), Toast.LENGTH_SHORT).show()
                     isAddingContacts = false
                 }
             }
@@ -152,11 +153,13 @@ class MainScreenViewModel @Inject constructor(
                         MessageList(
                             username = contact.username,
                             displayName = contact.name?.takeIf { it.isNotBlank() } ?: contact.username,
+                            badge = contact.badge,
                             time = contact.lastMessage?.timestamp ?: "",
                             newMessage = contact.hasMessage,
                             online = contact.online,
                             lastMessageType = contact.lastMessage?.type,
                             profileImageUrl = contact.profileImageUrl,
+                            profileImageShape = contact.profileImageShape,
                             profileVideoUrl = contact.profileVideoUrl,
                         )
                     }
@@ -372,7 +375,9 @@ class MainScreenViewModel @Inject constructor(
         val item = _contactList[index] ?: return
         _contactList[index] = item.copy(
             displayName = detailed.name?.takeIf { it.isNotBlank() } ?: item.displayName,
+            badge = detailed.badge ?: item.badge,
             profileImageUrl = detailed.profileImageUrl ?: item.profileImageUrl,
+            profileImageShape = detailed.profileImageShape ?: item.profileImageShape,
             profileVideoUrl = detailed.profileVideoUrl ?: item.profileVideoUrl,
             online = detailed.online,
             newMessage = item.newMessage || detailed.hasMessage,
@@ -458,7 +463,9 @@ class MainScreenViewModel @Inject constructor(
             ChatScreenDestination(
                 chatId = username,
                 displayName = contact?.displayName,
+                badge = contact?.badge,
                 profileImageUrl = contact?.profileImageUrl,
+                profileImageShape = contact?.profileImageShape,
                 profileVideoUrl = contact?.profileVideoUrl
             ),
             viewModelScope

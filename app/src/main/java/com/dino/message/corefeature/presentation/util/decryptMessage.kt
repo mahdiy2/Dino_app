@@ -20,20 +20,29 @@ fun decryptMessage(
 ): String {
     val isMessageV2 = encryptedMessage.startsWith(V2_PREFIX)
     val isKeyV2 = encryptedAESKey.startsWith(V2_PREFIX)
+    val normalizedMessage = encryptedMessage.removePrefix(V2_PREFIX)
+    val normalizedAesKey = encryptedAESKey.removePrefix(V2_PREFIX)
 
-    return if (isMessageV2 || isKeyV2) {
-        decryptV2(
-            encryptedMessage = if (isMessageV2) encryptedMessage.removePrefix(V2_PREFIX) else encryptedMessage,
-            encryptedAESKey = if (isKeyV2) encryptedAESKey.removePrefix(V2_PREFIX) else encryptedAESKey,
-            privateKey = privateKey
-        )
+    val attempts = if (isMessageV2 || isKeyV2) {
+        listOf(::decryptV2, ::decryptLegacy)
     } else {
-        decryptLegacy(
-            encryptedMessage = encryptedMessage,
-            encryptedAESKey = encryptedAESKey,
-            privateKey = privateKey
-        )
+        listOf(::decryptLegacy, ::decryptV2)
     }
+
+    var lastError: Exception? = null
+    for (attempt in attempts) {
+        try {
+            return attempt(
+                normalizedMessage,
+                normalizedAesKey,
+                privateKey
+            )
+        } catch (e: Exception) {
+            lastError = e
+        }
+    }
+
+    throw lastError ?: IllegalStateException("Failed to decrypt message")
 }
 
 private fun decryptV2(

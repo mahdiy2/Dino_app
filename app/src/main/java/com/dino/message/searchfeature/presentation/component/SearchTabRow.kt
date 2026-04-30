@@ -5,6 +5,8 @@ import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import com.dino.message.R
 import com.dino.message.searchfeature.domain.model.SearchTab
 
 @Composable
@@ -26,9 +28,9 @@ fun SearchTabRow(
                 text = {
                     Text(
                         text = when (tab) {
-                            SearchTab.USERS -> "Users"
-                            SearchTab.POSTS -> "Posts"
-                            SearchTab.BOTH -> "Both"
+                            SearchTab.USERS -> stringResource(R.string.users)
+                            SearchTab.POSTS -> stringResource(R.string.posts)
+                            SearchTab.BOTH -> stringResource(R.string.both)
                         }
                     )
                 }

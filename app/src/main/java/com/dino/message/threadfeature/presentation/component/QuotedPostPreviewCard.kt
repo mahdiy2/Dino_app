@@ -23,10 +23,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.dino.message.R
+import com.dino.message.corefeature.presentation.component.UserBadgeIcon
 import com.dino.message.threadfeature.domain.model.QuotedPostPreview
 
 @Composable
@@ -74,11 +76,26 @@ fun QuotedPostPreviewCard(
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(16.dp)
             )
-            Text(
-                text = quotedPost?.let { "Quoted post from @${it.author.username}" }
-                    ?: "Quoted post unavailable",
-                style = MaterialTheme.typography.labelLarge
-            )
+            if (quotedPost != null) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.quoted_post_from, quotedPost.author.username),
+                        style = MaterialTheme.typography.labelLarge
+                    )
+                    UserBadgeIcon(
+                        badge = quotedPost.author.badge,
+                        size = 16.dp
+                    )
+                }
+            } else {
+                Text(
+                    text = stringResource(R.string.quoted_post_unavailable),
+                    style = MaterialTheme.typography.labelLarge
+                )
+            }
         }
 
         if (quotedPost != null) {
@@ -119,7 +136,7 @@ fun QuotedPostPreviewCard(
                         modifier = Modifier.size(15.dp)
                     )
                     Text(
-                        text = "Includes music",
+                        text = stringResource(R.string.quoted_post_includes_music),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -128,7 +145,7 @@ fun QuotedPostPreviewCard(
 
             if (visualCount > 0) {
                 Text(
-                    text = "Includes $visualCount media item${if (visualCount > 1) "s" else ""}",
+                    text = stringResource(R.string.quoted_post_media_count, visualCount),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -137,7 +154,7 @@ fun QuotedPostPreviewCard(
 
         if (canOpen) {
             Text(
-                text = "Tap to open post",
+                text = stringResource(R.string.quoted_post_open_hint),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.primary
             )
@@ -170,7 +187,7 @@ private fun CompactQuotedVisualMediaRow(
                         .data(url)
                         .crossfade(true)
                         .build(),
-                    contentDescription = "Quoted media preview",
+                    contentDescription = stringResource(R.string.quoted_post_media_preview),
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop
                 )
@@ -185,7 +202,7 @@ private fun CompactQuotedVisualMediaRow(
                     ) {
                         Text(
                             modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
-                            text = "Video",
+                            text = stringResource(R.string.video),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onPrimary
                         )

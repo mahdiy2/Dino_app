@@ -47,14 +47,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.dino.message.corefeature.presentation.util.rememberLayoutDirection
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.dino.message.chatfeature.presentation.component.MediaAccessLevel
 import com.dino.message.chatfeature.presentation.component.MediaPermissionHandler
+import com.dino.message.R
 import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPSmall
+import com.dino.message.corefeature.presentation.util.backIconModifier
 import com.dino.message.threadfeature.domain.model.PostMedia
 import com.dino.message.threadfeature.presentation.component.Carousel
 import com.dino.message.threadfeature.presentation.component.PostContainer
@@ -100,7 +103,7 @@ fun CreatePostScreen(
         if (accessLevel == MediaAccessLevel.DENIED) {
             Toast.makeText(
                 context,
-                "Media access is required to select photos and videos",
+                context.getString(R.string.create_post_media_permission_required),
                 Toast.LENGTH_SHORT
             ).show()
         } else {
@@ -113,7 +116,7 @@ fun CreatePostScreen(
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text(text = "Create Dino") },
+                title = { Text(text = stringResource(R.string.create_post_title)) },
                 navigationIcon = {
                     IconButton(
                         onClick = { viewModel.closeScreen() },
@@ -121,7 +124,8 @@ fun CreatePostScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.ArrowBackIosNew,
-                            contentDescription = "Back"
+                            contentDescription = stringResource(R.string.back),
+                            modifier = backIconModifier()
                         )
                     }
                 },
@@ -136,7 +140,7 @@ fun CreatePostScreen(
                                 strokeWidth = 2.dp
                             )
                         } else {
-                            Text("Post")
+                            Text(stringResource(R.string.post))
                         }
                     }
                 }
@@ -156,7 +160,7 @@ fun CreatePostScreen(
 
             Spacer(modifier = Modifier.height(DPSmall))
             Text(
-                text = "Preview",
+                text = stringResource(R.string.preview),
                 style = MaterialTheme.typography.titleMedium
             )
 
@@ -187,13 +191,13 @@ fun CreatePostScreen(
                                 }
                             }
                             Text(
-                                text = "you",
+                                text = stringResource(R.string.you),
                                 style = MaterialTheme.typography.labelLarge
                             )
                         }
 
                         Text(
-                            text = "just now",
+                            text = stringResource(R.string.just_now),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -205,7 +209,7 @@ fun CreatePostScreen(
                             value = viewModel.postDraft.value,
                             onValueChange = viewModel::onPostDraftChanged,
                             enabled = !isSubmitting,
-                            placeholder = { Text("What's on your mind?") },
+                            placeholder = { Text(stringResource(R.string.create_post_placeholder)) },
                             minLines = 2,
                             maxLines = 10,
                             shape = MaterialTheme.shapes.extraLarge
@@ -233,7 +237,7 @@ fun CreatePostScreen(
                                         trailingIcon = {
                                             Icon(
                                                 imageVector = Icons.Rounded.Close,
-                                                contentDescription = "Remove media"
+                                                contentDescription = stringResource(R.string.remove_media)
                                             )
                                         },
                                         colors = AssistChipDefaults.assistChipColors(
@@ -247,7 +251,7 @@ fun CreatePostScreen(
 
                     if (viewModel.quotedPostId != null) {
                         Text(
-                            text = "Quoted post",
+                            text = stringResource(R.string.quoted_post),
                             style = MaterialTheme.typography.titleSmall
                         )
                         QuotedPostPreviewCard(
@@ -256,7 +260,7 @@ fun CreatePostScreen(
                         )
                         if (isQuotedPostLoading) {
                             Text(
-                                text = "Loading quoted post...",
+                                text = stringResource(R.string.loading_quoted_post),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -296,11 +300,11 @@ fun CreatePostScreen(
                             )
                             Column {
                                 Text(
-                                    text = "Followers only",
+                                    text = stringResource(R.string.followers_only),
                                     style = MaterialTheme.typography.bodyMedium
                                 )
                                 Text(
-                                    text = "Only your followers can see this post in Threads.",
+                                    text = stringResource(R.string.followers_only_hint),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -316,7 +320,7 @@ fun CreatePostScreen(
                         ) {
                             Text(
                                 modifier = Modifier.padding(DPMedium),
-                                text = "${error.orEmpty()}. Try again.",
+                                text = stringResource(R.string.error_try_again, error.orEmpty()),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onErrorContainer
                             )
@@ -350,7 +354,7 @@ fun CreatePostScreen(
                         contentDescription = null
                     )
                     Spacer(modifier = Modifier.size(DPSmall))
-                    Text("Add media")
+                    Text(stringResource(R.string.add_media))
                 }
 
                 Text(

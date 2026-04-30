@@ -9,6 +9,7 @@ import com.dino.message.corefeature.data.remote.util.appendTokenToHeader
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.domain.model.asStringResourceContent
 import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.profilefeature.data.remote.dto.AboutUsResponse
 import com.dino.message.profilefeature.data.remote.dto.FollowStatusResponse
 import com.dino.message.profilefeature.data.remote.dto.GetProfilePostsResponse
 import com.dino.message.profilefeature.data.remote.dto.ProfileFollowResponse
@@ -16,6 +17,7 @@ import com.dino.message.profilefeature.data.remote.dto.ProfileResponse
 import com.dino.message.profilefeature.data.remote.dto.ProfileUsersPageResponse
 import com.dino.message.profilefeature.data.remote.dto.UpdateMyProfileRequest
 import com.dino.message.profilefeature.domain.model.Profile
+import com.dino.message.profilefeature.domain.model.AboutUs
 import com.dino.message.profilefeature.domain.model.ProfileFollowResult
 import com.dino.message.profilefeature.domain.model.ProfileUpdateImage
 import com.dino.message.profilefeature.domain.model.ProfileUsersPage
@@ -45,6 +47,17 @@ class ProfileApiServiceImpl @Inject constructor(
     @ApplicationContext private val appContext: Context,
 ) : ProfileApiService, HaveRefreshTokenAPI by HaveRefreshTokenAPIImpl(httpClient, sPrefManager) {
 
+    override suspend fun getAboutUs(): Resource<AboutUs> =
+        httpAPIUtil.callAPIWithErrorHandling<AboutUs, AboutUsResponse>(
+            callAPI = {
+                httpClient.get(ProfileRoute.GetAboutUs.url) {
+                    contentType(ContentType.Application.Json)
+                }
+            },
+            callRefreshTokenAPI = this::getToken,
+            needToUpdateToken = false
+        )
+
     override suspend fun getMyProfile(): Resource<Profile> =
         httpAPIUtil.callAPIWithErrorHandling<Profile, ProfileResponse>(
             callAPI = {
@@ -58,6 +71,7 @@ class ProfileApiServiceImpl @Inject constructor(
     override suspend fun updateMyProfile(
         name: String?,
         bio: String?,
+        profileImageShape: String?,
         profileImage: ProfileUpdateImage?,
         profileVideo: ProfileUpdateImage?
     ): Resource<Profile> {
@@ -66,8 +80,14 @@ class ProfileApiServiceImpl @Inject constructor(
             return Resource.Error(message = "Name must be a non-empty string".asStringResourceContent())
         }
         val sanitizedBio = bio?.trim()
+        val sanitizedProfileImageShape = profileImageShape?.trim()?.lowercase()
 
-        if (sanitizedName == null && sanitizedBio == null && profileImage == null && profileVideo == null) {
+        if (sanitizedName == null &&
+            sanitizedBio == null &&
+            sanitizedProfileImageShape == null &&
+            profileImage == null &&
+            profileVideo == null
+        ) {
             return Resource.Error(message = "At least one field is required".asStringResourceContent())
         }
 
@@ -80,7 +100,8 @@ class ProfileApiServiceImpl @Inject constructor(
                         setBody(
                             UpdateMyProfileRequest(
                                 name = sanitizedName,
-                                bio = sanitizedBio
+                                bio = sanitizedBio,
+                                profile_image_shape = sanitizedProfileImageShape
                             )
                         )
                     } else {
@@ -89,6 +110,7 @@ class ProfileApiServiceImpl @Inject constructor(
                                 formData {
                                     sanitizedName?.let { append("name", it) }
                                     sanitizedBio?.let { append("bio", it) }
+                                    sanitizedProfileImageShape?.let { append("profile_image_shape", it) }
                                     profileImage?.let {
                                         append(
                                             key = "profile_image",

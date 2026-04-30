@@ -2,33 +2,21 @@ package com.dino.message.searchfeature.presentation.component
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import coil.compose.SubcomposeAsyncImage
-import coil.request.ImageRequest
-import coil.request.CachePolicy
-import androidx.compose.runtime.remember
+import com.dino.message.corefeature.presentation.component.UserBadgeIcon
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPSmall
+import com.dino.message.profilefeature.presentation.component.ProfileAvatarMedia
 import com.dino.message.searchfeature.domain.model.SearchUser
 
 @Composable
@@ -47,15 +35,26 @@ fun SearchUserItem(
     ) {
         UserAvatar(
             imageUrl = user.profile_image_url,
+            badge = user.badge,
+            profileImageShape = user.profile_image_shape,
             modifier = Modifier.size(44.dp)
         )
         Column(
             verticalArrangement = Arrangement.spacedBy(DPSmall)
         ) {
-            Text(
-                text = user.username,
-                style = MaterialTheme.typography.titleSmall
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    text = user.username,
+                    style = MaterialTheme.typography.titleSmall
+                )
+                UserBadgeIcon(
+                    badge = user.badge,
+                    size = 16.dp
+                )
+            }
             user.name?.let { name ->
                 Text(
                     text = name,
@@ -70,66 +69,15 @@ fun SearchUserItem(
 @Composable
 private fun UserAvatar(
     imageUrl: String?,
+    badge: String?,
+    profileImageShape: String?,
     modifier: Modifier = Modifier
 ) {
-    val normalizedUrl = imageUrl?.takeIf { it.isNotBlank() }
-    val context = LocalContext.current
-
-    Surface(
+    ProfileAvatarMedia(
         modifier = modifier,
-        shape = CircleShape,
-        color = MaterialTheme.colorScheme.surfaceVariant
-    ) {
-        if (normalizedUrl == null) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.Person,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            return@Surface
-        }
-
-        SubcomposeAsyncImage(
-            model = remember(normalizedUrl) {
-                ImageRequest.Builder(context)
-                    .data(normalizedUrl)
-                    .crossfade(true)
-                    .memoryCacheKey(normalizedUrl)
-                    .diskCachePolicy(CachePolicy.ENABLED)
-                    .memoryCachePolicy(CachePolicy.ENABLED)
-                    .build()
-            },
-            contentDescription = "User avatar",
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize(),
-            loading = {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(16.dp),
-                        strokeWidth = 2.dp
-                    )
-                }
-            },
-            error = {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Person,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-        )
-    }
+        profileImageUrl = imageUrl,
+        profileVideoUrl = null,
+        badge = badge,
+        profileImageShape = profileImageShape
+    )
 }

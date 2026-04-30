@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.dino.message.DinoOrderApplication
+import com.dino.message.corefeature.data.spref.DataStoreUtil
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
@@ -33,6 +34,7 @@ import javax.inject.Inject
 @HiltViewModel
 class SharedPostDetailsViewModel @Inject constructor(
     @ApplicationContext app: Context,
+    private val dataStoreUtil: DataStoreUtil,
     private val getPostUseCase: GetPostUseCase,
     private val voteUseCase: VoteUseCase,
     private val addTrackToPlaylistUseCase: AddTrackToPlaylistUseCase,
@@ -53,11 +55,20 @@ class SharedPostDetailsViewModel @Inject constructor(
 
     private val _selectedVote = MutableStateFlow(0L)
     val selectedVote: StateFlow<Long> = _selectedVote.asStateFlow()
+    private val _viewerHasBadge = MutableStateFlow(false)
+    val viewerHasBadge: StateFlow<Boolean> = _viewerHasBadge.asStateFlow()
     private val _playlistFeedback = MutableStateFlow<String?>(null)
     val playlistFeedback: StateFlow<String?> = _playlistFeedback.asStateFlow()
 
     init {
+        observeViewerBadgeAccess()
         refresh()
+    }
+
+    private fun observeViewerBadgeAccess() = viewModelScope.launch {
+        dataStoreUtil.getBadgeAccessEnabled().collect { hasBadge ->
+            _viewerHasBadge.value = hasBadge
+        }
     }
 
     fun refresh() {

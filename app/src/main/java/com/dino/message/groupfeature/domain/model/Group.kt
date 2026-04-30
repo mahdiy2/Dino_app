@@ -5,6 +5,8 @@ data class GroupCreator(
     val username: String,
     val name: String,
     val profileImageUrl: String? = null,
+    val profileImageShape: String? = null,
+    val badge: String? = null,
 )
 
 data class GroupMember(
@@ -12,6 +14,8 @@ data class GroupMember(
     val username: String,
     val name: String,
     val profileImageUrl: String? = null,
+    val profileImageShape: String? = null,
+    val badge: String? = null,
     val publicKey: String? = null,
 )
 

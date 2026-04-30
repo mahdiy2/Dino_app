@@ -1,6 +1,7 @@
 package com.dino.message.corefeature.presentation.util
 
 import android.util.Base64
+import android.util.Log
 import java.io.ByteArrayInputStream
 import java.math.BigInteger
 import java.security.KeyFactory
@@ -10,8 +11,19 @@ import java.security.cert.X509Certificate
 import java.security.spec.RSAPublicKeySpec
 import java.security.spec.X509EncodedKeySpec
 
+private const val TAG = "DecodePublicKey"
+
 fun decodePublicKey(base64Key: String): PublicKey {
     return decodePublicKeyInternal(base64Key, depth = 0)
+}
+
+fun decodePublicKeyOrNull(base64Key: String?): PublicKey? {
+    if (base64Key.isNullOrBlank()) return null
+    return try {
+        decodePublicKeyInternal(base64Key, depth = 0)
+    } catch (_: Exception) {
+        null
+    }
 }
 
 private fun decodePublicKeyInternal(rawValue: String, depth: Int): PublicKey {
@@ -91,6 +103,7 @@ private fun decodePublicKeyInternal(rawValue: String, depth: Int): PublicKey {
         }
     }
 
+    Log.w(TAG, "Unsupported public key format at depth=$depth, ${formatPublicKeyForLog(rawValue)}")
     throw IllegalArgumentException("Unsupported public key format")
 }
 

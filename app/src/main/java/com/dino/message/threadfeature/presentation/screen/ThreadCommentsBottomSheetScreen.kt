@@ -31,7 +31,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Reply
-import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
@@ -54,28 +53,26 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.dino.message.R
 import com.dino.message.corefeature.presentation.activity.theme.DividerColor
+import com.dino.message.corefeature.presentation.component.UserBadgeIcon
 import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPSmall
 import com.dino.message.corefeature.presentation.util.getRelativeTimeLabel
+import com.dino.message.profilefeature.presentation.component.ProfileAvatarMedia
 import com.dino.message.threadfeature.domain.model.Comment
 import com.dino.message.threadfeature.presentation.component.VoteIconButton
 import com.dino.message.threadfeature.presentation.viewmodel.ThreadCommentsViewModel
 import com.ramcosta.composedestinations.annotation.Destination
 import com.ramcosta.composedestinations.annotation.RootGraph
 import com.ramcosta.composedestinations.bottomsheet.spec.DestinationStyleBottomSheet
-import coil.compose.SubcomposeAsyncImage
-import coil.request.CachePolicy
-import coil.request.ImageRequest
 
 @Destination<RootGraph>(style = DestinationStyleBottomSheet::class)
 @Composable
@@ -107,7 +104,7 @@ fun ThreadCommentsBottomSheetScreen(
                 modifier = Modifier.padding(vertical = DPExtraLarge)
             ) {
                 Text(
-                    text = "Comments",
+                    text = stringResource(R.string.comments),
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onSurface
                 )
@@ -167,7 +164,7 @@ fun ThreadCommentsBottomSheetScreen(
                     )
 
                     Text(
-                        text = "No comments yet",
+                        text = stringResource(R.string.comments_empty_title),
                         modifier = Modifier
                             .fillMaxWidth(),
                         style = MaterialTheme.typography.titleMedium.copy(
@@ -179,7 +176,7 @@ fun ThreadCommentsBottomSheetScreen(
                     Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
-                        text = "We'd love to hear what you think",
+                        text = stringResource(R.string.comments_empty_subtitle),
                         modifier = Modifier
                             .fillMaxWidth(),
                         style = MaterialTheme.typography.bodyMedium.copy(
@@ -232,7 +229,13 @@ fun ThreadCommentsBottomSheetScreen(
                             onClick = { viewModel.loadMoreComments() },
                             enabled = !isLoadingComments
                         ) {
-                            Text(text = if (isLoadingComments) "Loading..." else "Load more comments")
+                            Text(
+                                text = if (isLoadingComments) {
+                                    stringResource(R.string.comments_loading)
+                                } else {
+                                    stringResource(R.string.comments_load_more)
+                                }
+                            )
                         }
                     }
                 }
@@ -351,15 +354,26 @@ private fun CommentItem(
                 ) {
                     CommentAuthorAvatar(
                         imageUrl = comment.author.profile_image_url,
+                        badge = comment.author.badge,
+                        profileImageShape = comment.author.profile_image_shape,
                         modifier = Modifier.size(34.dp)
                     )
                     Column {
-                        Text(
-                            text = comment.author.name?.takeIf { it.isNotBlank() }
-                                ?: comment.author.username,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = comment.author.name?.takeIf { it.isNotBlank() }
+                                    ?: comment.author.username,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            UserBadgeIcon(
+                                badge = comment.author.badge,
+                                size = 15.dp
+                            )
+                        }
                         Text(
                             text = "@${comment.author.username}",
                             style = MaterialTheme.typography.labelSmall,
@@ -369,7 +383,7 @@ private fun CommentItem(
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "score ${comment.score}",
+                    text = stringResource(R.string.comments_score_format, comment.score),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -409,7 +423,13 @@ private fun CommentItem(
                             contentDescription = null
                         )
                         Spacer(modifier = Modifier.width(2.dp))
-                        Text(text = if (isReplyVisible) "Cancel" else "Reply")
+                        Text(
+                            text = if (isReplyVisible) {
+                                stringResource(R.string.cancel)
+                            } else {
+                                stringResource(R.string.reply)
+                            }
+                        )
                     }
                     if (viewModel.canDeleteComment(comment)) {
                         TextButton(
@@ -417,7 +437,11 @@ private fun CommentItem(
                             enabled = !isDeletingComment
                         ) {
                             Text(
-                                text = if (isDeletingComment) "Deleting..." else "Delete",
+                                text = if (isDeletingComment) {
+                                    stringResource(R.string.deleting)
+                                } else {
+                                    stringResource(R.string.delete)
+                                },
                                 color = MaterialTheme.colorScheme.error
                             )
                         }
@@ -428,9 +452,9 @@ private fun CommentItem(
                     TextButton(onClick = onToggleReplies) {
                         Text(
                             text = if (areRepliesVisible) {
-                                "Hide replies"
+                                stringResource(R.string.comments_hide_replies)
                             } else {
-                                "Show more ($repliesCount)"
+                                stringResource(R.string.comments_show_more, repliesCount)
                             }
                         )
                     }
@@ -470,67 +494,17 @@ private fun CommentItem(
 @Composable
 private fun CommentAuthorAvatar(
     imageUrl: String?,
+    badge: String?,
+    profileImageShape: String?,
     modifier: Modifier = Modifier
 ) {
-    val normalizedImageUrl = imageUrl?.takeIf { it.isNotBlank() }
-    val context = LocalContext.current
-
-    Surface(
-        modifier = modifier.clip(CircleShape),
-        shape = CircleShape,
-        color = MaterialTheme.colorScheme.surfaceContainerHighest
-    ) {
-        if (normalizedImageUrl == null) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.Person,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            return@Surface
-        }
-
-        SubcomposeAsyncImage(
-            model = remember(normalizedImageUrl) {
-                ImageRequest.Builder(context)
-                    .data(normalizedImageUrl)
-                    .crossfade(true)
-                    .diskCachePolicy(CachePolicy.ENABLED)
-                    .memoryCachePolicy(CachePolicy.ENABLED)
-                    .build()
-            },
-            contentDescription = "Comment author avatar",
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize(),
-            loading = {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(12.dp),
-                        strokeWidth = 1.5.dp
-                    )
-                }
-            },
-            error = {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Person,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-        )
-    }
+    ProfileAvatarMedia(
+        modifier = modifier,
+        profileImageUrl = imageUrl,
+        profileVideoUrl = null,
+        badge = badge,
+        profileImageShape = profileImageShape
+    )
 }
 
 @Composable
@@ -558,7 +532,7 @@ private fun CommentComposer(
                 maxLines = 4,
                 placeholder = {
                     Text(
-                        "Write a comment...",
+                        stringResource(R.string.comments_write_placeholder),
                         style = MaterialTheme.typography.titleSmall,
                     )
                 },
@@ -575,7 +549,7 @@ private fun CommentComposer(
             ) {
                 Icon(
                     painter = painterResource(R.drawable.ic_send_filled),
-                    contentDescription = "Send comment",
+                    contentDescription = stringResource(R.string.send_comment),
                     tint = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             }

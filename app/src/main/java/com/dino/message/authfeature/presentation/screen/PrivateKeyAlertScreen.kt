@@ -33,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -54,6 +55,7 @@ fun PrivateKeyAlertScreen() {
     var privateKey by remember { mutableStateOf(viewModel.getPendingPrivateKey()) }
     var hasCopied by rememberSaveable { mutableStateOf(false) }
     var showFullKey by rememberSaveable { mutableStateOf(false) }
+    val genericError = stringResource(R.string.an_error_occurred)
 
     BackHandler(enabled = true) {
         // Block back navigation so the user cannot bypass key backup confirmation.
@@ -69,7 +71,7 @@ fun PrivateKeyAlertScreen() {
         item {
             Text(
                 modifier = Modifier.fillMaxWidth(),
-                text = "🔑 Private Key",
+                text = stringResource(R.string.private_key_title),
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onBackground,
                 textAlign = TextAlign.Center
@@ -81,7 +83,7 @@ fun PrivateKeyAlertScreen() {
         item {
 
             Text(
-                text = "⚠️ IMPORTANT: Save this key now!",
+                text = stringResource(R.string.private_key_important_title),
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.error
             )
@@ -89,10 +91,7 @@ fun PrivateKeyAlertScreen() {
             Spacer(Modifier.size(DPMedium))
 
             Text(
-                text = "This is your encryption key. Without it, you will NOT be able to read messages on another device or after re-installing the app.\n\n" +
-                        "• Tap the button below to copy it\n" +
-                        "• Paste it somewhere safe (notes app, email to yourself, etc.)\n" +
-                        "• You will need to paste it when logging in on a new device",
+                text = stringResource(R.string.private_key_body),
                 color = MaterialTheme.colorScheme.error
             )
 
@@ -100,7 +99,7 @@ fun PrivateKeyAlertScreen() {
 
             if (privateKey.isNullOrEmpty()) {
                 Text(
-                    text = "Private key not found. Please restart registration.",
+                    text = stringResource(R.string.private_key_not_found),
                     color = MaterialTheme.colorScheme.error
                 )
 
@@ -111,7 +110,7 @@ fun PrivateKeyAlertScreen() {
                         privateKey = viewModel.getPendingPrivateKey()
                     }
                 ) {
-                    Text("Try again!")
+                    Text(stringResource(R.string.try_again))
                 }
 
                 Spacer(Modifier.size(DPMedium))
@@ -119,13 +118,13 @@ fun PrivateKeyAlertScreen() {
                 TextButton(
                     onClick = { viewModel.navigateToRegisterScreenAndResetPending() }
                 ) {
-                    Text("Back to Register")
+                    Text(stringResource(R.string.back_to_register))
                 }
             } else {
                 FilledTonalButton(
                     shape = MaterialTheme.shapes.extraLarge,
                     onClick = {
-                        clipboardManager.setText(AnnotatedString(privateKey ?: "An Error has occurred"))
+                        clipboardManager.setText(AnnotatedString(privateKey ?: genericError))
                         hasCopied = true
                     }
                 ) {
@@ -135,16 +134,22 @@ fun PrivateKeyAlertScreen() {
                     )
                     Spacer(Modifier.size(8.dp))
                     if (hasCopied) {
-                        Text("✅ Copied! Save it somewhere safe.")
+                        Text(stringResource(R.string.private_key_copied))
                     } else {
-                        Text("📋 Tap to copy your private key")
+                        Text(stringResource(R.string.private_key_copy_hint))
                     }
                 }
 
                 if (hasCopied) {
                     Spacer(Modifier.size(DPMedium))
                     TextButton(onClick = { showFullKey = !showFullKey }) {
-                        Text(if (showFullKey) "Hide key" else "Show key to verify")
+                        Text(
+                            if (showFullKey) {
+                                stringResource(R.string.hide_key)
+                            } else {
+                                stringResource(R.string.show_key_to_verify)
+                            }
+                        )
                     }
                     if (showFullKey) {
                         Text(
@@ -195,7 +200,7 @@ fun PrivateKeyAlertScreen() {
                     } else {
                         Icon(
                             imageVector = Icons.Default.KeyboardArrowRight,
-                            contentDescription = "Confirm Registration",
+                            contentDescription = stringResource(R.string.confirm_registration),
                         )
                     }
 

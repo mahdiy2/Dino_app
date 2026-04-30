@@ -23,10 +23,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.dino.message.R
 import com.dino.message.corefeature.presentation.viewmodel.PrivateKeyResetDialogViewModel
 import com.ramcosta.composedestinations.annotation.Destination
 import com.ramcosta.composedestinations.annotation.RootGraph
@@ -66,7 +68,7 @@ fun PrivateKeyResetDialogScreen() {
                 )
             }
             Text(
-                text = "Reset encryption key?",
+                text = stringResource(R.string.reset_encryption_key_title),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -76,8 +78,7 @@ fun PrivateKeyResetDialogScreen() {
         Spacer(modifier = Modifier.height(14.dp))
 
         Text(
-            text = "This will generate a new private/public key pair. " +
-                "After reset, some older unread messages may no longer decrypt.",
+            text = stringResource(R.string.reset_encryption_key_body),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -102,7 +103,7 @@ fun PrivateKeyResetDialogScreen() {
                 onClick = viewModel::dismissDialog,
                 enabled = !isSubmitting,
             ) {
-                Text("Dismiss")
+                Text(stringResource(R.string.dismiss))
             }
 
             Button(
@@ -115,7 +116,7 @@ fun PrivateKeyResetDialogScreen() {
                         strokeWidth = 2.dp
                     )
                 } else {
-                    Text("Confirm")
+                    Text(stringResource(R.string.confirm))
                 }
             }
         }

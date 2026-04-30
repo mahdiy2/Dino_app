@@ -41,11 +41,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.dino.message.R
 import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPSmall
+import com.dino.message.corefeature.presentation.util.backIconModifier
 import com.dino.message.corefeature.presentation.util.rememberLayoutDirection
 import com.dino.message.threadfeature.presentation.component.MusicTrackPlayerCard
 import com.dino.message.threadfeature.presentation.component.PostContainer
@@ -88,7 +91,7 @@ fun PostMusicScreen(
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text(text = "Post Music") },
+                title = { Text(text = stringResource(R.string.post_music_title)) },
                 navigationIcon = {
                     IconButton(
                         onClick = { viewModel.closeScreen() },
@@ -96,7 +99,8 @@ fun PostMusicScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.ArrowBackIosNew,
-                            contentDescription = "Back"
+                            contentDescription = stringResource(R.string.back),
+                            modifier = backIconModifier()
                         )
                     }
                 },
@@ -111,7 +115,7 @@ fun PostMusicScreen(
                                 strokeWidth = 2.dp
                             )
                         } else {
-                            Text("Post")
+                            Text(stringResource(R.string.post))
                         }
                     }
                 }
@@ -126,7 +130,7 @@ fun PostMusicScreen(
             verticalArrangement = Arrangement.spacedBy(DPMedium)
         ) {
             Text(
-                text = "Preview",
+                text = stringResource(R.string.preview),
                 style = MaterialTheme.typography.titleMedium
             )
 
@@ -157,13 +161,13 @@ fun PostMusicScreen(
                                 }
                             }
                             Text(
-                                text = "you",
+                                text = stringResource(R.string.you),
                                 style = MaterialTheme.typography.labelLarge
                             )
                         }
 
                         Text(
-                            text = "just now",
+                            text = stringResource(R.string.just_now),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -175,7 +179,7 @@ fun PostMusicScreen(
                             value = viewModel.postDraft.value,
                             onValueChange = viewModel::onPostDraftChanged,
                             enabled = !isSubmitting,
-                            placeholder = { Text("Add a caption (optional)") },
+                            placeholder = { Text(stringResource(R.string.post_music_caption_placeholder)) },
                             minLines = 2,
                             maxLines = 10,
                             shape = MaterialTheme.shapes.extraLarge
@@ -197,7 +201,7 @@ fun PostMusicScreen(
                         ) {
                             Text(
                                 modifier = Modifier.padding(DPMedium),
-                                text = "Choose one music track to post.",
+                                text = stringResource(R.string.post_music_choose_track),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -206,7 +210,7 @@ fun PostMusicScreen(
 
                     if (viewModel.quotedPostId != null) {
                         Text(
-                            text = "Quoted post",
+                            text = stringResource(R.string.quoted_post),
                             style = MaterialTheme.typography.titleSmall
                         )
                         QuotedPostPreviewCard(
@@ -215,7 +219,7 @@ fun PostMusicScreen(
                         )
                         if (isQuotedPostLoading) {
                             Text(
-                                text = "Loading quoted post...",
+                                text = stringResource(R.string.loading_quoted_post),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -255,11 +259,11 @@ fun PostMusicScreen(
                             )
                             Column {
                                 Text(
-                                    text = "Followers only",
+                                    text = stringResource(R.string.followers_only),
                                     style = MaterialTheme.typography.bodyMedium
                                 )
                                 Text(
-                                    text = "Only your followers can see this post in Threads.",
+                                    text = stringResource(R.string.followers_only_hint),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -275,7 +279,7 @@ fun PostMusicScreen(
                         ) {
                             Text(
                                 modifier = Modifier.padding(DPMedium),
-                                text = "${error.orEmpty()}. Try again.",
+                                text = stringResource(R.string.error_try_again, error.orEmpty()),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onErrorContainer
                             )
@@ -300,7 +304,13 @@ fun PostMusicScreen(
                         contentDescription = null
                     )
                     Spacer(modifier = Modifier.size(DPSmall))
-                    Text(if (selectedTrack == null) "Select music" else "Replace music")
+                    Text(
+                        if (selectedTrack == null) {
+                            stringResource(R.string.post_music_select)
+                        } else {
+                            stringResource(R.string.post_music_replace)
+                        }
+                    )
                 }
 
                 if (selectedTrack != null) {
@@ -310,7 +320,7 @@ fun PostMusicScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Close,
-                            contentDescription = "Remove selected music"
+                            contentDescription = stringResource(R.string.post_music_remove_selected)
                         )
                     }
                 }
@@ -318,9 +328,9 @@ fun PostMusicScreen(
 
             Text(
                 text = if (selectedTrack == null) {
-                    "Required: 1 music track"
+                    stringResource(R.string.post_music_required)
                 } else {
-                    "Selected: ${selectedTrack.displayName}"
+                    stringResource(R.string.post_music_selected_format, selectedTrack.displayName)
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant

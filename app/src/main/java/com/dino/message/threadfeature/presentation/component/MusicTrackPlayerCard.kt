@@ -48,6 +48,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -66,13 +67,18 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import com.dino.message.R
 import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
 import com.dino.message.corefeature.presentation.ui.theme.DPLarge
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
+import com.dino.message.corefeature.presentation.util.resolveProfileImageShape
 import com.dino.message.threadfeature.domain.model.Author
 import com.dino.message.threadfeature.presentation.music.MusicPlaybackManager
 import coil.compose.SubcomposeAsyncImage
@@ -101,10 +107,11 @@ fun MusicTrackPlayerCard(
     playlistAdders: List<Author> = emptyList(),
     onPlaylistAddersClick: (() -> Unit)? = null,
     onAddToPlaylistClick: (() -> Unit)? = null,
-    addActionLabel: String = "Queue +",
+    addActionLabel: String? = null,
     footerContent: (@Composable () -> Unit)? = null
 ) {
     val context = LocalContext.current
+    val resolvedAddActionLabel = addActionLabel ?: stringResource(R.string.music_queue_add)
     val playbackState by MusicPlaybackManager.playbackState.collectAsState()
     val isCurrentTrack = playbackState.currentTrackUrl == trackUrl
     val isPlaying = isCurrentTrack && playbackState.isPlaying
@@ -244,7 +251,7 @@ fun MusicTrackPlayerCard(
                                 Text(
                                     modifier = Modifier
                                         .padding(horizontal = DPExtraLarge, vertical = DPMedium),
-                                    text = addActionLabel,
+                                    text = resolvedAddActionLabel,
                                     style = MaterialTheme.typography.labelMedium
                                 )
                             }
@@ -271,7 +278,7 @@ fun MusicTrackPlayerCard(
                                 Text(
                                     modifier = Modifier
                                         .padding(horizontal = DPExtraLarge, vertical = DPMedium),
-                                    text = addActionLabel,
+                                    text = resolvedAddActionLabel,
                                     style = MaterialTheme.typography.labelMedium
                                 )
                             }
@@ -300,126 +307,134 @@ fun MusicTrackPlayerCard(
                 )
             }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(
-                    DPMedium,
-                    Alignment.CenterHorizontally
-                ),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                FilledTonalButton(
-                    onClick = {
-                        activeButton = 0
-                        MusicPlaybackManager.seekBy(context, -10_000L)
-                    },
-                    enabled = enabled && isCurrentTrack,
-                    shapes = sideButtonShapes,
-                    modifier = Modifier
-                        .offset(x = rewindOffsetX)
-                        .size(56.dp)
-                        .graphicsLayer {
-                            scaleX = rewindScale
-                            scaleY = rewindScale
-                        },
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.SkipPrevious,
-                        contentDescription = "Seek backward 10 seconds",
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-                Button(
-                    onClick = {
-                        activeButton = 1
-                        if (!enabled) return@Button
-                        MusicPlaybackManager.toggleTrack(
-                            context = context,
-                            trackUrl = trackUrl,
-                            title = trackTitle,
-                            artist = trackSubtitle
-                        )
-                    },
-                    enabled = enabled,
-                    shapes = ButtonDefaults.shapes(
-                        MaterialTheme.shapes.extraLarge
+            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(
+                        DPMedium,
+                        Alignment.CenterHorizontally
                     ),
-                    modifier = Modifier
-                        .offset(x = playOffsetX)
-                        .height(56.dp)
-                        .width(120.dp)
-//                        .size(72.dp)
-                        .graphicsLayer {
-                            scaleX = playScale
-                            scaleY = playScale
-                        }
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = if (isPlaying) {
-                            Icons.Rounded.Pause
-                        } else {
-                            Icons.Rounded.PlayArrow
+                    FilledTonalButton(
+                        onClick = {
+                            activeButton = 0
+                            MusicPlaybackManager.seekBy(context, -10_000L)
                         },
-                        contentDescription = if (isPlaying) "Pause" else "Play",
-                        modifier = Modifier.size(36.dp)
-                    )
-                }
-                FilledTonalButton(
-                    onClick = {
-                        activeButton = 2
-                        MusicPlaybackManager.seekBy(context, 10_000L)
-                    },
-                    enabled = enabled && isCurrentTrack,
-                    shapes = sideButtonShapes,
-                    modifier = Modifier
-                        .offset(x = forwardOffsetX)
-                        .size(56.dp)
-                        .graphicsLayer {
-                            scaleX = forwardScale
-                            scaleY = forwardScale
-                        }
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.SkipNext,
-                        contentDescription = "Seek forward 10 seconds",
-                        modifier = Modifier.size(24.dp)
-                    )
+                        enabled = enabled && isCurrentTrack,
+                        shapes = sideButtonShapes,
+                        modifier = Modifier
+                            .offset(x = rewindOffsetX)
+                            .size(56.dp)
+                            .graphicsLayer {
+                                scaleX = rewindScale
+                                scaleY = rewindScale
+                            },
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.SkipPrevious,
+                            contentDescription = stringResource(R.string.music_seek_backward_10),
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    Button(
+                        onClick = {
+                            activeButton = 1
+                            if (!enabled) return@Button
+                            MusicPlaybackManager.toggleTrack(
+                                context = context,
+                                trackUrl = trackUrl,
+                                title = trackTitle,
+                                artist = trackSubtitle
+                            )
+                        },
+                        enabled = enabled,
+                        shapes = ButtonDefaults.shapes(
+                            MaterialTheme.shapes.extraLarge
+                        ),
+                        modifier = Modifier
+                            .offset(x = playOffsetX)
+                            .height(56.dp)
+                            .width(120.dp)
+//                        .size(72.dp)
+                            .graphicsLayer {
+                                scaleX = playScale
+                                scaleY = playScale
+                            }
+                    ) {
+                        Icon(
+                            imageVector = if (isPlaying) {
+                                Icons.Rounded.Pause
+                            } else {
+                                Icons.Rounded.PlayArrow
+                            },
+                            contentDescription = if (isPlaying) {
+                                stringResource(R.string.pause)
+                            } else {
+                                stringResource(R.string.play)
+                            },
+                            modifier = Modifier.size(36.dp)
+                        )
+                    }
+                    FilledTonalButton(
+                        onClick = {
+                            activeButton = 2
+                            MusicPlaybackManager.seekBy(context, 10_000L)
+                        },
+                        enabled = enabled && isCurrentTrack,
+                        shapes = sideButtonShapes,
+                        modifier = Modifier
+                            .offset(x = forwardOffsetX)
+                            .size(56.dp)
+                            .graphicsLayer {
+                                scaleX = forwardScale
+                                scaleY = forwardScale
+                            }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.SkipNext,
+                            contentDescription = stringResource(R.string.music_seek_forward_10),
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
                 }
             }
 
-            Slider(
-                value = sliderValue,
-                onValueChange = { newValue ->
-                    if (!enabled || !isCurrentTrack) return@Slider
-                    isSliderDragging = true
-                    sliderValue = newValue
-                },
-                onValueChangeFinished = {
-                    if (enabled && isCurrentTrack) {
-                        MusicPlaybackManager.seekTo(context, sliderValue.roundToLong())
+            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                Slider(
+                    value = sliderValue,
+                    onValueChange = { newValue ->
+                        if (!enabled || !isCurrentTrack) return@Slider
+                        isSliderDragging = true
+                        sliderValue = newValue
+                    },
+                    onValueChangeFinished = {
+                        if (enabled && isCurrentTrack) {
+                            MusicPlaybackManager.seekTo(context, sliderValue.roundToLong())
+                        }
+                        isSliderDragging = false
+                    },
+                    valueRange = 0f..sliderMax,
+                    enabled = enabled && isCurrentTrack,
+
+                    thumb = {
+                        ExpressiveThumb(isDragging = isSliderDragging)
+                    },
+
+                    track = { sliderState ->
+
+                        val progress =
+                            (sliderState.value - sliderState.valueRange.start) /
+                                    (sliderState.valueRange.endInclusive - sliderState.valueRange.start)
+
+                        ExpressiveTrack(
+                            progress = progress,
+                            isPlaying = isPlaying,
+                            isDragging = isSliderDragging
+                        )
                     }
-                    isSliderDragging = false
-                },
-                valueRange = 0f..sliderMax,
-                enabled = enabled && isCurrentTrack,
-
-                thumb = {
-                    ExpressiveThumb(isDragging = isSliderDragging)
-                },
-
-                track = { sliderState ->
-
-                    val progress =
-                        (sliderState.value - sliderState.valueRange.start) /
-                                (sliderState.valueRange.endInclusive - sliderState.valueRange.start)
-
-                    ExpressiveTrack(
-                        progress = progress,
-                        isPlaying = isPlaying,
-                        isDragging = isSliderDragging
-                    )
-                }
-            )
+                )
+            }
 
 
             if (footerContent != null) {
@@ -453,8 +468,8 @@ private fun PlaylistAddersButtonContent(
     val previewAdders = adders.take(2)
     val remainingCount = (addersCount - previewAdders.size).coerceAtLeast(0)
     val label = when {
-        remainingCount > 0 -> "$remainingCount more"
-        else -> "$addersCount queued"
+        remainingCount > 0 -> stringResource(R.string.music_adders_more, remainingCount)
+        else -> stringResource(R.string.music_adders_queued, addersCount)
     }
 
     Row(
@@ -467,6 +482,8 @@ private fun PlaylistAddersButtonContent(
             previewAdders.forEachIndexed { index, adder ->
                 PlaylistAdderAvatar(
                     imageUrl = adder.profile_image_url,
+                    badge = adder.badge,
+                    profileImageShape = adder.profile_image_shape,
                     modifier = Modifier
                         .offset(x = (index * 14).dp)
                         .size(22.dp)
@@ -494,6 +511,8 @@ private fun PlaylistAddersButtonContent(
 @Composable
 private fun PlaylistAdderAvatar(
     imageUrl: String?,
+    badge: String?,
+    profileImageShape: String?,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -501,7 +520,10 @@ private fun PlaylistAdderAvatar(
 
     Surface(
         modifier = modifier,
-        shape = CircleShape,
+        shape = resolveProfileImageShape(
+            badge = badge,
+            profileImageShape = profileImageShape
+        ),
         color = MaterialTheme.colorScheme.surface,
         shadowElevation = 1.dp
     ) {
@@ -534,7 +556,12 @@ private fun PlaylistAdderAvatar(
             contentScale = ContentScale.Crop,
             modifier = Modifier
                 .fillMaxSize()
-                .clip(CircleShape),
+                .clip(
+                    resolveProfileImageShape(
+                        badge = badge,
+                        profileImageShape = profileImageShape
+                    )
+                ),
             error = {
                 Box(
                     modifier = Modifier.fillMaxSize(),

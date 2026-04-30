@@ -55,7 +55,9 @@ private val PROFILE_AVATAR_SIZE = 30.dp
 fun FloatingDockNavigation(
     selectedIndex: Int,
     unreadNotificationCount: Int,
+    profileBadge: String?,
     profileImageUrl: String?,
+    profileImageShape: String?,
     profileVideoUrl: String?,
     onChatClick: () -> Unit,
     onPlaylistClick: () -> Unit,
@@ -128,7 +130,9 @@ fun FloatingDockNavigation(
                 )
 
                 DockProfileItem(
+                    badge = profileBadge,
                     profileImageUrl = profileImageUrl,
+                    profileImageShape = profileImageShape,
                     profileVideoUrl = profileVideoUrl,
                     onClick = onProfileClick
                 )
@@ -139,7 +143,9 @@ fun FloatingDockNavigation(
 
 @Composable
 private fun DockProfileItem(
+    badge: String?,
     profileImageUrl: String?,
+    profileImageShape: String?,
     profileVideoUrl: String?,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -175,6 +181,8 @@ private fun DockProfileItem(
                     scaleY = scale
                 },
             profileImageUrl = profileImageUrl,
+            badge = badge,
+            profileImageShape = profileImageShape,
             profileVideoUrl = profileVideoUrl,
             autoPlayVideo = true
         )

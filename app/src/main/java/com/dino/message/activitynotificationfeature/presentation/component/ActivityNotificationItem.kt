@@ -1,5 +1,6 @@
 package com.dino.message.activitynotificationfeature.presentation.component
 
+import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -26,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -52,6 +54,7 @@ fun ActivityNotificationItem(
     onSendReply: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val bgColor = if (!notification.is_read) {
         MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f)
     } else {
@@ -71,6 +74,8 @@ fun ActivityNotificationItem(
                 .size(44.dp)
                 .clickable { onOpenProfile(notification.actor.username) },
             profileImageUrl = notification.actor.profile_image_url,
+            badge = notification.actor.badge,
+            profileImageShape = notification.actor.profile_image_shape,
             profileVideoUrl = null
         )
 
@@ -79,7 +84,7 @@ fun ActivityNotificationItem(
             verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
             Text(
-                text = buildNotificationTitle(notification),
+                text = buildNotificationTitle(notification, context),
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontWeight = if (!notification.is_read) FontWeight.SemiBold else FontWeight.Normal
                 ),
@@ -88,7 +93,7 @@ fun ActivityNotificationItem(
                 overflow = TextOverflow.Ellipsis
             )
 
-            val subtitle = buildNotificationSubtitle(notification)
+            val subtitle = buildNotificationSubtitle(notification, context)
             if (subtitle != null) {
                 Text(
                     text = subtitle,
@@ -114,7 +119,7 @@ fun ActivityNotificationItem(
                             strokeWidth = 2.dp
                         )
                     } else {
-                        Text(text = "Follow Back")
+                        Text(text = stringResource(R.string.follow_back))
                     }
                 }
             }
@@ -126,7 +131,13 @@ fun ActivityNotificationItem(
                         contentDescription = null
                     )
                     Spacer(modifier = Modifier.width(2.dp))
-                    Text(text = if (isReplyComposerVisible) "Cancel" else "Reply")
+                    Text(
+                        text = if (isReplyComposerVisible) {
+                            stringResource(R.string.cancel)
+                        } else {
+                            stringResource(R.string.reply)
+                        }
+                    )
                 }
             }
 
@@ -143,7 +154,7 @@ fun ActivityNotificationItem(
                         maxLines = 4,
                         placeholder = {
                             Text(
-                                "Write a reply...",
+                                stringResource(R.string.notification_write_reply),
                                 style = MaterialTheme.typography.bodySmall
                             )
                         },
@@ -165,7 +176,7 @@ fun ActivityNotificationItem(
                         } else {
                             Icon(
                                 painter = painterResource(R.drawable.ic_send_filled),
-                                contentDescription = "Send reply",
+                                contentDescription = stringResource(R.string.send_reply),
                                 tint = MaterialTheme.colorScheme.onPrimaryContainer
                             )
                         }
@@ -176,67 +187,63 @@ fun ActivityNotificationItem(
     }
 }
 
-private fun buildNotificationTitle(notification: ActivityNotification): String {
+private fun buildNotificationTitle(notification: ActivityNotification, context: Context): String {
     val actorName = notification.actor.name ?: notification.actor.username
     return when (notification.kind) {
-        "follow" -> "$actorName started following you"
-        "unfollow" -> "$actorName unfollowed you"
+        "follow" -> context.getString(R.string.notification_title_follow, actorName)
+        "unfollow" -> context.getString(R.string.notification_title_unfollow, actorName)
         "comment" -> {
-            val postPreview = notification.extra?.post_text_preview?.let {
-                if (it.length > 40) "\"${it.take(40)}…\"" else "\"$it\""
-            } ?: "your post"
-            "$actorName commented on $postPreview"
+            val postPreview = quotedPreview(notification.extra?.post_text_preview, 40)
+                ?: context.getString(R.string.notification_your_post)
+            context.getString(R.string.notification_title_comment, actorName, postPreview)
         }
         "comment_reply" -> {
-            val postPreview = notification.extra?.post_text_preview?.let {
-                if (it.length > 40) "\"${it.take(40)}…\"" else "\"$it\""
-            } ?: "your post"
-            "$actorName replied to your comment on $postPreview"
+            val postPreview = quotedPreview(notification.extra?.post_text_preview, 40)
+                ?: context.getString(R.string.notification_your_post)
+            context.getString(R.string.notification_title_comment_reply, actorName, postPreview)
         }
         "vote" -> {
-            val label = notification.extra?.vote_label ?: "voted on"
-            val postPreview = notification.extra?.post_text_preview?.let {
-                if (it.length > 40) "\"${it.take(40)}…\"" else "\"$it\""
-            } ?: "your post"
-            "$actorName ${label}d $postPreview"
+            val label = notification.extra?.vote_label ?: context.getString(R.string.notification_vote_label_default)
+            val postPreview = quotedPreview(notification.extra?.post_text_preview, 40)
+                ?: context.getString(R.string.notification_your_post)
+            context.getString(R.string.notification_title_vote, actorName, label, postPreview)
         }
         "post_like_milestone" -> {
             val count = notification.extra?.engagement_count ?: notification.extra?.milestone_count
-            val postPreview = notification.extra?.post_text_preview?.let {
-                if (it.length > 40) "\"${it.take(40)}…\"" else "\"$it\""
-            } ?: "your post"
+            val postPreview = quotedPreview(notification.extra?.post_text_preview, 40)
+                ?: context.getString(R.string.notification_your_post)
             if (count != null) {
-                "Your post $postPreview has received $count likes"
+                context.getString(R.string.notification_title_like_milestone_count, postPreview, count)
             } else {
-                "Your post $postPreview has received many likes"
+                context.getString(R.string.notification_title_like_milestone_many, postPreview)
             }
         }
         "post_comment_milestone" -> {
             val count = notification.extra?.engagement_count ?: notification.extra?.milestone_count
-            val postPreview = notification.extra?.post_text_preview?.let {
-                if (it.length > 40) "\"${it.take(40)}…\"" else "\"$it\""
-            } ?: "your post"
+            val postPreview = quotedPreview(notification.extra?.post_text_preview, 40)
+                ?: context.getString(R.string.notification_your_post)
             if (count != null) {
-                "Your post $postPreview has received comments from $count people"
+                context.getString(R.string.notification_title_comment_milestone_count, postPreview, count)
             } else {
-                "Your post $postPreview has received many comments"
+                context.getString(R.string.notification_title_comment_milestone_many, postPreview)
             }
         }
-        else -> "$actorName interacted with you"
+        else -> context.getString(R.string.notification_title_interacted, actorName)
     }
 }
 
-private fun buildNotificationSubtitle(notification: ActivityNotification): String? {
+private fun buildNotificationSubtitle(notification: ActivityNotification, context: Context): String? {
     return when (notification.kind) {
         "comment" -> {
             val commentPreview = notification.extra?.comment_preview?.trim().orEmpty()
             val postPreview = notification.extra?.post_text_preview?.trim().orEmpty()
+            val postLine = truncateText(postPreview, 80)
             when {
                 commentPreview.isNotBlank() && postPreview.isNotBlank() ->
-                    "Comment: \"$commentPreview\"\nPost: \"${postPreview.take(80)}${if (postPreview.length > 80) "…" else ""}\""
-                commentPreview.isNotBlank() -> "Comment: \"$commentPreview\""
+                    context.getString(R.string.notification_subtitle_comment_post, commentPreview, postLine)
+                commentPreview.isNotBlank() -> context.getString(R.string.notification_subtitle_comment, commentPreview)
                 postPreview.isNotBlank() ->
-                    "Post: \"${postPreview.take(80)}${if (postPreview.length > 80) "…" else ""}\""
+                    context.getString(R.string.notification_subtitle_post, postLine)
                 else -> null
             }
         }
@@ -246,19 +253,13 @@ private fun buildNotificationSubtitle(notification: ActivityNotification): Strin
             val postPreview = notification.extra?.post_text_preview?.trim().orEmpty()
             val parts = buildList {
                 if (replyPreview.isNotBlank()) {
-                    add("Reply: \"$replyPreview\"")
+                    add(context.getString(R.string.notification_subtitle_reply, replyPreview))
                 }
                 if (parentPreview.isNotBlank()) {
-                    add(
-                        "On comment: \"${parentPreview.take(80)}" +
-                            "${if (parentPreview.length > 80) "…" else ""}\""
-                    )
+                    add(context.getString(R.string.notification_subtitle_on_comment, truncateText(parentPreview, 80)))
                 }
                 if (postPreview.isNotBlank()) {
-                    add(
-                        "Post: \"${postPreview.take(80)}" +
-                            "${if (postPreview.length > 80) "…" else ""}\""
-                    )
+                    add(context.getString(R.string.notification_subtitle_post, truncateText(postPreview, 80)))
                 }
             }
             parts.takeIf { it.isNotEmpty() }?.joinToString("\n")
@@ -267,11 +268,22 @@ private fun buildNotificationSubtitle(notification: ActivityNotification): Strin
             val thresholdPercent = notification.extra?.percent_threshold
             val activeUsers = notification.extra?.active_users
             if (thresholdPercent != null && activeUsers != null) {
-                "Milestone reached: $thresholdPercent% of active users"
+                context.getString(R.string.notification_subtitle_milestone, thresholdPercent)
             } else {
                 null
             }
         }
         else -> null
     }
+}
+
+private fun truncateText(value: String, maxLength: Int): String {
+    if (value.length <= maxLength) return value
+    return value.take(maxLength) + "…"
+}
+
+private fun quotedPreview(text: String?, maxLength: Int): String? {
+    val value = text?.trim().orEmpty()
+    if (value.isBlank()) return null
+    return "\"${truncateText(value, maxLength)}\""
 }

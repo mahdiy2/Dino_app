@@ -14,10 +14,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ArrowBackIosNew
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.AssistChip
@@ -44,6 +43,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -51,13 +51,16 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import coil.compose.AsyncImage
 import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
+import com.dino.message.R
+import com.dino.message.corefeature.presentation.component.UserBadgeIcon
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPSmall
+import com.dino.message.corefeature.presentation.util.backIconModifier
 import com.dino.message.groupfeature.domain.model.GroupMember
 import com.dino.message.groupfeature.presentation.viewmodel.GroupMembersViewModel
+import com.dino.message.profilefeature.presentation.component.ProfileAvatarMedia
 import com.ramcosta.composedestinations.annotation.Destination
 import com.ramcosta.composedestinations.annotation.RootGraph
 
@@ -80,7 +83,7 @@ fun GroupMembersScreen(
     val errorMessage by viewModel.errorMessage.collectAsState()
     var selectedProfileImageUrl by remember { mutableStateOf<String?>(null) }
 
-    val resolvedGroupName = title.ifBlank { groupName ?: "Group" }
+    val resolvedGroupName = title.ifBlank { groupName ?: stringResource(R.string.group_fallback_name) }
 
     LaunchedEffect(errorMessage) {
         errorMessage?.let {
@@ -104,10 +107,14 @@ fun GroupMembersScreen(
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("$resolvedGroupName members") },
+                title = { Text(stringResource(R.string.group_members_title, resolvedGroupName)) },
                 navigationIcon = {
                     IconButton(onClick = { viewModel.navigateUp() }) {
-                        Icon(Icons.Rounded.ArrowBackIosNew, contentDescription = "Back")
+                        Icon(
+                            imageVector = Icons.Rounded.ArrowBackIosNew,
+                            contentDescription = stringResource(R.string.back),
+                            modifier = backIconModifier()
+                        )
                     }
                 },
             )
@@ -119,7 +126,7 @@ fun GroupMembersScreen(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                 ) {
-                    Icon(Icons.Rounded.Add, contentDescription = "Add members")
+                    Icon(Icons.Rounded.Add, contentDescription = stringResource(R.string.group_add_members_title))
                 }
             }
         },
@@ -143,7 +150,7 @@ fun GroupMembersScreen(
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        text = "No members found",
+                        text = stringResource(R.string.group_members_empty),
                         style = MaterialTheme.typography.bodyLarge,
                     )
                 }
@@ -157,7 +164,7 @@ fun GroupMembersScreen(
                 ) {
                     if (!canManageMembers) {
                         Text(
-                            text = "Only the group creator can add new members",
+                            text = stringResource(R.string.group_members_manage_hint),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = DPSmall),
@@ -213,12 +220,13 @@ private fun GroupMemberItem(
             .padding(vertical = DPSmall),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        AsyncImage(
-            model = member.profileImageUrl,
-            contentDescription = member.name,
+        ProfileAvatarMedia(
+            profileImageUrl = member.profileImageUrl,
+            profileVideoUrl = null,
+            badge = member.badge,
+            profileImageShape = member.profileImageShape,
             modifier = Modifier
                 .size(48.dp)
-                .clip(CircleShape)
                 .clickable {
                     onAvatarClick(member.profileImageUrl)
                 },
@@ -227,10 +235,19 @@ private fun GroupMemberItem(
         Spacer(modifier = Modifier.size(DPMedium))
 
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = member.name,
-                style = MaterialTheme.typography.bodyLarge,
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    text = member.name,
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+                UserBadgeIcon(
+                    badge = member.badge,
+                    size = 16.dp
+                )
+            }
             Text(
                 text = "@${member.username}",
                 style = MaterialTheme.typography.bodySmall,
@@ -242,7 +259,7 @@ private fun GroupMemberItem(
             AssistChip(
                 onClick = { },
                 enabled = false,
-                label = { Text("Creator") },
+                label = { Text(stringResource(R.string.creator)) },
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Rounded.Star,
@@ -273,7 +290,7 @@ private fun GroupMemberProfileImageDialog(
                     .data(imageUrl)
                     .crossfade(true)
                     .build(),
-                contentDescription = "Member profile image",
+                contentDescription = stringResource(R.string.group_member_profile_image),
                 contentScale = ContentScale.Fit,
                 modifier = Modifier.fillMaxSize(),
             )
@@ -286,7 +303,7 @@ private fun GroupMemberProfileImageDialog(
             ) {
                 Icon(
                     imageVector = Icons.Rounded.Close,
-                    contentDescription = "Close",
+                    contentDescription = stringResource(R.string.close),
                     tint = Color.White,
                 )
             }

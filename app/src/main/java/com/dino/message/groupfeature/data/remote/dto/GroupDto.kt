@@ -9,6 +9,8 @@ data class GroupCreatorDto(
     val username: String,
     val name: String? = null,
     @SerialName("profile_image_url") val profileImageUrl: String? = null,
+    @SerialName("profile_image_shape") val profileImageShape: String? = null,
+    val badge: String? = null,
 )
 
 @Serializable
@@ -17,6 +19,8 @@ data class GroupMemberDto(
     val username: String,
     val name: String? = null,
     @SerialName("profile_image_url") val profileImageUrl: String? = null,
+    @SerialName("profile_image_shape") val profileImageShape: String? = null,
+    val badge: String? = null,
     @SerialName("public_key") val publicKey: String? = null,
 )
 

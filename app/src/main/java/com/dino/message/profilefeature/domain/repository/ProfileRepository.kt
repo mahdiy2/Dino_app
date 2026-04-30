@@ -1,6 +1,7 @@
 package com.dino.message.profilefeature.domain.repository
 
 import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.profilefeature.domain.model.AboutUs
 import com.dino.message.profilefeature.domain.model.Profile
 import com.dino.message.profilefeature.domain.model.ProfileFollowResult
 import com.dino.message.profilefeature.domain.model.ProfileUpdateImage
@@ -8,11 +9,14 @@ import com.dino.message.profilefeature.domain.model.ProfileUsersPage
 import com.dino.message.threadfeature.domain.model.PostsPage
 
 interface ProfileRepository {
+    suspend fun getAboutUs(): Resource<AboutUs>
+
     suspend fun getMyProfile(): Resource<Profile>
 
     suspend fun updateMyProfile(
         name: String? = null,
         bio: String? = null,
+        profileImageShape: String? = null,
         profileImage: ProfileUpdateImage? = null,
         profileVideo: ProfileUpdateImage? = null
     ): Resource<Profile>

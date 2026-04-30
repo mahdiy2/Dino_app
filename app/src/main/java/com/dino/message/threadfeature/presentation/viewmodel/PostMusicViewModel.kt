@@ -9,13 +9,14 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.dino.message.DinoOrderApplication
+import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
+import com.dino.message.threadfeature.data.upload.PostUploadManager
 import com.dino.message.threadfeature.domain.model.CreatePostMedia
 import com.dino.message.threadfeature.domain.model.Post
 import com.dino.message.threadfeature.domain.model.QuotedPostPreview
-import com.dino.message.threadfeature.domain.usecase.CreatePostUseCase
 import com.dino.message.threadfeature.domain.usecase.GetPostUseCase
 import com.dino.message.threadfeature.presentation.util.resolveMusicMetadata
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -39,7 +40,8 @@ data class SelectedMusicTrack(
 @HiltViewModel
 class PostMusicViewModel @Inject constructor(
     @ApplicationContext app: Context,
-    private val createPostUseCase: CreatePostUseCase,
+    private val sPrefManager: SPrefManager,
+    private val postUploadManager: PostUploadManager,
     private val getPostUseCase: GetPostUseCase,
     savedStateHandle: SavedStateHandle
 ) : AndroidViewModel(app as DinoOrderApplication),
@@ -130,32 +132,31 @@ class PostMusicViewModel @Inject constructor(
                 return@launch
             }
 
-            createPostUseCase.execute(
-                text = text,
-                mediaFiles = listOf(media),
-                followersOnly = followersOnly.value,
-                quotedPostId = quotedPostId
-            ).collect { res ->
-                when (res) {
-                    is Resource.Success -> {
-                        _isSubmitting.value = false
-                        _error.value = null
-                        postDraft.value = ""
-                        followersOnly.value = false
-                        selectedTrack.value = null
-                        navigateUp(viewModelScope)
-                    }
-
-                    is Resource.Loading -> {
-                        _isSubmitting.value = true
-                    }
-
-                    is Resource.Error -> {
-                        _isSubmitting.value = false
-                        _error.value = res.message.asString(getApplication())
-                    }
-                }
+            val username = sPrefManager.getUsername().orEmpty().trim()
+            if (username.isBlank()) {
+                _isSubmitting.value = false
+                _error.value = "Session expired. Please log in again."
+                return@launch
             }
+
+            postUploadManager.enqueueUpload(
+                username = username,
+                text = text,
+                followersOnly = followersOnly.value,
+                quotedPostId = quotedPostId,
+                mediaUris = listOf(media.uri.toString()),
+                mediaNames = listOf(media.fileName),
+                mediaMimeTypes = listOf(media.mimeType),
+                trackTitle = media.trackTitle,
+                trackArtist = media.trackArtist,
+            )
+
+            _isSubmitting.value = false
+            _error.value = null
+            postDraft.value = ""
+            followersOnly.value = false
+            selectedTrack.value = null
+            navigateUp(viewModelScope)
         }
     }
 

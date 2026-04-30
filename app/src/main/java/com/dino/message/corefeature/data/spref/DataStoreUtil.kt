@@ -5,7 +5,9 @@ import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.dino.message.corefeature.domain.model.AppLanguage
@@ -26,6 +28,10 @@ class DataStoreUtil @Inject constructor(private val context: Context) {
         // Define keys for accessing specific preferences
         val DARK_THEME_SETTINGS_KEY = stringPreferencesKey("DARK_THEME_SETTINGS")
         val LANGUAGE_KEY = stringPreferencesKey("LANGUAGE")
+        val LANGUAGE_ONBOARDING_DONE_KEY = booleanPreferencesKey("LANGUAGE_ONBOARDING_DONE")
+        val BADGE_ACCESS_ENABLED_KEY = booleanPreferencesKey("BADGE_ACCESS_ENABLED")
+        val BADGE_ACCESS_LAST_SYNC_EPOCH_MS_KEY = longPreferencesKey("BADGE_ACCESS_LAST_SYNC_EPOCH_MS")
+        val BADGE_FEATURES_DIALOG_DISMISSED_KEY = booleanPreferencesKey("BADGE_FEATURES_DIALOG_DISMISSED")
     }
 
     /**
@@ -57,8 +63,23 @@ class DataStoreUtil @Inject constructor(private val context: Context) {
      */
     fun getLanguage(): Flow<AppLanguage> = context.dataStore.data.map { preferences ->
         AppLanguage.valueOf(
-            preferences[LANGUAGE_KEY] ?: AppLanguage.English.name
+            preferences[LANGUAGE_KEY] ?: AppLanguage.Farsi.name
         )
+    }
+
+    /**
+     * Returns whether the user has explicitly selected an app language before.
+     */
+    fun hasLanguageSelection(): Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[LANGUAGE_KEY] != null
+    }
+
+    /**
+     * Returns whether the splash language prompt has been completed.
+     * Default is false so existing installs also see it once after update.
+     */
+    fun hasCompletedLanguageOnboarding(): Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[LANGUAGE_ONBOARDING_DONE_KEY] ?: false
     }
 
     /**
@@ -69,6 +90,47 @@ class DataStoreUtil @Inject constructor(private val context: Context) {
     suspend fun saveLanguage(appLanguage: AppLanguage) {
         context.dataStore.edit { preferences ->
             preferences[LANGUAGE_KEY] = appLanguage.name
+        }
+    }
+
+    /**
+     * Marks the splash language onboarding as completed.
+     */
+    suspend fun setLanguageOnboardingCompleted(completed: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[LANGUAGE_ONBOARDING_DONE_KEY] = completed
+        }
+    }
+
+    fun getBadgeAccessEnabled(): Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[BADGE_ACCESS_ENABLED_KEY] ?: false
+    }
+
+    fun getBadgeAccessLastSyncEpochMillis(): Flow<Long> = context.dataStore.data.map { preferences ->
+        preferences[BADGE_ACCESS_LAST_SYNC_EPOCH_MS_KEY] ?: 0L
+    }
+
+    suspend fun saveBadgeAccessCache(hasBadge: Boolean, syncedAtEpochMillis: Long = System.currentTimeMillis()) {
+        context.dataStore.edit { preferences ->
+            preferences[BADGE_ACCESS_ENABLED_KEY] = hasBadge
+            preferences[BADGE_ACCESS_LAST_SYNC_EPOCH_MS_KEY] = syncedAtEpochMillis
+        }
+    }
+
+    suspend fun clearBadgeAccessCache() {
+        context.dataStore.edit { preferences ->
+            preferences[BADGE_ACCESS_ENABLED_KEY] = false
+            preferences[BADGE_ACCESS_LAST_SYNC_EPOCH_MS_KEY] = 0L
+        }
+    }
+
+    fun getBadgeFeaturesDialogDismissed(): Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[BADGE_FEATURES_DIALOG_DISMISSED_KEY] ?: false
+    }
+
+    suspend fun setBadgeFeaturesDialogDismissed(dismissed: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[BADGE_FEATURES_DIALOG_DISMISSED_KEY] = dismissed
         }
     }
 }

@@ -23,18 +23,15 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.runtime.Composable
@@ -45,9 +42,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.dino.message.R
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
@@ -56,18 +52,18 @@ import com.dino.message.corefeature.presentation.util.rememberLayoutDirection
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalLayoutDirection
 import com.dino.message.corefeature.presentation.util.getTimeAgo
+import com.dino.message.corefeature.presentation.component.UserBadgeIcon
+import com.dino.message.profilefeature.presentation.component.ProfileAvatarMedia
 import com.dino.message.threadfeature.domain.model.Post
 import com.dino.message.threadfeature.domain.model.PostMedia
 import com.dino.message.threadfeature.presentation.util.artistTextOrUnknown
 import com.dino.message.threadfeature.presentation.util.resolveMusicMetadata
-import coil.compose.SubcomposeAsyncImage
-import coil.request.ImageRequest
-import coil.request.CachePolicy
 
 @Composable
 fun ThreadPostCard(
     modifier: Modifier = Modifier,
     post: Post,
+    canDownloadMedia: Boolean = false,
     selectedPostVote: Long = 0L,
     postError: String? = null,
     showActions: Boolean = true,
@@ -126,16 +122,27 @@ fun ThreadPostCard(
                 ) {
                     PostAuthorAvatar(
                         imageUrl = post.author.profile_image_url,
+                        badge = post.author.badge,
+                        profileImageShape = post.author.profile_image_shape,
                         modifier = Modifier.size(46.dp)
                     )
                     Column(
                         modifier = Modifier.padding(end = DPMedium)
                     ) {
-                        Text(
-                            text = post.author.name?.takeIf { it.isNotBlank() }
-                                ?: post.author.username,
-                            style = MaterialTheme.typography.labelLarge
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = post.author.name?.takeIf { it.isNotBlank() }
+                                    ?: post.author.username,
+                                style = MaterialTheme.typography.labelLarge
+                            )
+                            UserBadgeIcon(
+                                badge = post.author.badge,
+                                size = 16.dp
+                            )
+                        }
                         if (!post.author.name.isNullOrBlank()) {
                             Text(
                                 text = "@${post.author.username}",
@@ -150,7 +157,7 @@ fun ThreadPostCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "${getTimeAgo(post.created_at)} ago",
+                        text = stringResource(R.string.time_ago_format, getTimeAgo(post.created_at)),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -162,7 +169,7 @@ fun ThreadPostCard(
                             ) {
                                 Icon(
                                     imageVector = Icons.Rounded.MoreVert,
-                                    contentDescription = "Post actions",
+                                    contentDescription = stringResource(R.string.post_actions),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
@@ -172,7 +179,7 @@ fun ThreadPostCard(
                             ) {
                                 if (onReportClick != null) {
                                     DropdownMenuItem(
-                                        text = { Text("Report") },
+                                        text = { Text(stringResource(R.string.report)) },
                                         onClick = {
                                             showPostMenu = false
                                             onReportClick()
@@ -181,7 +188,7 @@ fun ThreadPostCard(
                                 }
                                 if (onBlockUserClick != null) {
                                     DropdownMenuItem(
-                                        text = { Text("Block User") },
+                                        text = { Text(stringResource(R.string.block_user)) },
                                         onClick = {
                                             showPostMenu = false
                                             onBlockUserClick()
@@ -190,7 +197,7 @@ fun ThreadPostCard(
                                 }
                                 if (onDeletePostClick != null) {
                                     DropdownMenuItem(
-                                        text = { Text("Delete") },
+                                        text = { Text(stringResource(R.string.delete)) },
                                         onClick = {
                                             showPostMenu = false
                                             onDeletePostClick()
@@ -251,7 +258,8 @@ fun ThreadPostCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = DPMedium),
-                    items = visualMedia
+                    items = visualMedia,
+                    canDownloadMedia = canDownloadMedia
                 )
             }
 
@@ -304,7 +312,7 @@ fun ThreadPostCard(
                         ) {
                             Icon(
                                 painter = painterResource(R.drawable.ic_commets_filled),
-                                contentDescription = "Comments"
+                                contentDescription = stringResource(R.string.comments)
                             )
                         }
                     }
@@ -321,7 +329,7 @@ fun ThreadPostCard(
                         ) {
                             Icon(
                                 painter = painterResource(R.drawable.ic_quote_post_filled),
-                                contentDescription = "Quote post"
+                                contentDescription = stringResource(R.string.quote_post)
                             )
                         }
                         IconButton(
@@ -332,7 +340,7 @@ fun ThreadPostCard(
                         ) {
                             Icon(
                                 painter = painterResource(R.drawable.ic_send_filled),
-                                contentDescription = "Share post"
+                                contentDescription = stringResource(R.string.share_post)
                             )
                         }
                     }
@@ -371,66 +379,15 @@ fun ThreadPostCard(
 @Composable
 private fun PostAuthorAvatar(
     imageUrl: String?,
+    badge: String?,
+    profileImageShape: String?,
     modifier: Modifier = Modifier
 ) {
-    val normalizedImageUrl = imageUrl?.takeIf { it.isNotBlank() }
-    val context = LocalContext.current
-
-    Surface(
+    ProfileAvatarMedia(
         modifier = modifier,
-        shape = CircleShape,
-        color = MaterialTheme.colorScheme.surface
-    ) {
-        if (normalizedImageUrl == null) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.Person,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            }
-            return@Surface
-        }
-
-        SubcomposeAsyncImage(
-            model = remember(normalizedImageUrl) {
-                ImageRequest.Builder(context)
-                    .data(normalizedImageUrl)
-                    .crossfade(true)
-                    .memoryCacheKey(normalizedImageUrl)
-                    .diskCachePolicy(CachePolicy.ENABLED)
-                    .memoryCachePolicy(CachePolicy.ENABLED)
-                    .build()
-            },
-            contentDescription = "Author avatar",
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize(),
-            loading = {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(14.dp),
-                        strokeWidth = 1.5.dp
-                    )
-                }
-            },
-            error = {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Person,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                }
-            }
-        )
-    }
+        profileImageUrl = imageUrl,
+        profileVideoUrl = null,
+        badge = badge,
+        profileImageShape = profileImageShape
+    )
 }

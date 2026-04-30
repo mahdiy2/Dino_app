@@ -13,6 +13,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import com.dino.message.R
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.searchfeature.domain.model.SearchTab
 import com.dino.message.searchfeature.domain.model.SearchUser
@@ -25,6 +27,7 @@ fun SearchResultsList(
     selectedTab: SearchTab,
     users: List<SearchUser>,
     posts: List<Post>,
+    canDownloadPostMedia: Boolean,
     isLoading: Boolean,
     error: String?,
     query: String,
@@ -76,7 +79,7 @@ fun SearchResultsList(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "No results found.",
+                text = stringResource(R.string.search_no_results),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -90,7 +93,7 @@ fun SearchResultsList(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "Search for users or posts",
+                text = stringResource(R.string.search_prompt_users_posts),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -106,7 +109,7 @@ fun SearchResultsList(
             if (selectedTab == SearchTab.BOTH) {
                 item {
                     Text(
-                        text = "Users",
+                        text = stringResource(R.string.users),
                         style = MaterialTheme.typography.titleMedium,
                         modifier = Modifier.padding(horizontal = DPMedium, vertical = DPMedium)
                     )
@@ -127,7 +130,7 @@ fun SearchResultsList(
             if (selectedTab == SearchTab.BOTH) {
                 item {
                     Text(
-                        text = "Posts",
+                        text = stringResource(R.string.posts),
                         style = MaterialTheme.typography.titleMedium,
                         modifier = Modifier.padding(horizontal = DPMedium, vertical = DPMedium)
                     )
@@ -142,6 +145,7 @@ fun SearchResultsList(
                         .fillMaxWidth()
                         .padding(horizontal = DPMedium),
                     post = post,
+                    canDownloadMedia = canDownloadPostMedia,
                     selectedPostVote = selectedPostVote(post.id),
                     postError = postError(post.id),
                     onUpVoteClick = { onUpVoteClick(post.id) },

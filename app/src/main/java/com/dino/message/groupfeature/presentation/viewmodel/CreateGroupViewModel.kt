@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.dino.message.R
 import com.dino.message.DinoOrderApplication
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
@@ -81,11 +82,13 @@ class CreateGroupViewModel @Inject constructor(
     fun createGroup() {
         val name = groupName.value.trim()
         if (name.isBlank()) {
-            _errorMessage.value = "Please enter a group name"
+            _errorMessage.value =
+                getApplication<DinoOrderApplication>().getString(R.string.group_create_error_empty_name)
             return
         }
         if (name.length > 120) {
-            _errorMessage.value = "Group name must be at most 120 characters"
+            _errorMessage.value =
+                getApplication<DinoOrderApplication>().getString(R.string.group_create_error_name_too_long)
             return
         }
 

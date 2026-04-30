@@ -8,7 +8,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.dino.message.DinoOrderApplication
+import com.dino.message.corefeature.data.spref.DataStoreUtil
+import com.dino.message.corefeature.data.upload.MediaMimePolicy
 import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.corefeature.presentation.util.PROFILE_IMAGE_SHAPE_CIRCLE
+import com.dino.message.corefeature.presentation.util.hasBadgeAccess
+import com.dino.message.corefeature.presentation.util.normalizeProfileImageShape
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.dino.message.profilefeature.domain.model.ProfileUpdateImage
@@ -33,6 +38,7 @@ data class SelectedProfileMedia(
 @HiltViewModel
 class EditProfileViewModel @Inject constructor(
     @ApplicationContext app: Context,
+    private val dataStoreUtil: DataStoreUtil,
     private val getMyProfileUseCase: GetMyProfileUseCase,
     private val updateMyProfileUseCase: UpdateMyProfileUseCase
 ) : AndroidViewModel(app as DinoOrderApplication),
@@ -40,15 +46,6 @@ class EditProfileViewModel @Inject constructor(
     companion object {
         private const val MAX_PROFILE_VIDEO_DURATION_MS = 5_000L
         private const val MAX_PROFILE_VIDEO_SIZE_BYTES = 15L * 1024L * 1024L
-        private val SUPPORTED_IMAGE_MIME_TYPES = setOf(
-            "image/jpeg",
-            "image/png",
-            "image/webp"
-        )
-        private val SUPPORTED_VIDEO_MIME_TYPES = setOf(
-            "video/mp4",
-            "video/quicktime"
-        )
     }
 
     val nameDraft = mutableStateOf("")
@@ -57,6 +54,8 @@ class EditProfileViewModel @Inject constructor(
     val selectedVideo = mutableStateOf<SelectedProfileMedia?>(null)
     val currentProfileImageUrl = mutableStateOf<String?>(null)
     val currentProfileVideoUrl = mutableStateOf<String?>(null)
+    val selectedProfileImageShape = mutableStateOf(PROFILE_IMAGE_SHAPE_CIRCLE)
+    val currentProfileBadge = mutableStateOf<String?>(null)
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
@@ -85,7 +84,9 @@ class EditProfileViewModel @Inject constructor(
         if (uri == null) return
         val resolver = getApplication<DinoOrderApplication>().contentResolver
         val mimeType = resolver.getType(uri)?.lowercase().orEmpty()
-        if (mimeType !in SUPPORTED_IMAGE_MIME_TYPES) {
+        if (!mimeType.startsWith("image/") ||
+            !MediaMimePolicy.isSupportedUploadMimeType(mimeType)
+        ) {
             _error.value = "Unsupported profile image type"
             return
         }
@@ -102,19 +103,23 @@ class EditProfileViewModel @Inject constructor(
         if (uri == null) return
         val resolver = getApplication<DinoOrderApplication>().contentResolver
         val mimeType = resolver.getType(uri)?.lowercase().orEmpty()
-        if (mimeType !in SUPPORTED_VIDEO_MIME_TYPES) {
+        if (!mimeType.startsWith("video/") ||
+            !MediaMimePolicy.isSupportedUploadMimeType(mimeType)
+        ) {
             _error.value = "Unsupported profile video type"
             return
         }
 
         val durationMs = getVideoDurationMs(uri)
-        if (durationMs == null) {
-            _error.value = "Could not determine profile video duration"
-            return
-        }
-        if (durationMs > MAX_PROFILE_VIDEO_DURATION_MS) {
-            _error.value = "Profile video must be 5 seconds or shorter"
-            return
+        if (mimeType == "video/mp4" || mimeType == "video/quicktime") {
+            if (durationMs == null) {
+                _error.value = "Could not determine profile video duration"
+                return
+            }
+            if (durationMs > MAX_PROFILE_VIDEO_DURATION_MS) {
+                _error.value = "Profile video must be 5 seconds or shorter"
+                return
+            }
         }
 
         val size = queryFileSize(uri)
@@ -137,6 +142,10 @@ class EditProfileViewModel @Inject constructor(
 
     fun clearSelectedVideo() {
         selectedVideo.value = null
+    }
+
+    fun onProfileImageShapeSelected(shape: String) {
+        selectedProfileImageShape.value = normalizeProfileImageShape(shape)
     }
 
     fun closeScreen() {
@@ -174,6 +183,9 @@ class EditProfileViewModel @Inject constructor(
             updateMyProfileUseCase.execute(
                 name = nameDraft.value.trim().ifEmpty { null },
                 bio = bioDraft.value,
+                profileImageShape = selectedProfileImageShape.value.takeIf {
+                    hasBadgeAccess(currentProfileBadge.value)
+                },
                 profileImage = imagePayload,
                 profileVideo = videoPayload
             ).collect { res ->
@@ -205,7 +217,12 @@ class EditProfileViewModel @Inject constructor(
                     nameDraft.value = res.data.name.orEmpty()
                     bioDraft.value = res.data.bio.orEmpty()
                     currentProfileImageUrl.value = res.data.profile_image_url
+                    selectedProfileImageShape.value = normalizeProfileImageShape(res.data.profile_image_shape)
+                    currentProfileBadge.value = res.data.badge
                     currentProfileVideoUrl.value = res.data.profile_video_url
+                    dataStoreUtil.saveBadgeAccessCache(
+                        hasBadge = hasBadgeAccess(res.data.badge)
+                    )
                     _error.value = null
                 }
 

@@ -19,9 +19,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ArrowBackIosNew
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.ArrowBackIosNew
 import androidx.compose.material.icons.rounded.Group
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material3.AlertDialog
@@ -62,6 +62,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -71,6 +72,7 @@ import com.dino.message.R
 import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPSmall
+import com.dino.message.corefeature.presentation.util.backIconModifier
 import com.dino.message.errorfeature.presentation.screen.ErrorScreen
 import com.dino.message.mainpage.presentation.component.GroupListItem
 import com.dino.message.mainpage.presentation.component.MessageListItems
@@ -145,13 +147,14 @@ fun MainScreen() {
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
-                    Text(text = "Messages")
+                    Text(text = stringResource(R.string.messages))
                 },
                 navigationIcon = {
                     IconButton(onClick = { viewModel.navigateUp() }) {
                         Icon(
                             imageVector = Icons.Rounded.ArrowBackIosNew,
-                            contentDescription = "Back"
+                            contentDescription = stringResource(R.string.back),
+                            modifier = backIconModifier()
                         )
                     }
                 },
@@ -159,7 +162,7 @@ fun MainScreen() {
                     IconButton(onClick = { showMessageSecurityDialog = true }) {
                         Icon(
                             imageVector = Icons.Rounded.Info,
-                            contentDescription = "Message security info"
+                            contentDescription = stringResource(R.string.message_security_info)
                         )
                     }
                 }
@@ -174,7 +177,7 @@ fun MainScreen() {
             ) {
                 Icon(
                     imageVector = Icons.Rounded.Group,
-                    contentDescription = "Create Group"
+                    contentDescription = stringResource(R.string.group_create_title)
                 )
             }
         }
@@ -182,17 +185,15 @@ fun MainScreen() {
         if (showMessageSecurityDialog) {
             AlertDialog(
                 onDismissRequest = { showMessageSecurityDialog = false },
-                title = { Text("Your chats stay private") },
+                title = { Text(stringResource(R.string.message_privacy_title)) },
                 text = {
                     Text(
-                        "Your messages are encrypted.\n\n" +
-                            "We do not keep chat history on our servers. A message is stored only until the recipient sees it, then it is deleted.\n\n" +
-                            "If it is not seen, it is still deleted automatically after 24 hours."
+                        stringResource(R.string.message_privacy_body)
                     )
                 },
                 confirmButton = {
                     TextButton(onClick = { showMessageSecurityDialog = false }) {
-                        Text("Got it")
+                        Text(stringResource(R.string.got_it))
                     }
                 }
             )
@@ -248,7 +249,7 @@ fun MainScreen() {
                                     )
 
                                     Text(
-                                        text = "No contacts yet",
+                                        text = stringResource(R.string.main_no_contacts_title),
                                         style = MaterialTheme.typography.titleMedium,
                                         color = MaterialTheme.colorScheme.onBackground
                                     )
@@ -256,7 +257,7 @@ fun MainScreen() {
                                     Spacer(Modifier.height(8.dp))
 
                                     Text(
-                                        text = "Follow people to see them here",
+                                        text = stringResource(R.string.main_no_contacts_subtitle),
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         textAlign = TextAlign.Center
@@ -284,7 +285,7 @@ fun MainScreen() {
                                 if (viewModel.groupList.isNotEmpty()) {
                                     item {
                                         Text(
-                                            text = "Groups",
+                                            text = stringResource(R.string.groups),
                                             style = MaterialTheme.typography.titleSmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             modifier = Modifier.padding(
@@ -306,7 +307,7 @@ fun MainScreen() {
                                     }
                                     item {
                                         Text(
-                                            text = "Contacts",
+                                            text = stringResource(R.string.contacts),
                                             style = MaterialTheme.typography.titleSmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             modifier = Modifier.padding(
@@ -324,9 +325,11 @@ fun MainScreen() {
                                     if (it != null)
                                         MessageListItems(
                                             displayName = it.displayName,
+                                            badge = it.badge,
                                             time = it.time,
                                             newMessage = it.newMessage,
                                             profileImageUrl = it.profileImageUrl,
+                                            profileImageShape = it.profileImageShape,
                                             profileVideoUrl = it.profileVideoUrl,
                                             modifier = Modifier
                                                 .fillMaxWidth()
@@ -372,7 +375,7 @@ fun MainScreen() {
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Text(
-                                    "Add contact",
+                                    stringResource(R.string.add_contact),
                                     style = MaterialTheme.typography.titleLarge
                                 )
 
@@ -390,7 +393,7 @@ fun MainScreen() {
                                     ),
                                     shape = MaterialTheme.shapes.extraLarge,
                                     placeholder = {
-                                        Text("Username")
+                                        Text(stringResource(R.string.username))
                                     },
                                     value = viewModel.addUserTextField.value,
                                     onValueChange = {

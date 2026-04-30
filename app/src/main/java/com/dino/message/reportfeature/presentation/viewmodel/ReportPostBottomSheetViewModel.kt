@@ -7,6 +7,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.dino.message.DinoOrderApplication
+import com.dino.message.R
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
@@ -91,7 +92,8 @@ class ReportPostBottomSheetViewModel @Inject constructor(
 
         val type = selectedType.value
         if (type.isNullOrBlank()) {
-            _error.value = "Please select a report type"
+            _error.value =
+                getApplication<DinoOrderApplication>().getString(R.string.report_post_select_type_error)
             return
         }
 

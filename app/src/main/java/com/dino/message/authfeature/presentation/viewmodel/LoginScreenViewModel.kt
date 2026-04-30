@@ -4,11 +4,14 @@ import android.content.Context
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.dino.message.R
 import com.dino.message.DinoOrderApplication
 import com.dino.message.authfeature.domain.usecase.LoginUseCase
 import com.dino.message.authfeature.domain.usecase.GetKeyStatusUseCase
 import com.dino.message.authfeature.domain.usecase.RotatePublicKeyUseCase
+import com.dino.message.corefeature.data.spref.DataStoreUtil
 import com.dino.message.corefeature.data.spref.SPrefManager
+import com.dino.message.corefeature.domain.model.AppLanguage
 import com.dino.message.corefeature.presentation.util.PopBackStackLevel
 import com.dino.message.corefeature.presentation.util.RSAUtil
 import com.dino.message.corefeature.presentation.util.Resource
@@ -18,6 +21,8 @@ import com.ramcosta.composedestinations.generated.destinations.RegisterScreenDes
 import com.ramcosta.composedestinations.generated.destinations.ThreadScreenDestination
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -25,6 +30,7 @@ import javax.inject.Inject
 class LoginScreenViewModel @Inject constructor(
     @ApplicationContext app: Context,
     private val sPrefManager: SPrefManager,
+    private val dataStoreUtil: DataStoreUtil,
     private val loginUseCase: LoginUseCase,
     private val getKeyStatusUseCase: GetKeyStatusUseCase,
     private val rotatePublicKeyUseCase: RotatePublicKeyUseCase,
@@ -39,6 +45,7 @@ class LoginScreenViewModel @Inject constructor(
 
     val usernameTextFieldIsError = mutableStateOf(false)
     val passwordTextFieldIsError = mutableStateOf(false)
+    val currentLanguage: Flow<AppLanguage> = dataStoreUtil.getLanguage()
 
     private fun login(username: String, pass: String) = viewModelScope.launch {
         loginUseCase.execute(
@@ -104,7 +111,8 @@ class LoginScreenViewModel @Inject constructor(
                     sPrefManager.setRefreshToken("")
                     loginLoadingState.value = false
                     loginErrorMessage.value =
-                        "Login succeeded but key recovery failed. Please try again."
+                        getApplication<DinoOrderApplication>()
+                            .getString(R.string.login_key_recovery_failed)
                 }
             }
         }
@@ -141,6 +149,16 @@ class LoginScreenViewModel @Inject constructor(
         if (loginLoadingState.value) return
         loginErrorMessage.value = null
         login(userName.value, password.value)
+    }
+
+    fun toggleLanguage() {
+        viewModelScope.launch {
+            val nextLanguage = when (dataStoreUtil.getLanguage().first()) {
+                AppLanguage.Farsi -> AppLanguage.English
+                AppLanguage.English -> AppLanguage.Farsi
+            }
+            dataStoreUtil.saveLanguage(nextLanguage)
+        }
     }
 
     fun navigateToRegisterScreen(){

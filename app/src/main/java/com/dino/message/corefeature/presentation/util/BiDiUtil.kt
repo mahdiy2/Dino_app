@@ -2,6 +2,9 @@ package com.dino.message.corefeature.presentation.util
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
 
@@ -30,4 +33,13 @@ fun rememberTextAlign(text: String): TextAlign {
 @Composable
 fun rememberLayoutDirection(text: String): LayoutDirection {
     return remember(text) { detectTextDirection(text) }
+}
+
+@Composable
+fun backIconModifier(): Modifier {
+    return if (LocalLayoutDirection.current == LayoutDirection.Rtl) {
+        Modifier.scale(scaleX = -1f, scaleY = 1f)
+    } else {
+        Modifier
+    }
 }

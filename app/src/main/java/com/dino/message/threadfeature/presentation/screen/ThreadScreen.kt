@@ -5,8 +5,10 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateIntOffsetAsState
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.paddingFromBaseline
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.statusBars
@@ -32,6 +35,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -45,6 +49,8 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -60,18 +66,25 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Create
+import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.ListItemDefaults
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.dino.message.R
+import com.dino.message.corefeature.presentation.util.UserBadgeRole
+import com.dino.message.corefeature.presentation.util.parseUserBadgeRole
 import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.threadfeature.presentation.component.FloatingDockNavigation
@@ -94,6 +107,8 @@ fun ThreadScreen() {
     val viewModel: ThreadViewModel = hiltViewModel()
     val listState = rememberLazyListState()
     val profile = viewModel.profile.value
+    val canDownloadPostMedia by viewModel.viewerHasBadge.collectAsState()
+    val isBadgeFeaturesDialogDismissed by viewModel.isBadgeFeaturesDialogDismissed.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val topBarHeight = 64.dp + statusBarTop
@@ -109,6 +124,14 @@ fun ThreadScreen() {
     val createOptionsSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     val coroutineScope = rememberCoroutineScope()
+    val refreshFromTop: () -> Unit = {
+        coroutineScope.launch {
+            if (viewModel.posts.isNotEmpty()) {
+                listState.animateScrollToItem(0)
+            }
+            viewModel.refresh()
+        }
+    }
 
     var previousFirstVisibleIndex by remember { mutableIntStateOf(0) }
     val isDockVisible by remember {
@@ -142,7 +165,6 @@ fun ThreadScreen() {
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                viewModel.refreshIfNeededAfterCreatePost()
                 viewModel.fetchUnreadCount()
             }
         }
@@ -169,6 +191,12 @@ fun ThreadScreen() {
         playlistFeedback?.let { message ->
             snackbarHostState.showSnackbar(message)
             viewModel.clearPlaylistFeedback()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.backgroundUploadRefreshEvents.collectLatest {
+            refreshFromTop()
         }
     }
 
@@ -247,6 +275,7 @@ fun ThreadScreen() {
                                     .fillMaxWidth()
                                     .padding(DPMedium),
                                 post = post,
+                                canDownloadMedia = canDownloadPostMedia,
                                 selectedPostVote = viewModel.selectedPostVote(post.id),
                                 postError = viewModel.postError(post.id),
                                 onUpVoteClick = { viewModel.votePost(post.id, 1) },
@@ -304,11 +333,7 @@ fun ThreadScreen() {
                                     MaterialTheme.shapes.extraLarge
                                 )
                                 .clickable(onClick = {
-                                    coroutineScope.launch {
-                                        if (viewModel.posts.isNotEmpty())
-                                            listState.animateScrollToItem(0)
-                                        viewModel.refresh()
-                                    }
+                                    refreshFromTop()
                                 }),
                             text = "Dino",
                             style = MaterialTheme.typography.headlineSmall
@@ -346,7 +371,9 @@ fun ThreadScreen() {
                 FloatingDockNavigation(
                     selectedIndex = -1,
                     unreadNotificationCount = unreadCount,
+                    profileBadge = profile?.badge,
                     profileImageUrl = profile?.profile_image_url,
+                    profileImageShape = profile?.profile_image_shape,
                     profileVideoUrl = profile?.profile_video_url,
                     onChatClick = { viewModel.navigateChat() },
                     onPlaylistClick = { viewModel.openPlaylistBottomSheet() },
@@ -355,7 +382,141 @@ fun ThreadScreen() {
                     onFabClick = { viewModel.showCreateOptionsSheet() }
                 )
             }
+
+            val shouldShowBadgeFeaturesDialog = canDownloadPostMedia &&
+                !isBadgeFeaturesDialogDismissed &&
+                !profile?.badge.isNullOrBlank()
+            if (shouldShowBadgeFeaturesDialog) {
+                BadgeFeaturesActivatedDialog(
+                    badge = profile?.badge.orEmpty(),
+                    onDismiss = viewModel::dismissBadgeFeaturesDialog
+                )
+            }
         }
     }
 
+}
+
+@Composable
+private fun BadgeFeaturesActivatedDialog(
+    badge: String,
+    onDismiss: () -> Unit,
+) {
+    val badgeTypeLabel = when (parseUserBadgeRole(badge)) {
+        UserBadgeRole.STAFF -> stringResource(R.string.badge_type_staff)
+        UserBadgeRole.MODERATOR -> stringResource(R.string.badge_type_moderator)
+        UserBadgeRole.VERIFIED -> stringResource(R.string.badge_type_verified)
+        null -> badge.ifBlank { stringResource(R.string.badge_type_unknown) }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.42f))
+            .padding(24.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Surface(
+            shape = MaterialTheme.shapes.extraLarge,
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 8.dp
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Box(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.TopEnd
+                ) {
+                    IconButton(onClick = onDismiss) {
+                        Icon(
+                            imageVector = Icons.Rounded.Close,
+                            contentDescription = stringResource(R.string.close)
+                        )
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            brush = Brush.horizontalGradient(
+                                colors = listOf(
+                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f),
+                                    MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.85f)
+                                )
+                            ),
+                            shape = MaterialTheme.shapes.large
+                        )
+                        .padding(vertical = 14.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        painter = painterResource(R.drawable.ic_badge_features_activated),
+                        contentDescription = null,
+                        modifier = Modifier.size(86.dp)
+                    )
+                }
+
+                Text(
+                    text = stringResource(R.string.badge_features_dialog_title),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = stringResource(R.string.badge_features_dialog_message, badgeTypeLabel),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                FeaturePill(
+                    icon = Icons.Rounded.Download,
+                    text = stringResource(R.string.badge_features_dialog_item_post_download)
+                )
+                FeaturePill(
+                    icon = Icons.Rounded.LibraryMusic,
+                    text = stringResource(R.string.badge_features_dialog_item_playlist_download)
+                )
+
+                FilledTonalButton(
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = onDismiss
+                ) {
+                    Text(text = stringResource(R.string.got_it))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FeaturePill(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    text: String
+) {
+    Surface(
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh
+    ) {
+        androidx.compose.foundation.layout.Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+    }
 }

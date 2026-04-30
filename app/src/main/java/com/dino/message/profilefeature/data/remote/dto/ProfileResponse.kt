@@ -8,8 +8,10 @@ import kotlinx.serialization.Serializable
 data class ProfileResponse(
     val username: String,
     val name: String? = null,
+    val badge: String? = null,
     val bio: String? = null,
     val profile_image_url: String? = null,
+    val profile_image_shape: String? = null,
     val profile_video_url: String? = null,
     val followers_count: Long = 0,
     val following_count: Long = 0,
@@ -18,8 +20,10 @@ data class ProfileResponse(
     override fun mapResponseToResult(): Profile = Profile(
         username = username,
         name = name,
+        badge = badge,
         bio = bio,
         profile_image_url = profile_image_url,
+        profile_image_shape = profile_image_shape,
         profile_video_url = profile_video_url,
         followers_count = followers_count,
         following_count = following_count,

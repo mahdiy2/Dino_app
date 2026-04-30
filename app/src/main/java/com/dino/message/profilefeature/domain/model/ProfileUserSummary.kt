@@ -7,5 +7,7 @@ data class ProfileUserSummary(
     val id: Long,
     val username: String,
     val name: String? = null,
-    val profile_image_url: String? = null
+    val profile_image_url: String? = null,
+    val badge: String? = null,
+    val profile_image_shape: String? = null,
 )

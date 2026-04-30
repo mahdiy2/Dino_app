@@ -30,9 +30,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.dino.message.R
+import com.dino.message.corefeature.presentation.component.UserBadgeIcon
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPSmall
 import com.dino.message.profilefeature.presentation.component.ProfileAvatarMedia
@@ -71,7 +74,7 @@ fun SharePostBottomSheetScreen(
                 verticalArrangement = Arrangement.spacedBy(DPSmall)
             ) {
                 Text(
-                    text = "Send Post",
+                    text = stringResource(R.string.share_post_title),
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface
                 )
@@ -81,7 +84,7 @@ fun SharePostBottomSheetScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Post #$postId by @$authorUsername",
+                        text = stringResource(R.string.share_post_header, postId, authorUsername),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
@@ -98,7 +101,7 @@ fun SharePostBottomSheetScreen(
                         }
                     ) {
                         Text(
-                            text = "$selectedCount selected",
+                            text = stringResource(R.string.selected_count, selectedCount),
                             style = MaterialTheme.typography.labelMedium,
                             color = if (selectedCount > 0) {
                                 MaterialTheme.colorScheme.onPrimaryContainer
@@ -154,7 +157,7 @@ fun SharePostBottomSheetScreen(
                     if (viewModel.groups.isNotEmpty()) {
                         item {
                             Text(
-                                text = "Groups",
+                                text = stringResource(R.string.groups),
                                 style = MaterialTheme.typography.labelLarge,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(
@@ -168,7 +171,7 @@ fun SharePostBottomSheetScreen(
                             val selected = viewModel.isGroupSelected(group.id)
                             SelectableRecipientRow(
                                 title = group.name,
-                                subtitle = "${group.memberCount} members",
+                                subtitle = stringResource(R.string.group_members_count, group.memberCount),
                                 selected = selected,
                                 onClick = { viewModel.toggleGroup(group.id) },
                                 leading = {
@@ -185,7 +188,7 @@ fun SharePostBottomSheetScreen(
                     if (viewModel.contacts.isNotEmpty()) {
                         item {
                             Text(
-                                text = "Contacts",
+                                text = stringResource(R.string.contacts),
                                 style = MaterialTheme.typography.labelLarge,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(
@@ -200,11 +203,14 @@ fun SharePostBottomSheetScreen(
                             SelectableRecipientRow(
                                 title = contact.displayName,
                                 subtitle = "@${contact.username}",
+                                badge = contact.badge,
                                 selected = selected,
                                 onClick = { viewModel.toggleContact(contact.username) },
                                 leading = {
                                     ProfileAvatarMedia(
                                         profileImageUrl = contact.profileImageUrl,
+                                        badge = contact.badge,
+                                        profileImageShape = contact.profileImageShape,
                                         profileVideoUrl = null,
                                         modifier = Modifier.size(34.dp)
                                     )
@@ -246,9 +252,9 @@ fun SharePostBottomSheetScreen(
                     strokeWidth = 2.dp
                 )
                 Spacer(modifier = Modifier.size(8.dp))
-                Text("Sending...")
+                Text(stringResource(R.string.sending))
             } else {
-                Text("Send to $selectedCount")
+                Text(stringResource(R.string.send_to_count, selectedCount))
             }
         }
     }
@@ -258,6 +264,7 @@ fun SharePostBottomSheetScreen(
 private fun SelectableRecipientRow(
     title: String,
     subtitle: String,
+    badge: String? = null,
     selected: Boolean,
     onClick: () -> Unit,
     leading: @Composable () -> Unit,
@@ -281,12 +288,21 @@ private fun SelectableRecipientRow(
         ) {
             leading()
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.bodyLarge.copy(
-                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
+                        )
                     )
-                )
+                    UserBadgeIcon(
+                        badge = badge,
+                        size = 16.dp
+                    )
+                }
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodySmall,
@@ -303,5 +319,3 @@ private fun SelectableRecipientRow(
         }
     }
 }
-
-

@@ -23,7 +23,9 @@ import com.dino.message.corefeature.presentation.util.CryptoUtil
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.corefeature.presentation.util.decodePrivateKey
 import com.dino.message.corefeature.presentation.util.decodePublicKey
+import com.dino.message.corefeature.presentation.util.decodePublicKeyOrNull
 import com.dino.message.corefeature.presentation.util.decryptMessage
+import com.dino.message.corefeature.presentation.util.formatPublicKeyForLog
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.dino.message.corefeature.domain.util.LocalHistoryPaging
@@ -56,6 +58,7 @@ import com.ramcosta.composedestinations.generated.destinations.PrivateKeyResetDi
 import com.ramcosta.composedestinations.generated.destinations.PlaylistBottomSheetScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.ProfileScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.SharedPostDetailsScreenDestination
+import java.security.PublicKey
 import javax.inject.Inject
 
 @HiltViewModel
@@ -96,6 +99,7 @@ class ChatViewModel @Inject constructor(
     private val chatId: String = checkNotNull(savedStateHandle["chatId"])
 
     private val receiverPublicKey = mutableStateOf<String?>(null)
+    private var receiverEncryptionPublicKey: PublicKey? = null
 
     private val _messages = MutableStateFlow<List<MessageEntity>>(emptyList())
     val messages: StateFlow<List<MessageEntity>> = _messages.asStateFlow()
@@ -213,6 +217,7 @@ class ChatViewModel @Inject constructor(
             when (res) {
                 is Resource.Success -> {
                     val publicKey = res.data.public_key
+                    Log.d("ChatViewModel", "Fetched receiver public key for $chatId: ${formatPublicKeyForLog(publicKey)}")
                     if (publicKey.isNullOrBlank()) {
                         Log.e("ChatViewModel", "getReceiverPublicKey: empty public key for chatId=$chatId")
                         _publicKeyError.value = "Received empty public key"
@@ -221,8 +226,24 @@ class ChatViewModel @Inject constructor(
                         showRefreshing()
                         return@collect
                     }
+                    val resolvedPublicKey = decodePublicKeyOrNull(publicKey)
+                    if (resolvedPublicKey == null) {
+                        Log.w(
+                            "ChatViewModel",
+                            "getReceiverPublicKey: unsupported public key format for chatId=$chatId, ${formatPublicKeyForLog(publicKey)}"
+                        )
+                        receiverPublicKey.value = null
+                        receiverEncryptionPublicKey = null
+                        _isPublicKeyReady.value = false
+                        _publicKeyError.value = "This user's encryption key is invalid. Ask them to reset their key."
+                        _isPublicKeyLoading.value = false
+                        getPublicKey = false
+                        showRefreshing()
+                        return@collect
+                    }
 
                     receiverPublicKey.value = publicKey
+                    receiverEncryptionPublicKey = resolvedPublicKey
                     _isPublicKeyReady.value = true
                     _publicKeyError.value = null
                     _isPublicKeyLoading.value = false
@@ -259,6 +280,24 @@ class ChatViewModel @Inject constructor(
         }
 
         return isPublicKeyLoaded
+    }
+
+    private fun resolveReceiverEncryptionPublicKey(): PublicKey? {
+        receiverEncryptionPublicKey?.let { return it }
+        val rawKey = receiverPublicKey.value.orEmpty()
+        if (rawKey.isBlank()) return null
+        val decoded = decodePublicKeyOrNull(rawKey) ?: run {
+            Log.w(
+                "ChatViewModel",
+                "resolveReceiverEncryptionPublicKey: unsupported key format for chatId=$chatId, ${formatPublicKeyForLog(rawKey)}"
+            )
+            receiverPublicKey.value = null
+            _isPublicKeyReady.value = false
+            _publicKeyError.value = "This user's encryption key is invalid. Ask them to reset their key."
+            return null
+        }
+        receiverEncryptionPublicKey = decoded
+        return decoded
     }
 
     fun loadMessages(resetPaging: Boolean = false) = viewModelScope.launch {
@@ -343,6 +382,7 @@ class ChatViewModel @Inject constructor(
         ) {
             is Resource.Success -> {
                 val page = result.data
+                resolvePendingMessagesFromHistory(page.messages)
                 val mappedMessages = page.messages.mapNotNull { historyMessage ->
                     mapHistoryMessageToEntity(historyMessage)
                 }
@@ -534,8 +574,14 @@ class ChatViewModel @Inject constructor(
     private fun markMessageAsSent(messageId: String?) {
         if (messageId.isNullOrBlank()) return
         val updated = _messageDeliveryStatuses.value.toMutableMap()
-        updated[messageId] = MessageDeliveryStatus.SENT
-        _messageDeliveryStatuses.value = updated
+        when (updated[messageId]) {
+            MessageDeliveryStatus.DELIVERED,
+            MessageDeliveryStatus.SEEN -> return
+            else -> {
+                updated[messageId] = MessageDeliveryStatus.SENT
+                _messageDeliveryStatuses.value = updated
+            }
+        }
     }
 
     private suspend fun markMessageAsSeen(messageId: String?) {
@@ -767,6 +813,20 @@ class ChatViewModel @Inject constructor(
 
     fun deleteMessageOnlyForMe(message: MessageEntity) = viewModelScope.launch {
         deleteMessageLocally(message)
+
+        val messageId = message.messageId
+        if (messageId.isNullOrBlank()) return@launch
+
+        val emitted = appSocketManager.emit(
+            "delete_message_for_me",
+            JSONObject().apply {
+                put("chat_id", chatId)
+                put("message_id", messageId)
+            }
+        )
+        if (!emitted) {
+            _socketError.value = "Unable to sync message deletion while offline."
+        }
     }
 
     fun deleteMessageForEveryone(message: MessageEntity) = viewModelScope.launch {
@@ -777,19 +837,12 @@ class ChatViewModel @Inject constructor(
             return@launch
         }
 
-        if (!appSocketManager.isConnected()) {
-            connectSocketIfNeeded(forceReconnect = true)
-            _socketError.value = "Unable to delete for everyone while disconnected."
-            return@launch
-        }
-
-        val emitted = appSocketManager.emitNonRetryable(
+        val emitted = appSocketManager.emit(
             event = "delete_message",
             payload = JSONObject().apply {
                 put("chat_id", chatId)
                 put("message_id", messageId)
             },
-            reason = "delete_for_everyone_user_action",
         )
         if (emitted) {
             pushSocketDebugLog("Requested delete_message for $messageId")
@@ -826,7 +879,7 @@ class ChatViewModel @Inject constructor(
         val replyTo = _replyingTo.value
 
         val publicKey = receiverPublicKey.value
-        if (publicKey.isNullOrBlank()) {
+        if (publicKey.isNullOrBlank() || resolveReceiverEncryptionPublicKey() == null) {
             pushSocketDebugLog("Cannot send: missing receiver public key")
             return
         }
@@ -840,7 +893,7 @@ class ChatViewModel @Inject constructor(
 
     fun sendAttachment(fileUri: Uri, caption: String? = null) {
         val publicKey = receiverPublicKey.value
-        if (publicKey.isNullOrBlank()) {
+        if (publicKey.isNullOrBlank() || resolveReceiverEncryptionPublicKey() == null) {
             pushSocketDebugLog("Cannot send attachment: missing receiver public key")
             return
         }
@@ -884,7 +937,7 @@ class ChatViewModel @Inject constructor(
         replyTo: MessageEntity? = _replyingTo.value,
         clientMessageId: String = generateClientMessageId(),
     ) {
-        val publicKey = receiverPublicKey.value ?: return
+        val receiverKey = resolveReceiverEncryptionPublicKey() ?: return
 
         try {
             val encryptedCaption: String?
@@ -894,7 +947,7 @@ class ChatViewModel @Inject constructor(
             if (!caption.isNullOrBlank()) {
                 val (ek, em) = CryptoUtil.encryptMessage(
                     message = caption,
-                    receiverPublicKey = decodePublicKey(publicKey)
+                    receiverPublicKey = receiverKey
                 )
                 encryptedKey = ek
                 encryptedCaption = em
@@ -902,7 +955,7 @@ class ChatViewModel @Inject constructor(
             } else {
                 val (ek, _) = CryptoUtil.encryptMessage(
                     message = "",
-                    receiverPublicKey = decodePublicKey(publicKey)
+                    receiverPublicKey = receiverKey
                 )
                 encryptedKey = ek
                 encryptedCaption = null
@@ -937,7 +990,7 @@ class ChatViewModel @Inject constructor(
                    if (preview.isNotBlank()) {
                         val (encReplyKey, encReplyPreview) = CryptoUtil.encryptMessage(
                            message = preview,
-                           receiverPublicKey = decodePublicKey(publicKey)
+                           receiverPublicKey = receiverKey
                        )
                       put("encrypted_reply_preview", encReplyPreview)
                        put("encrypted_reply_key", encReplyKey)
@@ -1000,12 +1053,12 @@ class ChatViewModel @Inject constructor(
         replyTo: MessageEntity? = _replyingTo.value,
         clientMessageId: String = generateClientMessageId(),
     ) {
-        val publicKey = receiverPublicKey.value ?: return
+        val receiverKey = resolveReceiverEncryptionPublicKey() ?: return
 
         try {
             val (encryptedKey, encryptedMessage) = CryptoUtil.encryptMessage(
                 message = message,
-                receiverPublicKey = decodePublicKey(publicKey)
+                receiverPublicKey = receiverKey
             )
             val senderEncryptedMessage = encryptForCurrentUser(message)
 
@@ -1026,7 +1079,7 @@ class ChatViewModel @Inject constructor(
                     if (preview.isNotBlank()) {
                         val (encReplyKey, encReplyPreview) = CryptoUtil.encryptMessage(
                             message = preview,
-                            receiverPublicKey = decodePublicKey(publicKey)
+                            receiverPublicKey = receiverKey
                         )
                        put("encrypted_reply_preview", encReplyPreview)
                         put("encrypted_reply_key", encReplyKey)
@@ -1498,6 +1551,18 @@ class ChatViewModel @Inject constructor(
             }
         }
 
+        appSocketManager.registerListener(socketOwner, "message_deleted_for_me") { args ->
+            viewModelScope.launch {
+                val payload = parseSocketPayload(args, "message_deleted_for_me") ?: return@launch
+                if (payload.optString("chat_id", "") != chatId) return@launch
+                val messageId = payload.optString("message_id", "").ifBlank { return@launch }
+                chatRepository.deleteMessageByMessageId(messageId)
+                clearMessageStatus(messageId)
+                loadMessages()
+                pushSocketDebugLog("🗑️ message_deleted_for_me: $messageId")
+            }
+        }
+
         appSocketManager.registerListener(socketOwner, "deleted_messages_status") { args ->
             viewModelScope.launch {
                 val payload = parseSocketPayload(args, "deleted_messages_status") ?: return@launch
@@ -1714,6 +1779,34 @@ class ChatViewModel @Inject constructor(
         }
         lastPendingMessageTimestamp = candidate
         return candidate
+    }
+
+    private fun resolvePendingMessagesFromHistory(historyMessages: List<PrivateHistoryMessage>) {
+        if (pendingVisibleMessagesByClientId.isEmpty()) return
+
+        val correlations = HistoryPendingCorrelationResolver.resolve(
+            historyMessages = historyMessages,
+            currentUsername = currentUsername,
+        )
+        if (correlations.isEmpty()) return
+
+        var hasPendingChanges = false
+        correlations.forEach { correlation ->
+            val pendingVisible = pendingVisibleMessagesByClientId[correlation.clientMessageId] ?: return@forEach
+            if (pendingVisible.chatId != chatId) return@forEach
+
+            pendingSentMessagesByClientId.remove(correlation.clientMessageId)
+            pendingSentMessageOrder.remove(correlation.clientMessageId)
+            pendingVisibleMessagesByClientId.remove(correlation.clientMessageId)?.messageId?.let {
+                clearMessageStatus(it)
+            }
+            markMessageAsSent(correlation.messageId)
+            hasPendingChanges = true
+        }
+
+        if (hasPendingChanges) {
+            refreshVisibleMessages()
+        }
     }
 
     private fun timestampsAreClose(first: Instant, second: Instant): Boolean {

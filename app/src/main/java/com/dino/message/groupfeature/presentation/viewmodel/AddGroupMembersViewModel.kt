@@ -7,6 +7,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.dino.message.DinoOrderApplication
+import com.dino.message.R
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
@@ -33,7 +34,8 @@ class AddGroupMembersViewModel @Inject constructor(
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
 
     val groupId: Int = checkNotNull(savedStateHandle["groupId"])
-    private val initialGroupName: String = savedStateHandle["groupName"] ?: "Group"
+    private val initialGroupName: String =
+        savedStateHandle["groupName"] ?: app.getString(R.string.group_fallback_name)
 
     val searchQuery = mutableStateOf("")
 
@@ -145,7 +147,8 @@ class AddGroupMembersViewModel @Inject constructor(
     fun addSelectedMembers() {
         val selected = _selectedUsernames.toList()
         if (selected.isEmpty()) {
-            _errorMessage.value = "Please select at least one member"
+            _errorMessage.value =
+                getApplication<DinoOrderApplication>().getString(R.string.group_add_members_error_select_one)
             return
         }
 
@@ -156,7 +159,8 @@ class AddGroupMembersViewModel @Inject constructor(
                     is Resource.Success -> {
                         _isSubmitting.value = false
                         if (result.data.added.isEmpty()) {
-                            _errorMessage.value = "Selected users are already in the group"
+                            _errorMessage.value = getApplication<DinoOrderApplication>()
+                                .getString(R.string.group_add_members_error_already_member)
                             return@collect
                         }
                         _membersAdded.value = true

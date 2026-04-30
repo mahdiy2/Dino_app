@@ -3,11 +3,14 @@ package com.dino.message.corefeature.data.remote
 import android.util.Log
 import com.dino.message.corefeature.data.remote.dto.GetTokenResponse
 import com.dino.message.corefeature.data.spref.SPrefManager
+import com.dino.message.corefeature.util.RefreshTokenExpiredException
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.headers
 import io.ktor.client.request.post
 import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.isSuccess
 
 /**
  * Implementation of the HaveRefreshTokenAPI interface.
@@ -35,7 +38,7 @@ class HaveRefreshTokenAPIImpl constructor(
 
             if (refreshToken.isBlank()) {
                 Log.e("HaveRefreshTokenAPI", "getToken: refresh token is empty")
-                return ""
+                throw RefreshTokenExpiredException("Refresh token is missing")
             }
 
             val response = httpClient.post(CoreRoute.GetToken.url) {
@@ -43,9 +46,23 @@ class HaveRefreshTokenAPIImpl constructor(
                     remove(HttpHeaders.Authorization)
                     append(HttpHeaders.Authorization, "Bearer $refreshToken")
                 }
-            }.body<GetTokenResponse>()
+            }
 
-            val newAccessToken = response.mapResponseToResult()
+            if (
+                response.status == HttpStatusCode.Unauthorized ||
+                response.status == HttpStatusCode.UnprocessableEntity
+            ) {
+                throw RefreshTokenExpiredException("Refresh token is expired or invalid")
+            }
+
+            if (!response.status.isSuccess()) {
+                Log.e("HaveRefreshTokenAPI", "getToken: refresh failed with status=${response.status.value}")
+                return ""
+            }
+
+            val tokenResponse = response.body<GetTokenResponse>()
+
+            val newAccessToken = tokenResponse.mapResponseToResult()
                 .trim()
                 .removePrefix("Bearer ")
                 .removePrefix("bearer ")
@@ -57,6 +74,8 @@ class HaveRefreshTokenAPIImpl constructor(
             } else {
                 newAccessToken
             }
+        } catch (e: RefreshTokenExpiredException) {
+            throw e
         } catch (e: Exception) {
             Log.e("HaveRefreshTokenAPI", "getToken: refresh request failed", e)
             ""

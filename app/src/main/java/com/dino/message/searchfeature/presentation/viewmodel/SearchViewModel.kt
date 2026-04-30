@@ -7,6 +7,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.dino.message.DinoOrderApplication
+import com.dino.message.corefeature.data.spref.DataStoreUtil
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
@@ -42,11 +43,12 @@ import javax.inject.Inject
 @HiltViewModel
 class SearchViewModel @Inject constructor(
     @ApplicationContext app: Context,
+    private val dataStoreUtil: DataStoreUtil,
     private val searchUsersUseCase: SearchUsersUseCase,
     private val searchPostsUseCase: SearchPostsUseCase,
     private val searchAllUseCase: SearchAllUseCase,
     private val voteUseCase: VoteUseCase,
-    private val addTrackToPlaylistUseCase: AddTrackToPlaylistUseCase
+    private val addTrackToPlaylistUseCase: AddTrackToPlaylistUseCase,
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
 
@@ -66,12 +68,22 @@ class SearchViewModel @Inject constructor(
     val error: StateFlow<String?> = _error.asStateFlow()
     private val _playlistFeedback = MutableStateFlow<String?>(null)
     val playlistFeedback: StateFlow<String?> = _playlistFeedback.asStateFlow()
+    private val _viewerHasBadge = MutableStateFlow(false)
+    val viewerHasBadge: StateFlow<Boolean> = _viewerHasBadge.asStateFlow()
 
     private var searchJob: Job? = null
     private val searchLimit = 20
 
     private val postVoteByPost = mutableStateMapOf<Long, Long>()
     private val postErrorByPost = mutableStateMapOf<Long, String?>()
+
+    init {
+        viewModelScope.launch {
+            dataStoreUtil.getBadgeAccessEnabled().collect { hasBadge ->
+                _viewerHasBadge.value = hasBadge
+            }
+        }
+    }
 
     fun onQueryChange(newQuery: String) {
         query.value = newQuery

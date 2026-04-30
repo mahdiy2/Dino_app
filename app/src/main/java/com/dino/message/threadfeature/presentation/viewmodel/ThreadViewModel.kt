@@ -8,6 +8,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.dino.message.DinoOrderApplication
 import com.dino.message.corefeature.data.socket.AppSocketManager
+import com.dino.message.corefeature.data.spref.DataStoreUtil
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
@@ -17,6 +18,7 @@ import com.dino.message.profilefeature.domain.usecase.GetMyProfileUseCase
 import com.dino.message.threadfeature.domain.model.Post
 import com.dino.message.threadfeature.domain.model.PostMedia
 import com.dino.message.threadfeature.domain.model.VoteTargetType
+import com.dino.message.threadfeature.data.upload.PostUploadManager
 import com.dino.message.threadfeature.domain.usecase.AddTrackToPlaylistUseCase
 import com.dino.message.threadfeature.domain.usecase.BlockUserUseCase
 import com.dino.message.threadfeature.domain.usecase.GetPostsUseCase
@@ -39,8 +41,11 @@ import com.ramcosta.composedestinations.generated.destinations.PlaylistBottomShe
 import com.ramcosta.composedestinations.generated.destinations.SharedPostDetailsScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.TrackPlaylistAddersDialogScreenDestination
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
@@ -57,9 +62,11 @@ class ThreadViewModel @Inject constructor(
     private val addTrackToPlaylistUseCase: AddTrackToPlaylistUseCase,
     private val isTrackInPlaylistUseCase: IsTrackInPlaylistUseCase,
     private val getMyProfileUseCase: GetMyProfileUseCase,
+    private val dataStoreUtil: DataStoreUtil,
     private val sPrefManager: SPrefManager,
     private val getUnreadCountUseCase: GetUnreadCountUseCase,
     private val appSocketManager: AppSocketManager,
+    private val postUploadManager: PostUploadManager,
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
 
@@ -68,7 +75,7 @@ class ThreadViewModel @Inject constructor(
     private var currentPostsPage = 1
     private var totalPosts = Int.MAX_VALUE
     private var isPostsRequestRunning = false
-    private var shouldRefreshWhenScreenResumes = false
+    private val observedSuccessfulUploadIds = mutableSetOf<String>()
 
     private val _posts = mutableStateListOf<Post>()
     val posts: List<Post> = _posts
@@ -87,6 +94,11 @@ class ThreadViewModel @Inject constructor(
 
     private val _isProfileLoading = MutableStateFlow(false)
     val isProfileLoading: StateFlow<Boolean> = _isProfileLoading.asStateFlow()
+    private val _viewerHasBadge = MutableStateFlow(false)
+    val viewerHasBadge: StateFlow<Boolean> = _viewerHasBadge.asStateFlow()
+    private val _isBadgeFeaturesDialogDismissed = MutableStateFlow(false)
+    val isBadgeFeaturesDialogDismissed: StateFlow<Boolean> =
+        _isBadgeFeaturesDialogDismissed.asStateFlow()
 
     private val postVoteByPost = mutableStateMapOf<Long, Long>()
     private val postErrorByPost = mutableStateMapOf<Long, String?>()
@@ -99,6 +111,8 @@ class ThreadViewModel @Inject constructor(
 
     private val _playlistFeedback = MutableStateFlow<String?>(null)
     val playlistFeedback: StateFlow<String?> = _playlistFeedback.asStateFlow()
+    private val _backgroundUploadRefreshEvents = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val backgroundUploadRefreshEvents: SharedFlow<Unit> = _backgroundUploadRefreshEvents.asSharedFlow()
 
     private val socketOwner = "ThreadViewModel.activity"
     private val currentUsername: String = sPrefManager.getUsername().orEmpty()
@@ -107,6 +121,25 @@ class ThreadViewModel @Inject constructor(
         refresh()
         fetchUnreadCount()
         connectActivitySocket()
+        observeSuccessfulBackgroundUploads()
+        observeViewerBadgeAccess()
+        observeBadgeFeaturesDialogState()
+    }
+
+    private fun observeViewerBadgeAccess() = viewModelScope.launch {
+        dataStoreUtil.getBadgeAccessEnabled().collect { hasBadge ->
+            _viewerHasBadge.value = hasBadge
+        }
+    }
+
+    private fun observeBadgeFeaturesDialogState() = viewModelScope.launch {
+        dataStoreUtil.getBadgeFeaturesDialogDismissed().collect { dismissed ->
+            _isBadgeFeaturesDialogDismissed.value = dismissed
+        }
+    }
+
+    fun dismissBadgeFeaturesDialog() = viewModelScope.launch {
+        dataStoreUtil.setBadgeFeaturesDialogDismissed(true)
     }
 
     fun refresh() {
@@ -134,6 +167,9 @@ class ThreadViewModel @Inject constructor(
             when (res) {
                 is Resource.Success -> {
                     profile.value = res.data
+                    dataStoreUtil.saveBadgeAccessCache(
+                        hasBadge = !res.data.badge.isNullOrBlank()
+                    )
                     _profileError.value = null
                     _isProfileLoading.value = false
                 }
@@ -212,7 +248,6 @@ class ThreadViewModel @Inject constructor(
     }
 
     fun openQuotePostOptions(post: Post) {
-        shouldRefreshWhenScreenResumes = true
         navigateToDestination(
             CreatePostOptionsBottomSheetScreenDestination(
                 quotedPostId = post.id
@@ -230,7 +265,6 @@ class ThreadViewModel @Inject constructor(
     }
 
     fun openCreatePostScreen() {
-        shouldRefreshWhenScreenResumes = true
         navigateToDestination(
             CreatePostScreenDestination(),
             viewModelScope
@@ -238,7 +272,6 @@ class ThreadViewModel @Inject constructor(
     }
 
     fun openPostMusicScreen() {
-        shouldRefreshWhenScreenResumes = true
         navigateToDestination(
             PostMusicScreenDestination(),
             viewModelScope
@@ -246,7 +279,6 @@ class ThreadViewModel @Inject constructor(
     }
 
     fun showCreateOptionsSheet(){
-        shouldRefreshWhenScreenResumes = true
         navigateToDestination(
             CreatePostOptionsBottomSheetScreenDestination(),
             viewModelScope
@@ -267,10 +299,16 @@ class ThreadViewModel @Inject constructor(
         )
     }
 
-    fun refreshIfNeededAfterCreatePost() {
-        if (!shouldRefreshWhenScreenResumes) return
-        shouldRefreshWhenScreenResumes = false
-        refresh()
+    private fun observeSuccessfulBackgroundUploads() = viewModelScope.launch {
+        postUploadManager.observeSuccessfulUploadIds(currentUsername).collect { successfulIds ->
+            successfulIds.forEach { id ->
+                val asString = id.toString()
+                if (observedSuccessfulUploadIds.add(asString)) {
+                    _backgroundUploadRefreshEvents.tryEmit(Unit)
+                }
+            }
+            observedSuccessfulUploadIds.retainAll(successfulIds.map { it.toString() }.toSet())
+        }
     }
 
     fun selectedPostVote(postId: Long): Long = postVoteByPost[postId] ?: 0L

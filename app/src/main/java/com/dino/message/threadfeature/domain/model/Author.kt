@@ -7,5 +7,7 @@ data class Author(
     val id: Long,
     val username: String,
     val name: String?,
-    val profile_image_url: String?
+    val profile_image_url: String?,
+    val profile_image_shape: String? = null,
+    val badge: String? = null,
 )

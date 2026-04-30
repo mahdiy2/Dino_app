@@ -9,10 +9,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBackIosNew
-import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
@@ -33,12 +31,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.dino.message.R
+import com.dino.message.corefeature.presentation.component.UserBadgeIcon
 import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
 import com.dino.message.corefeature.presentation.ui.theme.DPLarge
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPSmall
+import com.dino.message.corefeature.presentation.util.backIconModifier
+import com.dino.message.profilefeature.presentation.component.ProfileAvatarMedia
 import com.dino.message.profilefeature.presentation.viewmodel.BlockListViewModel
 import com.dino.message.threadfeature.presentation.component.PostContainer
 import com.ramcosta.composedestinations.annotation.Destination
@@ -70,12 +73,13 @@ fun BlockListScreen() {
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Block List") },
+                title = { Text(stringResource(R.string.block_list)) },
                 navigationIcon = {
                     IconButton(onClick = viewModel::navigateUp) {
                         Icon(
                             imageVector = Icons.Rounded.ArrowBackIosNew,
-                            contentDescription = "Back"
+                            contentDescription = stringResource(R.string.back),
+                            modifier = backIconModifier()
                         )
                     }
                 },
@@ -83,7 +87,7 @@ fun BlockListScreen() {
                     IconButton(onClick = viewModel::refresh) {
                         Icon(
                             imageVector = Icons.Rounded.Refresh,
-                            contentDescription = "Refresh"
+                            contentDescription = stringResource(R.string.refresh)
                         )
                     }
                 }
@@ -126,7 +130,7 @@ fun BlockListScreen() {
             } else if (viewModel.users.isEmpty()) {
                 item {
                     Text(
-                        text = "You haven't blocked anyone yet.",
+                        text = stringResource(R.string.block_list_empty),
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -141,28 +145,31 @@ fun BlockListScreen() {
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(DPMedium)
                         ) {
-                            Surface(
+                            ProfileAvatarMedia(
                                 modifier = Modifier.size(48.dp),
-                                shape = CircleShape,
-                                color = MaterialTheme.colorScheme.surfaceVariant
-                            ) {
-                                Icon(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .padding(DPMedium),
-                                    imageVector = Icons.Rounded.Person,
-                                    contentDescription = null
-                                )
-                            }
+                                profileImageUrl = user.profile_image_url,
+                                profileVideoUrl = null,
+                                badge = user.badge,
+                                profileImageShape = user.profile_image_shape
+                            )
 
                             Column(
                                 modifier = Modifier.weight(1f),
                                 verticalArrangement = Arrangement.spacedBy(DPSmall)
                             ) {
-                                Text(
-                                    text = user.name?.takeIf { it.isNotBlank() } ?: user.username,
-                                    style = MaterialTheme.typography.titleMedium
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text(
+                                        text = user.name?.takeIf { it.isNotBlank() } ?: user.username,
+                                        style = MaterialTheme.typography.titleMedium
+                                    )
+                                    UserBadgeIcon(
+                                        badge = user.badge,
+                                        size = 17.dp
+                                    )
+                                }
                                 Text(
                                     text = "@${user.username}",
                                     style = MaterialTheme.typography.bodySmall,
@@ -180,7 +187,7 @@ fun BlockListScreen() {
                                         strokeWidth = 2.dp
                                     )
                                 } else {
-                                    Text("Unblock")
+                                    Text(stringResource(R.string.unblock))
                                 }
                             }
                         }

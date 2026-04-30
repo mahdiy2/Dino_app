@@ -1,6 +1,12 @@
 package com.dino.message.threadfeature.presentation.component
 
+import android.content.ContentValues
+import android.content.Context
+import android.os.Build
+import android.os.Environment
 import android.net.Uri
+import android.provider.MediaStore
+import android.widget.Toast
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
@@ -10,6 +16,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -22,6 +29,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -39,6 +47,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
@@ -52,18 +61,24 @@ import coil.compose.SubcomposeAsyncImage
 import coil.decode.VideoFrameDecoder
 import coil.request.ImageRequest
 import coil.request.videoFrameMillis
+import com.dino.message.R
 import com.dino.message.threadfeature.domain.model.PostMedia
 import com.dino.message.threadfeature.presentation.music.MusicPlaybackManager
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.net.URL
 
 @Composable
 fun PostMediaViewerDialog(
     mediaItems: List<PostMedia>,
     initialIndex: Int,
+    canDownloadMedia: Boolean,
     onDismiss: () -> Unit
 ) {
     if (mediaItems.isEmpty()) return
 
+    val context = LocalContext.current
     val pagerState = rememberPagerState(
         initialPage = initialIndex.coerceIn(0, mediaItems.lastIndex),
         pageCount = { mediaItems.size }
@@ -109,20 +124,48 @@ fun PostMediaViewerDialog(
                 }
             }
 
-            IconButton(
-                onClick = onDismiss,
+            Row(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(16.dp),
-                colors = IconButtonDefaults.iconButtonColors(
-                    containerColor = Color.Black.copy(alpha = 0.5f)
-                )
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Rounded.Close,
-                    contentDescription = "Close",
-                    tint = Color.White
-                )
+                if (canDownloadMedia) {
+                    IconButton(
+                        onClick = {
+                            val currentItem = mediaItems[pagerState.currentPage]
+                            scope.launch {
+                                saveMediaToGallery(
+                                    context = context,
+                                    url = currentItem.url,
+                                    isVideo = currentItem.mime_type.startsWith("video/", ignoreCase = true)
+                                )
+                            }
+                        },
+                        colors = IconButtonDefaults.iconButtonColors(
+                            containerColor = Color.Black.copy(alpha = 0.5f)
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Download,
+                            contentDescription = stringResource(R.string.download_media),
+                            tint = Color.White
+                        )
+                    }
+                }
+
+                IconButton(
+                    onClick = onDismiss,
+                    colors = IconButtonDefaults.iconButtonColors(
+                        containerColor = Color.Black.copy(alpha = 0.5f)
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Close,
+                        contentDescription = stringResource(R.string.close),
+                        tint = Color.White
+                    )
+                }
             }
 
             Text(
@@ -286,4 +329,87 @@ private fun FullScreenVideoPlayer(
             playerView.player = exoPlayer
         }
     )
+}
+
+private suspend fun saveMediaToGallery(
+    context: Context,
+    url: String,
+    isVideo: Boolean
+) {
+    try {
+        val bytes = withContext(Dispatchers.IO) {
+            when {
+                url.startsWith("content://", ignoreCase = true) -> {
+                    val uri = Uri.parse(url)
+                    context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                }
+                url.startsWith("file://", ignoreCase = true) -> {
+                    val uri = Uri.parse(url)
+                    uri.path?.let { path -> java.io.File(path).readBytes() }
+                }
+                else -> {
+                    URL(url).openStream().use { it.readBytes() }
+                }
+            }
+        } ?: run {
+            Toast.makeText(context, context.getString(R.string.save_failed), Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val fileName = if (isVideo) {
+            "VID_${System.currentTimeMillis()}.mp4"
+        } else {
+            "IMG_${System.currentTimeMillis()}.jpg"
+        }
+        val mimeType = if (isVideo) "video/mp4" else "image/jpeg"
+
+        val contentValues = ContentValues().apply {
+            put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+            put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val relativePath = if (isVideo) {
+                    Environment.DIRECTORY_MOVIES + "/SecMessage"
+                } else {
+                    Environment.DIRECTORY_PICTURES + "/SecMessage"
+                }
+                put(MediaStore.MediaColumns.RELATIVE_PATH, relativePath)
+                put(MediaStore.MediaColumns.IS_PENDING, 1)
+            }
+        }
+
+        val collection = if (isVideo) {
+            MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        } else {
+            MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        }
+
+        val resolver = context.contentResolver
+        val uri = resolver.insert(collection, contentValues)
+        if (uri == null) {
+            Toast.makeText(context, context.getString(R.string.save_failed), Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val writeSucceeded = withContext(Dispatchers.IO) {
+            resolver.openOutputStream(uri)?.use { outputStream ->
+                outputStream.write(bytes)
+            } != null
+        }
+
+        if (!writeSucceeded) {
+            resolver.delete(uri, null, null)
+            Toast.makeText(context, context.getString(R.string.save_failed), Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            contentValues.clear()
+            contentValues.put(MediaStore.MediaColumns.IS_PENDING, 0)
+            resolver.update(uri, contentValues, null, null)
+        }
+
+        Toast.makeText(context, context.getString(R.string.saved_to_gallery), Toast.LENGTH_SHORT).show()
+    } catch (_: Exception) {
+        Toast.makeText(context, context.getString(R.string.save_failed), Toast.LENGTH_SHORT).show()
+    }
 }

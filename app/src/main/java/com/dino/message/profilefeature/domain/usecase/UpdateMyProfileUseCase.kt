@@ -13,6 +13,7 @@ class UpdateMyProfileUseCase @Inject constructor(
     fun execute(
         name: String? = null,
         bio: String? = null,
+        profileImageShape: String? = null,
         profileImage: ProfileUpdateImage? = null,
         profileVideo: ProfileUpdateImage? = null
     ) = flow<Resource<Profile>> {
@@ -21,6 +22,7 @@ class UpdateMyProfileUseCase @Inject constructor(
             profileRepository.updateMyProfile(
                 name = name,
                 bio = bio,
+                profileImageShape = profileImageShape,
                 profileImage = profileImage,
                 profileVideo = profileVideo
             )

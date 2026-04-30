@@ -92,7 +92,7 @@ class MainActivity : ComponentActivity() {
 
             // Retrieve the app theme and app language from the view model
             val theme = viewModel.getSystemTheme(systemTheme).collectAsState(initial = systemTheme)
-            val appLanguage = viewModel.appLanguage.collectAsState(initial = AppLanguage.English)
+            val appLanguage = viewModel.appLanguage.collectAsState(initial = AppLanguage.Farsi)
 
             val expandedSheetState = rememberModalBottomSheetState(
                 initialValue = ModalBottomSheetValue.Hidden,
@@ -111,7 +111,10 @@ class MainActivity : ComponentActivity() {
             // Handle UI events and update the app's state
             HandleUIEvent(app as DinoOrderApplication, navController!!)
 
-            SecMessageTheme(darkTheme = theme.value) {
+            SecMessageTheme(
+                darkTheme = theme.value,
+                appLanguage = appLanguage.value
+            ) {
                 CompositionLocalProvider(
                     LocalLayoutDirection provides appLanguage.value.toLayoutDirection()
                 ) {

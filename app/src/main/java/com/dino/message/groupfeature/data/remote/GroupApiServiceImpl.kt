@@ -20,12 +20,14 @@ import com.dino.message.groupfeature.data.remote.dto.CreateGroupRequest
 import com.dino.message.groupfeature.data.remote.dto.CreateGroupResponse
 import com.dino.message.groupfeature.data.remote.dto.GroupDetailResponse
 import com.dino.message.groupfeature.data.remote.dto.GroupHistoryResponse
+import com.dino.message.groupfeature.data.remote.dto.GroupOnlineUsersResponse
 import com.dino.message.groupfeature.data.remote.dto.GroupUploadAttachmentResponse
 import com.dino.message.groupfeature.data.remote.dto.ListGroupsResponse
 import com.dino.message.groupfeature.data.remote.dto.MutualFollowersResponse
 import com.dino.message.groupfeature.domain.model.AddGroupMembersResult
 import com.dino.message.groupfeature.domain.model.Group
 import com.dino.message.groupfeature.domain.model.GroupHistoryPage
+import com.dino.message.groupfeature.domain.model.GroupOnlineUser
 import com.dino.message.groupfeature.domain.model.MutualFollowersPage
 import io.ktor.client.HttpClient
 import io.ktor.client.request.forms.MultiPartFormDataContent
@@ -95,6 +97,17 @@ class GroupApiServiceImpl @Inject constructor(
         httpAPIUtil.callAPIWithErrorHandling<Group, GroupDetailResponse>(
             callAPI = {
                 httpClient.get(GroupRoute.GroupDetail(groupId).url) {
+                    contentType(ContentType.Application.Json)
+                    appendTokenToHeader(sPrefManager.getToken())
+                }
+            },
+            callRefreshTokenAPI = this::getToken
+        )
+
+    override suspend fun getGroupOnlineUsers(groupId: Int): Resource<List<GroupOnlineUser>> =
+        httpAPIUtil.callAPIWithErrorHandling<List<GroupOnlineUser>, GroupOnlineUsersResponse>(
+            callAPI = {
+                httpClient.get(GroupRoute.GroupOnlineUsers(groupId).url) {
                     contentType(ContentType.Application.Json)
                     appendTokenToHeader(sPrefManager.getToken())
                 }

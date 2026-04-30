@@ -32,7 +32,9 @@ data class PaginatedContacts(
 data class DetailedContact(
     val username: String,
     val name: String? = null,
+    val badge: String? = null,
     @SerialName("profile_image_url") val profileImageUrl: String? = null,
+    @SerialName("profile_image_shape") val profileImageShape: String? = null,
     @SerialName("profile_video_url") val profileVideoUrl: String? = null,
     @SerialName("has_message") val hasMessage: Boolean = false,
     val online: Boolean = false,

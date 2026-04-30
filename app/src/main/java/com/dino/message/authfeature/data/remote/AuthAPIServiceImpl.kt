@@ -115,7 +115,8 @@ class AuthAPIServiceImpl @Inject constructor(
                 }
             },
             callRefreshTokenAPI = this::getToken,
-            needToUpdateToken = false
+            needToUpdateToken = false,
+            useServerMessageForUnauthorized = true
         )
 
     override suspend fun rotatePublicKey(

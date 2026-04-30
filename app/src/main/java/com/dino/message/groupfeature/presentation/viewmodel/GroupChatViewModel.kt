@@ -2,10 +2,14 @@ package com.dino.message.groupfeature.presentation.viewmodel
 
 import android.content.Context
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
+import com.dino.message.BuildConfig
 import com.dino.message.DinoOrderApplication
 import com.dino.message.chatfeature.domain.model.MessageDeliveryStatus
 import com.dino.message.corefeature.data.socket.AppSocketManager
@@ -15,7 +19,9 @@ import com.dino.message.corefeature.presentation.util.CryptoUtil
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.corefeature.presentation.util.decodePrivateKey
 import com.dino.message.corefeature.presentation.util.decodePublicKey
+import com.dino.message.corefeature.presentation.util.decodePublicKeyOrNull
 import com.dino.message.corefeature.presentation.util.decryptMessage
+import com.dino.message.corefeature.presentation.util.formatPublicKeyForLog
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.dino.message.chatfeature.data.notification.ActiveGroupTracker
@@ -23,6 +29,7 @@ import com.dino.message.chatfeature.data.notification.NotificationHelper
 import com.dino.message.groupfeature.domain.model.GroupMessageEntity
 import com.dino.message.groupfeature.domain.model.GroupHistoryMessage
 import com.dino.message.groupfeature.domain.model.Group
+import com.dino.message.groupfeature.domain.model.GroupOnlineUser
 import com.dino.message.groupfeature.domain.repository.GroupRepository
 import com.dino.message.groupfeature.domain.usecase.GetGroupDetailUseCase
 import com.dino.message.groupfeature.domain.usecase.UploadGroupAttachmentUseCase
@@ -84,6 +91,14 @@ class GroupChatViewModel @Inject constructor(
         var includeKeyRecordsOnNextSend: Boolean = true,
     )
 
+    private data class MemberKeySnapshot(
+        val decodedKeys: Map<String, PublicKey>,
+        val profileImages: Map<String, String?>,
+        val profileImageShapes: Map<String, String?>,
+        val memberBadges: Map<String, String?>,
+        val memberIds: Map<String, Int>,
+    )
+
     val groupId: Int = checkNotNull(savedStateHandle["groupId"])
     val groupName: String = savedStateHandle["groupName"] ?: "Group"
 
@@ -130,9 +145,31 @@ class GroupChatViewModel @Inject constructor(
 
     private val _memberProfileImageUrls = MutableStateFlow<Map<String, String?>>(emptyMap())
     val memberProfileImageUrls: StateFlow<Map<String, String?>> = _memberProfileImageUrls.asStateFlow()
+    private val _memberProfileImageShapes = MutableStateFlow<Map<String, String?>>(emptyMap())
+    val memberProfileImageShapes: StateFlow<Map<String, String?>> = _memberProfileImageShapes.asStateFlow()
+    private val _memberBadges = MutableStateFlow<Map<String, String?>>(emptyMap())
+    val memberBadges: StateFlow<Map<String, String?>> = _memberBadges.asStateFlow()
+
+    private val _onlineGroupUsers = MutableStateFlow<List<GroupOnlineUser>>(emptyList())
+    val onlineGroupUsers: StateFlow<List<GroupOnlineUser>> = _onlineGroupUsers.asStateFlow()
+
+    private val _typingGroupUsers = MutableStateFlow<List<GroupOnlineUser>>(emptyList())
+    val typingGroupUsers: StateFlow<List<GroupOnlineUser>> = _typingGroupUsers.asStateFlow()
 
     private var voiceRecorder: com.dino.message.chatfeature.presentation.component.VoiceRecorderManager? = null
     private var recordingTimerJob: kotlinx.coroutines.Job? = null
+    private var composerTypingStopJob: kotlinx.coroutines.Job? = null
+    private var typingHeartbeatJob: kotlinx.coroutines.Job? = null
+    private var mainThreadWatchdogJob: kotlinx.coroutines.Job? = null
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var lastMainThreadHeartbeatMs: Long = 0L
+    private var mainThreadStallReported = false
+    private val mainThreadHeartbeatRunnable = object : Runnable {
+        override fun run() {
+            lastMainThreadHeartbeatMs = SystemClock.uptimeMillis()
+            mainHandler.postDelayed(this, 500L)
+        }
+    }
 
     private val socketOwner = "GroupChatViewModel-$groupId"
     private val seenMessageIds = Collections.synchronizedSet(mutableSetOf<String>())
@@ -145,12 +182,20 @@ class GroupChatViewModel @Inject constructor(
     private var totalLocalMessageCount = 0
 
     private var memberPublicKeys: Map<String, PublicKey> = emptyMap()
+    private var memberIdsByUsername: Map<String, Int> = emptyMap()
     private var memberKeysReady = false
     private var groupKeySession: GroupKeySession? = null
+    private var hasLoggedMissingEncryptedGroupKey = false
+    private var hasLoggedMissingPrivateKey = false
+    private var lastGroupDecryptFailureSignature: String? = null
+    private var isTypingEmitted = false
+    private val typingUsersByUsername = mutableMapOf<String, GroupOnlineUser>()
+    private val typingExpiryJobsByUsername = mutableMapOf<String, kotlinx.coroutines.Job>()
 
     init {
         ActiveGroupTracker.setActiveGroup(groupId)
         NotificationHelper.clearNotificationForGroup(app, groupId)
+        startMainThreadWatchdogIfDebug()
         loadMessagesFromDb(resetPaging = true)
         viewModelScope.launch {
             syncHistoryOnOpen()
@@ -220,8 +265,10 @@ class GroupChatViewModel @Inject constructor(
         ) {
             is Resource.Success -> {
                 val page = result.data
-                val mappedMessages = page.messages.mapNotNull { historyMessage ->
-                    mapHistoryMessageToEntity(historyMessage)
+                val mappedMessages = withContext(Dispatchers.Default) {
+                    page.messages.mapNotNull { historyMessage ->
+                        mapHistoryMessageToEntity(historyMessage)
+                    }
                 }
                 seenMessageIds.addAll(mappedMessages.map { it.messageId })
                 if (mappedMessages.isNotEmpty()) {
@@ -492,6 +539,7 @@ class GroupChatViewModel @Inject constructor(
                 is Resource.Success -> {
                     _isLoading.value = false
                     applyMemberPublicKeys(res.data)
+                    refreshGroupOnlineUsersFromApi()
                     connectSocket()
                 }
                 is Resource.Error -> {
@@ -502,29 +550,90 @@ class GroupChatViewModel @Inject constructor(
         }
     }
 
-    private fun applyMemberPublicKeys(group: Group) {
-        val keys = mutableMapOf<String, PublicKey>()
-        val profileImages = mutableMapOf<String, String?>()
-        group.members?.forEach { member ->
-            profileImages[member.username] = member.profileImageUrl
-            val pk = member.publicKey
-            if (!pk.isNullOrBlank()) {
-                try {
-                    keys[member.username] = decodePublicKey(pk)
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to decode public key for ${member.username}", e)
+    private suspend fun applyMemberPublicKeys(group: Group) {
+        val snapshot = withContext(Dispatchers.Default) {
+            val keys = mutableMapOf<String, PublicKey>()
+            val profileImages = mutableMapOf<String, String?>()
+            val profileImageShapes = mutableMapOf<String, String?>()
+            val memberBadges = mutableMapOf<String, String?>()
+            val memberIds = mutableMapOf<String, Int>()
+
+            group.members?.forEach { member ->
+                profileImages[member.username] = member.profileImageUrl
+                profileImageShapes[member.username] = member.profileImageShape
+                memberBadges[member.username] = member.badge
+                memberIds[member.username] = member.id
+
+                val pk = member.publicKey
+                if (BuildConfig.DEBUG) {
+                    Log.d(TAG, "Group member key ${member.username}: ${formatPublicKeyForLog(pk)}")
+                }
+                if (!pk.isNullOrBlank()) {
+                    val decodedPublicKey = decodePublicKeyOrNull(pk)
+                    if (decodedPublicKey != null) {
+                        keys[member.username] = decodedPublicKey
+                    } else {
+                        Log.w(
+                            TAG,
+                            "Skipping unsupported public key format for ${member.username}, ${formatPublicKeyForLog(pk)}"
+                        )
+                    }
                 }
             }
+
+            MemberKeySnapshot(
+                decodedKeys = keys,
+                profileImages = profileImages,
+                profileImageShapes = profileImageShapes,
+                memberBadges = memberBadges,
+                memberIds = memberIds,
+            )
         }
+
         val previousFingerprint = memberKeyFingerprint(memberPublicKeys)
-        val newFingerprint = memberKeyFingerprint(keys)
-        _memberProfileImageUrls.value = profileImages
-        memberPublicKeys = keys
-        memberKeysReady = keys.isNotEmpty()
+        val newFingerprint = memberKeyFingerprint(snapshot.decodedKeys)
+        _memberProfileImageUrls.value = snapshot.profileImages
+        _memberProfileImageShapes.value = snapshot.profileImageShapes
+        _memberBadges.value = snapshot.memberBadges
+        memberIdsByUsername = snapshot.memberIds
+        memberPublicKeys = snapshot.decodedKeys
+        memberKeysReady = snapshot.decodedKeys.isNotEmpty()
+        reconcileOnlineUsersWithKnownMembers(snapshot.profileImages, snapshot.memberIds)
         if (previousFingerprint != newFingerprint) {
             invalidateGroupKeySession()
         }
-        Log.d(TAG, "Loaded ${keys.size} member public keys for group $groupId")
+        Log.d(TAG, "Loaded ${snapshot.decodedKeys.size} member public keys for group $groupId")
+    }
+
+    private fun reconcileOnlineUsersWithKnownMembers(
+        profileImagesByUsername: Map<String, String?> = _memberProfileImageUrls.value,
+        memberIdsByUsernameSnapshot: Map<String, Int> = memberIdsByUsername,
+    ) {
+        val memberUsernames = profileImagesByUsername.keys
+        if (memberUsernames.isEmpty()) {
+            _onlineGroupUsers.value = emptyList()
+            return
+        }
+
+        val normalized = _onlineGroupUsers.value
+            .asSequence()
+            .filter { memberUsernames.contains(it.username) }
+            .map { onlineUser ->
+                val fallbackId = memberIdsByUsernameSnapshot[onlineUser.username]?.toString().orEmpty()
+                onlineUser.copy(
+                    userId = onlineUser.userId.ifBlank { fallbackId },
+                    profileImageUrl = onlineUser.profileImageUrl
+                        ?: profileImagesByUsername[onlineUser.username],
+                    profileImageShape = onlineUser.profileImageShape
+                        ?: _memberProfileImageShapes.value[onlineUser.username],
+                    badge = onlineUser.badge ?: _memberBadges.value[onlineUser.username],
+                )
+            }
+            .distinctBy { it.username }
+            .sortedBy { it.username }
+            .toList()
+
+        _onlineGroupUsers.value = normalized
     }
 
     private fun memberKeyFingerprint(keys: Map<String, PublicKey>): String {
@@ -592,7 +701,10 @@ class GroupChatViewModel @Inject constructor(
 
         val myEncryptedKey = encryptedKeys[currentUsername].orEmpty()
         if (myEncryptedKey.isBlank()) {
-            Log.w(TAG, "No encrypted key found for $currentUsername")
+            if (!hasLoggedMissingEncryptedGroupKey) {
+                Log.w(TAG, "No encrypted key found for $currentUsername")
+                hasLoggedMissingEncryptedGroupKey = true
+            }
             _decryptionError.value =
                 "Unable to decrypt some group messages. Your private key may not match your account key."
             return GROUP_DECRYPTION_FALLBACK
@@ -600,6 +712,10 @@ class GroupChatViewModel @Inject constructor(
 
         return try {
             val privateKeyStr = spref.getPrivateKey() ?: run {
+                if (!hasLoggedMissingPrivateKey) {
+                    Log.w(TAG, "Private key missing on device for user $currentUsername")
+                    hasLoggedMissingPrivateKey = true
+                }
                 _decryptionError.value =
                     "Unable to decrypt some group messages. Your private key is missing on this device."
                 return GROUP_DECRYPTION_FALLBACK
@@ -610,7 +726,11 @@ class GroupChatViewModel @Inject constructor(
                 privateKey = decodePrivateKey(privateKeyStr),
             )
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to decrypt group message", e)
+            val signature = "${e::class.java.name}:${e.message.orEmpty()}"
+            if (lastGroupDecryptFailureSignature != signature) {
+                Log.e(TAG, "Failed to decrypt group message", e)
+                lastGroupDecryptFailureSignature = signature
+            }
             _decryptionError.value =
                 "Unable to decrypt some group messages. Your private key may not match your account key."
             GROUP_DECRYPTION_FALLBACK
@@ -677,6 +797,7 @@ class GroupChatViewModel @Inject constructor(
     private fun joinGroupAndRequestStatusSync() {
         if (!appSocketManager.isConnected()) return
         appSocketManager.emit("join_group", JSONObject().apply { put("group_id", groupId) })
+        requestGroupOnlineUsersFromSocket()
         requestDeliveredStatuses()
         requestSeenStatuses()
         requestDeletedStatuses()
@@ -690,6 +811,31 @@ class GroupChatViewModel @Inject constructor(
 
         appSocketManager.registerListener(socketOwner, "group_joined") {
             Log.d(TAG, "Joined group room $groupId")
+            requestGroupOnlineUsersFromSocket()
+        }
+
+        appSocketManager.registerListener(socketOwner, "group_online_users") { args ->
+            viewModelScope.launch {
+                val payload = parseSocketPayload(args) ?: return@launch
+                if (payload.optInt("group_id", -1) != groupId) return@launch
+                applyOnlineUsersSnapshot(payload.optJSONArray("online_users"))
+            }
+        }
+
+        appSocketManager.registerListener(socketOwner, "group_presence_changed") { args ->
+            viewModelScope.launch {
+                val payload = parseSocketPayload(args) ?: return@launch
+                if (payload.optInt("group_id", -1) != groupId) return@launch
+                applyOnlinePresenceDelta(payload)
+            }
+        }
+
+        appSocketManager.registerListener(socketOwner, "group_typing") { args ->
+            viewModelScope.launch {
+                val payload = parseSocketPayload(args) ?: return@launch
+                if (payload.optInt("group_id", -1) != groupId) return@launch
+                handleIncomingGroupTyping(payload)
+            }
         }
 
         appSocketManager.registerListener(socketOwner, "pending_group_messages") { args ->
@@ -940,6 +1086,20 @@ class GroupChatViewModel @Inject constructor(
             }
         }
 
+        appSocketManager.registerListener(socketOwner, "group_message_deleted_for_me") { args ->
+            viewModelScope.launch {
+                val payload = parseSocketPayload(args) ?: return@launch
+                val payloadGroupId = payload.optInt("group_id", -1)
+                if (payloadGroupId != groupId) return@launch
+
+                val messageId = payload.optString("message_id", "")
+                if (messageId.isBlank()) return@launch
+                groupRepository.deleteGroupMessageByMessageId(messageId)
+                clearMessageStatus(messageId)
+                loadMessagesFromDb()
+            }
+        }
+
         appSocketManager.registerListener(socketOwner, "group_deleted_messages_status") { args ->
             viewModelScope.launch {
                 val payload = parseSocketPayload(args) ?: return@launch
@@ -1017,6 +1177,10 @@ class GroupChatViewModel @Inject constructor(
 
         appSocketManager.registerListener(socketOwner, Socket.EVENT_DISCONNECT) {
             Log.d(TAG, "Socket disconnected")
+            clearTypingUsers()
+            typingHeartbeatJob?.cancel()
+            typingHeartbeatJob = null
+            isTypingEmitted = false
         }
     }
 
@@ -1057,11 +1221,33 @@ class GroupChatViewModel @Inject constructor(
             clientMessageId = clientMessageId,
         )
         keySession.includeKeyRecordsOnNextSend = false
+        stopTypingNow()
         clearReply()
+    }
+
+    fun onComposerTextChanged(text: String) {
+        val hasText = text.isNotBlank()
+        if (!hasText) {
+            stopTypingNow()
+            return
+        }
+
+        if (!isTypingEmitted) {
+            emitGroupTyping(isTyping = true)
+            isTypingEmitted = true
+        }
+        startTypingHeartbeatIfNeeded()
+
+        composerTypingStopJob?.cancel()
+        composerTypingStopJob = viewModelScope.launch {
+            kotlinx.coroutines.delay(2600)
+            stopTypingNow()
+        }
     }
 
     fun sendAttachment(fileUri: Uri, mediaType: String) {
         viewModelScope.launch {
+            stopTypingNow()
             uploadGroupAttachmentUseCase.execute(groupId, fileUri).collect { res ->
                 when (res) {
                     is Resource.Loading -> _isUploading.value = true
@@ -1209,35 +1395,45 @@ class GroupChatViewModel @Inject constructor(
 
     fun deleteMessageOnlyForMe(message: GroupMessageEntity) = viewModelScope.launch {
         deleteGroupMessageLocally(message)
+
+        val emitted = appSocketManager.emit(
+            "delete_group_message_for_me",
+            JSONObject().apply {
+                put("group_id", groupId)
+                put("message_id", message.messageId)
+            }
+        )
+        if (!emitted) {
+            _socketError.value = "Unable to sync message deletion while offline."
+        }
     }
 
     fun deleteMessageForEveryone(message: GroupMessageEntity) = viewModelScope.launch {
         deleteGroupMessageLocally(message)
-        if (!appSocketManager.isConnected()) {
-            _socketError.value = "Unable to delete for everyone while disconnected."
-            connectSocket()
-            return@launch
-        }
-        val emitted = appSocketManager.emitNonRetryable(
+        val emitted = appSocketManager.emit(
             event = "delete_group_message",
             payload = JSONObject().apply {
                 put("group_id", groupId)
                 put("message_id", message.messageId)
             },
-            reason = "delete_group_message_user_action",
         )
         if (!emitted) {
-            _socketError.value = "Unable to delete for everyone while disconnected."
+            _socketError.value = "Unable to delete for everyone right now."
         }
     }
 
     fun navigateUp() {
+        stopTypingNow()
+        clearTypingUsers()
         navigateUp(viewModelScope)
     }
 
     private fun revokeMembershipAndExit(message: String) {
         if (_exitChatReason.value != null) return
         _exitChatReason.value = message
+        stopTypingNow()
+        clearTypingUsers()
+        _onlineGroupUsers.value = emptyList()
         ActiveGroupTracker.clearActiveGroup()
         disconnectSocket()
     }
@@ -1308,8 +1504,212 @@ class GroupChatViewModel @Inject constructor(
         Log.d(TAG, "Sent group read for ${messageIds.size} message(s)")
     }
 
+    private fun refreshGroupOnlineUsersFromApi() = viewModelScope.launch {
+        when (val result = groupRepository.getGroupOnlineUsers(groupId)) {
+            is Resource.Success -> {
+                _onlineGroupUsers.value = normalizeOnlineUsers(result.data)
+            }
+            is Resource.Error -> {
+                Log.w(
+                    TAG,
+                    "Failed to fetch online group users from API: ${result.message.asString(getApplication<DinoOrderApplication>())}"
+                )
+            }
+            is Resource.Loading -> Unit
+        }
+    }
+
+    private fun requestGroupOnlineUsersFromSocket() {
+        if (!appSocketManager.isConnected()) return
+        appSocketManager.emit(
+            "get_group_online_users",
+            JSONObject().apply { put("group_id", groupId) }
+        )
+    }
+
+    private fun applyOnlineUsersSnapshot(onlineUsersArray: JSONArray?) {
+        if (onlineUsersArray == null) return
+        val parsedUsers = buildList {
+            for (index in 0 until onlineUsersArray.length()) {
+                val userJson = onlineUsersArray.optJSONObject(index) ?: continue
+                parseOnlineUser(userJson)?.let { add(it) }
+            }
+        }
+        _onlineGroupUsers.value = normalizeOnlineUsers(parsedUsers)
+    }
+
+    private fun applyOnlinePresenceDelta(payload: JSONObject) {
+        val userJson = payload.optJSONObject("user")
+        val online = payload.optBoolean("online", false)
+        val normalizedUsername = userJson
+            ?.optString("username", "")
+            ?.trim()
+            .orEmpty()
+        if (normalizedUsername.isBlank()) return
+
+        val updated = _onlineGroupUsers.value.associateBy { it.username }.toMutableMap()
+        if (online) {
+            parseOnlineUser(userJson)?.let { parsed ->
+                updated[parsed.username] = parsed
+            }
+        } else {
+            updated.remove(normalizedUsername)
+        }
+        _onlineGroupUsers.value = normalizeOnlineUsers(updated.values)
+    }
+
+    private fun parseOnlineUser(userJson: JSONObject?): GroupOnlineUser? {
+        if (userJson == null) return null
+        val username = userJson.optString("username", "").trim()
+        if (username.isBlank()) return null
+
+        val userIdFromPayload = userJson.optString("user_id", "").trim()
+        val resolvedUserId = userIdFromPayload.ifBlank {
+            memberIdsByUsername[username]?.toString().orEmpty()
+        }
+        val profileImageFromPayload = userJson.optString("profile_image_url", "").ifBlank { null }
+        val resolvedProfileImage = profileImageFromPayload ?: _memberProfileImageUrls.value[username]
+        val profileImageShapeFromPayload = userJson.optString("profile_image_shape", "").ifBlank { null }
+        val resolvedProfileImageShape =
+            profileImageShapeFromPayload ?: _memberProfileImageShapes.value[username]
+        val badgeFromPayload = userJson.optString("badge", "").ifBlank { null }
+        val resolvedBadge = badgeFromPayload ?: _memberBadges.value[username]
+
+        return GroupOnlineUser(
+            userId = resolvedUserId,
+            username = username,
+            profileImageUrl = resolvedProfileImage,
+            profileImageShape = resolvedProfileImageShape,
+            badge = resolvedBadge,
+        )
+    }
+
+    private fun normalizeOnlineUsers(users: Collection<GroupOnlineUser>): List<GroupOnlineUser> {
+        val allowedMembers = memberIdsByUsername.keys
+        val filteredUsers = users
+            .asSequence()
+            .filter { it.username.isNotBlank() }
+            .filter { allowedMembers.isEmpty() || allowedMembers.contains(it.username) }
+            .map { user ->
+                val fallbackId = memberIdsByUsername[user.username]?.toString().orEmpty()
+                val fallbackProfile = _memberProfileImageUrls.value[user.username]
+                val fallbackProfileShape = _memberProfileImageShapes.value[user.username]
+                val fallbackBadge = _memberBadges.value[user.username]
+                user.copy(
+                    userId = user.userId.ifBlank { fallbackId },
+                    profileImageUrl = user.profileImageUrl ?: fallbackProfile,
+                    profileImageShape = user.profileImageShape ?: fallbackProfileShape,
+                    badge = user.badge ?: fallbackBadge,
+                )
+            }
+            .distinctBy { it.username }
+            .sortedBy { it.username }
+            .toList()
+
+        return filteredUsers
+    }
+
+    private fun emitGroupTyping(isTyping: Boolean) {
+        if (!appSocketManager.isConnected()) return
+        appSocketManager.emit(
+            "group_typing",
+            JSONObject().apply {
+                put("group_id", groupId)
+                put("is_typing", isTyping)
+            }
+        )
+    }
+
+    private fun stopTypingNow() {
+        composerTypingStopJob?.cancel()
+        composerTypingStopJob = null
+        typingHeartbeatJob?.cancel()
+        typingHeartbeatJob = null
+        if (!isTypingEmitted) return
+        emitGroupTyping(isTyping = false)
+        isTypingEmitted = false
+    }
+
+    private fun startTypingHeartbeatIfNeeded() {
+        if (typingHeartbeatJob?.isActive == true) return
+        typingHeartbeatJob = viewModelScope.launch {
+            while (isTypingEmitted) {
+                kotlinx.coroutines.delay(1700)
+                if (!isTypingEmitted) break
+                emitGroupTyping(isTyping = true)
+            }
+        }
+    }
+
+    private fun handleIncomingGroupTyping(payload: JSONObject) {
+        val isTyping = payload.optBoolean("is_typing", false)
+        val userJson = payload.optJSONObject("user")
+        val username = userJson
+            ?.optString("username", "")
+            ?.trim()
+            .orEmpty()
+        if (username.isBlank() || username == currentUsername) return
+
+        if (isTyping) {
+            val typingUser = parseOnlineUser(userJson) ?: return
+            typingUsersByUsername[username] = typingUser
+            publishTypingUsers()
+            typingExpiryJobsByUsername.remove(username)?.cancel()
+            typingExpiryJobsByUsername[username] = viewModelScope.launch {
+                kotlinx.coroutines.delay(4200)
+                removeTypingUser(username)
+            }
+        } else {
+            removeTypingUser(username)
+        }
+    }
+
+    private fun removeTypingUser(username: String) {
+        typingExpiryJobsByUsername.remove(username)?.cancel()
+        if (typingUsersByUsername.remove(username) != null) {
+            publishTypingUsers()
+        }
+    }
+
+    private fun publishTypingUsers() {
+        _typingGroupUsers.value = typingUsersByUsername.values
+            .sortedBy { it.username }
+    }
+
+    private fun clearTypingUsers() {
+        typingExpiryJobsByUsername.values.forEach { it.cancel() }
+        typingExpiryJobsByUsername.clear()
+        typingUsersByUsername.clear()
+        _typingGroupUsers.value = emptyList()
+    }
+
     private fun disconnectSocket() {
         appSocketManager.unregisterOwner(socketOwner)
+    }
+
+    private fun startMainThreadWatchdogIfDebug() {
+        if (!BuildConfig.DEBUG) return
+        lastMainThreadHeartbeatMs = SystemClock.uptimeMillis()
+        mainHandler.post(mainThreadHeartbeatRunnable)
+        mainThreadWatchdogJob = viewModelScope.launch(Dispatchers.Default) {
+            while (true) {
+                kotlinx.coroutines.delay(1200L)
+                val lagMs = SystemClock.uptimeMillis() - lastMainThreadHeartbeatMs
+                if (lagMs > 6000L) {
+                    if (!mainThreadStallReported) {
+                        mainThreadStallReported = true
+                        val mainStack = Looper.getMainLooper().thread.stackTrace
+                            .joinToString(separator = "\n") { it.toString() }
+                        Log.e(
+                            TAG,
+                            "Main thread stall detected in GroupChatViewModel. lagMs=$lagMs\n$mainStack"
+                        )
+                    }
+                } else {
+                    mainThreadStallReported = false
+                }
+            }
+        }
     }
 
     private fun mapGroupMessageErrorToUiMessage(errorCode: String, fallback: String): String {
@@ -1392,6 +1792,11 @@ class GroupChatViewModel @Inject constructor(
     }
 
     override fun onCleared() {
+        stopTypingNow()
+        clearTypingUsers()
+        mainThreadWatchdogJob?.cancel()
+        mainThreadWatchdogJob = null
+        mainHandler.removeCallbacks(mainThreadHeartbeatRunnable)
         ActiveGroupTracker.clearActiveGroup()
         voiceRecorder?.release()
         disconnectSocket()

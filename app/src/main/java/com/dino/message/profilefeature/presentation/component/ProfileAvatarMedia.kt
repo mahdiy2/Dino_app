@@ -4,7 +4,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.CircularProgressIndicator
@@ -38,11 +37,14 @@ import coil.compose.AsyncImagePainter
 import coil.imageLoader
 import coil.request.ImageRequest
 import coil.request.CachePolicy
+import com.dino.message.corefeature.presentation.util.resolveProfileImageShape
 
 @Composable
 fun ProfileAvatarMedia(
     profileImageUrl: String?,
     profileVideoUrl: String?,
+    badge: String? = null,
+    profileImageShape: String? = null,
     modifier: Modifier = Modifier,
     autoPlayVideo: Boolean = false,
     onClick: (() -> Unit)? = null
@@ -53,6 +55,10 @@ fun ProfileAvatarMedia(
         mutableStateOf(!autoPlayVideo || normalizedVideoUrl == null)
     }
     val shouldShowVideo = normalizedVideoUrl != null && !hasVideoFinished
+    val avatarShape = resolveProfileImageShape(
+        badge = badge,
+        profileImageShape = profileImageShape
+    )
 
     PreloadProfileImage(
         imageUrl = normalizedImageUrl,
@@ -62,13 +68,13 @@ fun ProfileAvatarMedia(
     Surface(
         modifier = if (onClick != null) {
             modifier
-                .clip(CircleShape)
+                .clip(avatarShape)
                 .clickable(onClick = onClick)
         } else {
             modifier
-                .clip(CircleShape)
+                .clip(avatarShape)
         },
-        shape = CircleShape,
+        shape = avatarShape,
         color = MaterialTheme.colorScheme.surfaceVariant
     ) {
         if (shouldShowVideo) {

@@ -4,7 +4,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBackIosNew
 import androidx.compose.material.icons.rounded.Check
@@ -12,15 +11,18 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import coil.compose.AsyncImage
+import com.dino.message.R
+import com.dino.message.corefeature.presentation.component.UserBadgeIcon
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPSmall
+import com.dino.message.corefeature.presentation.util.backIconModifier
 import com.dino.message.groupfeature.presentation.viewmodel.CreateGroupViewModel
+import com.dino.message.profilefeature.presentation.component.ProfileAvatarMedia
 import com.ramcosta.composedestinations.annotation.Destination
 import com.ramcosta.composedestinations.annotation.RootGraph
 
@@ -50,10 +52,14 @@ fun CreateGroupScreen() {
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Create Group") },
+                title = { Text(stringResource(R.string.group_create_title)) },
                 navigationIcon = {
                     IconButton(onClick = { viewModel.navigateUp() }) {
-                        Icon(Icons.Rounded.ArrowBackIosNew, "Back")
+                        Icon(
+                            imageVector = Icons.Rounded.ArrowBackIosNew,
+                            contentDescription = stringResource(R.string.back),
+                            modifier = backIconModifier()
+                        )
                     }
                 },
                 actions = {
@@ -65,7 +71,7 @@ fun CreateGroupScreen() {
                                     .padding(end = 16.dp)
                             )
                         } else {
-                            Text("Create")
+                            Text(stringResource(R.string.create))
 
                         }
                     }
@@ -84,7 +90,7 @@ fun CreateGroupScreen() {
             OutlinedTextField(
                 value = viewModel.groupName.value,
                 onValueChange = { viewModel.groupName.value = it },
-                label = { Text("Group Name") },
+                label = { Text(stringResource(R.string.group_name)) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 enabled = !isCreating,
@@ -96,7 +102,7 @@ fun CreateGroupScreen() {
             OutlinedTextField(
                 value = viewModel.searchQuery.value,
                 onValueChange = { viewModel.searchQuery.value = it },
-                label = { Text("Search followers") },
+                label = { Text(stringResource(R.string.search_followers)) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 enabled = !isCreating,
@@ -106,7 +112,7 @@ fun CreateGroupScreen() {
             Spacer(Modifier.height(DPSmall))
 
             Text(
-                text = "You can only add people who mutually follow you",
+                text = stringResource(R.string.group_create_mutual_followers_hint),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -128,16 +134,25 @@ fun CreateGroupScreen() {
                                 .padding(vertical = DPSmall),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            AsyncImage(
-                                model = follower.profileImageUrl,
-                                contentDescription = null,
-                                modifier = Modifier
-                                    .size(48.dp)
-                                    .clip(CircleShape)
+                            ProfileAvatarMedia(
+                                profileImageUrl = follower.profileImageUrl,
+                                profileVideoUrl = null,
+                                badge = follower.badge,
+                                profileImageShape = follower.profileImageShape,
+                                modifier = Modifier.size(48.dp)
                             )
                             Spacer(Modifier.width(DPMedium))
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(follower.name, style = MaterialTheme.typography.bodyLarge)
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text(follower.name, style = MaterialTheme.typography.bodyLarge)
+                                    UserBadgeIcon(
+                                        badge = follower.badge,
+                                        size = 16.dp
+                                    )
+                                }
                                 Text(
                                     "@${follower.username}",
                                     style = MaterialTheme.typography.bodySmall,
@@ -147,7 +162,7 @@ fun CreateGroupScreen() {
                             if (isSelected) {
                                 Icon(
                                     Icons.Rounded.Check,
-                                    contentDescription = "Selected",
+                                    contentDescription = stringResource(R.string.selected),
                                     tint = MaterialTheme.colorScheme.primary
                                 )
                             }

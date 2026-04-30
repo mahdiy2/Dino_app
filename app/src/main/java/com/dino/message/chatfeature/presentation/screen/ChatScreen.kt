@@ -1,8 +1,12 @@
 package com.dino.message.chatfeature.presentation.screen
 
 import android.Manifest
+import android.app.Activity
 import android.content.ClipData
+import android.content.Context
+import android.content.ContextWrapper
 import android.net.Uri
+import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -15,6 +19,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -51,6 +56,7 @@ import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
@@ -67,6 +73,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import com.dino.message.R
+import com.dino.message.corefeature.presentation.component.UserBadgeIcon
+import com.dino.message.corefeature.presentation.util.backIconModifier
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -96,7 +104,9 @@ import java.time.format.DateTimeFormatter
 fun ChatScreen(
     chatId: String,
     displayName: String? = null,
+    badge: String? = null,
     profileImageUrl: String? = null,
+    profileImageShape: String? = null,
     profileVideoUrl: String? = null
 ) {
     val viewModel: ChatViewModel = hiltViewModel()
@@ -134,6 +144,18 @@ fun ChatScreen(
     val nowPlayingHeightDp = with(density) { nowPlayingHeightPx.toDp() }
     val reservedNowPlayingHeight = if (!hasNowPlaying) 0.dp else nowPlayingHeightDp.takeIf { it > 0.dp } ?: 64.dp
 
+    DisposableEffect(context) {
+        val activity = context.findActivity()
+        val window = activity?.window
+        val previousSoftInputMode = window?.attributes?.softInputMode
+        window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+        onDispose {
+            if (previousSoftInputMode != null) {
+                window.setSoftInputMode(previousSoftInputMode)
+            }
+        }
+    }
+
     var pendingVoiceAction by remember { mutableStateOf<(() -> Unit)?>(null) }
     var mediaViewerUrl by remember { mutableStateOf<String?>(null) }
     val clipboardManager = remember { context.getSystemService(android.content.ClipboardManager::class.java) }
@@ -155,7 +177,7 @@ fun ChatScreen(
         decryptionError?.let {
             val result = snackbarHostState.showSnackbar(
                 message = it,
-                actionLabel = "Change key",
+                actionLabel = context.getString(R.string.change_key),
                 duration = SnackbarDuration.Long
             )
             if (result == SnackbarResult.ActionPerformed) {
@@ -169,7 +191,7 @@ fun ChatScreen(
         socketError?.let {
             val result = snackbarHostState.showSnackbar(
                 message = it,
-                actionLabel = "Retry",
+                actionLabel = context.getString(R.string.retry),
                 duration = SnackbarDuration.Indefinite
             )
             if (result == SnackbarResult.ActionPerformed) {
@@ -208,7 +230,7 @@ fun ChatScreen(
         if (accessLevel == MediaAccessLevel.DENIED) {
             Toast.makeText(
                 context,
-                "Media access is required to send photos and videos",
+                context.getString(R.string.chat_media_permission_required),
                 Toast.LENGTH_SHORT
             ).show()
         } else {
@@ -232,7 +254,7 @@ fun ChatScreen(
         } else {
             Toast.makeText(
                 context,
-                "Microphone permission is required to record voice messages",
+                context.getString(R.string.microphone_permission_required),
                 Toast.LENGTH_SHORT
             ).show()
         }
@@ -286,16 +308,16 @@ fun ChatScreen(
     if (showBlockedDialog) {
         AlertDialog(
             onDismissRequest = { viewModel.acknowledgeBlockedDialogAndExit() },
-            title = { Text("Chat unavailable") },
+            title = { Text(stringResource(R.string.chat_unavailable_title)) },
             text = {
                 Text(
                     blockedDialogMessage
-                        ?: "You have been blocked and can no longer chat with this user."
+                        ?: stringResource(R.string.chat_blocked_message)
                 )
             },
             confirmButton = {
                 Button(onClick = { viewModel.acknowledgeBlockedDialogAndExit() }) {
-                    Text("OK")
+                    Text(stringResource(R.string.ok_upper))
                 }
             }
         )
@@ -340,14 +362,14 @@ fun ChatScreen(
                     )
                     MessageMenuRow(
                         icon = Icons.Rounded.ContentCopy,
-                        title = "Copy",
+                        title = stringResource(R.string.copy),
                         onClick = {
                             if (message.content.isNotBlank()) {
-                                val clip = ClipData.newPlainText("Message", message.content)
+                                val clip = ClipData.newPlainText(context.getString(R.string.message), message.content)
                                 clipboardManager?.setPrimaryClip(clip)
-                                Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, context.getString(R.string.copied_to_clipboard), Toast.LENGTH_SHORT).show()
                             } else {
-                                Toast.makeText(context, "Nothing to copy", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, context.getString(R.string.nothing_to_copy), Toast.LENGTH_SHORT).show()
                             }
                             selectedMessage = null
                             selectedMessageAnchor = null
@@ -355,7 +377,7 @@ fun ChatScreen(
                     )
                     MessageMenuRow(
                         icon = Icons.Rounded.Delete,
-                        title = "Delete",
+                        title = stringResource(R.string.delete),
                         onClick = {
                             deleteCandidate = message
                             selectedMessage = null
@@ -371,15 +393,15 @@ fun ChatScreen(
         val message = deleteCandidate!!
         AlertDialog(
             onDismissRequest = { deleteCandidate = null },
-            title = { Text("Delete message") },
-            text = { Text("Delete this message only for you, or for both sides?") },
+            title = { Text(stringResource(R.string.delete_message_title)) },
+            text = { Text(stringResource(R.string.delete_message_body_both_sides)) },
             confirmButton = {
                 TextButton(
                     onClick = {
                         viewModel.deleteMessageForEveryone(message)
                         deleteCandidate = null
                     }
-                ) { Text("For both sides") }
+                ) { Text(stringResource(R.string.for_both_sides)) }
             },
             dismissButton = {
                 TextButton(
@@ -387,7 +409,7 @@ fun ChatScreen(
                         viewModel.deleteMessageOnlyForMe(message)
                         deleteCandidate = null
                     }
-                ) { Text("Only for me") }
+                ) { Text(stringResource(R.string.only_for_me)) }
             }
         )
     }
@@ -401,20 +423,32 @@ fun ChatScreen(
                         horizontalArrangement = Arrangement.Center
                     ) {
                         ProfileAvatarMedia(
-                           modifier = Modifier.size(36.dp),
-                           profileImageUrl = profileImageUrl,
+                            modifier = Modifier.size(36.dp),
+                            profileImageUrl = profileImageUrl,
+                            badge = badge,
+                            profileImageShape = profileImageShape,
                             profileVideoUrl = profileVideoUrl,
                             autoPlayVideo = true,
                             onClick = viewModel::openPeerProfile
-                       )
+                        )
                         Spacer(Modifier.width(8.dp))
                         Column {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = resolvedName,
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                                UserBadgeIcon(badge = badge)
+                            }
                             Text(
-                                text = resolvedName,
-                                style = MaterialTheme.typography.titleMedium
-                            )
-                            Text(
-                                text = if (isPeerOnline) "Online" else "Offline",
+                                text = if (isPeerOnline) {
+                                    stringResource(R.string.online)
+                                } else {
+                                    stringResource(R.string.offline)
+                                },
                                 style = MaterialTheme.typography.bodySmall,
                                 color = if (isPeerOnline)
                                     MaterialTheme.colorScheme.primary
@@ -428,11 +462,11 @@ fun ChatScreen(
                     IconButton(onClick = { viewModel.openPrivateKeyResetDialog() }) {
                         Icon(
                             imageVector = Icons.Rounded.VpnKey,
-                            contentDescription = "Reset encryption key"
+                            contentDescription = stringResource(R.string.reset_encryption_key)
                         )
                     }
                     IconButton(onClick = { viewModel.clearMessages() }) {
-                        Icon(imageVector = Icons.Rounded.Delete, contentDescription = "Clear")
+                        Icon(imageVector = Icons.Rounded.Delete, contentDescription = stringResource(R.string.clear))
                     }
 //                    IconButton(onClick = { showDebugLog = !showDebugLog }) {
 //                        BadgedBox(
@@ -451,13 +485,18 @@ fun ChatScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = { viewModel.navigateUp() }) {
-                        Icon(imageVector = Icons.Rounded.ArrowBackIosNew, contentDescription = "Back")
+                        Icon(
+                            imageVector = Icons.Rounded.ArrowBackIosNew,
+                            contentDescription = stringResource(R.string.back),
+                            modifier = backIconModifier()
+                        )
                     }
                 }
             )
         },
         bottomBar = {
             ChatScreenBottomAppBar(
+                modifier = Modifier.imePadding(),
                 onSendClicked = { message ->
                     if (message.isNotBlank()) {
                         viewModel.sendMessage(message)
@@ -532,13 +571,13 @@ fun ChatScreen(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
-                            text = publicKeyError ?: "Failed to load encryption key",
+                            text = publicKeyError ?: stringResource(R.string.failed_to_load_encryption_key),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.error
                         )
                         Spacer(Modifier.height(16.dp))
                         Button(onClick = { viewModel.retryLoadPublicKey() }) {
-                            Text("Retry")
+                            Text(stringResource(R.string.retry))
                         }
                     }
                 }
@@ -621,25 +660,25 @@ fun ChatScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Socket Debug Log",
+                            text = stringResource(R.string.socket_debug_log),
                             style = MaterialTheme.typography.titleMedium
                         )
                         Row {
                             IconButton(onClick = {
                                 val allLogs = socketDebugEvents.joinToString("\n")
-                                val clip = ClipData.newPlainText("Socket Debug Log", allLogs)
+                                val clip = ClipData.newPlainText(context.getString(R.string.socket_debug_log), allLogs)
                                 clipboardManager?.setPrimaryClip(clip)
-                                Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, context.getString(R.string.copied_to_clipboard), Toast.LENGTH_SHORT).show()
                             }) {
                                 Icon(
                                     imageVector = Icons.Rounded.ContentCopy,
-                                    contentDescription = "Copy All"
+                                    contentDescription = stringResource(R.string.copy_all)
                                 )
                             }
                             IconButton(onClick = { showDebugLog = false }) {
                                 Icon(
                                     imageVector = Icons.Rounded.Close,
-                                    contentDescription = "Close"
+                                    contentDescription = stringResource(R.string.close)
                                 )
                             }
                         }
@@ -651,7 +690,7 @@ fun ChatScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = "No events yet",
+                                text = stringResource(R.string.no_events_yet),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                             )
@@ -687,8 +726,15 @@ fun ChatScreen(
     }
 }
 
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
+}
+
+@Composable
 private fun formatMessageSentAt(timestamp: String?): String {
-    if (timestamp.isNullOrBlank()) return "Unknown time"
+    if (timestamp.isNullOrBlank()) return stringResource(R.string.unknown_time)
     return try {
         val sentAt = Instant.parse(timestamp)
         val now = Instant.now()

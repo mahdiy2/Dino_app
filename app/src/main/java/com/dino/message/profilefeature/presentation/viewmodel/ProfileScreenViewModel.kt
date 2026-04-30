@@ -8,6 +8,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.dino.message.DinoOrderApplication
 import com.dino.message.corefeature.domain.usecase.ClearLocalSessionUseCase
+import com.dino.message.corefeature.data.spref.DataStoreUtil
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.presentation.util.PopBackStackLevel
 import com.dino.message.corefeature.presentation.util.Resource
@@ -20,6 +21,8 @@ import com.dino.message.profilefeature.domain.usecase.GetMyProfileUseCase
 import com.dino.message.profilefeature.domain.usecase.GetProfilePostsUseCase
 import com.dino.message.profilefeature.domain.usecase.GetProfileUseCase
 import com.dino.message.profilefeature.domain.usecase.UnfollowUserUseCase
+import com.dino.message.threadfeature.data.upload.PendingPostUpload
+import com.dino.message.threadfeature.data.upload.PostUploadManager
 import com.dino.message.threadfeature.domain.model.Post
 import com.dino.message.threadfeature.domain.model.PostMedia
 import com.dino.message.threadfeature.domain.model.VoteTargetType
@@ -49,6 +52,7 @@ import javax.inject.Inject
 @HiltViewModel
 class ProfileScreenViewModel @Inject constructor(
     @ApplicationContext app: Context,
+    private val dataStoreUtil: DataStoreUtil,
     private val sPrefManager: SPrefManager,
     private val getMyProfileUseCase: GetMyProfileUseCase,
     private val getProfileUseCase: GetProfileUseCase,
@@ -58,17 +62,28 @@ class ProfileScreenViewModel @Inject constructor(
     private val unfollowUserUseCase: UnfollowUserUseCase,
     private val voteUseCase: VoteUseCase,
     private val addTrackToPlaylistUseCase: AddTrackToPlaylistUseCase,
-    private val clearLocalSessionUseCase: ClearLocalSessionUseCase
+    private val clearLocalSessionUseCase: ClearLocalSessionUseCase,
+    private val postUploadManager: PostUploadManager,
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
     val profile = mutableStateOf<Profile?>(null)
     val posts = mutableStateListOf<Post>()
+    private val postsPageLimit = 20
+    private var currentPostsPage = 1
+    private var totalPosts = Int.MAX_VALUE
+    private var isPostsRequestRunning = false
 
     private val _isProfileLoading = MutableStateFlow(false)
     val isProfileLoading: StateFlow<Boolean> = _isProfileLoading.asStateFlow()
 
     private val _isPostsLoading = MutableStateFlow(false)
     val isPostsLoading: StateFlow<Boolean> = _isPostsLoading.asStateFlow()
+
+    private val _isLoadingMore = MutableStateFlow(false)
+    val isLoadingMore: StateFlow<Boolean> = _isLoadingMore.asStateFlow()
+
+    private val _hasMorePosts = MutableStateFlow(true)
+    val hasMorePosts: StateFlow<Boolean> = _hasMorePosts.asStateFlow()
 
     private val _isActionLoading = MutableStateFlow(false)
     val isActionLoading: StateFlow<Boolean> = _isActionLoading.asStateFlow()
@@ -83,14 +98,24 @@ class ProfileScreenViewModel @Inject constructor(
     val error: StateFlow<String?> = _error.asStateFlow()
     private val _playlistFeedback = MutableStateFlow<String?>(null)
     val playlistFeedback: StateFlow<String?> = _playlistFeedback.asStateFlow()
+    private val _pendingPostUploads = MutableStateFlow<List<PendingPostUpload>>(emptyList())
+    val pendingPostUploads: StateFlow<List<PendingPostUpload>> = _pendingPostUploads.asStateFlow()
+    private val _viewerHasBadge = MutableStateFlow(false)
+    val viewerHasBadge: StateFlow<Boolean> = _viewerHasBadge.asStateFlow()
 
     private val currentUsername = sPrefManager.getUsername().toString().trim()
     private var requestedUsername: String? = null
     private var initializedKey: String? = null
     private var shouldRefreshWhenScreenResumes = false
+    private var knownPendingUploadIds: Set<String> = emptySet()
 
     private val postVoteByPost = mutableStateMapOf<Long, Long>()
     private val postErrorByPost = mutableStateMapOf<Long, String?>()
+
+    init {
+        observePendingUploads()
+        observeViewerBadgeAccess()
+    }
 
     fun initialize(profileUsername: String?) {
         val key = profileUsername?.trim()?.ifEmpty { null }
@@ -104,6 +129,13 @@ class ProfileScreenViewModel @Inject constructor(
     }
 
     fun refresh() {
+        if (isPostsRequestRunning) return
+        currentPostsPage = 1
+        totalPosts = Int.MAX_VALUE
+        posts.clear()
+        _isPostsLoading.value = false
+        _isLoadingMore.value = false
+        _hasMorePosts.value = true
         postVoteByPost.clear()
         postErrorByPost.clear()
         loadProfile()
@@ -122,6 +154,11 @@ class ProfileScreenViewModel @Inject constructor(
             when (res) {
                 is Resource.Success -> {
                     profile.value = res.data
+                    if (_isOwnProfile.value) {
+                        dataStoreUtil.saveBadgeAccessCache(
+                            hasBadge = !res.data.badge.isNullOrBlank()
+                        )
+                    }
                     _error.value = null
                     _isProfileLoading.value = false
                 }
@@ -138,29 +175,59 @@ class ProfileScreenViewModel @Inject constructor(
         }
     }
 
-    private fun loadPosts() = viewModelScope.launch {
+    private fun loadPosts() {
+        requestPostsPage(isRefresh = true)
+    }
+
+    fun loadNextPosts() {
+        if (isPostsRequestRunning || !_hasMorePosts.value) return
+        requestPostsPage(isRefresh = false)
+    }
+
+    private fun requestPostsPage(isRefresh: Boolean) = viewModelScope.launch {
+        if (isPostsRequestRunning) return@launch
+        isPostsRequestRunning = true
+
         getProfilePostsUseCase.execute(
             username = targetUsername(),
-            page = 1,
-            limit = 20
+            page = currentPostsPage,
+            limit = postsPageLimit
         ).collect { res ->
             when (res) {
                 is Resource.Success -> {
-                    posts.clear()
-                    posts.addAll(res.data.posts)
-                    seedVotesFromPosts(res.data.posts)
+                    if (isRefresh) {
+                        posts.clear()
+                    }
+
+                    totalPosts = res.data.total
+                    val existingPostIds = posts.mapTo(mutableSetOf()) { it.id }
+                    val incomingUniquePosts = res.data.posts.filter { post ->
+                        existingPostIds.add(post.id)
+                    }
+                    posts.addAll(incomingUniquePosts)
+                    seedVotesFromPosts(incomingUniquePosts)
+
+                    if (res.data.posts.isNotEmpty()) {
+                        currentPostsPage = res.data.page + 1
+                    }
+                    _hasMorePosts.value =
+                        posts.size < totalPosts && incomingUniquePosts.isNotEmpty()
+                    _error.value = null
                     _isPostsLoading.value = false
+                    _isLoadingMore.value = false
+                    isPostsRequestRunning = false
                 }
 
                 is Resource.Loading -> {
-                    _isPostsLoading.value = true
+                    _isPostsLoading.value = isRefresh
+                    _isLoadingMore.value = !isRefresh
                 }
 
                 is Resource.Error -> {
                     _isPostsLoading.value = false
-                    if (_error.value == null) {
-                        _error.value = res.message.asString(getApplication())
-                    }
+                    _isLoadingMore.value = false
+                    _error.value = res.message.asString(getApplication())
+                    isPostsRequestRunning = false
                 }
             }
         }
@@ -188,6 +255,12 @@ class ProfileScreenViewModel @Inject constructor(
                     }
                 }
             }
+        }
+    }
+
+    private fun observeViewerBadgeAccess() = viewModelScope.launch {
+        dataStoreUtil.getBadgeAccessEnabled().collect { hasBadge ->
+            _viewerHasBadge.value = hasBadge
         }
     }
 
@@ -398,6 +471,23 @@ class ProfileScreenViewModel @Inject constructor(
             CreatePostOptionsBottomSheetScreenDestination(),
             viewModelScope
         )
+    }
+
+    fun cancelPendingUpload(rawWorkId: String) {
+        val workId = runCatching { java.util.UUID.fromString(rawWorkId) }.getOrNull() ?: return
+        postUploadManager.cancelUpload(workId)
+    }
+
+    private fun observePendingUploads() = viewModelScope.launch {
+        postUploadManager.observePendingUploads(currentUsername).collect { uploads ->
+            _pendingPostUploads.value = uploads
+            val newIds = uploads.map { it.workId.toString() }.toSet()
+            val completedIds = knownPendingUploadIds - newIds
+            if (completedIds.isNotEmpty() && _isOwnProfile.value) {
+                refresh()
+            }
+            knownPendingUploadIds = newIds
+        }
     }
 
     private fun targetUsername(): String = requestedUsername ?: currentUsername

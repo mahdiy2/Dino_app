@@ -10,13 +10,15 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.dino.message.DinoOrderApplication
+import com.dino.message.corefeature.data.spref.SPrefManager
+import com.dino.message.corefeature.data.upload.MediaMimePolicy
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.dino.message.threadfeature.domain.model.CreatePostMedia
 import com.dino.message.threadfeature.domain.model.Post
 import com.dino.message.threadfeature.domain.model.QuotedPostPreview
-import com.dino.message.threadfeature.domain.usecase.CreatePostUseCase
+import com.dino.message.threadfeature.data.upload.PostUploadManager
 import com.dino.message.threadfeature.domain.usecase.GetPostUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -38,7 +40,8 @@ data class SelectedPostMedia(
 @HiltViewModel
 class CreatePostViewModel @Inject constructor(
     @ApplicationContext app: Context,
-    private val createPostUseCase: CreatePostUseCase,
+    private val sPrefManager: SPrefManager,
+    private val postUploadManager: PostUploadManager,
     private val getPostUseCase: GetPostUseCase,
     savedStateHandle: SavedStateHandle
 ) : AndroidViewModel(app as DinoOrderApplication),
@@ -46,13 +49,6 @@ class CreatePostViewModel @Inject constructor(
     companion object {
         const val MAX_MEDIA_FILES_PER_POST = 8
         private const val MAX_VIDEO_DURATION_MS = 30_000L
-        private val SUPPORTED_MIME_TYPES = setOf(
-            "image/jpeg",
-            "image/png",
-            "image/webp",
-            "video/mp4",
-            "video/quicktime"
-        )
     }
 
     private val quotedPostIdArg: Long = savedStateHandle.get<Long>("quotedPostId") ?: 0L
@@ -95,6 +91,7 @@ class CreatePostViewModel @Inject constructor(
 
         val resolver = getApplication<DinoOrderApplication>().contentResolver
         var skippedUnsupported = 0
+        var skippedBlockedForSecurity = 0
         var skippedMaxLimit = 0
         var skippedVideoTooLong = 0
         var skippedUnknownVideoDuration = 0
@@ -110,7 +107,11 @@ class CreatePostViewModel @Inject constructor(
             }
 
             val mimeType = resolver.getType(uri)?.lowercase().orEmpty()
-            if (mimeType !in SUPPORTED_MIME_TYPES) {
+            if (MediaMimePolicy.isBlockedForSecurity(mimeType)) {
+                skippedBlockedForSecurity++
+                return@forEach
+            }
+            if (!MediaMimePolicy.isSupportedUploadMimeType(mimeType)) {
                 skippedUnsupported++
                 return@forEach
             }
@@ -141,6 +142,7 @@ class CreatePostViewModel @Inject constructor(
             skippedMaxLimit > 0 -> "Maximum 8 media files allowed"
             skippedVideoTooLong > 0 -> "Video must be 30 seconds or shorter"
             skippedUnknownVideoDuration > 0 -> "Could not determine video duration"
+            skippedBlockedForSecurity > 0 -> "Some files were skipped for security reasons"
             skippedUnsupported > 0 -> "Some files were skipped: unsupported media type"
             else -> null
         }
@@ -160,6 +162,7 @@ class CreatePostViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
+            _isSubmitting.value = true
             val mediaFiles = withContext(Dispatchers.IO) {
                 buildCreatePostMedia()
             }
@@ -169,32 +172,29 @@ class CreatePostViewModel @Inject constructor(
                 return@launch
             }
 
-            createPostUseCase.execute(
-                text = text,
-                mediaFiles = mediaFiles,
-                followersOnly = followersOnly.value,
-                quotedPostId = quotedPostId
-            ).collect { res ->
-                when (res) {
-                    is Resource.Success -> {
-                        _isSubmitting.value = false
-                        _error.value = null
-                        postDraft.value = ""
-                        followersOnly.value = false
-                        _selectedMedia.clear()
-                        navigateUp(viewModelScope)
-                    }
-
-                    is Resource.Loading -> {
-                        _isSubmitting.value = true
-                    }
-
-                    is Resource.Error -> {
-                        _isSubmitting.value = false
-                        _error.value = res.message.asString(getApplication())
-                    }
-                }
+            val username = sPrefManager.getUsername().orEmpty().trim()
+            if (username.isBlank()) {
+                _error.value = "Session expired. Please log in again."
+                _isSubmitting.value = false
+                return@launch
             }
+
+            postUploadManager.enqueueUpload(
+                username = username,
+                text = text,
+                followersOnly = followersOnly.value,
+                quotedPostId = quotedPostId,
+                mediaUris = mediaFiles.map { it.uri.toString() },
+                mediaNames = mediaFiles.map { it.fileName },
+                mediaMimeTypes = mediaFiles.map { it.mimeType },
+            )
+
+            _isSubmitting.value = false
+            _error.value = null
+            postDraft.value = ""
+            followersOnly.value = false
+            _selectedMedia.clear()
+            navigateUp(viewModelScope)
         }
     }
 

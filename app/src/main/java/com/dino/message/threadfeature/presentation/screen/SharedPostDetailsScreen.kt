@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.ArrowBackIosNew
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -27,8 +27,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.dino.message.R
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
+import com.dino.message.corefeature.presentation.util.backIconModifier
 import com.dino.message.threadfeature.presentation.component.ThreadPostCard
 import com.dino.message.threadfeature.presentation.viewmodel.SharedPostDetailsViewModel
 import com.ramcosta.composedestinations.annotation.Destination
@@ -45,6 +48,7 @@ fun SharedPostDetailsScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
     val selectedVote by viewModel.selectedVote.collectAsState()
+    val viewerHasBadge by viewModel.viewerHasBadge.collectAsState()
     val playlistFeedback by viewModel.playlistFeedback.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -59,12 +63,13 @@ fun SharedPostDetailsScreen(
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("Post") },
+                title = { Text(stringResource(R.string.post)) },
                 navigationIcon = {
                     IconButton(onClick = viewModel::navigateBack) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                            contentDescription = "Back"
+                            imageVector = Icons.Rounded.ArrowBackIosNew,
+                            contentDescription = stringResource(R.string.back),
+                            modifier = backIconModifier()
                         )
                     }
                 }
@@ -96,6 +101,7 @@ fun SharedPostDetailsScreen(
                                 .fillMaxWidth()
                                 .padding(DPMedium),
                             post = post!!,
+                            canDownloadMedia = viewerHasBadge,
                             selectedPostVote = selectedVote,
                             postError = error,
                             onUpVoteClick = { viewModel.votePost(1) },
@@ -128,11 +134,11 @@ fun SharedPostDetailsScreen(
                         verticalArrangement = Arrangement.spacedBy(DPMedium)
                     ) {
                         Text(
-                            text = error ?: "Post not found",
+                            text = error ?: stringResource(R.string.post_not_found),
                             style = MaterialTheme.typography.bodyMedium
                         )
                         Button(onClick = viewModel::refresh) {
-                            Text("Retry")
+                            Text(stringResource(R.string.retry))
                         }
                     }
                 }

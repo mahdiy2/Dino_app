@@ -11,6 +11,10 @@ plugins {
 
 
 val BASE_URL: String = project.findProperty("APP_BASE_URL") as? String ?: "http://localhost:5000/"
+val AUTH_PASSWORD_REQUIRE_SYMBOL: Boolean =
+    (project.findProperty("AUTH_PASSWORD_REQUIRE_SYMBOL") as? String)
+        ?.toBooleanStrictOrNull()
+        ?: false
 
 
 
@@ -22,8 +26,8 @@ android {
         applicationId = "com.sec.message"
         minSdk = 28
         targetSdk = 36
-        versionCode = 36
-        versionName = "0.8.5beta"
+        versionCode = 39
+        versionName = "0.8.8beta"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -34,11 +38,13 @@ android {
     buildTypes {
         debug {
             buildConfigField("String", "BASE_URL", "\"$BASE_URL\"")
+            buildConfigField("boolean", "AUTH_PASSWORD_REQUIRE_SYMBOL", AUTH_PASSWORD_REQUIRE_SYMBOL.toString())
         }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
             buildConfigField("String", "BASE_URL", "\"$BASE_URL\"")
+            buildConfigField("boolean", "AUTH_PASSWORD_REQUIRE_SYMBOL", AUTH_PASSWORD_REQUIRE_SYMBOL.toString())
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -147,6 +153,7 @@ dependencies {
 
     // foundation
     implementation(libs.androidx.compose.foundation)
+    implementation(libs.androidx.work.runtime.ktx)
 
     // room
     implementation(libs.room.runtime)

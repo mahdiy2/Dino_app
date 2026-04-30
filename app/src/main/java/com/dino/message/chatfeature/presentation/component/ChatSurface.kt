@@ -1,5 +1,6 @@
 package com.dino.message.chatfeature.presentation.component
 
+import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -14,18 +15,23 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.dino.message.DinoOrderApplication
 import com.dino.message.chatfeature.domain.model.MessageDeliveryStatus
 import com.dino.message.chatfeature.domain.model.MessageEntity
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPSmall
 import kotlinx.coroutines.flow.distinctUntilChanged
+
+private const val CHAT_SURFACE_TAG = "ChatSurface"
 
 @Composable
 fun ChatSurface(
@@ -44,8 +50,41 @@ fun ChatSurface(
     onSwipeToReply: ((MessageEntity) -> Unit)? = null,
     onLoadOlder: (() -> Unit)? = null,
 ) {
-    val itemCount = items.size
-    val latestMessage = items.firstOrNull()
+    val sanitizedItems = remember(items) {
+        val seenKeys = HashSet<String>(items.size)
+        val duplicateKeys = mutableSetOf<String>()
+        val uniqueItems = ArrayList<MessageEntity>(items.size)
+        items.forEach { message ->
+            val key = chatItemKey(message)
+            if (seenKeys.add(key)) {
+                uniqueItems.add(message)
+            } else {
+                duplicateKeys.add(key)
+            }
+        }
+        uniqueItems to duplicateKeys.toList()
+    }
+    val renderItems = sanitizedItems.first
+    val duplicateKeys = sanitizedItems.second
+    val crashReporter = (LocalContext.current.applicationContext as? DinoOrderApplication)?.crashReporter
+
+    LaunchedEffect(duplicateKeys) {
+        if (duplicateKeys.isNotEmpty()) {
+            // TODO(security): Revisit keeping raw key samples in production logs; redact or remove once duplicate-source bug is fixed.
+            val sampleKeys = duplicateKeys.take(3).joinToString(",").take(80)
+            Log.w(
+                CHAT_SURFACE_TAG,
+                "Dropped ${duplicateKeys.size} duplicate chat message key(s): ${duplicateKeys.take(5)}"
+            )
+            crashReporter?.addBreadcrumb(
+                category = "ui_list_keys",
+                message = "chat dup=${duplicateKeys.size} total=${items.size} unique=${renderItems.size} sample=$sampleKeys"
+            )
+        }
+    }
+
+    val itemCount = renderItems.size
+    val latestMessage = renderItems.firstOrNull()
     val latestMessageKey = latestMessage?.messageId
         ?: latestMessage?.timestamp?.takeIf { it.isNotBlank() }?.let { "ts:$it:${latestMessage.id}" }
         ?: latestMessage?.let { "local:${it.id}" }
@@ -84,12 +123,8 @@ fun ChatSurface(
         reverseLayout = true
     ) {
         itemsIndexed(
-            items = items,
-            key = { _, item ->
-                item.messageId
-                    ?: item.timestamp.takeIf { it.isNotBlank() }?.let { "ts:$it:${item.id}" }
-                    ?: "local:${item.id}"
-            }
+            items = renderItems,
+            key = { _, item -> chatItemKey(item) }
         ) { _, it ->
             val isMine = it.senderOrReceiver != sender
             Row(
@@ -143,4 +178,10 @@ fun ChatSurface(
             }
         }
     }
+}
+
+private fun chatItemKey(item: MessageEntity): String {
+    return item.messageId?.takeIf { it.isNotBlank() }
+        ?: item.timestamp.takeIf { it.isNotBlank() }?.let { "ts:$it:${item.id}" }
+        ?: "local:${item.id}"
 }

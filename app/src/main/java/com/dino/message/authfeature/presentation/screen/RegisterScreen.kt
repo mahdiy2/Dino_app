@@ -9,12 +9,15 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -22,17 +25,22 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.dino.message.R
 import com.dino.message.authfeature.presentation.viewmodel.RegisterScreenViewModel
+import com.dino.message.corefeature.domain.model.AppLanguage
 import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPTopAppBar
@@ -46,6 +54,7 @@ fun RegisterScreen() {
 
     val viewModel: RegisterScreenViewModel = hiltViewModel()
     val registerErrorMessage by viewModel.registerErrorMessage
+    val currentLanguage by viewModel.currentLanguage.collectAsState(initial = AppLanguage.Farsi)
     val minUsernameLength = 7
     val minPasswordLength = 10
     val trimmedUsername = viewModel.userName.value.trim()
@@ -60,6 +69,23 @@ fun RegisterScreen() {
                 .padding(innerPadding)
                 .fillMaxSize()
         ) {
+            IconButton(
+                modifier = Modifier
+                    .align(AbsoluteAlignment.TopRight)
+                    .statusBarsPadding()
+                    .padding(DPMedium),
+                onClick = viewModel::toggleLanguage
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Language,
+                    contentDescription = if (currentLanguage == AppLanguage.Farsi) {
+                        stringResource(R.string.switch_to_english)
+                    } else {
+                        stringResource(R.string.switch_to_persian)
+                    }
+                )
+            }
+
             Column(
                 modifier = Modifier
                     .fillMaxSize(),
@@ -69,7 +95,7 @@ fun RegisterScreen() {
                 Column {
                     Spacer(Modifier.size(DPTopAppBar))
                     Text(
-                        "Register",
+                        stringResource(R.string.register),
                         fontWeight = FontWeight.Bold,
                         fontSize = 50.sp,
                         fontStyle = FontStyle.Italic,
@@ -96,15 +122,19 @@ fun RegisterScreen() {
                         onValueChange = { viewModel.onUsernameValueChange(it) },
                         isError = usernameTooShort || usernameHasInvalidChars,
                         placeholder = {
-                            Text("Username")
+                            Text(stringResource(R.string.username))
                         },
                         supportingText = {
                             if (usernameHasInvalidChars) {
-                                Text("Allowed: A-Z, a-z, 0-9, ., -, _")
+                                Text(stringResource(R.string.username_allowed_chars))
                             } else {
                                 Text(
-                                    text = "Minimum $minUsernameLength characters " +
-                                        "(${trimmedUsername.length}/$minUsernameLength)"
+                                    text = stringResource(
+                                        R.string.minimum_chars_count,
+                                        minUsernameLength,
+                                        trimmedUsername.length,
+                                        minUsernameLength
+                                    )
                                 )
                             }
                         },
@@ -131,19 +161,23 @@ fun RegisterScreen() {
                         isError = viewModel.password.value.isNotEmpty() &&
                             viewModel.password.value.length < minPasswordLength,
                         placeholder = {
-                            Text("Password")
+                            Text(stringResource(R.string.password))
                         },
                         supportingText = {
                             Text(
-                                text = "Minimum $minPasswordLength characters " +
-                                    "(${viewModel.password.value.length}/$minPasswordLength)"
+                                text = stringResource(
+                                    R.string.minimum_chars_count,
+                                    minPasswordLength,
+                                    viewModel.password.value.length,
+                                    minPasswordLength
+                                )
                             )
                         },
                         maxLines = 1
                     )
 
                     Text(
-                        text = "Encryption keys are generated and saved automatically.",
+                        text = stringResource(R.string.encryption_keys_auto_generated),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -177,7 +211,7 @@ fun RegisterScreen() {
                                 } else {
                                     Icon(
                                         imageVector = Icons.Default.KeyboardArrowRight,
-                                        contentDescription = "Register",
+                                        contentDescription = stringResource(R.string.register),
                                     )
                                 }
                             }
@@ -202,7 +236,7 @@ fun RegisterScreen() {
                         viewModel.navigateToLoginScreen()
                     }
                 ) {
-                    Text("Already have an account?")
+                    Text(stringResource(R.string.already_have_account))
                 }
             }
         }

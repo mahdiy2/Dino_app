@@ -55,6 +55,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.airbnb.lottie.compose.LottieAnimation
@@ -102,15 +103,15 @@ fun CreatePostOptionsBottomSheetScreen(
 //        Spacer(Modifier.height(12.dp))
 
         Text(
-            text = "Choose post type",
+            text = stringResource(R.string.create_post_options_title),
             style = MaterialTheme.typography.titleMedium
         )
 
         Text(
             text = if (viewModel.isQuoteMode) {
-                "Quote this post with a normal post or a music post."
+                stringResource(R.string.create_post_options_quote_subtitle)
             } else {
-                "Create a normal post or share one music track."
+                stringResource(R.string.create_post_options_subtitle)
             },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -133,8 +134,8 @@ fun CreatePostOptionsBottomSheetScreen(
         )
 
         PostOptionItem(
-            title = "Create Dino",
-            description = "Post text, images, or videos",
+            title = stringResource(R.string.create_post_options_create_dino_title),
+            description = stringResource(R.string.create_post_options_create_dino_description),
             icon = Icons.Rounded.Create,
             onClick = viewModel::openCreatePostScreen
         )
@@ -142,8 +143,8 @@ fun CreatePostOptionsBottomSheetScreen(
         Spacer(Modifier.height(8.dp))
 
         PostOptionItem(
-            title = "Post Music",
-            description = "Share one track with optional text",
+            title = stringResource(R.string.create_post_options_music_title),
+            description = stringResource(R.string.create_post_options_music_description),
             icon = Icons.Rounded.LibraryMusic,
             onClick = viewModel::openPostMusicScreen
         )
@@ -372,6 +373,5 @@ fun PremiumCreatePostAnimation() {
         )
     }
 }
-
 
 

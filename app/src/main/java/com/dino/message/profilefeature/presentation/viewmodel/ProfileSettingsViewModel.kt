@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.dino.message.DinoOrderApplication
+import com.dino.message.corefeature.data.spref.DataStoreUtil
+import com.dino.message.corefeature.domain.model.AppLanguage
 import com.dino.message.corefeature.domain.usecase.ClearLocalSessionUseCase
 import com.dino.message.corefeature.presentation.util.PopBackStackLevel
 import com.dino.message.corefeature.presentation.util.Resource
@@ -13,9 +15,11 @@ import com.dino.message.profilefeature.domain.usecase.DeleteMyAccountUseCase
 import com.ramcosta.composedestinations.generated.destinations.BlockListScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.LoginScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.PrivateKeyResetDialogScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.AboutUsScreenDestination
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -24,7 +28,8 @@ import kotlinx.coroutines.launch
 class ProfileSettingsViewModel @Inject constructor(
     @ApplicationContext app: Context,
     private val deleteMyAccountUseCase: DeleteMyAccountUseCase,
-    private val clearLocalSessionUseCase: ClearLocalSessionUseCase
+    private val clearLocalSessionUseCase: ClearLocalSessionUseCase,
+    private val dataStoreUtil: DataStoreUtil
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
 
@@ -39,6 +44,7 @@ class ProfileSettingsViewModel @Inject constructor(
 
     private val _logoutLoading = MutableStateFlow(false)
     val logoutLoading = _logoutLoading.asStateFlow()
+    val currentLanguage: Flow<AppLanguage> = dataStoreUtil.getLanguage()
 
     fun openBlockList() {
         navigateToDestination(BlockListScreenDestination, viewModelScope)
@@ -46,6 +52,10 @@ class ProfileSettingsViewModel @Inject constructor(
 
     fun openPrivateKeyResetDialog() {
         navigateToDestination(PrivateKeyResetDialogScreenDestination, viewModelScope)
+    }
+
+    fun openAboutUs() {
+        navigateToDestination(AboutUsScreenDestination, viewModelScope)
     }
 
     fun openDeleteAccountDialog() {
@@ -92,6 +102,12 @@ class ProfileSettingsViewModel @Inject constructor(
             _showDeleteAccountDialog.value = false
             logoutAndClearSession()
             _logoutLoading.value = false
+        }
+    }
+
+    fun setLanguage(appLanguage: AppLanguage) {
+        viewModelScope.launch {
+            dataStoreUtil.saveLanguage(appLanguage)
         }
     }
 

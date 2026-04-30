@@ -1,12 +1,14 @@
 package com.dino.message.threadfeature.presentation.viewmodel
 
 import android.content.Context
+import androidx.annotation.StringRes
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.dino.message.DinoOrderApplication
+import com.dino.message.R
 import com.dino.message.corefeature.data.socket.AppSocketManager
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.presentation.util.CryptoUtil
@@ -39,7 +41,9 @@ private const val CONTACTS_PAGE_SIZE = 50
 data class ShareTargetContact(
     val username: String,
     val displayName: String,
+    val badge: String? = null,
     val profileImageUrl: String?,
+    val profileImageShape: String? = null,
 )
 
 data class ShareTargetGroup(
@@ -123,7 +127,7 @@ class SharePostBottomSheetViewModel @Inject constructor(
         val targetsContacts = selectedContacts.filterValues { it }.keys.toList()
         val targetGroups = selectedGroups.filterValues { it }.keys.toList()
         if (targetsContacts.isEmpty() && targetGroups.isEmpty()) {
-            _error.value = "Select at least one contact or group."
+            _error.value = str(R.string.share_error_select_target)
             return
         }
 
@@ -146,7 +150,13 @@ class SharePostBottomSheetViewModel @Inject constructor(
                 when (result.status) {
                     ShareDispatchStatus.SENT -> sentCount++
                     ShareDispatchStatus.QUEUED -> queuedCount++
-                    ShareDispatchStatus.FAILED -> failedTargets.add("@$username (${result.error})")
+                    ShareDispatchStatus.FAILED -> failedTargets.add(
+                        str(
+                            R.string.share_failed_target_format,
+                            "@$username",
+                            result.error ?: str(R.string.unknown_error_occurred)
+                        )
+                    )
                 }
             }
 
@@ -160,7 +170,11 @@ class SharePostBottomSheetViewModel @Inject constructor(
                     ShareDispatchStatus.SENT -> sentCount++
                     ShareDispatchStatus.QUEUED -> queuedCount++
                     ShareDispatchStatus.FAILED -> failedTargets.add(
-                        "${group?.name ?: "Group $groupId"} (${result.error})"
+                        str(
+                            R.string.share_failed_target_format,
+                            group?.name ?: str(R.string.share_group_fallback, groupId),
+                            result.error ?: str(R.string.unknown_error_occurred)
+                        )
                     )
                 }
             }
@@ -171,13 +185,18 @@ class SharePostBottomSheetViewModel @Inject constructor(
                     navigateUp(viewModelScope)
                 }
                 failedTargets.isEmpty() && queuedCount > 0 -> {
-                    _error.value = "Queued $queuedCount target(s). They will send automatically after reconnect."
+                    _error.value = str(R.string.share_status_queued, queuedCount)
                 }
                 sentCount > 0 || queuedCount > 0 -> {
-                    _error.value = "Sent: $sentCount, queued: $queuedCount. Failed for: ${failedTargets.joinToString(", ")}"
+                    _error.value = str(
+                        R.string.share_status_partial,
+                        sentCount,
+                        queuedCount,
+                        failedTargets.joinToString(", ")
+                    )
                 }
                 else -> {
-                    _error.value = "Failed to send. ${failedTargets.joinToString(", ")}"
+                    _error.value = str(R.string.share_status_failed, failedTargets.joinToString(", "))
                 }
             }
         }
@@ -209,7 +228,9 @@ class SharePostBottomSheetViewModel @Inject constructor(
                                 username = contact.username,
                                 displayName = contact.name?.takeIf { it.isNotBlank() }
                                     ?: contact.username,
+                                badge = contact.badge,
                                 profileImageUrl = contact.profileImageUrl,
+                                profileImageShape = contact.profileImageShape,
                             )
                         }
                         hasMore = res.data.hasMore
@@ -261,7 +282,7 @@ class SharePostBottomSheetViewModel @Inject constructor(
         val receiverPublicKey = fetchReceiverPublicKey(username)
             ?: return ShareDispatchResult(
                 status = ShareDispatchStatus.FAILED,
-                error = "Could not fetch encryption key",
+                error = str(R.string.share_error_fetch_key),
             )
         return try {
             val clientMessageId = UUID.randomUUID().toString()
@@ -307,15 +328,15 @@ class SharePostBottomSheetViewModel @Inject constructor(
                 AppSocketManager.EmitWithRetryResult.QUEUE_FULL -> {
                     ShareDispatchResult(
                         status = ShareDispatchStatus.FAILED,
-                        error = "Send queue is full",
+                        error = str(R.string.share_error_queue_full),
                     )
                 }
             }
         } catch (e: Exception) {
-            val detail = e.message?.takeIf { it.isNotBlank() } ?: "invalid public key"
+            val detail = e.message?.takeIf { it.isNotBlank() } ?: str(R.string.share_error_invalid_public_key)
             ShareDispatchResult(
                 status = ShareDispatchStatus.FAILED,
-                error = "Encryption failed: $detail",
+                error = str(R.string.share_error_encryption_failed, detail),
             )
         }
     }
@@ -328,7 +349,7 @@ class SharePostBottomSheetViewModel @Inject constructor(
         if (memberKeys.isEmpty()) {
             return ShareDispatchResult(
                 status = ShareDispatchStatus.FAILED,
-                error = "No valid group member keys",
+                error = str(R.string.share_error_group_no_keys),
             )
         }
 
@@ -362,15 +383,15 @@ class SharePostBottomSheetViewModel @Inject constructor(
                 AppSocketManager.EmitWithRetryResult.QUEUE_FULL -> {
                     ShareDispatchResult(
                         status = ShareDispatchStatus.FAILED,
-                        error = "Send queue is full",
+                        error = str(R.string.share_error_queue_full),
                     )
                 }
             }
         } catch (e: Exception) {
-            val detail = e.message?.takeIf { it.isNotBlank() } ?: "invalid group key data"
+            val detail = e.message?.takeIf { it.isNotBlank() } ?: str(R.string.share_error_invalid_group_key_data)
             ShareDispatchResult(
                 status = ShareDispatchStatus.FAILED,
-                error = "Group encryption failed: $detail",
+                error = str(R.string.share_error_group_encryption_failed, detail),
             )
         }
     }
@@ -456,6 +477,10 @@ class SharePostBottomSheetViewModel @Inject constructor(
 
     private fun connectSocketIfNeeded() {
         appSocketManager.connect()
+    }
+
+    private fun str(@StringRes id: Int, vararg args: Any): String {
+        return getApplication<DinoOrderApplication>().getString(id, *args)
     }
 
     override fun onCleared() {

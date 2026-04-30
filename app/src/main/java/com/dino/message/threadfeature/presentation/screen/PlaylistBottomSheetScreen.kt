@@ -1,5 +1,12 @@
 package com.dino.message.threadfeature.presentation.screen
 
+import android.content.ContentValues
+import android.content.Context
+import android.net.Uri
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
+import android.widget.Toast
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -21,13 +28,16 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Repeat
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ButtonShapes
 import androidx.compose.material3.CircularProgressIndicator
@@ -35,6 +45,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarDuration
@@ -52,18 +63,21 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.dino.message.R
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.threadfeature.domain.model.PlaylistTrack
 import com.dino.message.threadfeature.presentation.component.MusicTrackPlayerCard
@@ -76,6 +90,10 @@ import com.ramcosta.composedestinations.annotation.Destination
 import com.ramcosta.composedestinations.annotation.RootGraph
 import com.ramcosta.composedestinations.bottomsheet.spec.DestinationStyleBottomSheet
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.net.URL
 
 private const val FOOTER_PRESSED_SCALE = 1.15f
 private const val FOOTER_NEIGHBOR_SCALE = 0.92f
@@ -94,9 +112,13 @@ fun PlaylistBottomSheetScreen() {
     val tracks by viewModel.playlistTracks.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
+    val viewerHasBadge by viewModel.viewerHasBadge.collectAsState()
     val playbackState by MusicPlaybackManager.playbackState.collectAsState()
     val hasActiveTrack = playbackState.currentTrackUrl != null
     val snackbarHostState = remember { SnackbarHostState() }
+    val playlistListState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    var downloadingTrackId by remember { mutableStateOf<Long?>(null) }
 
     val playbackQueue = remember(tracks) {
         tracks.map { track ->
@@ -142,15 +164,15 @@ fun PlaylistBottomSheetScreen() {
             verticalArrangement = Arrangement.spacedBy(DPMedium)
         ) {
             Text(
-                text = "Playlist",
+                text = stringResource(R.string.playlist_title),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
                 text = if (tracks.isEmpty()) {
-                    "Tap a track to play."
+                    stringResource(R.string.playlist_hint_empty)
                 } else {
-                    "${tracks.size} tracks • Swipe left or right to remove."
+                    stringResource(R.string.playlist_hint_with_count, tracks.size)
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -175,7 +197,7 @@ fun PlaylistBottomSheetScreen() {
 
                     tracks.isEmpty() -> {
                         Text(
-                            text = error ?: "Your playlist is empty.",
+                            text = error ?: stringResource(R.string.playlist_empty),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -184,6 +206,7 @@ fun PlaylistBottomSheetScreen() {
                     else -> {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
+                            state = playlistListState,
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             itemsIndexed(tracks, key = { _, item -> item.id }) { index, track ->
@@ -191,8 +214,23 @@ fun PlaylistBottomSheetScreen() {
                                 val isPlaying = isCurrentTrack && playbackState.isPlaying
 
                                 SwipeToDeletePlaylistTrackRow(
+                                    canDownloadTrack = viewerHasBadge,
                                     trackId = track.id,
-                                    onDelete = { viewModel.stageTrackRemoval(track) }
+                                    isDownloadingTrack = downloadingTrackId == track.id,
+                                    isAnyDownloadInProgress = downloadingTrackId != null,
+                                    isSwipeEnabled = !playlistListState.isScrollInProgress,
+                                    onDelete = { viewModel.stageTrackRemoval(track) },
+                                    onDownload = {
+                                        if (downloadingTrackId != null) return@SwipeToDeletePlaylistTrackRow
+                                        downloadingTrackId = track.id
+                                        scope.launch {
+                                            try {
+                                                savePlaylistTrackToDevice(context, track)
+                                            } finally {
+                                                downloadingTrackId = null
+                                            }
+                                        }
+                                    }
                                 ) {
                                     PlaylistTrackRow(
                                         index = index,
@@ -222,8 +260,8 @@ fun PlaylistBottomSheetScreen() {
 
             MusicTrackPlayerCard(
                 trackUrl = playbackState.currentTrackUrl.orEmpty(),
-                trackTitle = playbackState.title ?: "No track playing",
-                trackSubtitle = playbackState.artist ?: "Tap a playlist track to start playback",
+                trackTitle = playbackState.title ?: stringResource(R.string.playlist_no_track_playing),
+                trackSubtitle = playbackState.artist ?: stringResource(R.string.playlist_tap_track_to_start),
                 enabled = hasActiveTrack,
                 footerContent = {
                     PlaylistPlaybackFooter(
@@ -259,23 +297,19 @@ fun PlaylistBottomSheetScreen() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SwipeToDeletePlaylistTrackRow(
+    canDownloadTrack: Boolean,
     trackId: Long,
+    isDownloadingTrack: Boolean,
+    isAnyDownloadInProgress: Boolean,
+    isSwipeEnabled: Boolean,
     onDelete: () -> Unit,
+    onDownload: () -> Unit,
     content: @Composable RowScope.() -> Unit,
 ) {
+    val coroutineScope = rememberCoroutineScope()
     val dismissState = rememberSwipeToDismissBoxState(
-        positionalThreshold = { totalDistance -> totalDistance * 0.25f },
-        confirmValueChange = { targetValue ->
-            when (targetValue) {
-                SwipeToDismissBoxValue.StartToEnd,
-                SwipeToDismissBoxValue.EndToStart -> {
-                    onDelete()
-                    true
-                }
-
-                SwipeToDismissBoxValue.Settled -> true
-            }
-        }
+        positionalThreshold = { totalDistance -> totalDistance * 0.6f },
+        confirmValueChange = { true }
     )
     LaunchedEffect(trackId) {
         dismissState.snapTo(SwipeToDismissBoxValue.Settled)
@@ -283,11 +317,28 @@ private fun SwipeToDeletePlaylistTrackRow(
 
     SwipeToDismissBox(
         state = dismissState,
+        enableDismissFromStartToEnd =
+            isSwipeEnabled || dismissState.currentValue == SwipeToDismissBoxValue.StartToEnd,
+        enableDismissFromEndToStart =
+            isSwipeEnabled || dismissState.currentValue == SwipeToDismissBoxValue.EndToStart,
         backgroundContent = {
             val showDeleteBackground =
                 dismissState.currentValue != SwipeToDismissBoxValue.Settled ||
                     dismissState.targetValue != SwipeToDismissBoxValue.Settled
-            val isSwipingToStart = dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart
+            val dismissDirection = when {
+                dismissState.targetValue == SwipeToDismissBoxValue.EndToStart ||
+                    dismissState.currentValue == SwipeToDismissBoxValue.EndToStart -> {
+                    SwipeToDismissBoxValue.EndToStart
+                }
+
+                dismissState.targetValue == SwipeToDismissBoxValue.StartToEnd ||
+                    dismissState.currentValue == SwipeToDismissBoxValue.StartToEnd -> {
+                    SwipeToDismissBoxValue.StartToEnd
+                }
+
+                else -> SwipeToDismissBoxValue.EndToStart
+            }
+            val isSwipingToStart = dismissDirection == SwipeToDismissBoxValue.EndToStart
             val alignment = if (isSwipingToStart) Alignment.CenterEnd else Alignment.CenterStart
             val backgroundColor = if (showDeleteBackground) {
                 MaterialTheme.colorScheme.errorContainer
@@ -307,17 +358,156 @@ private fun SwipeToDeletePlaylistTrackRow(
                 ) {}
 
                 if (showDeleteBackground) {
-                    Icon(
-                        imageVector = Icons.Rounded.Delete,
-                        contentDescription = "Delete track",
-                        tint = MaterialTheme.colorScheme.onErrorContainer,
-                        modifier = Modifier.padding(horizontal = 20.dp)
-                    )
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(
+                            onClick = {
+                                coroutineScope.launch {
+                                    dismissState.snapTo(SwipeToDismissBoxValue.Settled)
+                                }
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Close,
+                                contentDescription = stringResource(R.string.playlist_cancel_remove_track),
+                                tint = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
+                        if (canDownloadTrack) {
+                            IconButton(
+                                onClick = {
+                                    coroutineScope.launch {
+                                        dismissState.snapTo(SwipeToDismissBoxValue.Settled)
+                                    }
+                                    onDownload()
+                                },
+                                enabled = !isAnyDownloadInProgress
+                            ) {
+                                if (isDownloadingTrack) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(20.dp),
+                                        strokeWidth = 2.dp,
+                                        color = MaterialTheme.colorScheme.onErrorContainer
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Download,
+                                        contentDescription = stringResource(R.string.playlist_download_track),
+                                        tint = MaterialTheme.colorScheme.onErrorContainer
+                                    )
+                                }
+                            }
+                        }
+                        IconButton(
+                            onClick = onDelete
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Delete,
+                                contentDescription = stringResource(R.string.playlist_confirm_remove_track),
+                                tint = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
+                    }
                 }
             }
         },
         content = content
     )
+}
+
+private suspend fun savePlaylistTrackToDevice(
+    context: Context,
+    track: PlaylistTrack
+) {
+    try {
+        val bytes = withContext(Dispatchers.IO) {
+            when {
+                track.trackUrl.startsWith("content://", ignoreCase = true) -> {
+                    val uri = Uri.parse(track.trackUrl)
+                    context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                }
+
+                track.trackUrl.startsWith("file://", ignoreCase = true) -> {
+                    val uri = Uri.parse(track.trackUrl)
+                    uri.path?.let { path -> java.io.File(path).readBytes() }
+                }
+
+                else -> {
+                    URL(track.trackUrl).openStream().use { it.readBytes() }
+                }
+            }
+        } ?: run {
+            Toast.makeText(context, context.getString(R.string.playlist_save_failed), Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val extension = audioExtensionForMime(track.mimeType)
+        val displayName = track.displayName?.substringBeforeLast('.')?.ifBlank { null }
+        val baseName = displayName ?: track.title.ifBlank { "track_${System.currentTimeMillis()}" }
+        val fileName = "${baseName}_${System.currentTimeMillis()}.$extension"
+        val mimeType = track.mimeType.ifBlank { "audio/mpeg" }
+
+        val contentValues = ContentValues().apply {
+            put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+            put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                put(
+                    MediaStore.MediaColumns.RELATIVE_PATH,
+                    Environment.DIRECTORY_MUSIC + "/SecMessage"
+                )
+                put(MediaStore.MediaColumns.IS_PENDING, 1)
+            }
+        }
+
+        val resolver = context.contentResolver
+        val uri = resolver.insert(
+            MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY),
+            contentValues
+        )
+
+        if (uri == null) {
+            Toast.makeText(context, context.getString(R.string.playlist_save_failed), Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val writeSucceeded = withContext(Dispatchers.IO) {
+            resolver.openOutputStream(uri)?.use { output ->
+                output.write(bytes)
+            } != null
+        }
+
+        if (!writeSucceeded) {
+            resolver.delete(uri, null, null)
+            Toast.makeText(context, context.getString(R.string.playlist_save_failed), Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            contentValues.clear()
+            contentValues.put(MediaStore.MediaColumns.IS_PENDING, 0)
+            resolver.update(uri, contentValues, null, null)
+        }
+
+        Toast.makeText(context, context.getString(R.string.playlist_saved_to_device), Toast.LENGTH_SHORT).show()
+    } catch (_: Exception) {
+        Toast.makeText(context, context.getString(R.string.playlist_save_failed), Toast.LENGTH_SHORT).show()
+    }
+}
+
+private fun audioExtensionForMime(mimeType: String): String {
+    val normalized = mimeType.lowercase()
+    return when {
+        normalized.contains("mpeg") -> "mp3"
+        normalized.contains("mp4") -> "m4a"
+        normalized.contains("aac") -> "aac"
+        normalized.contains("ogg") -> "ogg"
+        normalized.contains("wav") -> "wav"
+        normalized.contains("flac") -> "flac"
+        else -> "mp3"
+    }
 }
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -392,7 +582,11 @@ private fun PlaylistTrackRow(
             ) {
                 Icon(
                     imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                    contentDescription = if (isPlaying) "Pause track" else "Play track"
+                    contentDescription = if (isPlaying) {
+                        stringResource(R.string.playlist_pause_track)
+                    } else {
+                        stringResource(R.string.playlist_play_track)
+                    }
                 )
             }
         }
@@ -503,10 +697,10 @@ private fun PlaylistPlaybackFooter(
         ) {
             Icon(
                 imageVector = Icons.Rounded.Shuffle,
-                contentDescription = "Toggle shuffle"
+                contentDescription = stringResource(R.string.playlist_toggle_shuffle)
             )
             Spacer(modifier = Modifier.size(6.dp))
-            Text(text = "Shuffle")
+            Text(text = stringResource(R.string.playlist_shuffle))
         }
 
         FilledTonalButton(
@@ -537,10 +731,10 @@ private fun PlaylistPlaybackFooter(
         ) {
             Icon(
                 imageVector = Icons.Rounded.Repeat,
-                contentDescription = "Toggle repeat"
+                contentDescription = stringResource(R.string.playlist_toggle_repeat)
             )
             Spacer(modifier = Modifier.size(6.dp))
-            Text(text = "Repeat")
+            Text(text = stringResource(R.string.playlist_repeat))
         }
     }
 }

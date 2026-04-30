@@ -69,6 +69,7 @@ import com.dino.message.threadfeature.presentation.music.MusicPlaybackManager
 fun Carousel(
     modifier: Modifier = Modifier,
     items: List<PostMedia>,
+    canDownloadMedia: Boolean = false
 ) {
     if (items.isEmpty()) return
     val context = LocalContext.current
@@ -125,6 +126,7 @@ fun Carousel(
         PostMediaViewerDialog(
             mediaItems = items,
             initialIndex = index,
+            canDownloadMedia = canDownloadMedia,
             onDismiss = { viewerOpenIndex = null }
         )
     }

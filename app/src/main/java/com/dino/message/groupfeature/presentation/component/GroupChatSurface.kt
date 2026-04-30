@@ -1,5 +1,6 @@
 package com.dino.message.groupfeature.presentation.component
 
+import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,17 +10,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material3.Icon
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -27,21 +23,23 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.dino.message.DinoOrderApplication
 import com.dino.message.chatfeature.presentation.component.ChatContainer
 import com.dino.message.chatfeature.presentation.component.SwipeToReply
 import com.dino.message.chatfeature.domain.model.MessageDeliveryStatus
+import com.dino.message.corefeature.presentation.component.UserBadgeIcon
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPSmall
 import com.dino.message.groupfeature.domain.model.GroupMessageEntity
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
+import com.dino.message.profilefeature.presentation.component.ProfileAvatarMedia
 import kotlinx.coroutines.flow.distinctUntilChanged
+
+private const val GROUP_CHAT_SURFACE_TAG = "GroupChatSurface"
 
 @Composable
 fun GroupChatSurface(
@@ -54,6 +52,8 @@ fun GroupChatSurface(
     isLoadingOlder: Boolean = false,
     currentUsername: String,
     senderProfileImageUrls: Map<String, String?> = emptyMap(),
+    senderProfileImageShapes: Map<String, String?> = emptyMap(),
+    senderBadges: Map<String, String?> = emptyMap(),
     onMessageClick: ((GroupMessageEntity, IntOffset, IntSize) -> Unit)? = null,
     onAttachmentClick: ((GroupMessageEntity) -> Unit)? = null,
     onPostShareClick: ((Long) -> Unit)? = null,
@@ -61,8 +61,41 @@ fun GroupChatSurface(
     onSwipeToReply: ((GroupMessageEntity) -> Unit)? = null,
     onLoadOlder: (() -> Unit)? = null,
 ) {
-    val itemCount = items.size
-    val latestMessage = items.firstOrNull()
+    val sanitizedItems = remember(items) {
+        val seenKeys = HashSet<String>(items.size)
+        val duplicateKeys = mutableSetOf<String>()
+        val uniqueItems = ArrayList<GroupMessageEntity>(items.size)
+        items.forEach { message ->
+            val key = message.messageId.ifBlank { "local:${message.id}" }
+            if (seenKeys.add(key)) {
+                uniqueItems.add(message)
+            } else {
+                duplicateKeys.add(key)
+            }
+        }
+        uniqueItems to duplicateKeys.toList()
+    }
+    val renderItems = sanitizedItems.first
+    val duplicateKeys = sanitizedItems.second
+    val crashReporter = (LocalContext.current.applicationContext as? DinoOrderApplication)?.crashReporter
+
+    LaunchedEffect(duplicateKeys) {
+        if (duplicateKeys.isNotEmpty()) {
+            // TODO(security): Revisit keeping raw key samples in production logs; redact or remove once duplicate-source bug is fixed.
+            val sampleKeys = duplicateKeys.take(3).joinToString(",").take(80)
+            Log.w(
+                GROUP_CHAT_SURFACE_TAG,
+                "Dropped ${duplicateKeys.size} duplicate group message key(s): ${duplicateKeys.take(5)}"
+            )
+            crashReporter?.addBreadcrumb(
+                category = "ui_list_keys",
+                message = "group_chat dup=${duplicateKeys.size} total=${items.size} unique=${renderItems.size} sample=$sampleKeys"
+            )
+        }
+    }
+
+    val itemCount = renderItems.size
+    val latestMessage = renderItems.firstOrNull()
     val latestMessageKey = latestMessage?.messageId
     val latestIsMine = latestMessage?.sender == currentUsername
     LaunchedEffect(latestMessageKey, latestIsMine) {
@@ -97,7 +130,10 @@ fun GroupChatSurface(
         state = state,
         reverseLayout = true,
     ) {
-        items(items = items, key = { it.messageId }) { message ->
+        items(
+            items = renderItems,
+            key = { message -> message.messageId.ifBlank { "local:${message.id}" } }
+        ) { message ->
             val isMine = message.sender == currentUsername
             Column(
                 modifier = Modifier
@@ -113,7 +149,8 @@ fun GroupChatSurface(
                     if (!isMine) {
                         SenderAvatar(
                             profileImageUrl = senderProfileImageUrls[message.sender],
-                            contentDescription = "${message.sender} profile image",
+                            badge = senderBadges[message.sender],
+                            profileImageShape = senderProfileImageShapes[message.sender],
                         )
                         Spacer(modifier = Modifier.size(DPSmall))
                     }
@@ -121,12 +158,21 @@ fun GroupChatSurface(
                         horizontalAlignment = if (isMine) Alignment.End else Alignment.Start,
                     ) {
                         if (!isMine) {
-                            Text(
-                                text = message.sender,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(start = DPSmall, bottom = DPSmall)
-                            )
+                            Row(
+                                modifier = Modifier.padding(start = DPSmall, bottom = DPSmall),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(
+                                    text = message.sender,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                UserBadgeIcon(
+                                    badge = senderBadges[message.sender],
+                                    size = 14.dp
+                                )
+                            }
                         }
                         SwipeToReply(
                             onSwipe = { onSwipeToReply?.invoke(message) },
@@ -179,41 +225,15 @@ fun GroupChatSurface(
 @Composable
 private fun SenderAvatar(
     profileImageUrl: String?,
-    contentDescription: String,
+    badge: String?,
+    profileImageShape: String?,
 ) {
-    if (profileImageUrl.isNullOrBlank()) {
-        Surface(
-            modifier = Modifier
-                .size(36.dp)
-                .clip(CircleShape),
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.surfaceVariant,
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.Person,
-                contentDescription = contentDescription,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(8.dp),
-            )
-        }
-        return
-    }
-
-    val context = LocalContext.current
-    val request = remember(context, profileImageUrl) {
-        ImageRequest.Builder(context)
-            .data(profileImageUrl)
-            .crossfade(true)
-            .memoryCacheKey(profileImageUrl)
-            .diskCacheKey(profileImageUrl)
-            .build()
-    }
-
-    AsyncImage(
-        model = request,
-        contentDescription = contentDescription,
+    ProfileAvatarMedia(
+        profileImageUrl = profileImageUrl,
+        profileVideoUrl = null,
+        badge = badge,
+        profileImageShape = profileImageShape,
         modifier = Modifier
-            .size(36.dp)
-            .clip(CircleShape),
+            .size(36.dp),
     )
 }

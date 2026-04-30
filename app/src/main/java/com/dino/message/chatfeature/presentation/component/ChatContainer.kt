@@ -255,20 +255,20 @@ private fun TextWithDeliveryStatus(
         return
     }
 
-    Row(verticalAlignment = Alignment.Bottom) {
-        CompositionLocalProvider(LocalLayoutDirection provides rememberLayoutDirection(text)) {
+    val textDirection = rememberLayoutDirection(text)
+    val statusReservedWidth = if (deliveryStatus != null) 22.dp else 0.dp
+    CompositionLocalProvider(LocalLayoutDirection provides textDirection) {
+        Box {
             Text(
                 text = text,
-                style = MaterialTheme.typography.bodyLarge
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.padding(end = statusReservedWidth)
             )
-        }
-        Spacer(modifier = Modifier.width(6.dp))
-        Box(
-            modifier = Modifier.width(14.dp),
-            contentAlignment = Alignment.Center
-        ) {
             if (deliveryStatus != null) {
-                DeliveryStatusIcon(deliveryStatus = deliveryStatus)
+                DeliveryStatusIcon(
+                    deliveryStatus = deliveryStatus,
+                    modifier = Modifier.align(Alignment.BottomEnd)
+                )
             }
         }
     }
@@ -337,7 +337,10 @@ private fun PostShareBubble(
 }
 
 @Composable
-private fun DeliveryStatusIcon(deliveryStatus: MessageDeliveryStatus) {
+private fun DeliveryStatusIcon(
+    deliveryStatus: MessageDeliveryStatus,
+    modifier: Modifier = Modifier
+) {
     val isDelivered = deliveryStatus == MessageDeliveryStatus.DELIVERED
     val isSeen = deliveryStatus == MessageDeliveryStatus.SEEN
     val isFailed = deliveryStatus == MessageDeliveryStatus.FAILED
@@ -358,7 +361,7 @@ private fun DeliveryStatusIcon(deliveryStatus: MessageDeliveryStatus) {
         } else {
             "Sent"
         },
-        modifier = Modifier.size(14.dp),
+        modifier = modifier.size(14.dp),
         tint = if (isFailed) {
             MaterialTheme.colorScheme.error
         } else if (isSeen) {

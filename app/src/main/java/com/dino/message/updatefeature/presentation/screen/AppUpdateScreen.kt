@@ -19,9 +19,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.dino.message.R
 import com.dino.message.updatefeature.presentation.viewmodel.AppUpdateViewModel
 import com.ramcosta.composedestinations.annotation.Destination
 import com.ramcosta.composedestinations.annotation.RootGraph
@@ -47,9 +49,9 @@ fun AppUpdateScreen(
     fun openUpdateWebsite() {
         val opened = openUpdateInBrowser(context)
         statusMessage.value = if (opened) {
-            "Opening update website in your browser..."
+            context.getString(R.string.update_opening_website)
         } else {
-            "Could not open browser. Please visit https://api.dinosocial.ir manually."
+            context.getString(R.string.update_open_browser_failed)
         }
     }
 
@@ -77,7 +79,7 @@ fun AppUpdateScreen(
             modifier = Modifier.fillMaxWidth(),
             onClick = { openUpdateWebsite() },
         ) {
-            Text("Open Update Website")
+            Text(stringResource(R.string.update_open_website))
         }
 
         if (!isForceUpdate) {
@@ -86,7 +88,7 @@ fun AppUpdateScreen(
                 modifier = Modifier.fillMaxWidth(),
                 onClick = { viewModel.continueWithoutUpdate() },
             ) {
-                Text("Later")
+                Text(stringResource(R.string.later))
             }
         }
     }

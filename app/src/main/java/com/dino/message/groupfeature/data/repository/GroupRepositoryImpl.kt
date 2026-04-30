@@ -3,20 +3,21 @@ package com.dino.message.groupfeature.data.repository
 import android.net.Uri
 import com.dino.message.chatfeature.data.remote.dto.MessageAttachment
 import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.groupfeature.data.db.GroupMessageDao
 import com.dino.message.groupfeature.domain.model.AddGroupMembersResult
- import com.dino.message.groupfeature.data.remote.GroupApiService
- import com.dino.message.groupfeature.domain.model.Group
+import com.dino.message.groupfeature.data.remote.GroupApiService
+import com.dino.message.groupfeature.domain.model.Group
 import com.dino.message.groupfeature.domain.model.GroupHistoryPage
 import com.dino.message.groupfeature.domain.model.GroupMessageEntity
- import com.dino.message.groupfeature.domain.model.MutualFollowersPage
- import com.dino.message.groupfeature.domain.repository.GroupRepository
-import com.dino.message.groupfeature.data.db.GroupMessageDao
- import javax.inject.Inject
+import com.dino.message.groupfeature.domain.model.GroupOnlineUser
+import com.dino.message.groupfeature.domain.model.MutualFollowersPage
+import com.dino.message.groupfeature.domain.repository.GroupRepository
+import javax.inject.Inject
 
- class GroupRepositoryImpl @Inject constructor(
-     private val apiService: GroupApiService,
+class GroupRepositoryImpl @Inject constructor(
+    private val apiService: GroupApiService,
     private val groupMessageDao: GroupMessageDao,
- ) : GroupRepository {
+) : GroupRepository {
 
     override suspend fun createGroup(name: String, members: List<String>): Resource<Group> =
         apiService.createGroup(name, members)
@@ -31,6 +32,9 @@ import com.dino.message.groupfeature.data.db.GroupMessageDao
 
     override suspend fun getGroupDetail(groupId: Int): Resource<Group> =
         apiService.getGroupDetail(groupId)
+
+    override suspend fun getGroupOnlineUsers(groupId: Int): Resource<List<GroupOnlineUser>> =
+        apiService.getGroupOnlineUsers(groupId)
 
     override suspend fun getGroupHistory(
         groupId: Int,
@@ -68,4 +72,4 @@ import com.dino.message.groupfeature.data.db.GroupMessageDao
 
     override suspend fun markGroupMessageSeenByMessageId(messageId: String) =
         groupMessageDao.markMessageSeenByMessageId(messageId)
- }
+}

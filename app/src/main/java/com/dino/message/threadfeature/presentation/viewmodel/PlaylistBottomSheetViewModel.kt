@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.dino.message.DinoOrderApplication
+import com.dino.message.R
+import com.dino.message.corefeature.data.spref.DataStoreUtil
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.threadfeature.domain.model.PlaylistTrack
 import com.dino.message.threadfeature.domain.usecase.AddTrackToPlaylistUseCase
@@ -23,6 +25,7 @@ import javax.inject.Inject
 @HiltViewModel
 class PlaylistBottomSheetViewModel @Inject constructor(
     @ApplicationContext app: Context,
+    private val dataStoreUtil: DataStoreUtil,
     private val getPlaylistTracksUseCase: GetPlaylistTracksUseCase,
     private val removeTrackFromPlaylistUseCase: RemoveTrackFromPlaylistUseCase,
     private val addTrackToPlaylistUseCase: AddTrackToPlaylistUseCase,
@@ -42,11 +45,20 @@ class PlaylistBottomSheetViewModel @Inject constructor(
 
     private val _snackbarEvents = MutableSharedFlow<PlaylistSnackbarEvent>()
     val snackbarEvents = _snackbarEvents.asSharedFlow()
+    private val _viewerHasBadge = MutableStateFlow(false)
+    val viewerHasBadge: StateFlow<Boolean> = _viewerHasBadge.asStateFlow()
 
     private val pendingRemovalsByTrackId = linkedMapOf<Long, PendingRemoval>()
 
     init {
         loadPlaylistTracks()
+        observeViewerBadgeAccess()
+    }
+
+    private fun observeViewerBadgeAccess() = viewModelScope.launch {
+        dataStoreUtil.getBadgeAccessEnabled().collect { hasBadge ->
+            _viewerHasBadge.value = hasBadge
+        }
     }
 
     fun loadPlaylistTracks() = viewModelScope.launch {
@@ -112,7 +124,8 @@ class PlaylistBottomSheetViewModel @Inject constructor(
                         _error.value = res.message.asString(getApplication())
                         _snackbarEvents.emit(
                             PlaylistSnackbarEvent(
-                                message = "Couldn't undo track removal."
+                                message = getApplication<DinoOrderApplication>()
+                                    .getString(R.string.playlist_undo_remove_failed)
                             )
                         )
                     }
@@ -133,8 +146,10 @@ class PlaylistBottomSheetViewModel @Inject constructor(
                     _error.value = null
                     _snackbarEvents.emit(
                         PlaylistSnackbarEvent(
-                            message = "\"${pendingRemoval.track.title}\" removed from playlist",
-                            actionLabel = "Undo",
+                            message = getApplication<DinoOrderApplication>()
+                                .getString(R.string.playlist_removed_message, pendingRemoval.track.title),
+                            actionLabel = getApplication<DinoOrderApplication>()
+                                .getString(R.string.undo),
                             trackId = trackId,
                         )
                     )
@@ -148,7 +163,8 @@ class PlaylistBottomSheetViewModel @Inject constructor(
                     _error.value = res.message.asString(getApplication())
                     _snackbarEvents.emit(
                         PlaylistSnackbarEvent(
-                            message = "Could not remove the track. Restored to playlist."
+                            message = getApplication<DinoOrderApplication>()
+                                .getString(R.string.playlist_remove_failed_restored)
                         )
                     )
                 }

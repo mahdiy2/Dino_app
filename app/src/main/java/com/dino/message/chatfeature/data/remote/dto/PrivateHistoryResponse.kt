@@ -24,6 +24,7 @@ data class PrivateHistoryResponse(
 @Serializable
 data class PrivateHistoryMessageDto(
     @SerialName("message_id") val messageId: String? = null,
+    @SerialName("client_message_id") val clientMessageId: String? = null,
     val from: String,
     val type: String = "text",
     val message: String? = null,
@@ -38,6 +39,7 @@ data class PrivateHistoryMessageDto(
 
 private fun PrivateHistoryMessageDto.toDomain(): PrivateHistoryMessage = PrivateHistoryMessage(
     messageId = messageId,
+    clientMessageId = clientMessageId,
     from = from,
     type = type,
     message = message,

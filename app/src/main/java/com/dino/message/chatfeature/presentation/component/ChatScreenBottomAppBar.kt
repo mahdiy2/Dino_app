@@ -47,7 +47,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import com.dino.message.R
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPSmall
 import com.dino.message.corefeature.presentation.util.rememberLayoutDirection
@@ -56,7 +59,9 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 
 @Composable
 fun ChatScreenBottomAppBar(
+    modifier: Modifier = Modifier,
     onSendClicked: (String) -> Unit,
+    onInputTextChanged: (String) -> Unit = {},
     onPickImage: () -> Unit = {},
     onPickVideo: () -> Unit = {},
     onVoiceRecordStart: () -> Unit = {},
@@ -72,7 +77,7 @@ fun ChatScreenBottomAppBar(
     val value = remember { mutableStateOf("") }
     var showAttachMenu by remember { mutableStateOf(false) }
 
-    Column {
+    Column(modifier = modifier) {
         AnimatedVisibility(
             visible = replySenderName != null && replyPreviewText != null,
             enter = expandVertically(),
@@ -85,40 +90,45 @@ fun ChatScreenBottomAppBar(
             )
         }
         BottomAppBar {
-            AnimatedContent(
-            targetState = isRecording,
-            label = "bottom_bar_mode"
-        ) { recording ->
-            if (recording) {
-                RecordingBar(
-                    durationMs = recordingDurationMs,
-                    onStop = onVoiceRecordStop,
-                    onCancel = onVoiceRecordCancel
-                )
-            } else {
-                InputBar(
-                    text = value.value,
-                    onTextChange = { value.value = it },
-                    onSend = {
-                        onSendClicked(value.value)
-                        value.value = ""
-                    },
-                    showAttachMenu = showAttachMenu,
-                    onToggleAttachMenu = { showAttachMenu = !showAttachMenu },
-                    onDismissAttachMenu = { showAttachMenu = false },
-                    onPickImage = {
-                        showAttachMenu = false
-                        onPickImage()
-                    },
-                    onPickVideo = {
-                        showAttachMenu = false
-                        onPickVideo()
-                    },
-                    onMicClick = onVoiceRecordStart,
-                    enabled = enabled
-                )
+            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                AnimatedContent(
+                    targetState = isRecording,
+                    label = "bottom_bar_mode"
+                ) { recording ->
+                    if (recording) {
+                        RecordingBar(
+                            durationMs = recordingDurationMs,
+                            onStop = onVoiceRecordStop,
+                            onCancel = onVoiceRecordCancel
+                        )
+                    } else {
+                        InputBar(
+                            text = value.value,
+                            onTextChange = {
+                                value.value = it
+                                onInputTextChanged(it)
+                            },
+                            onSend = {
+                                onSendClicked(value.value)
+                                value.value = ""
+                            },
+                            showAttachMenu = showAttachMenu,
+                            onToggleAttachMenu = { showAttachMenu = !showAttachMenu },
+                            onDismissAttachMenu = { showAttachMenu = false },
+                            onPickImage = {
+                                showAttachMenu = false
+                                onPickImage()
+                            },
+                            onPickVideo = {
+                                showAttachMenu = false
+                                onPickVideo()
+                            },
+                            onMicClick = onVoiceRecordStart,
+                            enabled = enabled
+                        )
+                    }
+                }
             }
-        }
         }
     }
 }
@@ -148,7 +158,7 @@ private fun InputBar(
             ) {
                 Icon(
                     imageVector = Icons.Rounded.Add,
-                    contentDescription = "Attach",
+                    contentDescription = stringResource(R.string.attach),
                     tint = if (enabled)
                         MaterialTheme.colorScheme.onSurface
                     else
@@ -161,14 +171,14 @@ private fun InputBar(
                 onDismissRequest = onDismissAttachMenu
             ) {
                 DropdownMenuItem(
-                    text = { Text("Photo") },
+                    text = { Text(stringResource(R.string.photo)) },
                     onClick = onPickImage,
                     leadingIcon = {
                         Icon(Icons.Default.Image, contentDescription = null)
                     }
                 )
                 DropdownMenuItem(
-                    text = { Text("Video") },
+                    text = { Text(stringResource(R.string.video)) },
                     onClick = onPickVideo,
                     leadingIcon = {
                         Icon(Icons.Default.Videocam, contentDescription = null)
@@ -197,7 +207,7 @@ private fun InputBar(
                 shape = MaterialTheme.shapes.extraLarge,
                 value = text,
                 onValueChange = onTextChange,
-                placeholder = { Text("Message") },
+                placeholder = { Text(stringResource(R.string.message)) },
                 singleLine = true
             )
         }
@@ -212,7 +222,7 @@ private fun InputBar(
             ) {
                 Icon(
                     imageVector = Icons.Default.Send,
-                    contentDescription = "Send",
+                    contentDescription = stringResource(R.string.send),
                     tint = MaterialTheme.colorScheme.onPrimary
                 )
             }
@@ -223,7 +233,7 @@ private fun InputBar(
             ) {
                 Icon(
                     imageVector = Icons.Default.Mic,
-                    contentDescription = "Record voice",
+                    contentDescription = stringResource(R.string.record_voice),
                     tint = if (enabled)
                         MaterialTheme.colorScheme.onSurface
                     else
@@ -266,7 +276,7 @@ private fun RecordingBar(
         IconButton(onClick = onCancel) {
             Icon(
                 imageVector = Icons.Default.Close,
-                contentDescription = "Cancel recording",
+                contentDescription = stringResource(R.string.cancel_recording),
                 tint = MaterialTheme.colorScheme.error
             )
         }
@@ -300,7 +310,7 @@ private fun RecordingBar(
         ) {
             Icon(
                 imageVector = Icons.Default.Send,
-                contentDescription = "Send voice",
+                contentDescription = stringResource(R.string.send_voice),
                 tint = MaterialTheme.colorScheme.onPrimary
             )
         }

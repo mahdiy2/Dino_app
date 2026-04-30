@@ -12,6 +12,8 @@ data class MutualFollowerDto(
     val username: String,
     val name: String? = null,
     @SerialName("profile_image_url") val profileImageUrl: String? = null,
+    @SerialName("profile_image_shape") val profileImageShape: String? = null,
+    val badge: String? = null,
 )
 
 @Serializable
@@ -31,6 +33,8 @@ data class MutualFollowersResponse(
                 username = it.username,
                 name = it.name ?: it.username,
                 profileImageUrl = it.profileImageUrl,
+                profileImageShape = it.profileImageShape,
+                badge = it.badge,
             )
         },
     )

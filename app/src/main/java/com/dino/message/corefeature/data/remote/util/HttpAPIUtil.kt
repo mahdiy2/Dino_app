@@ -3,12 +3,17 @@ package com.dino.message.corefeature.data.remote.util
 import android.content.Context
 import android.util.Log
 import com.dino.message.BuildConfig
+import com.dino.message.DinoOrderApplication
 import com.dino.message.R
 import com.dino.message.corefeature.data.remote.ResponseToResultMapper
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.domain.model.asStringResourceContent
+import com.dino.message.corefeature.presentation.util.PopBackStackLevel
 import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.corefeature.util.RefreshTokenExpiredException
+import com.dino.message.corefeature.presentation.util.UIEvent
 import com.dino.message.corefeature.util.RetryableException
+import com.ramcosta.composedestinations.generated.destinations.LoginScreenDestination
 import io.ktor.client.call.body
 import io.ktor.client.plugins.HttpRequestTimeoutException
 import io.ktor.client.statement.HttpResponse
@@ -34,7 +39,8 @@ class HttpAPIUtil @Inject constructor(
     suspend inline fun <ResultType, reified ResponseType : ResponseToResultMapper<ResultType>> callAPIWithErrorHandling(
         noinline callAPI: suspend () -> HttpResponse,
         noinline callRefreshTokenAPI: suspend () -> String,
-        needToUpdateToken: Boolean = true
+        needToUpdateToken: Boolean = true,
+        useServerMessageForUnauthorized: Boolean = false
     ): Resource<ResultType> {
 
         return retry(times = 3, initialDelay = 1000, factor = 2.0) {
@@ -58,7 +64,12 @@ class HttpAPIUtil @Inject constructor(
                     )
 
                     status == HttpStatusCode.Unauthorized -> {
-                        handleUnauthorized(callRefreshTokenAPI = callRefreshTokenAPI, needToUpdateToken = needToUpdateToken)
+                        handleUnauthorized(
+                            callRefreshTokenAPI = callRefreshTokenAPI,
+                            needToUpdateToken = needToUpdateToken,
+                            rawErrorBody = rawErrorBody,
+                            useServerMessageForUnauthorized = useServerMessageForUnauthorized
+                        )
                     }
 
                     status == HttpStatusCode.UnprocessableEntity -> {
@@ -68,7 +79,12 @@ class HttpAPIUtil @Inject constructor(
 
                         if (isAuthorizationHeaderError) {
                             Log.w("HttpAPIUtil", "422 with bad authorization header; trying token refresh")
-                            handleUnauthorized(callRefreshTokenAPI = callRefreshTokenAPI, needToUpdateToken = needToUpdateToken)
+                            handleUnauthorized(
+                                callRefreshTokenAPI = callRefreshTokenAPI,
+                                needToUpdateToken = needToUpdateToken,
+                                rawErrorBody = rawErrorBody,
+                                useServerMessageForUnauthorized = useServerMessageForUnauthorized
+                            )
                         } else {
                             Resource.Error(
                                 message = context.getString(
@@ -98,6 +114,13 @@ class HttpAPIUtil @Inject constructor(
                         message = (
                             extractServerErrorMessage(rawErrorBody)
                                 ?: context.getString(R.string.error_conflict)
+                            ).asStringResourceContent()
+                    )
+
+                    status == HttpStatusCode.TooManyRequests -> Resource.Error(
+                        message = (
+                            extractServerErrorMessage(rawErrorBody)
+                                ?: context.getString(R.string.error_too_many_login_attempts)
                             ).asStringResourceContent()
                     )
 
@@ -156,13 +179,30 @@ class HttpAPIUtil @Inject constructor(
 
     suspend fun <ResultType> handleUnauthorized(
         callRefreshTokenAPI: suspend () -> String,
-        needToUpdateToken: Boolean
+        needToUpdateToken: Boolean,
+        rawErrorBody: String?,
+        useServerMessageForUnauthorized: Boolean
     ): Resource<ResultType> {
         if (needToUpdateToken) {
-            val newToken = callRefreshTokenAPI().trim()
+            val newToken = try {
+                callRefreshTokenAPI().trim()
+            } catch (e: RefreshTokenExpiredException) {
+                clearAuthSessionAndRedirectToLogin()
+                return Resource.Error(
+                    message = R.string.error_unauthorized.asStringResourceContent()
+                )
+            }
             if (newToken.isNotBlank()) {
                 sPrefManager.setToken(newToken)
                 throw RetryableException("Token refreshed, retrying request.")
+            }
+        }
+
+        if (!needToUpdateToken && useServerMessageForUnauthorized) {
+            extractServerErrorMessage(rawErrorBody)?.let { serverMessage ->
+                return Resource.Error(
+                    message = serverMessage.asStringResourceContent()
+                )
             }
         }
 
@@ -189,6 +229,17 @@ class HttpAPIUtil @Inject constructor(
                 Log.w("HttpAPIUtil", "Failed to consume error response body", it)
             }
             .getOrNull()
+    }
+
+    private suspend fun clearAuthSessionAndRedirectToLogin() {
+        sPrefManager.clearAuthSession()
+        val app = context.applicationContext as? DinoOrderApplication ?: return
+        app.mutableUIEventFlow.emit(
+            UIEvent.NavigateWithPopBackStack(
+                direction = LoginScreenDestination,
+                level = PopBackStackLevel.ALL
+            )
+        )
     }
 
 

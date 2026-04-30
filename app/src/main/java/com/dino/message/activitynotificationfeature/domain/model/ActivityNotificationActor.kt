@@ -7,5 +7,7 @@ data class ActivityNotificationActor(
     val id: Long,
     val username: String,
     val name: String?,
-    val profile_image_url: String?
+    val profile_image_url: String?,
+    val badge: String? = null,
+    val profile_image_shape: String? = null,
 )

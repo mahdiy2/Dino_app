@@ -11,6 +11,7 @@ data class PrivateHistoryPage(
 
 data class PrivateHistoryMessage(
     val messageId: String?,
+    val clientMessageId: String?,
     val from: String,
     val type: String,
     val message: String?,

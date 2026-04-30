@@ -1,7 +1,11 @@
 package com.dino.message.groupfeature.presentation.screen
 
 import android.Manifest
+import android.app.Activity
 import android.content.ClipData
+import android.content.Context
+import android.content.ContextWrapper
+import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -11,8 +15,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AccessTime
 import androidx.compose.material.icons.rounded.ArrowBackIosNew
+import androidx.compose.material.icons.rounded.AccessTime
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.VpnKey
@@ -24,6 +28,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -34,8 +39,11 @@ import com.dino.message.chatfeature.presentation.component.ChatScreenBottomAppBa
 import com.dino.message.chatfeature.presentation.component.MediaAccessLevel
 import com.dino.message.chatfeature.presentation.component.MediaPermissionHandler
 import com.dino.message.chatfeature.presentation.component.MediaViewerDialog
+import com.dino.message.R
+import com.dino.message.corefeature.presentation.util.backIconModifier
 import com.dino.message.groupfeature.domain.model.GroupMessageEntity
 import com.dino.message.groupfeature.presentation.component.GroupChatSurface
+import com.dino.message.groupfeature.presentation.component.OnlineAvatarBubbleCluster
 import com.dino.message.groupfeature.presentation.viewmodel.GroupChatViewModel
 import com.dino.message.threadfeature.presentation.component.NowPlayingTopBarRow
 import com.dino.message.threadfeature.presentation.music.MusicPlaybackManager
@@ -68,11 +76,14 @@ fun GroupChatScreen(
     val uploadError by viewModel.uploadError.collectAsState()
     val socketError by viewModel.socketError.collectAsState()
     val exitChatReason by viewModel.exitChatReason.collectAsState()
-    val decryptionError by viewModel.decryptionError.collectAsState()
     val isRecording by viewModel.isRecording.collectAsState()
     val recordingDurationMs by viewModel.recordingDurationMs.collectAsState()
     val replyingTo by viewModel.replyingTo.collectAsState()
     val memberProfileImageUrls by viewModel.memberProfileImageUrls.collectAsState()
+    val memberProfileImageShapes by viewModel.memberProfileImageShapes.collectAsState()
+    val memberBadges by viewModel.memberBadges.collectAsState()
+    val onlineGroupUsers by viewModel.onlineGroupUsers.collectAsState()
+    val typingGroupUsers by viewModel.typingGroupUsers.collectAsState()
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
     val resolvedName = groupName ?: viewModel.groupName
@@ -84,6 +95,18 @@ fun GroupChatScreen(
     val nowPlayingHeightDp = with(density) { nowPlayingHeightPx.toDp() }
     val reservedNowPlayingHeight = if (!hasNowPlaying) 0.dp else nowPlayingHeightDp.takeIf { it > 0.dp } ?: 64.dp
     val groupListState = rememberLazyListState()
+
+    DisposableEffect(context) {
+        val activity = context.findActivity()
+        val window = activity?.window
+        val previousSoftInputMode = window?.attributes?.softInputMode
+        window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+        onDispose {
+            if (previousSoftInputMode != null) {
+                window.setSoftInputMode(previousSoftInputMode)
+            }
+        }
+    }
 
     var mediaViewerUrl by remember { mutableStateOf<String?>(null) }
     var mediaViewerIsVideo by remember { mutableStateOf(false) }
@@ -112,19 +135,6 @@ fun GroupChatScreen(
             viewModel.navigateUp()
         }
     }
-    LaunchedEffect(decryptionError) {
-        decryptionError?.let {
-            val result = snackbarHostState.showSnackbar(
-                message = it,
-                actionLabel = "Change key",
-                duration = SnackbarDuration.Long
-            )
-            if (result == SnackbarResult.ActionPerformed) {
-                viewModel.openPrivateKeyResetDialog()
-            }
-            viewModel.dismissDecryptionError()
-        }
-    }
     LaunchedEffect(hasNowPlaying) {
         if (!hasNowPlaying) nowPlayingHeightPx = 0
     }
@@ -144,7 +154,7 @@ fun GroupChatScreen(
         if (accessLevel == MediaAccessLevel.DENIED) {
             Toast.makeText(
                 context,
-                "Media access is required to send photos and videos",
+                context.getString(R.string.group_media_permission_required),
                 Toast.LENGTH_SHORT
             ).show()
         } else {
@@ -164,7 +174,7 @@ fun GroupChatScreen(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         if (granted) pendingVoiceAction?.invoke()
-        else Toast.makeText(context, "Microphone permission denied", Toast.LENGTH_SHORT).show()
+        else Toast.makeText(context, context.getString(R.string.microphone_permission_denied), Toast.LENGTH_SHORT).show()
     }
 
     if (mediaViewerUrl != null) {
@@ -214,15 +224,15 @@ fun GroupChatScreen(
                     )
                     GroupMessageMenuRow(
                         icon = Icons.Rounded.ContentCopy,
-                        title = "Copy",
+                        title = stringResource(R.string.copy),
                         onClick = {
                             if (message.content.isNotBlank()) {
-                                val clip = ClipData.newPlainText("Message", message.content)
+                                val clip = ClipData.newPlainText(context.getString(R.string.message), message.content)
                                 context.getSystemService(android.content.ClipboardManager::class.java)
                                     ?.setPrimaryClip(clip)
-                                Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, context.getString(R.string.copied_to_clipboard), Toast.LENGTH_SHORT).show()
                             } else {
-                                Toast.makeText(context, "Nothing to copy", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, context.getString(R.string.nothing_to_copy), Toast.LENGTH_SHORT).show()
                             }
                             selectedMessage = null
                             selectedMessageAnchor = null
@@ -230,7 +240,7 @@ fun GroupChatScreen(
                     )
                     GroupMessageMenuRow(
                         icon = Icons.Rounded.Delete,
-                        title = "Delete",
+                        title = stringResource(R.string.delete),
                         onClick = {
                             deleteCandidate = message
                             selectedMessage = null
@@ -247,13 +257,13 @@ fun GroupChatScreen(
         val isMine = message.sender == myUsername
         AlertDialog(
             onDismissRequest = { deleteCandidate = null },
-            title = { Text("Delete message") },
+            title = { Text(stringResource(R.string.delete_message_title)) },
             text = {
                 Text(
                     if (isMine) {
-                        "Delete this message only for you, or for everyone in the group?"
+                        stringResource(R.string.group_delete_message_body_owner)
                     } else {
-                        "Delete this message only for you?"
+                        stringResource(R.string.group_delete_message_body_self_only)
                     }
                 )
             },
@@ -264,7 +274,7 @@ fun GroupChatScreen(
                             viewModel.deleteMessageForEveryone(message)
                             deleteCandidate = null
                         }
-                    ) { Text("For everyone") }
+                    ) { Text(stringResource(R.string.for_everyone)) }
                 }
             },
             dismissButton = {
@@ -273,7 +283,7 @@ fun GroupChatScreen(
                         viewModel.deleteMessageOnlyForMe(message)
                         deleteCandidate = null
                     }
-                ) { Text("Only for me") }
+                ) { Text(stringResource(R.string.only_for_me)) }
             }
         )
     }
@@ -281,32 +291,66 @@ fun GroupChatScreen(
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
+                modifier = Modifier.height(146.dp),
                 title = {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = resolvedName,
-                            style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.clickable {
-                                viewModel.openGroupMembersScreen(resolvedName)
-                            },
-                        )
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp),
+                    ) {
+                        if (onlineGroupUsers.isEmpty()) {
+                            Text(
+                                text = resolvedName,
+                                style = MaterialTheme.typography.titleMedium,
+                                modifier = Modifier.clickable {
+                                    viewModel.openGroupMembersScreen(resolvedName)
+                                },
+                            )
+                        } else {
+                            Text(
+                                text = resolvedName,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier
+                                    .padding(bottom = 6.dp)
+                                    .clickable {
+                                        viewModel.openGroupMembersScreen(resolvedName)
+                                    },
+                            )
+                            OnlineAvatarBubbleCluster(
+                                onlineUsers = onlineGroupUsers,
+                                typingUsers = typingGroupUsers,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 8.dp)
+                                    .height(54.dp)
+                            )
+                        }
                     }
                 },
                 navigationIcon = {
                     IconButton(onClick = { viewModel.navigateUp() }) {
-                        Icon(Icons.Rounded.ArrowBackIosNew, "Back")
+                        Icon(
+                            imageVector = Icons.Rounded.ArrowBackIosNew,
+                            contentDescription = stringResource(R.string.back),
+                            modifier = backIconModifier()
+                        )
                     }
                 },
                 actions = {
                     IconButton(onClick = { viewModel.openPrivateKeyResetDialog() }) {
-                        Icon(Icons.Rounded.VpnKey, "Reset encryption key")
+                        Icon(Icons.Rounded.VpnKey, stringResource(R.string.reset_encryption_key))
                     }
                 }
             )
         },
         bottomBar = {
             ChatScreenBottomAppBar(
+                modifier = Modifier.imePadding(),
                 onSendClicked = { viewModel.sendTextMessage(it) },
+                onInputTextChanged = viewModel::onComposerTextChanged,
                 onPickImage = {
                     if (MediaPermissionHandler.checkAccessLevel(context) != MediaAccessLevel.DENIED) {
                         imagePickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
@@ -369,6 +413,8 @@ fun GroupChatScreen(
                                 isLoadingOlder = isLoadingOlderHistory,
                                 currentUsername = viewModel.getMyUsername(),
                                 senderProfileImageUrls = memberProfileImageUrls,
+                                senderProfileImageShapes = memberProfileImageShapes,
+                                senderBadges = memberBadges,
                                 onMessageClick = { msg, offset, size ->
                                     selectedMessage = msg
                                     selectedMessageAnchor = offset to size
@@ -402,6 +448,8 @@ fun GroupChatScreen(
                     isLoadingOlder = isLoadingOlderHistory,
                     currentUsername = viewModel.getMyUsername(),
                     senderProfileImageUrls = memberProfileImageUrls,
+                    senderProfileImageShapes = memberProfileImageShapes,
+                    senderBadges = memberBadges,
                     onMessageClick = { msg, offset, size ->
                         selectedMessage = msg
                         selectedMessageAnchor = offset to size
@@ -434,8 +482,15 @@ fun GroupChatScreen(
     }
 }
 
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
+}
+
+@Composable
 private fun formatMessageSentAt(timestamp: String?): String {
-    if (timestamp.isNullOrBlank()) return "Unknown time"
+    if (timestamp.isNullOrBlank()) return stringResource(R.string.unknown_time)
     return try {
         val sentAt = Instant.parse(timestamp)
         val now = Instant.now()

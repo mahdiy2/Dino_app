@@ -4,11 +4,15 @@ import android.content.Context
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.dino.message.BuildConfig
+import com.dino.message.R
 import com.dino.message.DinoOrderApplication
 import com.dino.message.authfeature.domain.util.RegisterConfirmErrorPolicy
 import com.dino.message.authfeature.domain.usecase.ConfirmRegistrationUseCase
 import com.dino.message.authfeature.domain.usecase.RegisterUseCase
+import com.dino.message.corefeature.data.spref.DataStoreUtil
 import com.dino.message.corefeature.data.spref.SPrefManager
+import com.dino.message.corefeature.domain.model.AppLanguage
 import com.dino.message.corefeature.presentation.util.PopBackStackLevel
 import com.dino.message.corefeature.presentation.util.RSAUtil
 import com.dino.message.corefeature.presentation.util.Resource
@@ -17,6 +21,8 @@ import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.ramcosta.composedestinations.generated.destinations.LoginScreenDestination
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.util.UUID
 import javax.inject.Inject
@@ -27,6 +33,7 @@ class RegisterScreenViewModel @Inject constructor(
     private val registerUseCase: RegisterUseCase,
     private val confirmRegistrationUseCase: ConfirmRegistrationUseCase,
     private val sPrefManager: SPrefManager,
+    private val dataStoreUtil: DataStoreUtil,
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
 
@@ -35,8 +42,12 @@ class RegisterScreenViewModel @Inject constructor(
 
     val registerLoadingState = mutableStateOf(false)
     val registerErrorMessage = mutableStateOf<String?>(null)
+    val currentLanguage: Flow<AppLanguage> = dataStoreUtil.getLanguage()
 
     private val usernameAllowedPattern = Regex("^[A-Za-z0-9._-]+$")
+    private val passwordLetterPattern = Regex("[A-Za-z]")
+    private val passwordDigitPattern = Regex("\\d")
+    private val passwordSymbolPattern = Regex("[^A-Za-z0-9]")
 
     init {
         if (sPrefManager.hasPendingRegistration()) {
@@ -115,16 +126,33 @@ class RegisterScreenViewModel @Inject constructor(
         val trimmedUsername = userName.value.trim()
         val rawPassword = password.value
         if (trimmedUsername.length < 7) {
-            registerErrorMessage.value = "Username must be at least 7 characters."
+            registerErrorMessage.value =
+                getApplication<DinoOrderApplication>().getString(R.string.error_username_min_length)
             return
         }
         if (!isUsernameFormatValid(trimmedUsername)) {
             registerErrorMessage.value =
-                "Username can only contain English letters, numbers, '.', '-', and '_'."
+                getApplication<DinoOrderApplication>().getString(R.string.error_username_allowed_chars)
             return
         }
         if (rawPassword.length < 10) {
-            registerErrorMessage.value = "Password must be at least 10 characters."
+            registerErrorMessage.value =
+                getApplication<DinoOrderApplication>().getString(R.string.error_password_min_length)
+            return
+        }
+        if (!passwordLetterPattern.containsMatchIn(rawPassword)) {
+            registerErrorMessage.value =
+                getApplication<DinoOrderApplication>().getString(R.string.error_password_require_letter)
+            return
+        }
+        if (!passwordDigitPattern.containsMatchIn(rawPassword)) {
+            registerErrorMessage.value =
+                getApplication<DinoOrderApplication>().getString(R.string.error_password_require_number)
+            return
+        }
+        if (BuildConfig.AUTH_PASSWORD_REQUIRE_SYMBOL && !passwordSymbolPattern.containsMatchIn(rawPassword)) {
+            registerErrorMessage.value =
+                getApplication<DinoOrderApplication>().getString(R.string.error_password_require_symbol)
             return
         }
 
@@ -159,6 +187,16 @@ class RegisterScreenViewModel @Inject constructor(
 
     fun isUsernameFormatValid(username: String): Boolean {
         return usernameAllowedPattern.matches(username)
+    }
+
+    fun toggleLanguage() {
+        viewModelScope.launch {
+            val nextLanguage = when (dataStoreUtil.getLanguage().first()) {
+                AppLanguage.Farsi -> AppLanguage.English
+                AppLanguage.English -> AppLanguage.Farsi
+            }
+            dataStoreUtil.saveLanguage(nextLanguage)
+        }
     }
 
     fun navigateToLoginScreen() {

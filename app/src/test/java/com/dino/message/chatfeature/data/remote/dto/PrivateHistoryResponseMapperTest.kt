@@ -15,6 +15,7 @@ class PrivateHistoryResponseMapperTest {
             messages = listOf(
                 PrivateHistoryMessageDto(
                     messageId = "m-1",
+                    clientMessageId = "client-1",
                     from = "alice",
                     type = "text",
                     message = "enc",
@@ -40,6 +41,7 @@ class PrivateHistoryResponseMapperTest {
         assertEquals("2026-01-01T00:00:00.000000Z", mapped.nextBefore)
         assertEquals(1, mapped.messages.size)
         assertEquals("m-1", mapped.messages.first().messageId)
+        assertEquals("client-1", mapped.messages.first().clientMessageId)
         assertEquals("enc", mapped.messages.first().message)
         assertEquals("reply-key", mapped.messages.first().encryptedReplyKey)
         assertEquals("image/jpeg", mapped.messages.first().attachment?.mimeType)

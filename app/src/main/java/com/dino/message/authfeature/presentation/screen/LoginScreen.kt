@@ -9,12 +9,15 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -22,17 +25,22 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.dino.message.R
 import com.dino.message.authfeature.presentation.viewmodel.LoginScreenViewModel
+import com.dino.message.corefeature.domain.model.AppLanguage
 import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPTopAppBar
@@ -46,6 +54,7 @@ fun LoginScreen() {
 
     val viewModel: LoginScreenViewModel = hiltViewModel()
     val loginErrorMessage by viewModel.loginErrorMessage
+    val currentLanguage by viewModel.currentLanguage.collectAsState(initial = AppLanguage.Farsi)
 
     Scaffold { innerPadding ->
         Box(
@@ -53,6 +62,23 @@ fun LoginScreen() {
                 .padding(innerPadding)
                 .fillMaxSize()
         ) {
+            IconButton(
+                modifier = Modifier
+                    .align(AbsoluteAlignment.TopRight)
+                    .statusBarsPadding()
+                    .padding(DPMedium),
+                onClick = viewModel::toggleLanguage
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Language,
+                    contentDescription = if (currentLanguage == AppLanguage.Farsi) {
+                        stringResource(R.string.switch_to_english)
+                    } else {
+                        stringResource(R.string.switch_to_persian)
+                    }
+                )
+            }
+
             Column(
                 modifier = Modifier
                     .fillMaxSize(),
@@ -62,7 +88,7 @@ fun LoginScreen() {
                 Column {
                     Spacer(Modifier.size(DPTopAppBar))
                     Text(
-                        "Login",
+                        stringResource(R.string.login),
                         fontWeight = FontWeight.Bold,
                         fontSize = 50.sp,
                         fontStyle = FontStyle.Italic,
@@ -89,7 +115,7 @@ fun LoginScreen() {
                         value = viewModel.userName.value,
                         onValueChange = { viewModel.usernameOnValueChange(it) },
                         placeholder = {
-                            Text("Username")
+                            Text(stringResource(R.string.username))
                         },
                         maxLines = 1
                     )
@@ -113,7 +139,7 @@ fun LoginScreen() {
                         value = viewModel.password.value,
                         onValueChange = { viewModel.passwordOnValueChange(it) },
                         placeholder = {
-                            Text("Password")
+                            Text(stringResource(R.string.password))
                         },
                         maxLines = 1
                     )
@@ -156,7 +182,7 @@ fun LoginScreen() {
                                 } else {
                                     Icon(
                                         imageVector = Icons.Default.KeyboardArrowRight,
-                                        contentDescription = "Login",
+                                        contentDescription = stringResource(R.string.login),
                                     )
                                 }
 
@@ -173,7 +199,7 @@ fun LoginScreen() {
                         viewModel.navigateToRegisterScreen()
                     }
                 ) {
-                    Text("Create account...")
+                    Text(stringResource(R.string.create_account))
                 }
             }
         }

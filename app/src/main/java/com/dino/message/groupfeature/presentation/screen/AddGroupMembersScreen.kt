@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBackIosNew
 import androidx.compose.material.icons.rounded.Check
@@ -34,13 +33,16 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import coil.compose.AsyncImage
+import com.dino.message.R
+import com.dino.message.corefeature.presentation.component.UserBadgeIcon
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPSmall
+import com.dino.message.corefeature.presentation.util.backIconModifier
+import com.dino.message.profilefeature.presentation.component.ProfileAvatarMedia
 import com.dino.message.groupfeature.presentation.viewmodel.AddGroupMembersViewModel
 import com.ramcosta.composedestinations.annotation.Destination
 import com.ramcosta.composedestinations.annotation.RootGraph
@@ -62,7 +64,7 @@ fun AddGroupMembersScreen(
     val errorMessage by viewModel.errorMessage.collectAsState()
     val followers = viewModel.filteredFollowers()
 
-    val resolvedGroupName = title.ifBlank { groupName ?: "Group" }
+    val resolvedGroupName = title.ifBlank { groupName ?: stringResource(R.string.group_fallback_name) }
 
     LaunchedEffect(membersAdded) {
         if (membersAdded) {
@@ -80,10 +82,14 @@ fun AddGroupMembersScreen(
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Add members") },
+                title = { Text(stringResource(R.string.group_add_members_title)) },
                 navigationIcon = {
                     IconButton(onClick = { viewModel.navigateUp() }) {
-                        Icon(Icons.Rounded.ArrowBackIosNew, contentDescription = "Back")
+                        Icon(
+                            imageVector = Icons.Rounded.ArrowBackIosNew,
+                            contentDescription = stringResource(R.string.back),
+                            modifier = backIconModifier()
+                        )
                     }
                 },
                 actions = {
@@ -96,7 +102,7 @@ fun AddGroupMembersScreen(
                                 modifier = Modifier.size(24.dp),
                             )
                         } else {
-                            Text("Add")
+                            Text(stringResource(R.string.add))
                         }
                     }
                 },
@@ -121,7 +127,7 @@ fun AddGroupMembersScreen(
             OutlinedTextField(
                 value = viewModel.searchQuery.value,
                 onValueChange = { viewModel.searchQuery.value = it },
-                label = { Text("Search followers") },
+                label = { Text(stringResource(R.string.search_followers)) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 enabled = !isSubmitting,
@@ -131,7 +137,7 @@ fun AddGroupMembersScreen(
             Spacer(modifier = Modifier.height(DPSmall))
 
             Text(
-                text = "Only mutual followers that are not already in this group are shown",
+                text = stringResource(R.string.group_add_members_mutual_hint),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -153,7 +159,7 @@ fun AddGroupMembersScreen(
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
-                            text = "No followers available to add",
+                            text = stringResource(R.string.group_add_members_empty),
                             style = MaterialTheme.typography.bodyLarge,
                         )
                     }
@@ -172,19 +178,28 @@ fun AddGroupMembersScreen(
                                     .padding(vertical = DPSmall),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                AsyncImage(
-                                    model = follower.profileImageUrl,
-                                    contentDescription = follower.name,
-                                    modifier = Modifier
-                                        .size(48.dp)
-                                        .clip(CircleShape),
+                                ProfileAvatarMedia(
+                                    profileImageUrl = follower.profileImageUrl,
+                                    profileVideoUrl = null,
+                                    badge = follower.badge,
+                                    profileImageShape = follower.profileImageShape,
+                                    modifier = Modifier.size(48.dp),
                                 )
                                 Spacer(modifier = Modifier.size(DPMedium))
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = follower.name,
-                                        style = MaterialTheme.typography.bodyLarge,
-                                    )
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Text(
+                                            text = follower.name,
+                                            style = MaterialTheme.typography.bodyLarge,
+                                        )
+                                        UserBadgeIcon(
+                                            badge = follower.badge,
+                                            size = 16.dp
+                                        )
+                                    }
                                     Text(
                                         text = "@${follower.username}",
                                         style = MaterialTheme.typography.bodySmall,
@@ -194,7 +209,7 @@ fun AddGroupMembersScreen(
                                 if (isSelected) {
                                     Icon(
                                         imageVector = Icons.Rounded.Check,
-                                        contentDescription = "Selected",
+                                        contentDescription = stringResource(R.string.selected),
                                         tint = MaterialTheme.colorScheme.primary,
                                     )
                                 }

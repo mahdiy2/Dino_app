@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
+import com.dino.message.corefeature.domain.model.AppLanguage
 
 //private val DarkColorScheme = darkColorScheme(
 //    primary = Purple80,
@@ -108,6 +109,7 @@ private val LightColorPalette = lightColorScheme(
 @Composable
 fun SecMessageTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
+    appLanguage: AppLanguage = AppLanguage.English,
     // Dynamic color is available on Android 12+
     dynamicColor: Boolean = true,
     content: @Composable () -> Unit
@@ -141,7 +143,7 @@ fun SecMessageTheme(
 
     MaterialExpressiveTheme(
         colorScheme = colors,
-        typography = Typography,
+        typography = appTypography(appLanguage),
         motionScheme = MotionScheme.expressive(),
         shapes = shapes,
         content = content
