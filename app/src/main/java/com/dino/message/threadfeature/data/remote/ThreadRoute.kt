@@ -28,6 +28,19 @@ sealed class ThreadRoute(url: String) : BaseRoute(url) {
     object PlaylistTracks : ThreadRoute("api/playlists/tracks")
     data class DeletePlaylistTrack(val trackId: Long) : ThreadRoute("api/playlists/tracks/$trackId")
     object PlaylistTrackExists : ThreadRoute("api/playlists/tracks/exists")
+    object UploadStory : ThreadRoute("api/story/upload")
+    object StoryFeed : ThreadRoute("api/story/feed")
+    data class StoryById(val storyId: Long) : ThreadRoute("api/story/$storyId")
+    data class DeleteStory(val storyId: Long) : ThreadRoute("api/story/$storyId")
+    object StoryView : ThreadRoute("api/story/view")
+    object StoryLike : ThreadRoute("api/story/like")
+    object StoryReply : ThreadRoute("api/story/reply")
+    object StoryMentions : ThreadRoute("api/story/mentions")
+    data class StoryViewers(
+        val storyId: Long,
+        val page: Int,
+        val limit: Int
+    ) : ThreadRoute("api/story/$storyId/viewers?page=$page&limit=$limit")
 
     data class GetPlaylistTracks(
         val page: Int,

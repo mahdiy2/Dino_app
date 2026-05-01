@@ -43,6 +43,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
@@ -53,6 +54,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -66,6 +68,8 @@ import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPSmall
 import com.dino.message.corefeature.presentation.util.getRelativeTimeLabel
+import com.dino.message.corefeature.presentation.util.rememberLayoutDirection
+import com.dino.message.corefeature.presentation.util.rememberTextAlign
 import com.dino.message.profilefeature.presentation.component.ProfileAvatarMedia
 import com.dino.message.threadfeature.domain.model.Comment
 import com.dino.message.threadfeature.presentation.component.VoteIconButton
@@ -394,11 +398,15 @@ private fun CommentItem(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = comment.text,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
+                CompositionLocalProvider(LocalLayoutDirection provides rememberLayoutDirection(comment.text)) {
+                    Text(
+                        modifier = Modifier.fillMaxWidth(),
+                        text = comment.text,
+                        style = MaterialTheme.typography.bodyMedium,
+                        textAlign = rememberTextAlign(comment.text),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(DPSmall))
                 Row(
@@ -524,24 +532,31 @@ private fun CommentComposer(
                 .padding(horizontal = DPSmall, vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            TextField(
-                modifier = Modifier.weight(1f),
-                value = value,
-                onValueChange = onValueChange,
-                enabled = enabled,
-                maxLines = 4,
-                placeholder = {
-                    Text(
-                        stringResource(R.string.comments_write_placeholder),
-                        style = MaterialTheme.typography.titleSmall,
+            CompositionLocalProvider(LocalLayoutDirection provides rememberLayoutDirection(value)) {
+                TextField(
+                    modifier = Modifier.weight(1f),
+                    value = value,
+                    onValueChange = onValueChange,
+                    enabled = enabled,
+                    maxLines = 4,
+                    textStyle = MaterialTheme.typography.bodyMedium.copy(
+                        textAlign = rememberTextAlign(value)
+                    ),
+                    placeholder = {
+                        Text(
+                            modifier = Modifier.fillMaxWidth(),
+                            text = stringResource(R.string.comments_write_placeholder),
+                            style = MaterialTheme.typography.titleSmall,
+                            textAlign = rememberTextAlign(value)
+                        )
+                    },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color.Transparent,
+                        unfocusedBorderColor = Color.Transparent,
+                        disabledBorderColor = Color.Transparent,
                     )
-                },
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color.Transparent,
-                    unfocusedBorderColor = Color.Transparent,
-                    disabledBorderColor = Color.Transparent,
                 )
-            )
+            }
             Spacer(modifier = Modifier.width(DPSmall))
             IconButton(
                 onClick = onSendClick,

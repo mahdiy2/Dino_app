@@ -167,7 +167,7 @@ class LoginScreenViewModel @Inject constructor(
 
     fun navigateToMainScreen(){
         navigateWithPopBackStackToDestination(
-            ThreadScreenDestination,
+            ThreadScreenDestination(),
             viewModelScope,
             PopBackStackLevel.ALL
         )

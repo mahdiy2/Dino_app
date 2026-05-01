@@ -35,16 +35,18 @@ fun UserBadgeIcon(
         UserBadgeRole.STAFF -> Color(0xFF111111)
         UserBadgeRole.MODERATOR -> Color(0xFF1E8E3E)
         UserBadgeRole.VERIFIED -> Color(0xFF2563EB)
+        UserBadgeRole.POST_OF_THE_DAY -> Color(0xFFE07A00)
     }
 
     val shape = when (role) {
         UserBadgeRole.STAFF -> MaterialShapes.Cookie12Sided.toShape()
-        UserBadgeRole.MODERATOR, UserBadgeRole.VERIFIED -> MaterialShapes.Pill.toShape()
+        UserBadgeRole.MODERATOR, UserBadgeRole.VERIFIED, UserBadgeRole.POST_OF_THE_DAY -> MaterialShapes.Pill.toShape()
     }
     val border = when (role) {
         UserBadgeRole.STAFF -> if (isDark) BorderStroke(0.5.dp, Color.White.copy(alpha = 0.9f)) else BorderStroke(0.5.dp, Color.White.copy(alpha = 0.45f))
         UserBadgeRole.MODERATOR -> BorderStroke(0.4.dp, Color.White.copy(alpha = 0.35f))
         UserBadgeRole.VERIFIED -> BorderStroke(0.4.dp, Color.White.copy(alpha = 0.35f))
+        UserBadgeRole.POST_OF_THE_DAY -> BorderStroke(0.4.dp, Color.White.copy(alpha = 0.35f))
     }
     val iconSize = (resolvedSize.value * 0.58f).dp
 

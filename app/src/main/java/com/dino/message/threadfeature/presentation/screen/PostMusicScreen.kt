@@ -295,7 +295,7 @@ fun PostMusicScreen(
             ) {
                 FilledTonalButton(
                     onClick = {
-                        musicPickerLauncher.launch(arrayOf("audio/*"))
+                        musicPickerLauncher.launch(arrayOf("*/*"))
                     },
                     enabled = !isSubmitting
                 ) {

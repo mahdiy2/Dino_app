@@ -25,8 +25,10 @@ import com.dino.message.threadfeature.data.upload.PendingPostUpload
 import com.dino.message.threadfeature.data.upload.PostUploadManager
 import com.dino.message.threadfeature.domain.model.Post
 import com.dino.message.threadfeature.domain.model.PostMedia
+import com.dino.message.threadfeature.domain.model.StoryUserFeedItem
 import com.dino.message.threadfeature.domain.model.VoteTargetType
 import com.dino.message.threadfeature.domain.usecase.AddTrackToPlaylistUseCase
+import com.dino.message.threadfeature.domain.usecase.GetStoryFeedUseCase
 import com.dino.message.threadfeature.domain.usecase.VoteUseCase
 import com.ramcosta.composedestinations.generated.destinations.CreatePostOptionsBottomSheetScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.DeletePostBottomSheetScreenDestination
@@ -39,6 +41,7 @@ import com.ramcosta.composedestinations.generated.destinations.SharePostBottomSh
 import com.ramcosta.composedestinations.generated.destinations.SharedPostDetailsScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.TrackPlaylistAddersDialogScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.ThreadCommentsBottomSheetScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.ThreadScreenDestination
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -62,6 +65,7 @@ class ProfileScreenViewModel @Inject constructor(
     private val unfollowUserUseCase: UnfollowUserUseCase,
     private val voteUseCase: VoteUseCase,
     private val addTrackToPlaylistUseCase: AddTrackToPlaylistUseCase,
+    private val getStoryFeedUseCase: GetStoryFeedUseCase,
     private val clearLocalSessionUseCase: ClearLocalSessionUseCase,
     private val postUploadManager: PostUploadManager,
 ) : AndroidViewModel(app as DinoOrderApplication),
@@ -102,6 +106,8 @@ class ProfileScreenViewModel @Inject constructor(
     val pendingPostUploads: StateFlow<List<PendingPostUpload>> = _pendingPostUploads.asStateFlow()
     private val _viewerHasBadge = MutableStateFlow(false)
     val viewerHasBadge: StateFlow<Boolean> = _viewerHasBadge.asStateFlow()
+    private val _profileStoryItem = MutableStateFlow<StoryUserFeedItem?>(null)
+    val profileStoryItem: StateFlow<StoryUserFeedItem?> = _profileStoryItem.asStateFlow()
 
     private val currentUsername = sPrefManager.getUsername().toString().trim()
     private var requestedUsername: String? = null
@@ -125,6 +131,7 @@ class ProfileScreenViewModel @Inject constructor(
         requestedUsername = key
         _isOwnProfile.value = key == null || key.equals(currentUsername, ignoreCase = true)
         _isFollowing.value = false
+        _profileStoryItem.value = null
         refresh()
     }
 
@@ -141,6 +148,7 @@ class ProfileScreenViewModel @Inject constructor(
         loadProfile()
         loadPosts()
         loadFollowStatus()
+        loadProfileStoryState()
     }
 
     private fun loadProfile() = viewModelScope.launch {
@@ -289,6 +297,7 @@ class ProfileScreenViewModel @Inject constructor(
                             message.contains("unfollowed") -> false
                             else -> !currentFollow
                         }
+                        loadProfileStoryState()
                     }
 
                     is Resource.Loading -> {
@@ -456,6 +465,14 @@ class ProfileScreenViewModel @Inject constructor(
         )
     }
 
+    fun openProfileStory(storyId: Long) {
+        if (storyId <= 0L) return
+        navigateToDestination(
+            ThreadScreenDestination(initialStoryId = storyId),
+            viewModelScope
+        )
+    }
+
     fun openDeletePostBottomSheet(postId: Long) {
         if (!_isOwnProfile.value) return
         shouldRefreshWhenScreenResumes = true
@@ -487,6 +504,25 @@ class ProfileScreenViewModel @Inject constructor(
                 refresh()
             }
             knownPendingUploadIds = newIds
+        }
+    }
+
+    private fun loadProfileStoryState() = viewModelScope.launch {
+        getStoryFeedUseCase.execute().collect { res ->
+            when (res) {
+                is Resource.Success -> {
+                    val target = targetUsername()
+                    _profileStoryItem.value = res.data.user_stories.firstOrNull { item ->
+                        item.username.equals(target, ignoreCase = true)
+                    }
+                }
+
+                is Resource.Loading -> Unit
+
+                is Resource.Error -> {
+                    _profileStoryItem.value = null
+                }
+            }
         }
     }
 

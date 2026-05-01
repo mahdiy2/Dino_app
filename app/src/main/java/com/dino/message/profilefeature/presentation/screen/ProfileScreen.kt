@@ -5,6 +5,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -38,6 +39,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FloatingActionButton
@@ -96,6 +99,7 @@ import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
 import com.dino.message.corefeature.presentation.ui.theme.DPLarge
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPSmall
+import com.dino.message.corefeature.presentation.util.resolveProfileImageShape
 import com.dino.message.profilefeature.presentation.component.ProfileAvatarMedia
 import com.dino.message.profilefeature.presentation.component.ProfileContainer
 import com.dino.message.profilefeature.presentation.component.ProfileFollowStatusContainer
@@ -125,10 +129,15 @@ fun ProfileScreen(username: String? = null) {
     val playlistFeedback by viewModel.playlistFeedback.collectAsState()
     val pendingPostUploads by viewModel.pendingPostUploads.collectAsState()
     val viewerHasBadge by viewModel.viewerHasBadge.collectAsState()
+    val profileStoryItem by viewModel.profileStoryItem.collectAsState()
     val isRefreshing = isProfileLoading || isPostsLoading
     val listState = rememberLazyListState()
     val snackbarHostState = remember { SnackbarHostState() }
     var isProfileImageViewerOpen by remember { mutableStateOf(false) }
+    var isProfileAvatarMenuExpanded by remember { mutableStateOf(false) }
+    val hasProfileImage = !profile?.profile_image_url.isNullOrBlank()
+    val hasActiveStory = profileStoryItem?.story_ids?.isNotEmpty() == true
+    val hasUnseenStory = profileStoryItem?.has_unseen_story == true
 
     LaunchedEffect(username) {
         viewModel.initialize(username)
@@ -196,19 +205,79 @@ fun ProfileScreen(username: String? = null) {
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(DPMedium)
                             ) {
-                                ProfileAvatarMedia(
-                                   modifier = Modifier.size(60.dp),
-                                   profileImageUrl = profile?.profile_image_url,
-                                   badge = profile?.badge,
-                                   profileImageShape = profile?.profile_image_shape,
-                                    profileVideoUrl = profile?.profile_video_url,
-                                    autoPlayVideo = true,
-                                    onClick = {
-                                        if (!profile?.profile_image_url.isNullOrBlank()) {
-                                            isProfileImageViewerOpen = true
+                                Box {
+                                    if (hasActiveStory) {
+                                        Surface(
+                                            modifier = Modifier.size(60.dp),
+                                            shape = resolveProfileImageShape(
+                                                badge = profile?.badge,
+                                                profileImageShape = profile?.profile_image_shape
+                                            ),
+                                            color = MaterialTheme.colorScheme.surface,
+                                            border = BorderStroke(
+                                                width = 2.5.dp,
+                                                color = if (hasUnseenStory) {
+                                                    MaterialTheme.colorScheme.primary
+                                                } else {
+                                                    MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+                                                }
+                                            )
+                                        ) {
+                                            Box(
+                                                modifier = Modifier.padding(2.dp),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                ProfileAvatarMedia(
+                                                    modifier = Modifier.size(56.dp),
+                                                    profileImageUrl = profile?.profile_image_url,
+                                                    badge = profile?.badge,
+                                                    profileImageShape = profile?.profile_image_shape,
+                                                    profileVideoUrl = profile?.profile_video_url,
+                                                    autoPlayVideo = true,
+                                                    onClick = {
+                                                        if (hasProfileImage) {
+                                                            isProfileAvatarMenuExpanded = true
+                                                        }
+                                                    }
+                                                )
+                                            }
                                         }
+                                    } else {
+                                        ProfileAvatarMedia(
+                                            modifier = Modifier.size(60.dp),
+                                            profileImageUrl = profile?.profile_image_url,
+                                            badge = profile?.badge,
+                                            profileImageShape = profile?.profile_image_shape,
+                                            profileVideoUrl = profile?.profile_video_url,
+                                            autoPlayVideo = true,
+                                            onClick = {
+                                                if (hasProfileImage) {
+                                                    isProfileImageViewerOpen = true
+                                                }
+                                            }
+                                        )
                                     }
-                               )
+
+                                    DropdownMenu(
+                                        expanded = isProfileAvatarMenuExpanded && hasProfileImage && hasActiveStory,
+                                        onDismissRequest = { isProfileAvatarMenuExpanded = false }
+                                    ) {
+                                        DropdownMenuItem(
+                                            text = { Text(stringResource(R.string.view_story)) },
+                                            onClick = {
+                                                isProfileAvatarMenuExpanded = false
+                                                profileStoryItem?.story_ids?.firstOrNull()?.let(viewModel::openProfileStory)
+                                            }
+                                        )
+                                        DropdownMenuItem(
+                                            text = { Text(stringResource(R.string.profile_image)) },
+                                            onClick = {
+                                                isProfileAvatarMenuExpanded = false
+                                                isProfileImageViewerOpen = true
+                                            }
+                                        )
+                                    }
+                                }
 
                                 Column {
                                     Row(
@@ -522,7 +591,8 @@ fun ProfileScreen(username: String? = null) {
                         },
                         onShowTrackPlaylistAddersClick = { media, trackTitle ->
                             viewModel.openTrackPlaylistAddersDialog(media, trackTitle)
-                        }
+                        },
+                        showHistoricalWinnerMarkOnProfile = isOwnProfile
                     )
                 }
 

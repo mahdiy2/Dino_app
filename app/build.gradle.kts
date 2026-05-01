@@ -26,8 +26,8 @@ android {
         applicationId = "com.sec.message"
         minSdk = 28
         targetSdk = 36
-        versionCode = 39
-        versionName = "0.8.8beta"
+        versionCode = 42
+        versionName = "0.9.2beta"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -135,6 +135,8 @@ dependencies {
 
     // Optional: Common media utilities
     implementation(libs.androidx.media3.common)
+    implementation(libs.androidx.media3.transformer)
+    implementation(libs.androidx.media3.effect)
 
     // Coil
     implementation(libs.coil.compose)

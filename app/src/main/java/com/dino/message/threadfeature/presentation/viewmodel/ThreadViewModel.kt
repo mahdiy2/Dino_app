@@ -16,13 +16,27 @@ import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.dino.message.profilefeature.domain.model.Profile
 import com.dino.message.profilefeature.domain.usecase.GetMyProfileUseCase
 import com.dino.message.threadfeature.domain.model.Post
+import com.dino.message.threadfeature.domain.model.CreatePostMedia
 import com.dino.message.threadfeature.domain.model.PostMedia
+import com.dino.message.threadfeature.domain.model.StoryBundle
+import com.dino.message.threadfeature.domain.model.StoryDetail
+import com.dino.message.threadfeature.domain.model.StoryUserFeedItem
+import com.dino.message.threadfeature.domain.model.StoryViewer
 import com.dino.message.threadfeature.domain.model.VoteTargetType
 import com.dino.message.threadfeature.data.upload.PostUploadManager
 import com.dino.message.threadfeature.domain.usecase.AddTrackToPlaylistUseCase
 import com.dino.message.threadfeature.domain.usecase.BlockUserUseCase
 import com.dino.message.threadfeature.domain.usecase.GetPostsUseCase
 import com.dino.message.threadfeature.domain.usecase.IsTrackInPlaylistUseCase
+import com.dino.message.threadfeature.domain.usecase.GetStoryBundleUseCase
+import com.dino.message.threadfeature.domain.usecase.DeleteStoryUseCase
+import com.dino.message.threadfeature.domain.usecase.GetStoryFeedUseCase
+import com.dino.message.threadfeature.domain.usecase.GetStoryMentionCandidatesUseCase
+import com.dino.message.threadfeature.domain.usecase.GetStoryViewersUseCase
+import com.dino.message.threadfeature.domain.usecase.RecordStoryViewUseCase
+import com.dino.message.threadfeature.domain.usecase.ReplyToStoryUseCase
+import com.dino.message.threadfeature.domain.usecase.SetStoryLikeUseCase
+import com.dino.message.threadfeature.domain.usecase.UploadStoryUseCase
 import com.dino.message.threadfeature.domain.usecase.VoteUseCase
 import com.dino.message.activitynotificationfeature.domain.usecase.GetUnreadCountUseCase
 import com.dino.message.threadfeature.presentation.screen.CreatePostOptionsBottomSheetScreen
@@ -33,6 +47,7 @@ import com.ramcosta.composedestinations.generated.destinations.SearchScreenDesti
 import com.ramcosta.composedestinations.generated.destinations.MainScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.ProfileScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.ActivityNotificationScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.ChatScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.CreatePostOptionsBottomSheetScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.ReportPostBottomSheetScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.SharePostBottomSheetScreenDestination
@@ -47,6 +62,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -61,6 +78,15 @@ class ThreadViewModel @Inject constructor(
     private val blockUserUseCase: BlockUserUseCase,
     private val addTrackToPlaylistUseCase: AddTrackToPlaylistUseCase,
     private val isTrackInPlaylistUseCase: IsTrackInPlaylistUseCase,
+    private val getStoryFeedUseCase: GetStoryFeedUseCase,
+    private val getStoryMentionCandidatesUseCase: GetStoryMentionCandidatesUseCase,
+    private val getStoryBundleUseCase: GetStoryBundleUseCase,
+    private val deleteStoryUseCase: DeleteStoryUseCase,
+    private val recordStoryViewUseCase: RecordStoryViewUseCase,
+    private val setStoryLikeUseCase: SetStoryLikeUseCase,
+    private val getStoryViewersUseCase: GetStoryViewersUseCase,
+    private val replyToStoryUseCase: ReplyToStoryUseCase,
+    private val uploadStoryUseCase: UploadStoryUseCase,
     private val getMyProfileUseCase: GetMyProfileUseCase,
     private val dataStoreUtil: DataStoreUtil,
     private val sPrefManager: SPrefManager,
@@ -113,9 +139,34 @@ class ThreadViewModel @Inject constructor(
     val playlistFeedback: StateFlow<String?> = _playlistFeedback.asStateFlow()
     private val _backgroundUploadRefreshEvents = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val backgroundUploadRefreshEvents: SharedFlow<Unit> = _backgroundUploadRefreshEvents.asSharedFlow()
+    private val _storyFeed = MutableStateFlow<List<StoryUserFeedItem>>(emptyList())
+    val storyFeed: StateFlow<List<StoryUserFeedItem>> = _storyFeed.asStateFlow()
+    private val _storyFeedError = MutableStateFlow<String?>(null)
+    val storyFeedError: StateFlow<String?> = _storyFeedError.asStateFlow()
+    private val _isStoryFeedLoading = MutableStateFlow(false)
+    val isStoryFeedLoading: StateFlow<Boolean> = _isStoryFeedLoading.asStateFlow()
+    private val _activeStoryBundle = MutableStateFlow<StoryBundle?>(null)
+    val activeStoryBundle: StateFlow<StoryBundle?> = _activeStoryBundle.asStateFlow()
+    private val _isStoryViewerVisible = MutableStateFlow(false)
+    val isStoryViewerVisible: StateFlow<Boolean> = _isStoryViewerVisible.asStateFlow()
+    private val _storyActionInFlight = MutableStateFlow(false)
+    val storyActionInFlight: StateFlow<Boolean> = _storyActionInFlight.asStateFlow()
+    private val _storyFeedback = MutableStateFlow<String?>(null)
+    val storyFeedback: StateFlow<String?> = _storyFeedback.asStateFlow()
+    private val _storyViewers = MutableStateFlow<List<StoryViewer>>(emptyList())
+    val storyViewers: StateFlow<List<StoryViewer>> = _storyViewers.asStateFlow()
+    private val _storyViewerInsightsVisible = MutableStateFlow(false)
+    val storyViewerInsightsVisible: StateFlow<Boolean> = _storyViewerInsightsVisible.asStateFlow()
+    private val _storyViewersLoading = MutableStateFlow(false)
+    val storyViewersLoading: StateFlow<Boolean> = _storyViewersLoading.asStateFlow()
+    private val _storyMentionCandidates = MutableStateFlow<List<String>>(emptyList())
+    val storyMentionCandidates: StateFlow<List<String>> = _storyMentionCandidates.asStateFlow()
 
     private val socketOwner = "ThreadViewModel.activity"
+    private var storyMentionSearchJob: Job? = null
     private val currentUsername: String = sPrefManager.getUsername().orEmpty()
+    val viewerUsername: String
+        get() = currentUsername
 
     init {
         refresh()
@@ -149,7 +200,12 @@ class ThreadViewModel @Inject constructor(
         _posts.clear()
         postVoteByPost.clear()
         postErrorByPost.clear()
+        _activeStoryBundle.value = null
+        _isStoryViewerVisible.value = false
+        _storyViewerInsightsVisible.value = false
+        _storyViewers.value = emptyList()
         requestPage(isRefresh = true)
+        loadStoryFeed()
         loadProfile()
     }
 
@@ -418,6 +474,319 @@ class ThreadViewModel @Inject constructor(
         )
     }
 
+    fun loadStoryFeed() = viewModelScope.launch {
+        getStoryFeedUseCase.execute().collect { res ->
+            when (res) {
+                is Resource.Success -> {
+                    _storyFeed.value = res.data.user_stories
+                    _storyFeedError.value = null
+                    _isStoryFeedLoading.value = false
+                }
+
+                is Resource.Loading -> {
+                    _isStoryFeedLoading.value = true
+                }
+
+                is Resource.Error -> {
+                    _storyFeedError.value = res.message.asString(getApplication())
+                    _isStoryFeedLoading.value = false
+                }
+            }
+        }
+    }
+
+    fun openStoryById(storyId: Long) = viewModelScope.launch {
+        if (storyId <= 0L) return@launch
+        getStoryBundleUseCase.execute(storyId).collect { res ->
+            when (res) {
+                is Resource.Success -> {
+                    _activeStoryBundle.value = res.data
+                    _isStoryViewerVisible.value = true
+                    _storyFeedback.value = null
+                    recordStoryView(res.data.story.story_id)
+                }
+
+                is Resource.Loading -> {
+                    _storyActionInFlight.value = true
+                }
+
+                is Resource.Error -> {
+                    _storyActionInFlight.value = false
+                    _storyFeedback.value = res.message.asString(getApplication())
+                }
+            }
+        }
+        _storyActionInFlight.value = false
+    }
+
+    fun openStoryForUser(item: StoryUserFeedItem) {
+        val firstStoryId = item.story_ids.firstOrNull() ?: return
+        openStoryById(firstStoryId)
+    }
+
+    fun closeStoryViewer() {
+        _isStoryViewerVisible.value = false
+        _activeStoryBundle.value = null
+        _storyViewerInsightsVisible.value = false
+        _storyViewers.value = emptyList()
+        _storyActionInFlight.value = false
+    }
+
+    fun deleteStory(storyId: Long) = viewModelScope.launch {
+        if (storyId <= 0L) return@launch
+
+        deleteStoryUseCase.execute(storyId).collect { res ->
+            when (res) {
+                is Resource.Success -> {
+                    _storyActionInFlight.value = false
+                    _storyViewerInsightsVisible.value = false
+                    _storyViewers.value = emptyList()
+                    _storyFeedback.value = res.data.message
+                    _activeStoryBundle.value?.let { current ->
+                        val remainingStories = current.user_stories.filterNot { it.story_id == storyId }
+                        if (remainingStories.isEmpty()) {
+                            openNextStoryBundleOrClose()
+                        } else {
+                            _activeStoryBundle.value = current.copy(
+                                story = remainingStories.first(),
+                                user_stories = remainingStories
+                            )
+                        }
+                    }
+                    loadStoryFeed()
+                }
+
+                is Resource.Loading -> {
+                    _storyActionInFlight.value = true
+                }
+
+                is Resource.Error -> {
+                    _storyActionInFlight.value = false
+                    _storyFeedback.value = res.message.asString(getApplication())
+                }
+            }
+        }
+    }
+
+    fun openNextStoryBundleOrClose() {
+        openAdjacentStoryBundleOrClose(step = 1)
+    }
+
+    fun openPreviousStoryBundleOrClose() {
+        openAdjacentStoryBundleOrClose(step = -1)
+    }
+
+    private fun openAdjacentStoryBundleOrClose(step: Int) {
+        if (step == 0) return
+        val currentBundle = _activeStoryBundle.value ?: run {
+            closeStoryViewer()
+            return
+        }
+        val feed = _storyFeed.value
+        if (feed.isEmpty()) {
+            closeStoryViewer()
+            return
+        }
+
+        val ownerIndex = feed.indexOfFirst { it.user_id == currentBundle.owner.user_id }
+        if (ownerIndex == -1) {
+            closeStoryViewer()
+            return
+        }
+
+        val targetStoryId = if (step > 0) {
+            feed
+                .asSequence()
+                .drop(ownerIndex + 1)
+                .mapNotNull { item -> item.story_ids.firstOrNull() }
+                .firstOrNull()
+        } else {
+            feed
+                .asSequence()
+                .take(ownerIndex)
+                .toList()
+                .asReversed()
+                .mapNotNull { item -> item.story_ids.lastOrNull() }
+                .firstOrNull()
+        }
+
+        if (targetStoryId == null) {
+            closeStoryViewer()
+            return
+        }
+        openStoryById(targetStoryId)
+    }
+
+    fun recordStoryView(storyId: Long) = viewModelScope.launch {
+        if (storyId <= 0L) return@launch
+        recordStoryViewUseCase.execute(storyId).collect { res ->
+            when (res) {
+                is Resource.Success -> {
+                    _storyActionInFlight.value = false
+                    updateActiveStory(storyId) { current ->
+                        current.copy(
+                            view_count = res.data.view_count,
+                            viewer_has_viewed = true
+                        )
+                    }
+                }
+
+                is Resource.Loading -> {
+                    _storyActionInFlight.value = true
+                }
+
+                is Resource.Error -> {
+                    _storyActionInFlight.value = false
+                }
+            }
+        }
+    }
+
+    fun setStoryLike(storyId: Long, liked: Boolean) = viewModelScope.launch {
+        if (storyId <= 0L) return@launch
+        setStoryLikeUseCase.execute(storyId, liked).collect { res ->
+            when (res) {
+                is Resource.Success -> {
+                    _storyActionInFlight.value = false
+                    updateActiveStory(storyId) { current ->
+                        current.copy(
+                            like_count = res.data.like_count,
+                            view_count = res.data.view_count,
+                            viewer_liked = res.data.liked
+                        )
+                    }
+                    loadStoryFeed()
+                }
+
+                is Resource.Loading -> {
+                    _storyActionInFlight.value = true
+                }
+
+                is Resource.Error -> {
+                    _storyActionInFlight.value = false
+                    _storyFeedback.value = res.message.asString(getApplication())
+                }
+            }
+        }
+    }
+
+    fun replyToActiveStory(storyId: Long, replyText: String) = viewModelScope.launch {
+        val trimmed = replyText.trim()
+        if (storyId <= 0L || trimmed.isEmpty()) return@launch
+        replyToStoryUseCase.execute(storyId, trimmed).collect { res ->
+            when (res) {
+                is Resource.Success -> {
+                    _storyActionInFlight.value = false
+                    _storyFeedback.value = res.data.message
+                }
+
+                is Resource.Loading -> {
+                    _storyActionInFlight.value = true
+                }
+
+                is Resource.Error -> {
+                    _storyActionInFlight.value = false
+                    _storyFeedback.value = res.message.asString(getApplication())
+                }
+            }
+        }
+    }
+
+    fun fetchStoryViewers(storyId: Long) = viewModelScope.launch {
+        if (storyId <= 0L) return@launch
+        getStoryViewersUseCase.execute(storyId, page = 1, limit = 40).collect { res ->
+            when (res) {
+                is Resource.Success -> {
+                    _storyViewers.value = res.data.viewers
+                    _storyViewerInsightsVisible.value = true
+                    _storyViewersLoading.value = false
+                }
+
+                is Resource.Loading -> {
+                    _storyViewersLoading.value = true
+                }
+
+                is Resource.Error -> {
+                    _storyViewersLoading.value = false
+                    _storyFeedback.value = res.message.asString(getApplication())
+                }
+            }
+        }
+    }
+
+    fun dismissStoryInsights() {
+        _storyViewerInsightsVisible.value = false
+    }
+
+    fun uploadStory(media: CreatePostMedia, mentions: List<String> = emptyList()) = viewModelScope.launch {
+        uploadStoryUseCase.execute(media, mentions).collect { res ->
+            when (res) {
+                is Resource.Success -> {
+                    _storyActionInFlight.value = false
+                    _storyFeedback.value = "Story uploaded"
+                    loadStoryFeed()
+                }
+
+                is Resource.Loading -> {
+                    _storyActionInFlight.value = true
+                }
+
+                is Resource.Error -> {
+                    _storyActionInFlight.value = false
+                    _storyFeedback.value = res.message.asString(getApplication())
+                }
+            }
+        }
+    }
+
+    fun clearStoryFeedback() {
+        _storyFeedback.value = null
+    }
+
+    fun requestStoryMentionCandidates(query: String) {
+        val normalizedQuery = query.trim().removePrefix("@")
+        storyMentionSearchJob?.cancel()
+        storyMentionSearchJob = viewModelScope.launch {
+            if (normalizedQuery.isNotEmpty()) {
+                delay(180)
+            }
+            getStoryMentionCandidatesUseCase.execute(
+                query = normalizedQuery,
+                limit = 6
+            ).collect { res ->
+                when (res) {
+                    is Resource.Success -> {
+                        _storyMentionCandidates.value = res.data
+                            .asSequence()
+                            .map { it.trim() }
+                            .filter { it.isNotBlank() && !it.equals(currentUsername, ignoreCase = true) }
+                            .distinct()
+                            .take(6)
+                            .toList()
+                    }
+
+                    is Resource.Loading -> Unit
+
+                    is Resource.Error -> {
+                        _storyMentionCandidates.value = emptyList()
+                    }
+                }
+            }
+        }
+    }
+
+    private fun updateActiveStory(storyId: Long, transform: (StoryDetail) -> StoryDetail) {
+        val current = _activeStoryBundle.value ?: return
+        val updatedStories = current.user_stories.map { story ->
+            if (story.story_id == storyId) transform(story) else story
+        }
+        val updatedCurrentStory = updatedStories.firstOrNull { it.story_id == storyId } ?: current.story
+        _activeStoryBundle.value = current.copy(
+            story = updatedCurrentStory,
+            user_stories = updatedStories
+        )
+    }
+
     private fun seedVotesFromPosts(posts: List<Post>) {
         posts.forEach { post ->
             postVoteByPost[post.id] = post.viewerVote
@@ -444,6 +813,15 @@ class ThreadViewModel @Inject constructor(
         navigateToDestination(ActivityNotificationScreenDestination, viewModelScope)
     }
 
+    fun openChatWithUser(username: String) {
+        val normalized = username.trim()
+        if (normalized.isBlank()) return
+        navigateToDestination(
+            ChatScreenDestination(chatId = normalized),
+            viewModelScope
+        )
+    }
+
     fun fetchUnreadCount() = viewModelScope.launch {
         getUnreadCountUseCase.execute().collect { res ->
             when (res) {
@@ -464,6 +842,7 @@ class ThreadViewModel @Inject constructor(
     }
 
     override fun onCleared() {
+        storyMentionSearchJob?.cancel()
         appSocketManager.unregisterOwner(socketOwner)
         super.onCleared()
     }

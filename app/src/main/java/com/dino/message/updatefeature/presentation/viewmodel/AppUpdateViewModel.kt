@@ -28,7 +28,7 @@ class AppUpdateViewModel @Inject constructor(
 
         if (userLogIn) {
             navigateWithPopBackStackToDestination(
-                direction = ThreadScreenDestination,
+                direction = ThreadScreenDestination(),
                 scope = viewModelScope,
                 level = PopBackStackLevel.ALL,
             )

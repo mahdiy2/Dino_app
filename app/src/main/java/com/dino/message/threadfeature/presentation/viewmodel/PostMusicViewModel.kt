@@ -4,11 +4,13 @@ import android.content.Context
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.provider.OpenableColumns
+import android.webkit.MimeTypeMap
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.dino.message.DinoOrderApplication
+import com.dino.message.corefeature.data.upload.MediaMimePolicy
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
@@ -81,13 +83,13 @@ class PostMusicViewModel @Inject constructor(
 
     fun onMusicPicked(uri: Uri) {
         val resolver = getApplication<DinoOrderApplication>().contentResolver
-        val mimeType = resolver.getType(uri)?.lowercase().orEmpty()
-        if (!mimeType.startsWith("audio/")) {
+        val displayName = queryDisplayName(uri) ?: "music_track"
+        val mimeType = resolveMusicMimeType(uri, displayName)
+        if (mimeType == null) {
             _error.value = "Selected file is not a supported music file"
             return
         }
 
-        val displayName = queryDisplayName(uri) ?: "music_track"
         val (rawTitle, rawArtist) = extractMetadata(uri)
         val resolved = resolveMusicMetadata(
             displayName = displayName,
@@ -122,41 +124,56 @@ class PostMusicViewModel @Inject constructor(
 
         viewModelScope.launch {
             _isSubmitting.value = true
-            val media = withContext(Dispatchers.IO) {
-                buildMedia(track)
-            }
+            try {
+                val media = withContext(Dispatchers.IO) {
+                    buildMedia(track)
+                }
 
-            if (media == null) {
+                if (media == null) {
+                    _error.value = "Failed to read selected music file"
+                    return@launch
+                }
+
+                val username = sPrefManager.getUsername().orEmpty().trim()
+                if (username.isBlank()) {
+                    _error.value = "Session expired. Please log in again."
+                    return@launch
+                }
+
+                val hasInFlightUpload = withContext(Dispatchers.IO) {
+                    postUploadManager.hasInFlightUpload(username)
+                }
+                if (hasInFlightUpload) {
+                    _error.value = "Another post upload is already in progress. Please wait."
+                    return@launch
+                }
+
+                val workId = postUploadManager.enqueueUpload(
+                    username = username,
+                    text = text,
+                    followersOnly = followersOnly.value,
+                    quotedPostId = quotedPostId,
+                    mediaUris = listOf(media.uri.toString()),
+                    mediaNames = listOf(media.fileName),
+                    mediaMimeTypes = listOf(media.mimeType),
+                    trackTitle = media.trackTitle,
+                    trackArtist = media.trackArtist,
+                )
+                if (workId == null) {
+                    _error.value = "Another post upload is already in progress. Please wait."
+                    return@launch
+                }
+
+                _error.value = null
+                postDraft.value = ""
+                followersOnly.value = false
+                selectedTrack.value = null
+                navigateUp(viewModelScope)
+            } catch (_: Exception) {
+                _error.value = "Failed to queue post upload. Please try again."
+            } finally {
                 _isSubmitting.value = false
-                _error.value = "Failed to read selected music file"
-                return@launch
             }
-
-            val username = sPrefManager.getUsername().orEmpty().trim()
-            if (username.isBlank()) {
-                _isSubmitting.value = false
-                _error.value = "Session expired. Please log in again."
-                return@launch
-            }
-
-            postUploadManager.enqueueUpload(
-                username = username,
-                text = text,
-                followersOnly = followersOnly.value,
-                quotedPostId = quotedPostId,
-                mediaUris = listOf(media.uri.toString()),
-                mediaNames = listOf(media.fileName),
-                mediaMimeTypes = listOf(media.mimeType),
-                trackTitle = media.trackTitle,
-                trackArtist = media.trackArtist,
-            )
-
-            _isSubmitting.value = false
-            _error.value = null
-            postDraft.value = ""
-            followersOnly.value = false
-            selectedTrack.value = null
-            navigateUp(viewModelScope)
         }
     }
 
@@ -239,6 +256,60 @@ class PostMusicViewModel @Inject constructor(
             title to artist
         } catch (_: Exception) {
             null to null
+        } finally {
+            try {
+                retriever.release()
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    private fun resolveMusicMimeType(uri: Uri, displayName: String): String? {
+        val resolver = getApplication<DinoOrderApplication>().contentResolver
+        val rawResolverMime = MediaMimePolicy.normalizeMimeType(resolver.getType(uri))
+        if (MediaMimePolicy.isBlockedForSecurity(rawResolverMime)) {
+            return null
+        }
+        if (rawResolverMime.startsWith("audio/")) {
+            return rawResolverMime
+        }
+
+        val retrieverMime = extractRetrieverMimeType(uri)
+        if (retrieverMime.startsWith("audio/")) {
+            return retrieverMime
+        }
+
+        val extension = displayName
+            .substringAfterLast('.', "")
+            .lowercase()
+            .takeIf { it.isNotBlank() }
+        if (extension != null) {
+            val guessedMime = MediaMimePolicy.normalizeMimeType(
+                MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension)
+            )
+            if (guessedMime.startsWith("audio/")) {
+                return guessedMime
+            }
+            val resolverMimeIsGeneric = rawResolverMime.isBlank() ||
+                rawResolverMime == "application/octet-stream"
+            if (resolverMimeIsGeneric && !MediaMimePolicy.isBlockedForSecurity("audio/$extension")) {
+                return "audio/$extension"
+            }
+        }
+
+        return null
+    }
+
+    private fun extractRetrieverMimeType(uri: Uri): String {
+        val retriever = MediaMetadataRetriever()
+        return try {
+            retriever.setDataSource(getApplication<DinoOrderApplication>(), uri)
+            MediaMetadataRetriever.METADATA_KEY_MIMETYPE
+                .let(retriever::extractMetadata)
+                .orEmpty()
+                .lowercase()
+        } catch (_: Exception) {
+            ""
         } finally {
             try {
                 retriever.release()

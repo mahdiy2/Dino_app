@@ -11,6 +11,13 @@ import com.dino.message.threadfeature.domain.model.Post
 import com.dino.message.threadfeature.domain.model.PostsPage
 import com.dino.message.threadfeature.domain.model.PlaylistPage
 import com.dino.message.threadfeature.domain.model.PlaylistTrackMutation
+import com.dino.message.threadfeature.domain.model.StoryBundle
+import com.dino.message.threadfeature.domain.model.StoryFeed
+import com.dino.message.threadfeature.domain.model.StoryLikeResult
+import com.dino.message.threadfeature.domain.model.StoryReplyResult
+import com.dino.message.threadfeature.domain.model.StoryUploadResult
+import com.dino.message.threadfeature.domain.model.StoryViewResult
+import com.dino.message.threadfeature.domain.model.StoryViewersPage
 import com.dino.message.threadfeature.domain.model.VoteResult
 
 interface ThreadRepository {
@@ -44,4 +51,32 @@ interface ThreadRepository {
     suspend fun getPlaylistTracks(page: Int, limit: Int): Resource<PlaylistPage>
 
     suspend fun isTrackInPlaylist(trackUrl: String): Resource<Boolean>
+
+    suspend fun uploadStory(
+        mediaFile: CreatePostMedia,
+        mentionUsernames: List<String> = emptyList()
+    ): Resource<StoryUploadResult>
+
+    suspend fun getStoryFeed(): Resource<StoryFeed>
+
+    suspend fun getStoryBundle(storyId: Long): Resource<StoryBundle>
+
+    suspend fun deleteStory(storyId: Long): Resource<DeleteContentResult>
+
+    suspend fun recordStoryView(storyId: Long): Resource<StoryViewResult>
+
+    suspend fun setStoryLike(storyId: Long, liked: Boolean): Resource<StoryLikeResult>
+
+    suspend fun getStoryViewers(
+        storyId: Long,
+        page: Int,
+        limit: Int
+    ): Resource<StoryViewersPage>
+
+    suspend fun replyToStory(storyId: Long, replyText: String): Resource<StoryReplyResult>
+
+    suspend fun getStoryMentionCandidates(
+        query: String,
+        limit: Int = 6
+    ): Resource<List<String>>
 }

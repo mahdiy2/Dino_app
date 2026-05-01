@@ -58,6 +58,7 @@ import com.ramcosta.composedestinations.generated.destinations.PrivateKeyResetDi
 import com.ramcosta.composedestinations.generated.destinations.PlaylistBottomSheetScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.ProfileScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.SharedPostDetailsScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.ThreadScreenDestination
 import java.security.PublicKey
 import javax.inject.Inject
 
@@ -502,6 +503,7 @@ class ChatViewModel @Inject constructor(
 
         val messageContent = decryptHistoryMessageText(historyMessage)
         val replyPreview = decryptHistoryReplyPreview(historyMessage)
+        val attachmentMeta = resolveAttachmentMetadata(historyMessage.attachment)
 
         return MessageEntity(
             messageId = historyMessage.messageId,
@@ -510,11 +512,11 @@ class ChatViewModel @Inject constructor(
             content = messageContent,
             timestamp = historyMessage.timestamp,
             messageType = historyMessage.type,
-            attachmentType = historyMessage.attachment?.type,
-            attachmentUrl = historyMessage.attachment?.url,
-            attachmentMimeType = historyMessage.attachment?.mimeType,
-            attachmentFileName = historyMessage.attachment?.fileName,
-            attachmentSizeBytes = historyMessage.attachment?.sizeBytes,
+            attachmentType = attachmentMeta.type,
+            attachmentUrl = attachmentMeta.url,
+            attachmentMimeType = attachmentMeta.mimeType,
+            attachmentFileName = attachmentMeta.fileName,
+            attachmentSizeBytes = attachmentMeta.sizeBytes,
             replyToMessageId = historyMessage.replyToMessageId,
             replyToSender = historyMessage.replyToSender,
             replyPreview = replyPreview,
@@ -524,7 +526,13 @@ class ChatViewModel @Inject constructor(
     private fun decryptHistoryMessageText(historyMessage: PrivateHistoryMessage): String {
         val encryptedMessage = historyMessage.message.orEmpty()
         val encryptedKey = historyMessage.encryptedKey.orEmpty()
-        if (encryptedMessage.isBlank() || encryptedKey.isBlank()) {
+        if (encryptedMessage.isBlank()) {
+            return ""
+        }
+        if (isServerPlaintextStoryMessage(historyMessage.attachment?.type, encryptedKey)) {
+            return encryptedMessage
+        }
+        if (encryptedKey.isBlank()) {
             return ""
         }
         return runCatching {
@@ -552,6 +560,54 @@ class ChatViewModel @Inject constructor(
                 privateKey = decodePrivateKey(spref.getPrivateKey() ?: ""),
             )
         }.getOrNull()
+    }
+
+    private fun isServerPlaintextStoryMessage(
+        attachmentType: String?,
+        encryptedKey: String?
+    ): Boolean {
+        val normalizedAttachmentType = attachmentType?.trim()?.lowercase()
+        if (normalizedAttachmentType == "story_reply" || normalizedAttachmentType == "story_mention") {
+            return true
+        }
+        val normalizedKey = encryptedKey?.trim()?.lowercase()
+        return normalizedKey == "story_reply" || normalizedKey == "story_mention"
+    }
+
+    private data class AttachmentMetadata(
+        val type: String? = null,
+        val url: String? = null,
+        val mimeType: String? = null,
+        val fileName: String? = null,
+        val sizeBytes: Long? = null
+    )
+
+    private fun resolveAttachmentMetadata(
+        attachment: com.dino.message.chatfeature.data.remote.dto.MessageAttachment?
+    ): AttachmentMetadata {
+        if (attachment == null) return AttachmentMetadata()
+        val normalizedType = attachment.type.trim().lowercase()
+        if (normalizedType == "story_reply" || normalizedType == "story_mention") {
+            return AttachmentMetadata(
+                type = attachment.type,
+                url = attachment.storyMediaUrl
+                    ?: attachment.storyReferencePreview?.mediaUrl
+                    ?: attachment.url,
+                mimeType = attachment.storyMediaType ?: attachment.mimeType,
+                fileName = attachment.storyLink
+                    ?: attachment.storyId?.toString()
+                    ?: attachment.storyReferencePreview?.storyId?.toString()
+                    ?: attachment.fileName,
+                sizeBytes = attachment.sizeBytes
+            )
+        }
+        return AttachmentMetadata(
+            type = attachment.type,
+            url = attachment.url,
+            mimeType = attachment.mimeType,
+            fileName = attachment.fileName,
+            sizeBytes = attachment.sizeBytes
+        )
     }
 
     private fun syncOutgoingStatuses(dbMessages: List<MessageEntity>) {
@@ -690,6 +746,18 @@ class ChatViewModel @Inject constructor(
 
     fun openPlaylistBottomSheet() {
         navigateToDestination(PlaylistBottomSheetScreenDestination, viewModelScope)
+    }
+
+    fun openStoryFromAttachment(message: MessageEntity): Boolean {
+        val normalizedType = message.attachmentType?.trim()?.lowercase() ?: return false
+        if (normalizedType != "story_reply" && normalizedType != "story_mention") return false
+
+        val storyId = extractStoryIdFromAttachment(message) ?: return false
+        navigateToDestination(
+            ThreadScreenDestination(initialStoryId = storyId),
+            viewModelScope
+        )
+        return true
     }
 
     fun openPlaylistBottomSheetIfTrackExists(trackUrl: String) = viewModelScope.launch {
@@ -1628,12 +1696,48 @@ class ChatViewModel @Inject constructor(
         val targetChatId = sender
 
         if (attachmentObj != null) {
+            val attachmentType = attachmentObj.optString("type", "")
+            val isPlaintextStoryMessage = isServerPlaintextStoryMessage(attachmentType, encryptedKey)
+            val storyMediaUrl = attachmentObj.optString("story_media_url", "").ifBlank { null }
+            val storyMediaType = attachmentObj.optString("story_media_type", "").ifBlank { null }
+            val storyLink = attachmentObj.optString("story_link", "").ifBlank { null }
+            val storyReferencePreview = attachmentObj.optJSONObject("story_reference_preview")
+            val fallbackStoryMediaUrl = storyReferencePreview
+                ?.optString("media_url", "")
+                ?.ifBlank { null }
+            val fallbackStoryId = storyReferencePreview
+                ?.optLong("story_id")
+                ?.takeIf { it > 0L }
+            val storyId = attachmentObj.optLong("story_id").takeIf { it > 0L } ?: fallbackStoryId
+            val resolvedAttachmentUrl = if (isPlaintextStoryMessage) {
+                storyMediaUrl
+                    ?: fallbackStoryMediaUrl
+                    ?: attachmentObj.optString("url", "").ifBlank { null }
+            } else {
+                attachmentObj.optString("url", "").ifBlank { null }
+            }
+            val resolvedAttachmentMimeType = if (isPlaintextStoryMessage) {
+                storyMediaType ?: attachmentObj.optString("mime_type", "").ifBlank { null }
+            } else {
+                attachmentObj.optString("mime_type", "").ifBlank { null }
+            }
+            val resolvedAttachmentFileName = if (isPlaintextStoryMessage) {
+                storyLink ?: storyId?.toString() ?: attachmentObj.optString("file_name", "").ifBlank { null }
+            } else {
+                attachmentObj.optString("file_name", "").ifBlank { null }
+            }
             val decryptedCaption = if (encryptedMessage.isNotBlank() && encryptedKey.isNotBlank()) {
                 try {
                     val privateKey = spref.getPrivateKey() ?: ""
                     decryptMessage(encryptedMessage, encryptedKey, decodePrivateKey(privateKey))
-                } catch (e: Exception) { "" }
-            } else ""
+                } catch (e: Exception) {
+                    if (isPlaintextStoryMessage) encryptedMessage else ""
+                }
+            } else if (isPlaintextStoryMessage) {
+                encryptedMessage
+            } else {
+                ""
+            }
 
             saveMessageToDb(
                 MessageEntity(
@@ -1643,10 +1747,10 @@ class ChatViewModel @Inject constructor(
                     content = decryptedCaption,
                     timestamp = timestamp,
                     messageType = type,
-                    attachmentType = attachmentObj.optString("type"),
-                    attachmentUrl = attachmentObj.optString("url"),
-                    attachmentMimeType = attachmentObj.optString("mime_type"),
-                    attachmentFileName = attachmentObj.optString("file_name"),
+                    attachmentType = attachmentType.ifBlank { null },
+                    attachmentUrl = resolvedAttachmentUrl,
+                    attachmentMimeType = resolvedAttachmentMimeType,
+                    attachmentFileName = resolvedAttachmentFileName,
                     attachmentSizeBytes = attachmentObj.optLong("size_bytes", 0),
                     replyToMessageId = replyToMessageId,
                     replyToSender = replyToSender,
@@ -1943,6 +2047,26 @@ class ChatViewModel @Inject constructor(
                 )
             )
         }
+    }
+
+    private fun extractStoryIdFromAttachment(message: MessageEntity): Long? {
+        val directId = message.attachmentFileName
+            ?.trim()
+            ?.toLongOrNull()
+            ?.takeIf { it > 0L }
+        if (directId != null) return directId
+
+        val storyLink = message.attachmentFileName
+            ?.takeIf { it.startsWith("http://") || it.startsWith("https://") }
+            ?: return null
+
+        return runCatching {
+            Uri.parse(storyLink)
+                .pathSegments
+                .lastOrNull()
+                ?.toLongOrNull()
+                ?.takeIf { it > 0L }
+        }.getOrNull()
     }
 
     private fun Any.toDebugString(): String = when (this) {

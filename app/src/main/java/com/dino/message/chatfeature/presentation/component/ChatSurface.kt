@@ -142,6 +142,7 @@ fun ChatSurface(
                         text = it.content,
                         sent = isMine,
                         messageType = it.messageType,
+                        attachmentType = it.attachmentType,
                         attachmentUrl = it.attachmentUrl,
                         attachmentMimeType = it.attachmentMimeType,
                         attachmentFileName = it.attachmentFileName,

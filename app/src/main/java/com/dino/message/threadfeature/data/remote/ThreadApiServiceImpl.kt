@@ -1,6 +1,7 @@
 package com.dino.message.threadfeature.data.remote
 
 import android.content.Context
+import android.media.MediaMetadataRetriever
 import android.provider.OpenableColumns
 import com.dino.message.corefeature.data.remote.HaveRefreshTokenAPI
 import com.dino.message.corefeature.data.remote.HaveRefreshTokenAPIImpl
@@ -22,6 +23,17 @@ import com.dino.message.threadfeature.data.remote.dto.GetPlaylistTracksResponse
 import com.dino.message.threadfeature.data.remote.dto.PlaylistTrackExistsResponse
 import com.dino.message.threadfeature.data.remote.dto.GetPostResponse
 import com.dino.message.threadfeature.data.remote.dto.GetPostsResponse
+import com.dino.message.threadfeature.data.remote.dto.GetStoryBundleResponse
+import com.dino.message.threadfeature.data.remote.dto.GetStoryFeedResponse
+import com.dino.message.threadfeature.data.remote.dto.GetStoryMentionCandidatesResponse
+import com.dino.message.threadfeature.data.remote.dto.GetStoryViewersResponse
+import com.dino.message.threadfeature.data.remote.dto.StoryLikeRequest
+import com.dino.message.threadfeature.data.remote.dto.StoryLikeResponse
+import com.dino.message.threadfeature.data.remote.dto.StoryReplyRequest
+import com.dino.message.threadfeature.data.remote.dto.StoryReplyResponse
+import com.dino.message.threadfeature.data.remote.dto.StoryUploadResponse
+import com.dino.message.threadfeature.data.remote.dto.StoryViewRequest
+import com.dino.message.threadfeature.data.remote.dto.StoryViewResponse
 import com.dino.message.threadfeature.data.remote.dto.VoteRequest
 import com.dino.message.threadfeature.data.remote.dto.VoteResponse
 import com.dino.message.threadfeature.domain.model.BlockedUserResult
@@ -34,6 +46,13 @@ import com.dino.message.threadfeature.domain.model.Post
 import com.dino.message.threadfeature.domain.model.PostsPage
 import com.dino.message.threadfeature.domain.model.PlaylistPage
 import com.dino.message.threadfeature.domain.model.PlaylistTrackMutation
+import com.dino.message.threadfeature.domain.model.StoryBundle
+import com.dino.message.threadfeature.domain.model.StoryFeed
+import com.dino.message.threadfeature.domain.model.StoryLikeResult
+import com.dino.message.threadfeature.domain.model.StoryReplyResult
+import com.dino.message.threadfeature.domain.model.StoryUploadResult
+import com.dino.message.threadfeature.domain.model.StoryViewResult
+import com.dino.message.threadfeature.domain.model.StoryViewersPage
 import com.dino.message.threadfeature.domain.model.VoteResult
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.ktor.client.HttpClient
@@ -61,6 +80,7 @@ class ThreadApiServiceImpl @Inject constructor(
 ) : ThreadApiService, HaveRefreshTokenAPI by HaveRefreshTokenAPIImpl(httpClient, sPrefManager) {
     companion object {
         private const val MAX_MEDIA_FILES_PER_POST = 8
+        private const val MAX_STORY_VIDEO_DURATION_SECONDS = 30.0
     }
 
     override suspend fun createPost(
@@ -326,4 +346,195 @@ class ThreadApiServiceImpl @Inject constructor(
             },
             callRefreshTokenAPI = this::getToken
         )
+
+    override suspend fun uploadStory(
+        mediaFile: CreatePostMedia,
+        mentionUsernames: List<String>
+    ): Resource<StoryUploadResult> {
+        val normalizedMimeType = mediaFile.mimeType.trim().lowercase()
+        if (normalizedMimeType.startsWith("video/")) {
+            val durationSeconds = resolveVideoDurationSeconds(mediaFile)
+            if (durationSeconds != null && durationSeconds > MAX_STORY_VIDEO_DURATION_SECONDS) {
+                return Resource.Error(
+                    message = "Story videos must be 30 seconds or shorter"
+                        .asStringResourceContent()
+                )
+            }
+        }
+
+        return httpAPIUtil.callAPIWithErrorHandling<StoryUploadResult, StoryUploadResponse>(
+            callAPI = {
+                httpClient.post(ThreadRoute.UploadStory.url) {
+                    appendTokenToHeader(sPrefManager.getToken())
+                    setBody(
+                        MultiPartFormDataContent(
+                            formData {
+                                val fileName = mediaFile.fileName.ifBlank { "story_media" }
+                                append(
+                                    key = "file",
+                                    value = InputProvider(size = resolveFileSize(mediaFile)) {
+                                        openInputStream(mediaFile).asInput()
+                                    },
+                                    headers = Headers.build {
+                                        append(
+                                            HttpHeaders.ContentDisposition,
+                                            "form-data; name=\"file\"; filename=\"$fileName\""
+                                        )
+                                        append(HttpHeaders.ContentType, mediaFile.mimeType)
+                                    }
+                                )
+                                mentionUsernames
+                                    .asSequence()
+                                    .map { it.trim() }
+                                    .filter { it.isNotBlank() }
+                                    .forEach { mention ->
+                                        append("mentions[]", mention)
+                                    }
+                            }
+                        )
+                    )
+                }
+            },
+            callRefreshTokenAPI = this::getToken
+        )
+    }
+
+    override suspend fun getStoryFeed(): Resource<StoryFeed> =
+        httpAPIUtil.callAPIWithErrorHandling<StoryFeed, GetStoryFeedResponse>(
+            callAPI = {
+                httpClient.get(ThreadRoute.StoryFeed.url) {
+                    contentType(ContentType.Application.Json)
+                    appendTokenToHeader(sPrefManager.getToken())
+                }
+            },
+            callRefreshTokenAPI = this::getToken
+        )
+
+    override suspend fun getStoryBundle(storyId: Long): Resource<StoryBundle> =
+        httpAPIUtil.callAPIWithErrorHandling<StoryBundle, GetStoryBundleResponse>(
+            callAPI = {
+                httpClient.get(ThreadRoute.StoryById(storyId).url) {
+                    contentType(ContentType.Application.Json)
+                    appendTokenToHeader(sPrefManager.getToken())
+                }
+            },
+            callRefreshTokenAPI = this::getToken
+        )
+
+    override suspend fun deleteStory(storyId: Long): Resource<DeleteContentResult> =
+        httpAPIUtil.callAPIWithErrorHandling<DeleteContentResult, DeleteContentResponse>(
+            callAPI = {
+                httpClient.delete(ThreadRoute.DeleteStory(storyId).url) {
+                    contentType(ContentType.Application.Json)
+                    appendTokenToHeader(sPrefManager.getToken())
+                }
+            },
+            callRefreshTokenAPI = this::getToken
+        )
+
+    override suspend fun recordStoryView(storyId: Long): Resource<StoryViewResult> =
+        httpAPIUtil.callAPIWithErrorHandling<StoryViewResult, StoryViewResponse>(
+            callAPI = {
+                httpClient.post(ThreadRoute.StoryView.url) {
+                    contentType(ContentType.Application.Json)
+                    appendTokenToHeader(sPrefManager.getToken())
+                    setBody(StoryViewRequest(story_id = storyId))
+                }
+            },
+            callRefreshTokenAPI = this::getToken
+        )
+
+    override suspend fun setStoryLike(storyId: Long, liked: Boolean): Resource<StoryLikeResult> =
+        httpAPIUtil.callAPIWithErrorHandling<StoryLikeResult, StoryLikeResponse>(
+            callAPI = {
+                httpClient.post(ThreadRoute.StoryLike.url) {
+                    contentType(ContentType.Application.Json)
+                    appendTokenToHeader(sPrefManager.getToken())
+                    setBody(
+                        StoryLikeRequest(
+                            story_id = storyId,
+                            liked = liked
+                        )
+                    )
+                }
+            },
+            callRefreshTokenAPI = this::getToken
+        )
+
+    override suspend fun getStoryViewers(
+        storyId: Long,
+        page: Int,
+        limit: Int
+    ): Resource<StoryViewersPage> =
+        httpAPIUtil.callAPIWithErrorHandling<StoryViewersPage, GetStoryViewersResponse>(
+            callAPI = {
+                httpClient.get(ThreadRoute.StoryViewers(storyId, page, limit).url) {
+                    contentType(ContentType.Application.Json)
+                    appendTokenToHeader(sPrefManager.getToken())
+                }
+            },
+            callRefreshTokenAPI = this::getToken
+        )
+
+    override suspend fun replyToStory(
+        storyId: Long,
+        replyText: String
+    ): Resource<StoryReplyResult> =
+        httpAPIUtil.callAPIWithErrorHandling<StoryReplyResult, StoryReplyResponse>(
+            callAPI = {
+                httpClient.post(ThreadRoute.StoryReply.url) {
+                    contentType(ContentType.Application.Json)
+                    appendTokenToHeader(sPrefManager.getToken())
+                    setBody(
+                        StoryReplyRequest(
+                            story_id = storyId,
+                            reply_text = replyText
+                        )
+                    )
+                }
+            },
+            callRefreshTokenAPI = this::getToken
+        )
+
+    override suspend fun getStoryMentionCandidates(
+        query: String,
+        limit: Int
+    ): Resource<List<String>> =
+        httpAPIUtil.callAPIWithErrorHandling<List<String>, GetStoryMentionCandidatesResponse>(
+            callAPI = {
+                httpClient.get(ThreadRoute.StoryMentions.url) {
+                    contentType(ContentType.Application.Json)
+                    appendTokenToHeader(sPrefManager.getToken())
+                    parameter("q", query)
+                    parameter("limit", limit)
+                }
+            },
+            callRefreshTokenAPI = this::getToken
+        )
+
+    private fun resolveVideoDurationSeconds(mediaFile: CreatePostMedia): Double? {
+        val retriever = MediaMetadataRetriever()
+        return try {
+            val uri = mediaFile.uri
+            if (uri.scheme == "file") {
+                val path = uri.path ?: return null
+                retriever.setDataSource(path)
+            } else {
+                retriever.setDataSource(appContext, uri)
+            }
+            val durationMillis = retriever
+                .extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+                ?.toLongOrNull()
+                ?: return null
+            durationMillis / 1000.0
+        } catch (_: Exception) {
+            null
+        } finally {
+            try {
+                retriever.release()
+            } catch (_: Exception) {
+                Unit
+            }
+        }
+    }
 }

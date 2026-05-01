@@ -249,6 +249,7 @@
     <string name="download_media">Download media</string>
     <string name="saved_to_gallery">Saved to gallery</string>
     <string name="save_failed">Failed to save</string>
+    <string name="view_story">View Story</string>
     <string name="send_to_count">Send to %1$d</string>
     <string name="send_voice">Send voice</string>
     <string name="sending">Sending...</string>
@@ -328,6 +329,8 @@
     <string name="notification_title_like_milestone_many">Your post %1$s has received many likes</string>
     <string name="notification_title_comment_milestone_count">Your post %1$s has received comments from %2$d people</string>
     <string name="notification_title_comment_milestone_many">Your post %1$s has received many comments</string>
+    <string name="notification_title_story_mention">%1$s mentioned you in a story</string>
+    <string name="notification_title_story_reply">%1$s replied to your story</string>
     <string name="notification_title_interacted">%1$s interacted with you</string>
     <string name="notification_subtitle_comment_post">Comment: "%1$s"
 Post: "%2$s"</string>
@@ -336,6 +339,9 @@ Post: "%2$s"</string>
     <string name="notification_subtitle_reply">Reply: "%1$s"</string>
     <string name="notification_subtitle_on_comment">On comment: "%1$s"</string>
     <string name="notification_subtitle_milestone">Milestone reached: %1$d%% of active users</string>
+    <string name="notification_subtitle_story_mention">You were mentioned in a story.</string>
+    <string name="notification_subtitle_story_reply">Someone replied to your story.</string>
+    <string name="notification_subtitle_story_reply_with_preview">Reply: "%1$s"</string>
     <string name="quote_post">Quote post</string>
     <string name="share_post">Share post</string>
     <string name="author_avatar">Author avatar</string>
@@ -402,5 +408,8 @@ Post: "%2$s"</string>
     <string name="badge_type_staff">Staff badge</string>
     <string name="badge_type_moderator">Moderator badge</string>
     <string name="badge_type_verified">Verified badge</string>
+    <string name="badge_type_post_of_day">Post of the Day badge</string>
     <string name="badge_type_unknown">badge</string>
+    <string name="post_winner_today_label">Winner today</string>
+    <string name="post_winner_history_label">Winner</string>
 </resources>

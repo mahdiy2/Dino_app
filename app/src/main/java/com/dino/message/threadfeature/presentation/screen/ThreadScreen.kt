@@ -1,5 +1,6 @@
 package com.dino.message.threadfeature.presentation.screen
 
+import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateIntOffsetAsState
@@ -38,7 +39,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -48,7 +48,6 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.runtime.Composable
@@ -65,6 +64,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.res.painterResource
@@ -73,6 +73,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Create
@@ -89,7 +92,11 @@ import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.threadfeature.presentation.component.FloatingDockNavigation
 import com.dino.message.threadfeature.presentation.component.NowPlayingTopBarRow
+import com.dino.message.threadfeature.presentation.component.StoryEditorOverlay
+import com.dino.message.threadfeature.presentation.component.StoryRow
+import com.dino.message.threadfeature.presentation.component.StoryViewerOverlay
 import com.dino.message.threadfeature.presentation.component.ThreadPostCard
+import com.dino.message.threadfeature.domain.model.CreatePostMedia
 import com.dino.message.threadfeature.presentation.music.MusicPlaybackManager
 import com.dino.message.threadfeature.presentation.viewmodel.ThreadViewModel
 import com.ramcosta.composedestinations.annotation.Destination
@@ -103,7 +110,7 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Destination<RootGraph>
 @Composable
-fun ThreadScreen() {
+fun ThreadScreen(initialStoryId: Long? = null) {
     val viewModel: ThreadViewModel = hiltViewModel()
     val listState = rememberLazyListState()
     val profile = viewModel.profile.value
@@ -111,7 +118,7 @@ fun ThreadScreen() {
     val isBadgeFeaturesDialogDismissed by viewModel.isBadgeFeaturesDialogDismissed.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    val topBarHeight = 64.dp + statusBarTop
+    val topBarHeightFallback = 64.dp + statusBarTop
     val isLoadingMore by viewModel.isLoadingMore.collectAsState()
     val postsError by viewModel.error.collectAsState()
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -121,7 +128,20 @@ fun ThreadScreen() {
     val playbackState by MusicPlaybackManager.playbackState.collectAsState()
     val hasNowPlaying = !playbackState.currentTrackUrl.isNullOrBlank()
     val snackbarHostState = remember { SnackbarHostState() }
-    val createOptionsSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val storyFeed by viewModel.storyFeed.collectAsState()
+    val storyFeedError by viewModel.storyFeedError.collectAsState()
+    val isStoryFeedLoading by viewModel.isStoryFeedLoading.collectAsState()
+    val activeStoryBundle by viewModel.activeStoryBundle.collectAsState()
+    val isStoryViewerVisible by viewModel.isStoryViewerVisible.collectAsState()
+    val storyActionInFlight by viewModel.storyActionInFlight.collectAsState()
+    val storyFeedback by viewModel.storyFeedback.collectAsState()
+    val storyViewers by viewModel.storyViewers.collectAsState()
+    val storyViewerInsightsVisible by viewModel.storyViewerInsightsVisible.collectAsState()
+    val storyViewersLoading by viewModel.storyViewersLoading.collectAsState()
+    val storyMentionCandidates by viewModel.storyMentionCandidates.collectAsState()
+    val context = LocalContext.current
+    var hasOpenedInitialStory by remember(initialStoryId) { mutableStateOf(false) }
+    var pendingStoryEditorMedia by remember { mutableStateOf<CreatePostMedia?>(null) }
 
     val coroutineScope = rememberCoroutineScope()
     val refreshFromTop: () -> Unit = {
@@ -146,6 +166,11 @@ fun ThreadScreen() {
     var topBarHeightPx by remember { mutableIntStateOf(0) }
     var nowPlayingHeightPx by remember { mutableIntStateOf(0) }
     val density = LocalDensity.current
+    val topBarHeight = if (topBarHeightPx > 0) {
+        with(density) { topBarHeightPx.toDp() }
+    } else {
+        topBarHeightFallback
+    }
     val nowPlayingHeightDp = with(density) { nowPlayingHeightPx.toDp() }
     val reservedNowPlayingHeight = if (!hasNowPlaying) 0.dp else nowPlayingHeightDp.takeIf { it > 0.dp } ?: 64.dp
     val topBarOffsetY by animateIntOffsetAsState(
@@ -160,6 +185,20 @@ fun ThreadScreen() {
 
     LaunchedEffect(hasNowPlaying) {
         if (!hasNowPlaying) nowPlayingHeightPx = 0
+    }
+
+    LaunchedEffect(initialStoryId, hasOpenedInitialStory) {
+        val storyId = initialStoryId ?: return@LaunchedEffect
+        if (!hasOpenedInitialStory && storyId > 0L) {
+            hasOpenedInitialStory = true
+            viewModel.openStoryById(storyId)
+        }
+    }
+
+    LaunchedEffect(pendingStoryEditorMedia != null) {
+        if (pendingStoryEditorMedia != null) {
+            viewModel.requestStoryMentionCandidates(query = "")
+        }
     }
 
     DisposableEffect(lifecycleOwner) {
@@ -193,6 +232,40 @@ fun ThreadScreen() {
             viewModel.clearPlaylistFeedback()
         }
     }
+
+    LaunchedEffect(storyFeedback) {
+        storyFeedback?.let { message ->
+            snackbarHostState.showSnackbar(message)
+            viewModel.clearStoryFeedback()
+        }
+    }
+
+    val storyPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            val mimeType = context.contentResolver.getType(uri).orEmpty()
+            val normalizedMimeType = if (mimeType.isBlank()) "image/jpeg" else mimeType
+            val guessedFileName = uri.lastPathSegment
+                ?.substringAfterLast('/')
+                ?.ifBlank { "story_media" }
+                ?: "story_media"
+            pendingStoryEditorMedia = CreatePostMedia(
+                uri = uri,
+                fileName = guessedFileName,
+                mimeType = normalizedMimeType
+            )
+        }
+    }
+
+    val launchNewStoryPicker = {
+        storyPickerLauncher.launch(
+            PickVisualMediaRequest(
+                ActivityResultContracts.PickVisualMedia.ImageAndVideo
+            )
+        )
+    }
+    val ownStory = storyFeed.firstOrNull { it.username == viewModel.viewerUsername }
 
     LaunchedEffect(Unit) {
         viewModel.backgroundUploadRefreshEvents.collectLatest {
@@ -244,6 +317,54 @@ fun ThreadScreen() {
                                         .fillMaxWidth()
                                         .height(reservedNowPlayingHeight)
                                 )
+                            }
+                        }
+
+                        item(key = "thread_story_row") {
+                            StoryRow(
+                                items = storyFeed.filter { it.username != viewModel.viewerUsername },
+                                viewerProfile = profile,
+                                hasActiveYourStory = ownStory?.story_ids?.isNotEmpty() == true,
+                                onViewYourStory = {
+                                    ownStory?.let(viewModel::openStoryForUser)
+                                },
+                                onCreateNewStory = launchNewStoryPicker,
+                                onStoryClick = viewModel::openStoryForUser,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = DPMedium)
+                            )
+                        }
+
+                        if (storyFeedError != null) {
+                            item(key = "thread_story_error_banner") {
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = DPMedium),
+                                    color = MaterialTheme.colorScheme.errorContainer,
+                                    shape = MaterialTheme.shapes.medium
+                                ) {
+                                    Text(
+                                        modifier = Modifier.padding(DPMedium),
+                                        text = storyFeedError!!,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onErrorContainer
+                                    )
+                                }
+                            }
+                        }
+
+                        if (isStoryFeedLoading && storyFeed.isEmpty()) {
+                            item(key = "thread_story_loading") {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = DPMedium),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CircularProgressIndicator()
+                                }
                             }
                         }
 
@@ -383,6 +504,47 @@ fun ThreadScreen() {
                 )
             }
 
+            if (isStoryViewerVisible && activeStoryBundle != null) {
+                StoryViewerOverlay(
+                    bundle = activeStoryBundle!!,
+                    viewerUsername = viewModel.viewerUsername,
+                    viewers = storyViewers,
+                    isActionInFlight = storyActionInFlight,
+                    showInsights = storyViewerInsightsVisible,
+                    isInsightsLoading = storyViewersLoading,
+                    onDismiss = viewModel::closeStoryViewer,
+                    onStoryShown = viewModel::recordStoryView,
+                    onLikeStory = viewModel::setStoryLike,
+                    onReplyStory = viewModel::replyToActiveStory,
+                    onOpenChatWithOwner = viewModel::openChatWithUser,
+                    onOpenNextStoryBundle = viewModel::openNextStoryBundleOrClose,
+                    onOpenPreviousStoryBundle = viewModel::openPreviousStoryBundleOrClose,
+                    onDeleteStory = viewModel::deleteStory,
+                    onLoadInsights = viewModel::fetchStoryViewers,
+                    onDismissInsights = viewModel::dismissStoryInsights,
+                    modifier = Modifier.align(Alignment.Center)
+                )
+            }
+
+            pendingStoryEditorMedia?.let { draftMedia ->
+                StoryEditorOverlay(
+                    media = draftMedia,
+                    mentionSuggestions = storyMentionCandidates,
+                    onMentionQueryChanged = viewModel::requestStoryMentionCandidates,
+                    onDismiss = { pendingStoryEditorMedia = null },
+                    onPost = { editedMedia, mentions ->
+                        pendingStoryEditorMedia = null
+                        viewModel.uploadStory(media = editedMedia, mentions = mentions)
+                    },
+                    onEditorNotice = { message ->
+                        coroutineScope.launch {
+                            snackbarHostState.showSnackbar(message)
+                        }
+                    },
+                    modifier = Modifier.align(Alignment.Center)
+                )
+            }
+
             val shouldShowBadgeFeaturesDialog = canDownloadPostMedia &&
                 !isBadgeFeaturesDialogDismissed &&
                 !profile?.badge.isNullOrBlank()
@@ -406,6 +568,7 @@ private fun BadgeFeaturesActivatedDialog(
         UserBadgeRole.STAFF -> stringResource(R.string.badge_type_staff)
         UserBadgeRole.MODERATOR -> stringResource(R.string.badge_type_moderator)
         UserBadgeRole.VERIFIED -> stringResource(R.string.badge_type_verified)
+        UserBadgeRole.POST_OF_THE_DAY -> stringResource(R.string.badge_type_post_of_day)
         null -> badge.ifBlank { stringResource(R.string.badge_type_unknown) }
     }
 

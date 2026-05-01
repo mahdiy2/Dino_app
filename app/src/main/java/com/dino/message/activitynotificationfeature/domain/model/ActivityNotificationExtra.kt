@@ -17,5 +17,8 @@ data class ActivityNotificationExtra(
     val milestone_count: Int? = null,
     val threshold: Int? = null,
     val percent_threshold: Int? = null,
-    val active_users: Int? = null
+    val active_users: Int? = null,
+    val story_id: Long? = null,
+    val reply_preview: String? = null,
+    val message: String? = null
 )

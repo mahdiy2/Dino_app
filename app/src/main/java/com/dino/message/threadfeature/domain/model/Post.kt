@@ -15,5 +15,11 @@ data class Post(
     @SerialName("quoted_post_id")
     val quotedPostId: Long? = null,
     @SerialName("quoted_post")
-    val quotedPost: QuotedPostPreview? = null
+    val quotedPost: QuotedPostPreview? = null,
+    @SerialName("is_daily_winner")
+    val isDailyWinner: Boolean = false,
+    @SerialName("was_daily_winner")
+    val wasDailyWinner: Boolean = false,
+    @SerialName("daily_winner_at")
+    val dailyWinnerAt: String? = null
 )

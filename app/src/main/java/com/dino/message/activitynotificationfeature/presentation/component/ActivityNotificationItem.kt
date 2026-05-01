@@ -228,6 +228,8 @@ private fun buildNotificationTitle(notification: ActivityNotification, context: 
                 context.getString(R.string.notification_title_comment_milestone_many, postPreview)
             }
         }
+        "story_mention" -> context.getString(R.string.notification_title_story_mention, actorName)
+        "story_reply" -> context.getString(R.string.notification_title_story_reply, actorName)
         else -> context.getString(R.string.notification_title_interacted, actorName)
     }
 }
@@ -271,6 +273,15 @@ private fun buildNotificationSubtitle(notification: ActivityNotification, contex
                 context.getString(R.string.notification_subtitle_milestone, thresholdPercent)
             } else {
                 null
+            }
+        }
+        "story_mention" -> context.getString(R.string.notification_subtitle_story_mention)
+        "story_reply" -> {
+            val preview = notification.extra?.reply_preview?.trim().orEmpty()
+            if (preview.isNotBlank()) {
+                context.getString(R.string.notification_subtitle_story_reply_with_preview, truncateText(preview, 80))
+            } else {
+                context.getString(R.string.notification_subtitle_story_reply)
             }
         }
         else -> null

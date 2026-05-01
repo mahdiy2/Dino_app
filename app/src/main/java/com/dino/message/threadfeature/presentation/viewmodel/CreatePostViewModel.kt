@@ -163,38 +163,53 @@ class CreatePostViewModel @Inject constructor(
 
         viewModelScope.launch {
             _isSubmitting.value = true
-            val mediaFiles = withContext(Dispatchers.IO) {
-                buildCreatePostMedia()
-            }
-            if (mediaFiles == null) {
-                _error.value = "Failed to read selected media files"
+            try {
+                val mediaFiles = withContext(Dispatchers.IO) {
+                    buildCreatePostMedia()
+                }
+                if (mediaFiles == null) {
+                    _error.value = "Failed to read selected media files"
+                    return@launch
+                }
+
+                val username = sPrefManager.getUsername().orEmpty().trim()
+                if (username.isBlank()) {
+                    _error.value = "Session expired. Please log in again."
+                    return@launch
+                }
+
+                val hasInFlightUpload = withContext(Dispatchers.IO) {
+                    postUploadManager.hasInFlightUpload(username)
+                }
+                if (hasInFlightUpload) {
+                    _error.value = "Another post upload is already in progress. Please wait."
+                    return@launch
+                }
+
+                val workId = postUploadManager.enqueueUpload(
+                    username = username,
+                    text = text,
+                    followersOnly = followersOnly.value,
+                    quotedPostId = quotedPostId,
+                    mediaUris = mediaFiles.map { it.uri.toString() },
+                    mediaNames = mediaFiles.map { it.fileName },
+                    mediaMimeTypes = mediaFiles.map { it.mimeType },
+                )
+                if (workId == null) {
+                    _error.value = "Another post upload is already in progress. Please wait."
+                    return@launch
+                }
+
+                _error.value = null
+                postDraft.value = ""
+                followersOnly.value = false
+                _selectedMedia.clear()
+                navigateUp(viewModelScope)
+            } catch (_: Exception) {
+                _error.value = "Failed to queue post upload. Please try again."
+            } finally {
                 _isSubmitting.value = false
-                return@launch
             }
-
-            val username = sPrefManager.getUsername().orEmpty().trim()
-            if (username.isBlank()) {
-                _error.value = "Session expired. Please log in again."
-                _isSubmitting.value = false
-                return@launch
-            }
-
-            postUploadManager.enqueueUpload(
-                username = username,
-                text = text,
-                followersOnly = followersOnly.value,
-                quotedPostId = quotedPostId,
-                mediaUris = mediaFiles.map { it.uri.toString() },
-                mediaNames = mediaFiles.map { it.fileName },
-                mediaMimeTypes = mediaFiles.map { it.mimeType },
-            )
-
-            _isSubmitting.value = false
-            _error.value = null
-            postDraft.value = ""
-            followersOnly.value = false
-            _selectedMedia.clear()
-            navigateUp(viewModelScope)
         }
     }
 

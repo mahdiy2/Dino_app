@@ -607,17 +607,33 @@ fun ChatScreen(
                                         selectedMessageAnchor = offset to size
                                     },
                                     onAttachmentClick = { message ->
+                                        val openedStory = viewModel.openStoryFromAttachment(message)
+                                        if (openedStory) {
+                                            return@ChatSurface
+                                        }
                                         val url = message.attachmentUrl
                                         if (!url.isNullOrBlank()) {
-                                            when (message.messageType) {
-                                                "image" -> {
-                                                    mediaViewerUrl = url
-                                                    mediaViewerIsVideo = false
-                                                }
-                                                "video" -> {
+                                            val normalizedAttachmentType = message.attachmentType
+                                                ?.trim()
+                                                ?.lowercase()
+                                            val isStoryAttachment = normalizedAttachmentType == "story_reply" ||
+                                                normalizedAttachmentType == "story_mention"
+                                            val storyIsVideo = message.attachmentMimeType
+                                                ?.contains("video", ignoreCase = true) == true
+                                            when {
+                                                isStoryAttachment && storyIsVideo -> {
                                                     mediaViewerUrl = url
                                                     mediaViewerIsVideo = true
                                                 }
+                                                isStoryAttachment || message.messageType == "image" -> {
+                                                    mediaViewerUrl = url
+                                                    mediaViewerIsVideo = false
+                                                }
+                                                message.messageType == "video" -> {
+                                                    mediaViewerUrl = url
+                                                    mediaViewerIsVideo = true
+                                                }
+                                                else -> Unit
                                             }
                                         }
                                     },

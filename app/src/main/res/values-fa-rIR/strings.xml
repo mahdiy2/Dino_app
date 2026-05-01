@@ -387,5 +387,8 @@
     <string name="badge_type_staff">نشان Staff</string>
     <string name="badge_type_moderator">نشان Moderator</string>
     <string name="badge_type_verified">نشان Verified</string>
+    <string name="badge_type_post_of_day">نشان برنده روز</string>
     <string name="badge_type_unknown">نشان</string>
+    <string name="post_winner_today_label">برنده امروز</string>
+    <string name="post_winner_history_label">برنده</string>
 </resources>

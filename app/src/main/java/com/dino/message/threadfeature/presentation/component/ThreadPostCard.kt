@@ -32,6 +32,8 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.runtime.Composable
@@ -49,11 +51,15 @@ import com.dino.message.R
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPSmall
 import com.dino.message.corefeature.presentation.util.rememberLayoutDirection
+import com.dino.message.corefeature.presentation.util.rememberTextAlign
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.graphics.Color
 import com.dino.message.corefeature.presentation.util.getTimeAgo
 import com.dino.message.corefeature.presentation.component.UserBadgeIcon
 import com.dino.message.profilefeature.presentation.component.ProfileAvatarMedia
+import com.dino.message.corefeature.presentation.util.UserBadgeRole
+import com.dino.message.corefeature.presentation.util.parseUserBadgeRole
 import com.dino.message.threadfeature.domain.model.Post
 import com.dino.message.threadfeature.domain.model.PostMedia
 import com.dino.message.threadfeature.presentation.util.artistTextOrUnknown
@@ -78,7 +84,8 @@ fun ThreadPostCard(
     onBlockUserClick: (() -> Unit)? = null,
     onDeletePostClick: (() -> Unit)? = null,
     onAddTrackToPlaylistClick: ((PostMedia) -> Unit)? = null,
-    onShowTrackPlaylistAddersClick: ((PostMedia, String) -> Unit)? = null
+    onShowTrackPlaylistAddersClick: ((PostMedia, String) -> Unit)? = null,
+    showHistoricalWinnerMarkOnProfile: Boolean = false
 ) {
     val commentsContentColor by animateColorAsState(
         targetValue = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -89,9 +96,21 @@ fun ThreadPostCard(
         label = "comment"
     )
     var showPostMenu by remember { mutableStateOf(false) }
+    val isCurrentWinner = post.isDailyWinner
+    val shouldShowHistoricalWinner = showHistoricalWinnerMarkOnProfile && !isCurrentWinner && post.wasDailyWinner
+    val winnerAccent = winnerAccentColorForBadge(post.author.badge)
+    val winnerBorderColor = winnerAccent.copy(alpha = if (isCurrentWinner) 0.65f else 0.42f)
+    val winnerLabelContainerColor = winnerAccent.copy(alpha = 0.16f)
+    val winnerLabelContentColor = winnerAccent.copy(alpha = 0.95f)
+    val winnerLabelText = when {
+        isCurrentWinner -> stringResource(R.string.post_winner_today_label)
+        shouldShowHistoricalWinner -> stringResource(R.string.post_winner_history_label)
+        else -> null
+    }
 
     PostContainer(
-        modifier = modifier
+        modifier = modifier,
+        borderColor = if (isCurrentWinner) winnerBorderColor else null
     ) {
         Column(
             modifier = Modifier
@@ -156,6 +175,25 @@ fun ThreadPostCard(
                     horizontalArrangement = Arrangement.spacedBy(2.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    if (winnerLabelText != null) {
+                        AssistChip(
+                            onClick = {},
+                            enabled = false,
+                            label = {
+                                Text(
+                                    text = winnerLabelText,
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                            },
+                            colors = AssistChipDefaults.assistChipColors(
+                                containerColor = winnerLabelContainerColor,
+                                labelColor = winnerLabelContentColor,
+                                disabledContainerColor = winnerLabelContainerColor,
+                                disabledLabelColor = winnerLabelContentColor
+                            ),
+                            border = null
+                        )
+                    }
                     Text(
                         text = stringResource(R.string.time_ago_format, getTimeAgo(post.created_at)),
                         style = MaterialTheme.typography.bodySmall,
@@ -215,8 +253,10 @@ fun ThreadPostCard(
             if (post.text.isNotBlank()) {
                 CompositionLocalProvider(LocalLayoutDirection provides rememberLayoutDirection(post.text)) {
                     Text(
+                        modifier = Modifier.fillMaxWidth(),
                         text = post.text,
-                        style = MaterialTheme.typography.bodyLarge
+                        style = MaterialTheme.typography.bodyLarge,
+                        textAlign = rememberTextAlign(post.text)
                     )
                 }
             }
@@ -390,4 +430,14 @@ private fun PostAuthorAvatar(
         badge = badge,
         profileImageShape = profileImageShape
     )
+}
+
+private fun winnerAccentColorForBadge(badge: String?): Color {
+    return when (parseUserBadgeRole(badge)) {
+        UserBadgeRole.STAFF -> Color(0xFF111111)
+        UserBadgeRole.MODERATOR -> Color(0xFF1E8E3E)
+        UserBadgeRole.VERIFIED -> Color(0xFF2563EB)
+        UserBadgeRole.POST_OF_THE_DAY -> Color(0xFFE07A00)
+        null -> Color(0xFFB45309)
+    }
 }

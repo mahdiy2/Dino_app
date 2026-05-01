@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.work.Constraints
 import androidx.work.Data
+import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkInfo
@@ -19,6 +20,10 @@ import javax.inject.Singleton
 class PostUploadManager @Inject constructor(
     @ApplicationContext private val appContext: Context,
 ) {
+    companion object {
+        private const val UNIQUE_WORK_NAME_PREFIX = "post_upload_user_unique:"
+    }
+
     private val workManager: WorkManager = WorkManager.getInstance(appContext)
     private val metadataStore: SharedPreferences = appContext.getSharedPreferences(
         "post_upload_metadata",
@@ -35,7 +40,11 @@ class PostUploadManager @Inject constructor(
         mediaMimeTypes: List<String>,
         trackTitle: String? = null,
         trackArtist: String? = null,
-    ): UUID {
+    ): UUID? {
+        if (hasInFlightUpload(username)) {
+            return null
+        }
+
         val request = OneTimeWorkRequestBuilder<PostUploadWorker>()
             .setInputData(
                 Data.Builder()
@@ -60,7 +69,12 @@ class PostUploadManager @Inject constructor(
             .addTag("${PostUploadWorker.TAG_POST_UPLOAD_USER_PREFIX}$username")
             .build()
 
-        workManager.enqueue(request)
+        val uniqueWorkName = "$UNIQUE_WORK_NAME_PREFIX$username"
+        workManager.enqueueUniqueWork(
+            uniqueWorkName,
+            ExistingWorkPolicy.KEEP,
+            request
+        )
         saveMetadata(
             workId = request.id,
             text = text,
@@ -68,6 +82,18 @@ class PostUploadManager @Inject constructor(
             createdAtMs = System.currentTimeMillis()
         )
         return request.id
+    }
+
+    fun hasInFlightUpload(username: String): Boolean {
+        val userTag = "${PostUploadWorker.TAG_POST_UPLOAD_USER_PREFIX}$username"
+        val workInfos = runCatching {
+            workManager.getWorkInfosByTag(userTag).get()
+        }.getOrNull() ?: return false
+        return workInfos.any { info ->
+            info.state == WorkInfo.State.ENQUEUED ||
+                info.state == WorkInfo.State.RUNNING ||
+                info.state == WorkInfo.State.BLOCKED
+        }
     }
 
     fun observePendingUploads(username: String): Flow<List<PendingPostUpload>> {

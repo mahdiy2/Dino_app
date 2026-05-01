@@ -9,6 +9,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -73,6 +74,7 @@ fun ChatContainer(
     text: String,
     sent: Boolean = true,
     messageType: String = "text",
+    attachmentType: String? = null,
     attachmentUrl: String? = null,
     attachmentMimeType: String? = null,
     attachmentFileName: String? = null,
@@ -84,6 +86,9 @@ fun ChatContainer(
     replySenderName: String? = null,
     replyPreviewText: String? = null
 ) {
+    val normalizedAttachmentType = attachmentType?.trim()?.lowercase()
+    val isStoryReferenceAttachment =
+        normalizedAttachmentType == "story_reply" || normalizedAttachmentType == "story_mention"
     val bubbleShape = RoundedCornerShape(
         topStart = 20.dp,
         topEnd = 20.dp,
@@ -176,6 +181,14 @@ fun ChatContainer(
                 }
                 Spacer(modifier = Modifier.height(DPSmall))
             }
+            if (isStoryReferenceAttachment && !attachmentUrl.isNullOrBlank()) {
+                StoryReferencePreviewCard(
+                    mediaUrl = attachmentUrl,
+                    mediaType = attachmentMimeType,
+                    onClick = onAttachmentClick
+                )
+                Spacer(modifier = Modifier.height(DPSmall))
+            }
             val showStatus = sent && deliveryStatus != null
             if (effectiveMessageType == "text" && text.isNotBlank()) {
                 TextWithDeliveryStatus(
@@ -235,6 +248,62 @@ fun ChatContainer(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun StoryReferencePreviewCard(
+    mediaUrl: String,
+    mediaType: String?,
+    onClick: (() -> Unit)?
+) {
+    val isVideo = mediaType?.contains("video", ignoreCase = true) == true
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = onClick != null) { onClick?.invoke() }
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(140.dp)
+        ) {
+            AsyncImage(
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(mediaUrl)
+                    .crossfade(true)
+                    .build(),
+                contentDescription = "Story preview",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+            if (isVideo) {
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.scrim.copy(alpha = 0.55f),
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.PlayArrow,
+                        contentDescription = null,
+                        modifier = Modifier.padding(8.dp),
+                        tint = MaterialTheme.colorScheme.onPrimary
+                    )
+                }
+            }
+            Text(
+                text = "Story reply",
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(8.dp),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
         }
     }
 }
