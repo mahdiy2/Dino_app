@@ -1,0 +1,11 @@
+# Copy this file to local.properties and customize values for your machine.
+# local.properties is ignored by git.
+
+# Android SDK location (required on each machine)
+# sdk.dir=/path/to/Android/Sdk
+
+# Backend base URL for this app build
+APP_BASE_URL=http://10.0.2.2:5000/
+
+# Password rule toggle used by auth screens
+AUTH_PASSWORD_REQUIRE_SYMBOL=false

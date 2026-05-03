@@ -32,23 +32,26 @@ Native Android client for SecMessage, built with Kotlin, Jetpack Compose, and a 
 - Min SDK 28 device/emulator
 
 ## Configuration
-The app reads key values from `gradle.properties`:
+Keep machine-specific values in `local.properties` (gitignored), not in committed files.
 
-- `APP_BASE_URL` (default backend base URL)
-- `AUTH_PASSWORD_REQUIRE_SYMBOL` (`true`/`false`)
+1. Copy the template:
 
-Example:
-
-```properties
-APP_BASE_URL=https://api.dinosocial.ir/
-AUTH_PASSWORD_REQUIRE_SYMBOL=false
+```bash
+cp local.properties.example local.properties
 ```
 
-For local backend from an emulator you can use:
+2. Set your values in `local.properties`:
 
 ```properties
 APP_BASE_URL=http://10.0.2.2:5000/
+AUTH_PASSWORD_REQUIRE_SYMBOL=false
 ```
+
+The build resolves values in this order:
+1. Gradle property (`-PAPP_BASE_URL=...`)
+2. Environment variable (`APP_BASE_URL`)
+3. `local.properties`
+4. Fallback default (`http://10.0.2.2:5000/`)
 
 ## Build and Run
 From this directory:

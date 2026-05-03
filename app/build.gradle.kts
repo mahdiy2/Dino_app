@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.jetbrains.kotlin.android)
@@ -10,12 +12,24 @@ plugins {
 }
 
 
-val BASE_URL: String = project.findProperty("APP_BASE_URL") as? String ?: "http://localhost:5000/"
+val localProperties = Properties().apply {
+    val localPropertiesFile = rootProject.file("local.properties")
+    if (localPropertiesFile.exists()) {
+        localPropertiesFile.inputStream().use { load(it) }
+    }
+}
+
+val BASE_URL: String =
+    (project.findProperty("APP_BASE_URL") as? String)
+        ?: System.getenv("APP_BASE_URL")
+        ?: localProperties.getProperty("APP_BASE_URL")
+        ?: "http://10.0.2.2:5000/"
+
 val AUTH_PASSWORD_REQUIRE_SYMBOL: Boolean =
     (project.findProperty("AUTH_PASSWORD_REQUIRE_SYMBOL") as? String)
         ?.toBooleanStrictOrNull()
+        ?: (localProperties.getProperty("AUTH_PASSWORD_REQUIRE_SYMBOL")?.toBooleanStrictOrNull())
         ?: false
-
 
 
 android {
