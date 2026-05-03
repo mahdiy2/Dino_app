@@ -80,3 +80,7 @@ From this directory:
 ![Feed Screen](screen/processed/36f47b2d-bedc-42bd-b43f-31ff358eb04c.png)
 ![Create Post Screen](screen/processed/b61e1201-3538-41c7-9cab-58af7e33ee7f.png)
 ![Profile Screen](screen/processed/b9060059-1eb5-4eba-b2cd-0393c261b0d7.png)
+
+## License
+This project is licensed under the GNU Affero General Public License v3.0 (AGPLv3).
+See the LICENSE file for details.
