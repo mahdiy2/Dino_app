@@ -62,6 +62,7 @@ import io.ktor.client.request.post
 import io.ktor.client.request.forms.InputProvider
 import io.ktor.client.request.forms.MultiPartFormDataContent
 import io.ktor.client.request.forms.formData
+import io.ktor.client.request.header
 import io.ktor.client.request.parameter
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
@@ -70,6 +71,7 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 import io.ktor.utils.io.streams.asInput
 import java.io.File
+import java.util.UUID
 import javax.inject.Inject
 
 class ThreadApiServiceImpl @Inject constructor(
@@ -95,10 +97,12 @@ class ThreadApiServiceImpl @Inject constructor(
             )
         }
 
+        val idempotencyKey = UUID.randomUUID().toString()
         return httpAPIUtil.callAPIWithErrorHandling<CreatedPost, CreatePostResponse>(
             callAPI = {
                 httpClient.post(ThreadRoute.CreatePost.url) {
                     appendTokenToHeader(sPrefManager.getToken())
+                    header("Idempotency-Key", idempotencyKey)
 
                     if (mediaFiles.isEmpty()) {
                         contentType(ContentType.Application.Json)

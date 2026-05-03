@@ -15,10 +15,10 @@ import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
-import com.dino.message.threadfeature.data.upload.PostUploadManager
 import com.dino.message.threadfeature.domain.model.CreatePostMedia
 import com.dino.message.threadfeature.domain.model.Post
 import com.dino.message.threadfeature.domain.model.QuotedPostPreview
+import com.dino.message.threadfeature.domain.usecase.CreatePostUseCase
 import com.dino.message.threadfeature.domain.usecase.GetPostUseCase
 import com.dino.message.threadfeature.presentation.util.resolveMusicMetadata
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -43,7 +43,7 @@ data class SelectedMusicTrack(
 class PostMusicViewModel @Inject constructor(
     @ApplicationContext app: Context,
     private val sPrefManager: SPrefManager,
-    private val postUploadManager: PostUploadManager,
+    private val createPostUseCase: CreatePostUseCase,
     private val getPostUseCase: GetPostUseCase,
     savedStateHandle: SavedStateHandle
 ) : AndroidViewModel(app as DinoOrderApplication),
@@ -134,43 +134,29 @@ class PostMusicViewModel @Inject constructor(
                     return@launch
                 }
 
-                val username = sPrefManager.getUsername().orEmpty().trim()
-                if (username.isBlank()) {
-                    _error.value = "Session expired. Please log in again."
-                    return@launch
-                }
-
-                val hasInFlightUpload = withContext(Dispatchers.IO) {
-                    postUploadManager.hasInFlightUpload(username)
-                }
-                if (hasInFlightUpload) {
-                    _error.value = "Another post upload is already in progress. Please wait."
-                    return@launch
-                }
-
-                val workId = postUploadManager.enqueueUpload(
-                    username = username,
+                createPostUseCase.execute(
                     text = text,
+                    mediaFiles = listOf(media),
                     followersOnly = followersOnly.value,
                     quotedPostId = quotedPostId,
-                    mediaUris = listOf(media.uri.toString()),
-                    mediaNames = listOf(media.fileName),
-                    mediaMimeTypes = listOf(media.mimeType),
-                    trackTitle = media.trackTitle,
-                    trackArtist = media.trackArtist,
-                )
-                if (workId == null) {
-                    _error.value = "Another post upload is already in progress. Please wait."
-                    return@launch
+                ).collect { res ->
+                    when (res) {
+                        is Resource.Loading -> Unit
+                        is Resource.Success -> {
+                            _error.value = null
+                            sPrefManager.markThreadRefreshAfterPost()
+                            postDraft.value = ""
+                            followersOnly.value = false
+                            selectedTrack.value = null
+                            navigateUp(viewModelScope)
+                        }
+                        is Resource.Error -> {
+                            _error.value = res.message.asString(getApplication())
+                        }
+                    }
                 }
-
-                _error.value = null
-                postDraft.value = ""
-                followersOnly.value = false
-                selectedTrack.value = null
-                navigateUp(viewModelScope)
             } catch (_: Exception) {
-                _error.value = "Failed to queue post upload. Please try again."
+                _error.value = "Failed to upload post. Please try again."
             } finally {
                 _isSubmitting.value = false
             }

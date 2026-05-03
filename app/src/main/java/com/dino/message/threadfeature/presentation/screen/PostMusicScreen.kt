@@ -279,7 +279,7 @@ fun PostMusicScreen(
                         ) {
                             Text(
                                 modifier = Modifier.padding(DPMedium),
-                                text = stringResource(R.string.error_try_again, error.orEmpty()),
+                                text = error.orEmpty(),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onErrorContainer
                             )

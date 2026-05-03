@@ -26,8 +26,8 @@ android {
         applicationId = "com.sec.message"
         minSdk = 28
         targetSdk = 36
-        versionCode = 42
-        versionName = "0.9.2beta"
+        versionCode = 45
+        versionName = "0.9.5beta"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

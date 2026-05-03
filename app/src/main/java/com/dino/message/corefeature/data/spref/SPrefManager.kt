@@ -31,6 +31,7 @@ class SPrefManager @Inject constructor(
         const val PENDING_REGISTRATION_USERNAME = "PENDING_REGISTRATION_USERNAME"
         const val PENDING_REGISTRATION_NONCE = "PENDING_REGISTRATION_NONCE"
         const val PENDING_REGISTRATION_EXPIRES_AT = "PENDING_REGISTRATION_EXPIRES_AT"
+        const val THREAD_REFRESH_AFTER_POST = "THREAD_REFRESH_AFTER_POST"
     }
 
     private val masterKey: MasterKey =
@@ -190,6 +191,18 @@ class SPrefManager @Inject constructor(
             .remove(PENDING_REGISTRATION_NONCE)
             .remove(PENDING_REGISTRATION_EXPIRES_AT)
             .apply()
+    }
+
+    fun markThreadRefreshAfterPost() {
+        editor.putBoolean(THREAD_REFRESH_AFTER_POST, true).apply()
+    }
+
+    fun consumeThreadRefreshAfterPost(): Boolean {
+        val shouldRefresh = sPref.getBoolean(THREAD_REFRESH_AFTER_POST, false)
+        if (shouldRefresh) {
+            editor.putBoolean(THREAD_REFRESH_AFTER_POST, false).apply()
+        }
+        return shouldRefresh
     }
 
     fun clearAuthSession() {

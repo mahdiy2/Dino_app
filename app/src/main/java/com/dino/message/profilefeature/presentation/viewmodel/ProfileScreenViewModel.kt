@@ -21,8 +21,6 @@ import com.dino.message.profilefeature.domain.usecase.GetMyProfileUseCase
 import com.dino.message.profilefeature.domain.usecase.GetProfilePostsUseCase
 import com.dino.message.profilefeature.domain.usecase.GetProfileUseCase
 import com.dino.message.profilefeature.domain.usecase.UnfollowUserUseCase
-import com.dino.message.threadfeature.data.upload.PendingPostUpload
-import com.dino.message.threadfeature.data.upload.PostUploadManager
 import com.dino.message.threadfeature.domain.model.Post
 import com.dino.message.threadfeature.domain.model.PostMedia
 import com.dino.message.threadfeature.domain.model.StoryUserFeedItem
@@ -67,7 +65,6 @@ class ProfileScreenViewModel @Inject constructor(
     private val addTrackToPlaylistUseCase: AddTrackToPlaylistUseCase,
     private val getStoryFeedUseCase: GetStoryFeedUseCase,
     private val clearLocalSessionUseCase: ClearLocalSessionUseCase,
-    private val postUploadManager: PostUploadManager,
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
     val profile = mutableStateOf<Profile?>(null)
@@ -102,8 +99,6 @@ class ProfileScreenViewModel @Inject constructor(
     val error: StateFlow<String?> = _error.asStateFlow()
     private val _playlistFeedback = MutableStateFlow<String?>(null)
     val playlistFeedback: StateFlow<String?> = _playlistFeedback.asStateFlow()
-    private val _pendingPostUploads = MutableStateFlow<List<PendingPostUpload>>(emptyList())
-    val pendingPostUploads: StateFlow<List<PendingPostUpload>> = _pendingPostUploads.asStateFlow()
     private val _viewerHasBadge = MutableStateFlow(false)
     val viewerHasBadge: StateFlow<Boolean> = _viewerHasBadge.asStateFlow()
     private val _profileStoryItem = MutableStateFlow<StoryUserFeedItem?>(null)
@@ -113,13 +108,11 @@ class ProfileScreenViewModel @Inject constructor(
     private var requestedUsername: String? = null
     private var initializedKey: String? = null
     private var shouldRefreshWhenScreenResumes = false
-    private var knownPendingUploadIds: Set<String> = emptySet()
 
     private val postVoteByPost = mutableStateMapOf<Long, Long>()
     private val postErrorByPost = mutableStateMapOf<Long, String?>()
 
     init {
-        observePendingUploads()
         observeViewerBadgeAccess()
     }
 
@@ -488,23 +481,6 @@ class ProfileScreenViewModel @Inject constructor(
             CreatePostOptionsBottomSheetScreenDestination(),
             viewModelScope
         )
-    }
-
-    fun cancelPendingUpload(rawWorkId: String) {
-        val workId = runCatching { java.util.UUID.fromString(rawWorkId) }.getOrNull() ?: return
-        postUploadManager.cancelUpload(workId)
-    }
-
-    private fun observePendingUploads() = viewModelScope.launch {
-        postUploadManager.observePendingUploads(currentUsername).collect { uploads ->
-            _pendingPostUploads.value = uploads
-            val newIds = uploads.map { it.workId.toString() }.toSet()
-            val completedIds = knownPendingUploadIds - newIds
-            if (completedIds.isNotEmpty() && _isOwnProfile.value) {
-                refresh()
-            }
-            knownPendingUploadIds = newIds
-        }
     }
 
     private fun loadProfileStoryState() = viewModelScope.launch {

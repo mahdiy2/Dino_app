@@ -18,7 +18,7 @@ import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.dino.message.threadfeature.domain.model.CreatePostMedia
 import com.dino.message.threadfeature.domain.model.Post
 import com.dino.message.threadfeature.domain.model.QuotedPostPreview
-import com.dino.message.threadfeature.data.upload.PostUploadManager
+import com.dino.message.threadfeature.domain.usecase.CreatePostUseCase
 import com.dino.message.threadfeature.domain.usecase.GetPostUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -41,7 +41,7 @@ data class SelectedPostMedia(
 class CreatePostViewModel @Inject constructor(
     @ApplicationContext app: Context,
     private val sPrefManager: SPrefManager,
-    private val postUploadManager: PostUploadManager,
+    private val createPostUseCase: CreatePostUseCase,
     private val getPostUseCase: GetPostUseCase,
     savedStateHandle: SavedStateHandle
 ) : AndroidViewModel(app as DinoOrderApplication),
@@ -172,41 +172,29 @@ class CreatePostViewModel @Inject constructor(
                     return@launch
                 }
 
-                val username = sPrefManager.getUsername().orEmpty().trim()
-                if (username.isBlank()) {
-                    _error.value = "Session expired. Please log in again."
-                    return@launch
-                }
-
-                val hasInFlightUpload = withContext(Dispatchers.IO) {
-                    postUploadManager.hasInFlightUpload(username)
-                }
-                if (hasInFlightUpload) {
-                    _error.value = "Another post upload is already in progress. Please wait."
-                    return@launch
-                }
-
-                val workId = postUploadManager.enqueueUpload(
-                    username = username,
+                createPostUseCase.execute(
                     text = text,
+                    mediaFiles = mediaFiles,
                     followersOnly = followersOnly.value,
                     quotedPostId = quotedPostId,
-                    mediaUris = mediaFiles.map { it.uri.toString() },
-                    mediaNames = mediaFiles.map { it.fileName },
-                    mediaMimeTypes = mediaFiles.map { it.mimeType },
-                )
-                if (workId == null) {
-                    _error.value = "Another post upload is already in progress. Please wait."
-                    return@launch
+                ).collect { res ->
+                    when (res) {
+                        is Resource.Loading -> Unit
+                        is Resource.Success -> {
+                            _error.value = null
+                            sPrefManager.markThreadRefreshAfterPost()
+                            postDraft.value = ""
+                            followersOnly.value = false
+                            _selectedMedia.clear()
+                            navigateUp(viewModelScope)
+                        }
+                        is Resource.Error -> {
+                            _error.value = res.message.asString(getApplication())
+                        }
+                    }
                 }
-
-                _error.value = null
-                postDraft.value = ""
-                followersOnly.value = false
-                _selectedMedia.clear()
-                navigateUp(viewModelScope)
             } catch (_: Exception) {
-                _error.value = "Failed to queue post upload. Please try again."
+                _error.value = "Failed to upload post. Please try again."
             } finally {
                 _isSubmitting.value = false
             }

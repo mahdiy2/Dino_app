@@ -23,7 +23,6 @@ import com.dino.message.threadfeature.domain.model.StoryDetail
 import com.dino.message.threadfeature.domain.model.StoryUserFeedItem
 import com.dino.message.threadfeature.domain.model.StoryViewer
 import com.dino.message.threadfeature.domain.model.VoteTargetType
-import com.dino.message.threadfeature.data.upload.PostUploadManager
 import com.dino.message.threadfeature.domain.usecase.AddTrackToPlaylistUseCase
 import com.dino.message.threadfeature.domain.usecase.BlockUserUseCase
 import com.dino.message.threadfeature.domain.usecase.GetPostsUseCase
@@ -56,11 +55,8 @@ import com.ramcosta.composedestinations.generated.destinations.PlaylistBottomShe
 import com.ramcosta.composedestinations.generated.destinations.SharedPostDetailsScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.TrackPlaylistAddersDialogScreenDestination
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -92,7 +88,6 @@ class ThreadViewModel @Inject constructor(
     private val sPrefManager: SPrefManager,
     private val getUnreadCountUseCase: GetUnreadCountUseCase,
     private val appSocketManager: AppSocketManager,
-    private val postUploadManager: PostUploadManager,
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
 
@@ -101,7 +96,6 @@ class ThreadViewModel @Inject constructor(
     private var currentPostsPage = 1
     private var totalPosts = Int.MAX_VALUE
     private var isPostsRequestRunning = false
-    private val observedSuccessfulUploadIds = mutableSetOf<String>()
 
     private val _posts = mutableStateListOf<Post>()
     val posts: List<Post> = _posts
@@ -137,8 +131,6 @@ class ThreadViewModel @Inject constructor(
 
     private val _playlistFeedback = MutableStateFlow<String?>(null)
     val playlistFeedback: StateFlow<String?> = _playlistFeedback.asStateFlow()
-    private val _backgroundUploadRefreshEvents = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
-    val backgroundUploadRefreshEvents: SharedFlow<Unit> = _backgroundUploadRefreshEvents.asSharedFlow()
     private val _storyFeed = MutableStateFlow<List<StoryUserFeedItem>>(emptyList())
     val storyFeed: StateFlow<List<StoryUserFeedItem>> = _storyFeed.asStateFlow()
     private val _storyFeedError = MutableStateFlow<String?>(null)
@@ -172,7 +164,6 @@ class ThreadViewModel @Inject constructor(
         refresh()
         fetchUnreadCount()
         connectActivitySocket()
-        observeSuccessfulBackgroundUploads()
         observeViewerBadgeAccess()
         observeBadgeFeaturesDialogState()
     }
@@ -191,6 +182,12 @@ class ThreadViewModel @Inject constructor(
 
     fun dismissBadgeFeaturesDialog() = viewModelScope.launch {
         dataStoreUtil.setBadgeFeaturesDialogDismissed(true)
+    }
+
+    fun refreshAfterPostIfNeeded() {
+        if (sPrefManager.consumeThreadRefreshAfterPost()) {
+            refresh()
+        }
     }
 
     fun refresh() {
@@ -353,18 +350,6 @@ class ThreadViewModel @Inject constructor(
             ProfileScreenDestination(username = sPrefManager.getUsername()),
             viewModelScope
         )
-    }
-
-    private fun observeSuccessfulBackgroundUploads() = viewModelScope.launch {
-        postUploadManager.observeSuccessfulUploadIds(currentUsername).collect { successfulIds ->
-            successfulIds.forEach { id ->
-                val asString = id.toString()
-                if (observedSuccessfulUploadIds.add(asString)) {
-                    _backgroundUploadRefreshEvents.tryEmit(Unit)
-                }
-            }
-            observedSuccessfulUploadIds.retainAll(successfulIds.map { it.toString() }.toSet())
-        }
     }
 
     fun selectedPostVote(postId: Long): Long = postVoteByPost[postId] ?: 0L

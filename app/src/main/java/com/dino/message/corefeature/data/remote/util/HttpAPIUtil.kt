@@ -42,8 +42,18 @@ class HttpAPIUtil @Inject constructor(
         needToUpdateToken: Boolean = true,
         useServerMessageForUnauthorized: Boolean = false
     ): Resource<ResultType> {
+        var firstRetryException: Exception? = null
 
-        return retry(times = 3, initialDelay = 1000, factor = 2.0) {
+        val result = retry(
+            times = 3,
+            initialDelay = 1000,
+            factor = 2.0,
+            onFailure = { exception ->
+                if (firstRetryException == null) {
+                    firstRetryException = exception
+                }
+            }
+        ) {
 
             try {
                 val response = callAPI()
@@ -172,8 +182,12 @@ class HttpAPIUtil @Inject constructor(
                         ?: R.string.unknown_error_occurred.asStringResourceContent()
                 )
             }
-        } ?: Resource.Error(
-            message = R.string.error_retries_exceeded.asStringResourceContent()
+        }
+
+        if (result != null) return result
+
+        return Resource.Error(
+            message = resolveRetryFailureMessage(firstRetryException)
         )
     }
 
@@ -247,6 +261,7 @@ class HttpAPIUtil @Inject constructor(
         times: Int,
         initialDelay: Long,
         factor: Double,
+        onFailure: ((Exception) -> Unit)? = null,
         block: suspend () -> T
     ): T? {
         var currentDelay = initialDelay
@@ -255,6 +270,7 @@ class HttpAPIUtil @Inject constructor(
                 return block()
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
+                onFailure?.invoke(e)
 //                Log.e("Retry", "Attempt failed, retrying in $currentDelay ms", e)
             }
             delay(currentDelay)
@@ -264,7 +280,37 @@ class HttpAPIUtil @Inject constructor(
             block()
         } catch (e: Exception) {
             if (e is CancellationException) throw e
+            onFailure?.invoke(e)
             null
+        }
+    }
+
+    @PublishedApi
+    internal fun resolveRetryFailureMessage(exception: Exception?): com.dino.message.corefeature.domain.model.StringResourceContent {
+        val retryableException = exception as? RetryableException
+        val rootCause = retryableException?.cause ?: exception
+        val rootMessage = rootCause?.message?.trim().orEmpty()
+
+        return when {
+            rootCause is HttpRequestTimeoutException -> {
+                R.string.error_request_timed_out.asStringResourceContent()
+            }
+
+            rootCause is UnresolvedAddressException -> {
+                R.string.network_error.asStringResourceContent()
+            }
+
+            rootCause is IOException -> {
+                R.string.network_error.asStringResourceContent()
+            }
+
+            rootMessage.isNotBlank() -> {
+                rootMessage.asStringResourceContent()
+            }
+
+            else -> {
+                R.string.error_retries_exceeded.asStringResourceContent()
+            }
         }
     }
 }

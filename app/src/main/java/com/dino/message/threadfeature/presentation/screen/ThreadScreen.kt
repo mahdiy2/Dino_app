@@ -205,6 +205,7 @@ fun ThreadScreen(initialStoryId: Long? = null) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 viewModel.fetchUnreadCount()
+                viewModel.refreshAfterPostIfNeeded()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -266,12 +267,6 @@ fun ThreadScreen(initialStoryId: Long? = null) {
         )
     }
     val ownStory = storyFeed.firstOrNull { it.username == viewModel.viewerUsername }
-
-    LaunchedEffect(Unit) {
-        viewModel.backgroundUploadRefreshEvents.collectLatest {
-            refreshFromTop()
-        }
-    }
 
     Scaffold(
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) }

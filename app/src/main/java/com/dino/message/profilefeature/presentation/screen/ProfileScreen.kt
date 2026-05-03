@@ -104,8 +104,6 @@ import com.dino.message.profilefeature.presentation.component.ProfileAvatarMedia
 import com.dino.message.profilefeature.presentation.component.ProfileContainer
 import com.dino.message.profilefeature.presentation.component.ProfileFollowStatusContainer
 import com.dino.message.profilefeature.presentation.viewmodel.ProfileScreenViewModel
-import com.dino.message.threadfeature.data.upload.PendingPostUpload
-import com.dino.message.threadfeature.presentation.component.PostContainer
 import com.dino.message.threadfeature.presentation.component.ThreadPostCard
 import com.ramcosta.composedestinations.annotation.Destination
 import com.ramcosta.composedestinations.annotation.RootGraph
@@ -127,7 +125,6 @@ fun ProfileScreen(username: String? = null) {
     val isFollowing by viewModel.isFollowing.collectAsState()
     val error by viewModel.error.collectAsState()
     val playlistFeedback by viewModel.playlistFeedback.collectAsState()
-    val pendingPostUploads by viewModel.pendingPostUploads.collectAsState()
     val viewerHasBadge by viewModel.viewerHasBadge.collectAsState()
     val profileStoryItem by viewModel.profileStoryItem.collectAsState()
     val isRefreshing = isProfileLoading || isPostsLoading
@@ -469,7 +466,7 @@ fun ProfileScreen(username: String? = null) {
                         CircularProgressIndicator()
                     }
                 }
-            } else if (posts.isEmpty() && pendingPostUploads.isEmpty()) {
+            } else if (posts.isEmpty()) {
                 item {
                     Column(
                         modifier = Modifier.fillMaxSize(),
@@ -536,30 +533,6 @@ fun ProfileScreen(username: String? = null) {
                     }
                 }
             } else {
-                if (isOwnProfile && pendingPostUploads.isNotEmpty()) {
-                    items(
-                        items = pendingPostUploads,
-                        key = { "pending-${it.workId}" }
-                    ) { pendingUpload ->
-                        AnimatedVisibility(
-                            visible = true,
-                            enter = fadeIn() + slideInVertically(initialOffsetY = { it / 3 }),
-                            exit = fadeOut() + slideOutVertically(targetOffsetY = { -it / 3 })
-                        ) {
-                            PendingUploadCard(
-                                upload = pendingUpload,
-                                onCancelClick = {
-                                    viewModel.cancelPendingUpload(pendingUpload.workId.toString())
-                                },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = DPMedium)
-                                    .padding(top = DPSmall)
-                            )
-                        }
-                    }
-                }
-
                 items(
                     items = posts,
                     key = { it.id }
@@ -642,57 +615,6 @@ fun ProfileScreen(username: String? = null) {
             ProfileImageFullScreenDialog(
                 imageUrl = profile!!.profile_image_url!!,
                 onDismiss = { isProfileImageViewerOpen = false }
-            )
-        }
-    }
-}
-
-@Composable
-private fun PendingUploadCard(
-    upload: PendingPostUpload,
-    onCancelClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    PostContainer(modifier = modifier) {
-        Column(
-            modifier = Modifier.padding(DPMedium),
-            verticalArrangement = Arrangement.spacedBy(DPSmall)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = if (upload.isRunning) {
-                        stringResource(R.string.uploading_post_status, upload.progressPercent)
-                    } else {
-                        stringResource(R.string.uploading_post_waiting)
-                    },
-                    style = MaterialTheme.typography.labelLarge
-                )
-                IconButton(onClick = onCancelClick) {
-                    Icon(
-                        imageVector = Icons.Rounded.Close,
-                        contentDescription = stringResource(R.string.cancel_upload)
-                    )
-                }
-            }
-            if (upload.text.isNotBlank()) {
-                Text(
-                    text = upload.text,
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 3
-                )
-            }
-            Text(
-                text = stringResource(R.string.uploading_post_media_count, upload.mediaCount),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            LinearProgressIndicator(
-                progress = { (upload.progressPercent.coerceIn(0, 100) / 100f) },
-                modifier = Modifier.fillMaxWidth(),
             )
         }
     }
