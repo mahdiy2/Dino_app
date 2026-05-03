@@ -70,6 +70,7 @@ From this directory:
 
 ## Release
 - Release artifact path: `app/release/app-release.apk`
+- You can get releases from: https://api.dinosocial.ir/
 - Build release APK:
 
 ```bash
