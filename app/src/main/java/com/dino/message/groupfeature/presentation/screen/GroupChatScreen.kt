@@ -10,7 +10,17 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.updateTransition
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.*
@@ -22,10 +32,17 @@ import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.VpnKey
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -36,9 +53,11 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.dino.message.chatfeature.presentation.component.ChatScreenBottomAppBar
+import com.dino.message.chatfeature.presentation.component.ChatContainer
 import com.dino.message.chatfeature.presentation.component.MediaAccessLevel
 import com.dino.message.chatfeature.presentation.component.MediaPermissionHandler
 import com.dino.message.chatfeature.presentation.component.MediaViewerDialog
+import com.dino.message.chatfeature.domain.model.MessageDeliveryStatus
 import com.dino.message.R
 import com.dino.message.corefeature.presentation.util.backIconModifier
 import com.dino.message.groupfeature.domain.model.GroupMessageEntity
@@ -115,6 +134,11 @@ fun GroupChatScreen(
     var selectedMessage by remember { mutableStateOf<GroupMessageEntity?>(null) }
     var selectedMessageAnchor by remember { mutableStateOf<Pair<IntOffset, IntSize>?>(null) }
     var deleteCandidate by remember { mutableStateOf<GroupMessageEntity?>(null) }
+    var popupMessage by remember { mutableStateOf<GroupMessageEntity?>(null) }
+    var popupMessageAnchor by remember { mutableStateOf<Pair<IntOffset, IntSize>?>(null) }
+    var popupSize by remember { mutableStateOf(IntSize.Zero) }
+    var popupVisible by remember { mutableStateOf(false) }
+    var popupMounted by remember { mutableStateOf(false) }
 
     LaunchedEffect(uploadError) {
         uploadError?.let {
@@ -137,6 +161,32 @@ fun GroupChatScreen(
     }
     LaunchedEffect(hasNowPlaying) {
         if (!hasNowPlaying) nowPlayingHeightPx = 0
+    }
+    LaunchedEffect(selectedMessage, selectedMessageAnchor) {
+        if (selectedMessage != null && selectedMessageAnchor != null) {
+            popupMessage = selectedMessage
+            popupMessageAnchor = selectedMessageAnchor
+            popupMounted = true
+            popupVisible = false
+            withFrameNanos { }
+            popupVisible = true
+        } else if (popupMounted) {
+            popupVisible = false
+        }
+    }
+    LaunchedEffect(popupVisible, popupMounted) {
+        if (popupMounted && !popupVisible) {
+            kotlinx.coroutines.delay(180)
+            popupMessage = null
+            popupMessageAnchor = null
+            popupMounted = false
+        }
+    }
+
+    val dismissPopup: () -> Unit = {
+        selectedMessage = null
+        selectedMessageAnchor = null
+        popupVisible = false
     }
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
@@ -185,68 +235,210 @@ fun GroupChatScreen(
         )
     }
 
-    if (selectedMessage != null && selectedMessageAnchor != null) {
-        val message = selectedMessage!!
-        val (anchorOffset, anchorSize) = selectedMessageAnchor!!
+    if (popupMounted && popupMessage != null && popupMessageAnchor != null) {
+        val message = popupMessage!!
+        val (anchorOffset, anchorSize) = popupMessageAnchor!!
         val density = LocalDensity.current
-        val menuHeightPx = with(density) { 132.dp.roundToPx() }
+        val configuration = LocalConfiguration.current
+        val screenWidthPx = with(density) { configuration.screenWidthDp.dp.roundToPx() }
+        val screenHeightPx = with(density) { configuration.screenHeightDp.dp.roundToPx() }
         val verticalGapPx = with(density) { 8.dp.roundToPx() }
+        val horizontalMarginPx = with(density) { 8.dp.roundToPx() }
+        val anchorCenterX = anchorOffset.x + anchorSize.width / 2
+        val calculatedX = (anchorCenterX - popupSize.width / 2)
+            .coerceIn(
+                horizontalMarginPx,
+                (screenWidthPx - popupSize.width - horizontalMarginPx).coerceAtLeast(horizontalMarginPx)
+            )
+        val showAbove = anchorOffset.y >= popupSize.height + verticalGapPx
+        val calculatedY = if (showAbove) {
+            anchorOffset.y - popupSize.height - verticalGapPx
+        } else {
+            (anchorOffset.y + anchorSize.height + verticalGapPx)
+                .coerceAtMost(screenHeightPx - popupSize.height - verticalGapPx)
+        }
         val popupOffset = IntOffset(
-            x = anchorOffset.x + (anchorSize.width / 2),
-            y = (anchorOffset.y - menuHeightPx - verticalGapPx).coerceAtLeast(0)
+            x = calculatedX,
+            y = calculatedY.coerceAtLeast(verticalGapPx)
         )
+        val transition = updateTransition(
+            targetState = popupVisible,
+            label = "group_message_popup_transition"
+        )
+        val popupAlpha by transition.animateFloat(
+            transitionSpec = {
+                tween(
+                    durationMillis = if (targetState) 220 else 140,
+                    easing = if (targetState) LinearOutSlowInEasing else FastOutLinearInEasing
+                )
+            },
+            label = "group_popup_alpha"
+        ) { visible -> if (visible) 1f else 0f }
+        val popupScale by transition.animateFloat(
+            transitionSpec = {
+                if (targetState) {
+                    spring(
+                        dampingRatio = 0.72f,
+                        stiffness = 520f
+                    )
+                } else {
+                    tween(
+                        durationMillis = 140,
+                        easing = FastOutLinearInEasing
+                    )
+                }
+            },
+            label = "group_popup_scale"
+        ) { visible -> if (visible) 1f else 0.86f }
+        val popupTranslationY by transition.animateFloat(
+            transitionSpec = {
+                tween(
+                    durationMillis = if (targetState) 240 else 140,
+                    easing = if (targetState) LinearOutSlowInEasing else FastOutLinearInEasing
+                )
+            },
+            label = "group_popup_translationY"
+        ) { visible ->
+            when {
+                visible -> 0f
+                showAbove -> 18f
+                else -> -18f
+            }
+        }
+        val previewAlpha by transition.animateFloat(
+            transitionSpec = {
+                tween(
+                    durationMillis = if (targetState) 180 else 90,
+                    delayMillis = if (targetState) 20 else 0,
+                    easing = LinearOutSlowInEasing
+                )
+            },
+            label = "group_preview_alpha"
+        ) { visible ->
+            if (visible) 1f else 0f
+        }
+        val previewTranslationY by transition.animateFloat(
+            transitionSpec = {
+                tween(
+                    durationMillis = if (targetState) 220 else 100,
+                    easing = LinearOutSlowInEasing
+                )
+            },
+            label = "group_preview_translation"
+        ) { visible ->
+            if (visible) 0f else if (showAbove) 10f else -10f
+        }
+        val menuAlpha by transition.animateFloat(
+            transitionSpec = {
+                tween(
+                    durationMillis = if (targetState) 200 else 100,
+                    delayMillis = if (targetState) 45 else 0,
+                    easing = LinearOutSlowInEasing
+                )
+            },
+            label = "group_menu_alpha"
+        ) { visible ->
+            if (visible) 1f else 0f
+        }
+        val menuTranslationY by transition.animateFloat(
+            transitionSpec = {
+                tween(
+                    durationMillis = if (targetState) 240 else 100,
+                    delayMillis = if (targetState) 30 else 0,
+                    easing = LinearOutSlowInEasing
+                )
+            },
+            label = "group_menu_translation"
+        ) { visible ->
+            if (visible) 0f else if (showAbove) 14f else -14f
+        }
 
         Popup(
             alignment = Alignment.TopStart,
             offset = popupOffset,
-            onDismissRequest = {
-                selectedMessage = null
-                selectedMessageAnchor = null
-            },
+            onDismissRequest = dismissPopup,
             properties = PopupProperties(focusable = true)
         ) {
-            Surface(
-                shape = RoundedCornerShape(16.dp),
-                tonalElevation = 10.dp,
-                shadowElevation = 10.dp,
-                color = MaterialTheme.colorScheme.surfaceContainerHigh
+            Column(
+                modifier = Modifier
+                    .wrapContentSize()
+                    .widthIn(max = 320.dp)
+                    .padding(8.dp)
+                    .onGloballyPositioned { popupSize = it.size }
+                    .graphicsLayer {
+                        alpha = popupAlpha
+                        scaleX = popupScale
+                        scaleY = popupScale
+                        translationY = popupTranslationY
+                        transformOrigin = if (showAbove) {
+                            TransformOrigin(0.5f, 1f)
+                        } else {
+                            TransformOrigin(0.5f, 0f)
+                        }
+                    },
             ) {
-                Column(
-                    modifier = Modifier
-                        .width(210.dp)
-                        .padding(vertical = 6.dp)
+                Box(
+                    modifier = Modifier.graphicsLayer {
+                        alpha = previewAlpha
+                        translationY = previewTranslationY
+                    }
                 ) {
-                    GroupMessageMenuRow(
-                        icon = Icons.Rounded.AccessTime,
-                        title = formatMessageSentAt(message.timestamp),
-                        onClick = {},
-                        enabled = false
+                    GroupMessagePopupPreview(
+                        message = message,
+                        currentUsername = myUsername,
+                        messageDeliveryStatuses = messageDeliveryStatuses
                     )
-                    GroupMessageMenuRow(
-                        icon = Icons.Rounded.ContentCopy,
-                        title = stringResource(R.string.copy),
-                        onClick = {
-                            if (message.content.isNotBlank()) {
-                                val clip = ClipData.newPlainText(context.getString(R.string.message), message.content)
-                                context.getSystemService(android.content.ClipboardManager::class.java)
-                                    ?.setPrimaryClip(clip)
-                                Toast.makeText(context, context.getString(R.string.copied_to_clipboard), Toast.LENGTH_SHORT).show()
-                            } else {
-                                Toast.makeText(context, context.getString(R.string.nothing_to_copy), Toast.LENGTH_SHORT).show()
-                            }
-                            selectedMessage = null
-                            selectedMessageAnchor = null
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Box(
+                    modifier = Modifier.graphicsLayer {
+                        alpha = menuAlpha
+                        translationY = menuTranslationY
+                    }
+                ) {
+                    Surface(
+                        modifier = Modifier.wrapContentSize(),
+                        shape = RoundedCornerShape(20.dp),
+                        tonalElevation = 10.dp,
+                        shadowElevation = 10.dp,
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        ) {
+                            GroupMessageMenuRow(
+                                icon = Icons.Rounded.AccessTime,
+                                title = formatMessageSentAt(message.timestamp),
+                                onClick = {},
+                                enabled = false
+                            )
+                            GroupMessageMenuRow(
+                                icon = Icons.Rounded.ContentCopy,
+                                title = stringResource(R.string.copy),
+                                onClick = {
+                                    if (message.content.isNotBlank()) {
+                                        val clip = ClipData.newPlainText(context.getString(R.string.message), message.content)
+                                        context.getSystemService(android.content.ClipboardManager::class.java)
+                                            ?.setPrimaryClip(clip)
+                                        Toast.makeText(context, context.getString(R.string.copied_to_clipboard), Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        Toast.makeText(context, context.getString(R.string.nothing_to_copy), Toast.LENGTH_SHORT).show()
+                                    }
+                                    dismissPopup()
+                                }
+                            )
+                            GroupMessageMenuRow(
+                                icon = Icons.Rounded.Delete,
+                                title = stringResource(R.string.delete),
+                                onClick = {
+                                    deleteCandidate = message
+                                    dismissPopup()
+                                }
+                            )
                         }
-                    )
-                    GroupMessageMenuRow(
-                        icon = Icons.Rounded.Delete,
-                        title = stringResource(R.string.delete),
-                        onClick = {
-                            deleteCandidate = message
-                            selectedMessage = null
-                            selectedMessageAnchor = null
-                        }
-                    )
+                    }
                 }
             }
         }
@@ -288,7 +480,30 @@ fun GroupChatScreen(
         )
     }
 
-    Scaffold(
+    val isMenuOpen = selectedMessage != null
+    val blurRadius by animateDpAsState(
+        targetValue = if (isMenuOpen) 8.dp else 0.dp,
+        animationSpec = tween(
+            durationMillis = 260,
+            easing = LinearOutSlowInEasing
+        ),
+        label = "group_scaffold_blur"
+    )
+    val dimAlpha by animateFloatAsState(
+        targetValue = if (isMenuOpen) 0.14f else 0f,
+        animationSpec = tween(
+            durationMillis = 220,
+            easing = LinearOutSlowInEasing
+        ),
+        label = "group_scaffold_dim"
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .blur(blurRadius)
+    ) {
+        Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
                 modifier = Modifier.height(146.dp),
@@ -387,98 +602,113 @@ fun GroupChatScreen(
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
-    ) { innerPadding ->
+        ) { innerPadding ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+            ) {
+                when {
+                    isLoading -> Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) { CircularProgressIndicator() }
+
+                    isUploading -> {
+                        Column(Modifier.fillMaxSize()) {
+                            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                            Box(modifier = Modifier.fillMaxSize()) {
+                                GroupChatSurface(
+                                    modifier = Modifier.fillMaxSize(),
+                                    state = groupListState,
+                                    items = messages,
+                                    topOverlaySpacerHeight = reservedNowPlayingHeight,
+                                    messageDeliveryStatuses = messageDeliveryStatuses,
+                                    canLoadOlder = canLoadOlderHistory,
+                                    isLoadingOlder = isLoadingOlderHistory,
+                                    currentUsername = viewModel.getMyUsername(),
+                                    senderProfileImageUrls = memberProfileImageUrls,
+                                    senderProfileImageShapes = memberProfileImageShapes,
+                                    senderBadges = memberBadges,
+                                    onMessageClick = { msg, offset, size ->
+                                        selectedMessage = msg
+                                        selectedMessageAnchor = offset to size
+                                    },
+                                    onAttachmentClick = { msg ->
+                                        val url = msg.attachmentUrl
+                                        if (!url.isNullOrBlank()) {
+                                            when (msg.messageType) {
+                                                "image" -> { mediaViewerUrl = url; mediaViewerIsVideo = false }
+                                                "video" -> { mediaViewerUrl = url; mediaViewerIsVideo = true }
+                                            }
+                                        }
+                                    },
+                                    onSwipeToReply = { viewModel.setReplyingTo(it) },
+                                    onPostShareClick = { postId ->
+                                        viewModel.openSharedPost(postId)
+                                    },
+                                    onLoadOlder = viewModel::loadOlderHistoryIfNeeded
+                                )
+                            }
+                        }
+                    }
+
+                    else -> GroupChatSurface(
+                        modifier = Modifier.fillMaxSize(),
+                        state = groupListState,
+                        items = messages,
+                        topOverlaySpacerHeight = reservedNowPlayingHeight,
+                        messageDeliveryStatuses = messageDeliveryStatuses,
+                        canLoadOlder = canLoadOlderHistory,
+                        isLoadingOlder = isLoadingOlderHistory,
+                        currentUsername = viewModel.getMyUsername(),
+                        senderProfileImageUrls = memberProfileImageUrls,
+                        senderProfileImageShapes = memberProfileImageShapes,
+                        senderBadges = memberBadges,
+                        onMessageClick = { msg, offset, size ->
+                            selectedMessage = msg
+                            selectedMessageAnchor = offset to size
+                        },
+                        onAttachmentClick = { msg ->
+                            val url = msg.attachmentUrl
+                            if (!url.isNullOrBlank()) {
+                                when (msg.messageType) {
+                                    "image" -> { mediaViewerUrl = url; mediaViewerIsVideo = false }
+                                    "video" -> { mediaViewerUrl = url; mediaViewerIsVideo = true }
+                                }
+                            }
+                        },
+                        onSwipeToReply = { viewModel.setReplyingTo(it) },
+                        onPostShareClick = { postId ->
+                            viewModel.openSharedPost(postId)
+                        },
+                        onLoadOlder = viewModel::loadOlderHistoryIfNeeded
+                    )
+                }
+
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .onGloballyPositioned { nowPlayingHeightPx = it.size.height }
+                ) {
+                    NowPlayingTopBarRow(onOpenPlaylist = viewModel::openPlaylistBottomSheetIfTrackExists)
+                }
+            }
+        }
+    }
+
+    if (isMenuOpen || dimAlpha > 0f) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
-        ) {
-            when {
-                isLoading -> Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) { CircularProgressIndicator() }
-
-                isUploading -> {
-                    Column(Modifier.fillMaxSize()) {
-                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                        Box(modifier = Modifier.fillMaxSize()) {
-                            GroupChatSurface(
-                                modifier = Modifier.fillMaxSize(),
-                                state = groupListState,
-                                items = messages,
-                                topOverlaySpacerHeight = reservedNowPlayingHeight,
-                                messageDeliveryStatuses = messageDeliveryStatuses,
-                                canLoadOlder = canLoadOlderHistory,
-                                isLoadingOlder = isLoadingOlderHistory,
-                                currentUsername = viewModel.getMyUsername(),
-                                senderProfileImageUrls = memberProfileImageUrls,
-                                senderProfileImageShapes = memberProfileImageShapes,
-                                senderBadges = memberBadges,
-                                onMessageClick = { msg, offset, size ->
-                                    selectedMessage = msg
-                                    selectedMessageAnchor = offset to size
-                                },
-                                onAttachmentClick = { msg ->
-                                    val url = msg.attachmentUrl
-                                    if (!url.isNullOrBlank()) {
-                                        when (msg.messageType) {
-                                            "image" -> { mediaViewerUrl = url; mediaViewerIsVideo = false }
-                                            "video" -> { mediaViewerUrl = url; mediaViewerIsVideo = true }
-                                        }
-                                    }
-                                },
-                                onSwipeToReply = { viewModel.setReplyingTo(it) },
-                                onPostShareClick = { postId ->
-                                    viewModel.openSharedPost(postId)
-                                },
-                                onLoadOlder = viewModel::loadOlderHistoryIfNeeded
-                            )
-                        }
-                    }
+                .background(Color.Black.copy(alpha = dimAlpha))
+                .clickable(
+                    indication = null,
+                    interactionSource = remember { MutableInteractionSource() }
+                ) {
+                    dismissPopup()
                 }
-
-                else -> GroupChatSurface(
-                    modifier = Modifier.fillMaxSize(),
-                    state = groupListState,
-                    items = messages,
-                    topOverlaySpacerHeight = reservedNowPlayingHeight,
-                    messageDeliveryStatuses = messageDeliveryStatuses,
-                    canLoadOlder = canLoadOlderHistory,
-                    isLoadingOlder = isLoadingOlderHistory,
-                    currentUsername = viewModel.getMyUsername(),
-                    senderProfileImageUrls = memberProfileImageUrls,
-                    senderProfileImageShapes = memberProfileImageShapes,
-                    senderBadges = memberBadges,
-                    onMessageClick = { msg, offset, size ->
-                        selectedMessage = msg
-                        selectedMessageAnchor = offset to size
-                    },
-                    onAttachmentClick = { msg ->
-                        val url = msg.attachmentUrl
-                        if (!url.isNullOrBlank()) {
-                            when (msg.messageType) {
-                                "image" -> { mediaViewerUrl = url; mediaViewerIsVideo = false }
-                                "video" -> { mediaViewerUrl = url; mediaViewerIsVideo = true }
-                            }
-                        }
-                    },
-                    onSwipeToReply = { viewModel.setReplyingTo(it) },
-                    onPostShareClick = { postId ->
-                        viewModel.openSharedPost(postId)
-                    },
-                    onLoadOlder = viewModel::loadOlderHistoryIfNeeded
-                )
-            }
-
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .onGloballyPositioned { nowPlayingHeightPx = it.size.height }
-            ) {
-                NowPlayingTopBarRow(onOpenPlaylist = viewModel::openPlaylistBottomSheetIfTrackExists)
-            }
-        }
+        )
     }
 }
 
@@ -515,8 +745,12 @@ private fun GroupMessageMenuRow(
 ) {
     Row(
         modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 10.dp, vertical = 2.dp),
+            .padding(horizontal = 10.dp)
+            .clip(MaterialTheme.shapes.extraLarge)
+            .clickable(
+                onClick = onClick,
+                enabled = enabled
+            ),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
@@ -532,5 +766,40 @@ private fun GroupMessageMenuRow(
         ) {
             Text(title)
         }
+    }
+}
+
+@Composable
+private fun GroupMessagePopupPreview(
+    message: GroupMessageEntity,
+    currentUsername: String,
+    messageDeliveryStatuses: Map<String, MessageDeliveryStatus>
+) {
+    val isMine = message.sender == currentUsername
+
+    Box(
+        modifier = Modifier
+            .padding(4.dp)
+    ) {
+        ChatContainer(
+            text = message.content,
+            sent = isMine,
+            messageType = message.messageType,
+            attachmentType = null,
+            attachmentUrl = message.attachmentUrl,
+            attachmentMimeType = message.attachmentMimeType,
+            attachmentFileName = message.attachmentFileName,
+            deliveryStatus = if (isMine) {
+                message.messageId.takeIf { it.isNotBlank() }?.let { messageDeliveryStatuses[it] }
+            } else {
+                null
+            },
+            onClick = { _, _ -> },
+            onAttachmentClick = {},
+            onPostShareClick = null,
+            onLongClick = {},
+            replySenderName = message.replyToSender,
+            replyPreviewText = message.replyPreview
+        )
     }
 }

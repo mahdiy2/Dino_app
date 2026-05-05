@@ -11,6 +11,23 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.updateTransition
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,10 +40,14 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.DropdownMenuItem
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBackIosNew
 import androidx.compose.material.icons.rounded.AccessTime
@@ -34,6 +55,7 @@ import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.VpnKey
 import androidx.compose.material3.Badge
 import androidx.compose.material3.AlertDialog
@@ -43,7 +65,10 @@ import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -55,6 +80,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -65,10 +91,17 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -81,12 +114,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.dino.message.chatfeature.domain.model.MessageDeliveryStatus
 import com.dino.message.chatfeature.presentation.component.ChatScreenBottomAppBar
 import com.dino.message.chatfeature.presentation.component.ChatSurface
 import com.dino.message.chatfeature.presentation.component.MediaAccessLevel
 import com.dino.message.chatfeature.presentation.component.MediaPermissionHandler
 import com.dino.message.chatfeature.presentation.component.MediaViewerDialog
 import com.dino.message.chatfeature.domain.model.MessageEntity
+import com.dino.message.chatfeature.presentation.component.ChatContainer
 import com.dino.message.chatfeature.presentation.viewmodel.ChatViewModel
 import com.dino.message.profilefeature.presentation.component.ProfileAvatarMedia
 import com.dino.message.threadfeature.presentation.component.NowPlayingTopBarRow
@@ -142,7 +177,8 @@ fun ChatScreen(
     var nowPlayingHeightPx by remember { mutableIntStateOf(0) }
     val density = LocalDensity.current
     val nowPlayingHeightDp = with(density) { nowPlayingHeightPx.toDp() }
-    val reservedNowPlayingHeight = if (!hasNowPlaying) 0.dp else nowPlayingHeightDp.takeIf { it > 0.dp } ?: 64.dp
+    val reservedNowPlayingHeight =
+        if (!hasNowPlaying) 0.dp else nowPlayingHeightDp.takeIf { it > 0.dp } ?: 64.dp
 
     DisposableEffect(context) {
         val activity = context.findActivity()
@@ -158,13 +194,18 @@ fun ChatScreen(
 
     var pendingVoiceAction by remember { mutableStateOf<(() -> Unit)?>(null) }
     var mediaViewerUrl by remember { mutableStateOf<String?>(null) }
-    val clipboardManager = remember { context.getSystemService(android.content.ClipboardManager::class.java) }
+    val clipboardManager =
+        remember { context.getSystemService(android.content.ClipboardManager::class.java) }
 
     var mediaViewerIsVideo by remember { mutableStateOf(false) }
     var pendingMediaType by remember { mutableStateOf<String?>(null) }
     var selectedMessage by remember { mutableStateOf<MessageEntity?>(null) }
     var selectedMessageAnchor by remember { mutableStateOf<Pair<IntOffset, IntSize>?>(null) }
     var deleteCandidate by remember { mutableStateOf<MessageEntity?>(null) }
+    var popupMessage by remember { mutableStateOf<MessageEntity?>(null) }
+    var popupMessageAnchor by remember { mutableStateOf<Pair<IntOffset, IntSize>?>(null) }
+
+    var showMenu by remember { mutableStateOf(false) }
 
     LaunchedEffect(uploadError) {
         uploadError?.let {
@@ -238,6 +279,7 @@ fun ChatScreen(
                 "image" -> imagePickerLauncher.launch(
                     PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
                 )
+
                 "video" -> videoPickerLauncher.launch(
                     PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)
                 )
@@ -322,72 +364,288 @@ fun ChatScreen(
             }
         )
     }
+    var popupSize by remember { mutableStateOf(IntSize.Zero) }
 
-    if (selectedMessage != null && selectedMessageAnchor != null) {
-        val message = selectedMessage!!
-        val (anchorOffset, anchorSize) = selectedMessageAnchor!!
+    var popupVisible by remember { mutableStateOf(false) }
+    var popupMounted by remember { mutableStateOf(false) }
+
+    LaunchedEffect(selectedMessage, selectedMessageAnchor) {
+        if (selectedMessage != null && selectedMessageAnchor != null) {
+            popupMessage = selectedMessage
+            popupMessageAnchor = selectedMessageAnchor
+            popupMounted = true
+            popupVisible = false
+            withFrameNanos { }
+            popupVisible = true
+        } else if (popupMounted) {
+            popupVisible = false
+        }
+    }
+
+    val dismissPopup: () -> Unit = {
+        selectedMessage = null
+        selectedMessageAnchor = null
+        popupVisible = false
+    }
+
+    LaunchedEffect(popupVisible, popupMounted) {
+        if (popupMounted && !popupVisible) {
+            kotlinx.coroutines.delay(180)
+            popupMessage = null
+            popupMessageAnchor = null
+            popupMounted = false
+        }
+    }
+
+
+    if (popupMounted && popupMessage != null && popupMessageAnchor != null) {
+        val message = popupMessage!!
+        val (anchorOffset, anchorSize) = popupMessageAnchor!!
         val density = LocalDensity.current
-        val menuHeightPx = with(density) { 132.dp.roundToPx() }
+        val configuration = LocalConfiguration.current
+
+        val screenWidthPx = with(density) { configuration.screenWidthDp.dp.roundToPx() }
+        val screenHeightPx = with(density) { configuration.screenHeightDp.dp.roundToPx() }
+
         val verticalGapPx = with(density) { 8.dp.roundToPx() }
+        val horizontalMarginPx = with(density) { 8.dp.roundToPx() }
+
+        val anchorCenterX = anchorOffset.x + anchorSize.width / 2
+
+        val calculatedX = (anchorCenterX - popupSize.width / 2)
+            .coerceIn(
+                horizontalMarginPx,
+                (screenWidthPx - popupSize.width - horizontalMarginPx)
+                    .coerceAtLeast(horizontalMarginPx)
+            )
+
+        val showAbove = anchorOffset.y >= popupSize.height + verticalGapPx
+
+        val calculatedY = if (showAbove) {
+            anchorOffset.y - popupSize.height - verticalGapPx
+        } else {
+            (anchorOffset.y + anchorSize.height + verticalGapPx)
+                .coerceAtMost(screenHeightPx - popupSize.height - verticalGapPx)
+        }
+
         val popupOffset = IntOffset(
-            x = anchorOffset.x + (anchorSize.width / 2),
-            y = (anchorOffset.y - menuHeightPx - verticalGapPx).coerceAtLeast(0)
+            x = calculatedX,
+            y = calculatedY.coerceAtLeast(verticalGapPx)
         )
+        val transition = updateTransition(
+            targetState = popupVisible,
+            label = "message_popup_transition"
+        )
+
+        val popupAlpha by transition.animateFloat(
+            transitionSpec = {
+                tween(
+                    durationMillis = if (targetState) 220 else 140,
+                    easing = if (targetState) LinearOutSlowInEasing else FastOutLinearInEasing
+                )
+            },
+            label = "popup_alpha"
+        ) { visible ->
+            if (visible) 1f else 0f
+        }
+
+        val popupScale by transition.animateFloat(
+            transitionSpec = {
+                if (targetState) {
+                    spring(
+                        dampingRatio = 0.72f,
+                        stiffness = 520f
+                    )
+                } else {
+                    tween(
+                        durationMillis = 140,
+                        easing = FastOutLinearInEasing
+                    )
+                }
+            },
+            label = "popup_scale"
+        ) { visible ->
+            if (visible) 1f else 0.86f
+        }
+
+        val popupTranslationY by transition.animateFloat(
+            transitionSpec = {
+                tween(
+                    durationMillis = if (targetState) 240 else 140,
+                    easing = if (targetState) LinearOutSlowInEasing else FastOutLinearInEasing
+                )
+            },
+            label = "popup_translationY"
+        ) { visible ->
+            when {
+                visible -> 0f
+                showAbove -> 18f   // وقتی بالا باز میشه، در حالت بسته کمی پایین‌تر باشد
+                else -> -18f       // وقتی پایین باز میشه، در حالت بسته کمی بالاتر باشد
+            }
+        }
+
+        val previewAlpha by transition.animateFloat(
+            transitionSpec = {
+                tween(
+                    durationMillis = if (targetState) 180 else 90,
+                    delayMillis = if (targetState) 20 else 0,
+                    easing = LinearOutSlowInEasing
+                )
+            },
+            label = "preview_alpha"
+        ) { visible ->
+            if (visible) 1f else 0f
+        }
+
+        val previewTranslationY by transition.animateFloat(
+            transitionSpec = {
+                tween(
+                    durationMillis = if (targetState) 220 else 100,
+                    delayMillis = if (targetState) 0 else 0,
+                    easing = LinearOutSlowInEasing
+                )
+            },
+            label = "preview_translation"
+        ) { visible ->
+            if (visible) 0f else if (showAbove) 10f else -10f
+        }
+
+        val menuAlpha by transition.animateFloat(
+            transitionSpec = {
+                tween(
+                    durationMillis = if (targetState) 200 else 100,
+                    delayMillis = if (targetState) 45 else 0,
+                    easing = LinearOutSlowInEasing
+                )
+            },
+            label = "menu_alpha"
+        ) { visible ->
+            if (visible) 1f else 0f
+        }
+
+        val menuTranslationY by transition.animateFloat(
+            transitionSpec = {
+                tween(
+                    durationMillis = if (targetState) 240 else 100,
+                    delayMillis = if (targetState) 30 else 0,
+                    easing = LinearOutSlowInEasing
+                )
+            },
+            label = "menu_translation"
+        ) { visible ->
+            if (visible) 0f else if (showAbove) 14f else -14f
+        }
 
         Popup(
             alignment = Alignment.TopStart,
             offset = popupOffset,
-            onDismissRequest = {
-                selectedMessage = null
-                selectedMessageAnchor = null
-            },
+            onDismissRequest = dismissPopup,
             properties = PopupProperties(focusable = true)
         ) {
-            Surface(
-                shape = RoundedCornerShape(16.dp),
-                tonalElevation = 10.dp,
-                shadowElevation = 10.dp,
-                color = MaterialTheme.colorScheme.surfaceContainerHigh
+
+
+            Column(
+                modifier = Modifier
+
+                    .wrapContentSize()
+                    .widthIn(max = 320.dp)
+                    .padding(8.dp)
+                    .graphicsLayer {
+                        alpha = popupAlpha
+                        scaleX = popupScale
+                        scaleY = popupScale
+                        translationY = popupTranslationY
+                        transformOrigin = if (showAbove) {
+                            TransformOrigin(0.5f, 1f)
+                        } else {
+                            TransformOrigin(0.5f, 0f)
+                        }
+                    }
+
+                    .onGloballyPositioned { popupSize = it.size },
             ) {
-                Column(
-                    modifier = Modifier
-                        .width(210.dp)
-                        .padding(vertical = 6.dp)
+                Box(
+                    modifier = Modifier.graphicsLayer {
+                        alpha = previewAlpha
+                        translationY = previewTranslationY
+                    }
                 ) {
-                    MessageMenuRow(
-                        icon = Icons.Rounded.AccessTime,
-                        title = formatMessageSentAt(message.timestamp),
-                        onClick = {},
-                        enabled = false
-                    )
-                    MessageMenuRow(
-                        icon = Icons.Rounded.ContentCopy,
-                        title = stringResource(R.string.copy),
-                        onClick = {
-                            if (message.content.isNotBlank()) {
-                                val clip = ClipData.newPlainText(context.getString(R.string.message), message.content)
-                                clipboardManager?.setPrimaryClip(clip)
-                                Toast.makeText(context, context.getString(R.string.copied_to_clipboard), Toast.LENGTH_SHORT).show()
-                            } else {
-                                Toast.makeText(context, context.getString(R.string.nothing_to_copy), Toast.LENGTH_SHORT).show()
-                            }
-                            selectedMessage = null
-                            selectedMessageAnchor = null
-                        }
-                    )
-                    MessageMenuRow(
-                        icon = Icons.Rounded.Delete,
-                        title = stringResource(R.string.delete),
-                        onClick = {
-                            deleteCandidate = message
-                            selectedMessage = null
-                            selectedMessageAnchor = null
-                        }
+                    MessagePopupPreview(
+                        message = message,
+                        sender = chatId,
+                        messageDeliveryStatuses = messageDeliveryStatuses
                     )
                 }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Box(
+                    modifier = Modifier.graphicsLayer {
+                        alpha = menuAlpha
+                        translationY = menuTranslationY
+                    }
+                ) {
+                    Surface(
+                        modifier = Modifier.wrapContentSize(),
+                        shape = RoundedCornerShape(20.dp),
+                        tonalElevation = 10.dp,
+                        shadowElevation = 10.dp,
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        ) {
+                            MessageMenuRow(
+                                icon = Icons.Rounded.AccessTime,
+                                title = formatMessageSentAt(message.timestamp),
+                                onClick = {},
+                                enabled = false
+                            )
+
+                            MessageMenuRow(
+                                icon = Icons.Rounded.ContentCopy,
+                                title = stringResource(R.string.copy),
+                                onClick = {
+                                    if (message.content.isNotBlank()) {
+                                        val clip = ClipData.newPlainText(
+                                            context.getString(R.string.message),
+                                            message.content
+                                        )
+                                        clipboardManager?.setPrimaryClip(clip)
+                                        Toast.makeText(
+                                            context,
+                                            context.getString(R.string.copied_to_clipboard),
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    } else {
+                                        Toast.makeText(
+                                            context,
+                                            context.getString(R.string.nothing_to_copy),
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                    dismissPopup()
+                                }
+                            )
+
+                            MessageMenuRow(
+                                icon = Icons.Rounded.Delete,
+                                title = stringResource(R.string.delete),
+                                onClick = {
+                                    deleteCandidate = message
+                                    dismissPopup()
+                                }
+                            )
+                        }
+                    }
+                }
+
             }
+//            }
+
         }
     }
+
 
     if (deleteCandidate != null) {
         val message = deleteCandidate!!
@@ -414,324 +672,393 @@ fun ChatScreen(
         )
     }
 
-    Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        ProfileAvatarMedia(
-                            modifier = Modifier.size(36.dp),
-                            profileImageUrl = profileImageUrl,
-                            badge = badge,
-                            profileImageShape = profileImageShape,
-                            profileVideoUrl = profileVideoUrl,
-                            autoPlayVideo = true,
-                            onClick = viewModel::openPeerProfile
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Column {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
+    val isMenuOpen = selectedMessage != null
+
+    val blurRadius by animateDpAsState(
+        targetValue = if (isMenuOpen) 8.dp else 0.dp,
+        animationSpec = tween(
+            durationMillis = 260,
+            easing = LinearOutSlowInEasing
+        ),
+        label = "scaffold_blur"
+    )
+
+    val dimAlpha by animateFloatAsState(
+        targetValue = if (isMenuOpen) 0.14f else 0f,
+        animationSpec = tween(
+            durationMillis = 220,
+            easing = LinearOutSlowInEasing
+        ),
+        label = "scaffold_dim"
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .blur(blurRadius)
+    ) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            ProfileAvatarMedia(
+                                modifier = Modifier.size(36.dp),
+                                profileImageUrl = profileImageUrl,
+                                badge = badge,
+                                profileImageShape = profileImageShape,
+                                profileVideoUrl = profileVideoUrl,
+                                autoPlayVideo = true,
+                                onClick = viewModel::openPeerProfile
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Column {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text(
+                                        text = resolvedName,
+                                        style = MaterialTheme.typography.titleMedium
+                                    )
+                                    UserBadgeIcon(badge = badge)
+                                }
                                 Text(
-                                    text = resolvedName,
-                                    style = MaterialTheme.typography.titleMedium
+                                    text = if (isPeerOnline) {
+                                        stringResource(R.string.online)
+                                    } else {
+                                        stringResource(R.string.offline)
+                                    },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (isPeerOnline)
+                                        MaterialTheme.colorScheme.primary
+                                    else
+                                        MaterialTheme.colorScheme.onSurfaceVariant
                                 )
-                                UserBadgeIcon(badge = badge)
                             }
-                            Text(
-                                text = if (isPeerOnline) {
-                                    stringResource(R.string.online)
-                                } else {
-                                    stringResource(R.string.offline)
-                                },
-                                style = MaterialTheme.typography.bodySmall,
-                                color = if (isPeerOnline)
-                                    MaterialTheme.colorScheme.primary
-                                else
-                                    MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                    },
+                    actions = {
+                        Box {
+                            IconButton(
+                                onClick = { showMenu = true }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.MoreVert,
+                                    contentDescription = null
+                                )
+                            }
+
+                            DropdownMenu(
+                                shape = MaterialTheme.shapes.extraLarge,
+                                expanded = showMenu,
+                                onDismissRequest = { showMenu = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(stringResource(R.string.reset_encryption_key))
+                                    },
+                                    onClick = {
+                                        showMenu = false
+                                        viewModel.openPrivateKeyResetDialog()
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Rounded.VpnKey,
+                                            contentDescription = null
+                                        )
+                                    }
+                                )
+
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(stringResource(R.string.clear))
+                                    },
+                                    onClick = {
+                                        showMenu = false
+                                        viewModel.clearMessages()
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Delete,
+                                            contentDescription = null
+                                        )
+                                    }
+                                )
+                            }
+                        }
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = { viewModel.navigateUp() }) {
+                            Icon(
+                                imageVector = Icons.Rounded.ArrowBackIosNew,
+                                contentDescription = stringResource(R.string.back),
+                                modifier = backIconModifier()
                             )
                         }
                     }
-                },
-                actions = {
-                    IconButton(onClick = { viewModel.openPrivateKeyResetDialog() }) {
-                        Icon(
-                            imageVector = Icons.Rounded.VpnKey,
-                            contentDescription = stringResource(R.string.reset_encryption_key)
-                        )
-                    }
-                    IconButton(onClick = { viewModel.clearMessages() }) {
-                        Icon(imageVector = Icons.Rounded.Delete, contentDescription = stringResource(R.string.clear))
-                    }
-//                    IconButton(onClick = { showDebugLog = !showDebugLog }) {
-//                        BadgedBox(
-//                            badge = {
-//                                if (debugLogCount > 0) {
-//                                    Badge { Text("$debugLogCount") }
-//                                }
-//                            }
-//                        ) {
-//                            Icon(
-//                                imageVector = Icons.Rounded.BugReport,
-//                                contentDescription = "Debug Log"
-//                            )
-//                        }
-//                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = { viewModel.navigateUp() }) {
-                        Icon(
-                            imageVector = Icons.Rounded.ArrowBackIosNew,
-                            contentDescription = stringResource(R.string.back),
-                            modifier = backIconModifier()
-                        )
-                    }
-                }
-            )
-        },
-        bottomBar = {
-            ChatScreenBottomAppBar(
-                modifier = Modifier.imePadding(),
-                onSendClicked = { message ->
-                    if (message.isNotBlank()) {
-                        viewModel.sendMessage(message)
-                    }
-                },
-                onPickImage = {
-                    val currentAccess = MediaPermissionHandler.checkAccessLevel(context)
-                    if (currentAccess != MediaAccessLevel.DENIED) {
-                        imagePickerLauncher.launch(
-                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                        )
-                    } else {
-                        pendingMediaType = "image"
-                        mediaPermissionLauncher.launch(MediaPermissionHandler.getRequiredPermissions())
-                    }
-                },
-                onPickVideo = {
-                    val currentAccess = MediaPermissionHandler.checkAccessLevel(context)
-                    if (currentAccess != MediaAccessLevel.DENIED) {
-                        videoPickerLauncher.launch(
-                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)
-                        )
-                    } else {
-                        pendingMediaType = "video"
-                        mediaPermissionLauncher.launch(MediaPermissionHandler.getRequiredPermissions())
-                    }
-                },
-                onVoiceRecordStart = {
-                    pendingVoiceAction = { viewModel.startVoiceRecording(context) }
-                    audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                },
-                onVoiceRecordStop = { viewModel.stopVoiceRecording() },
-                onVoiceRecordCancel = { viewModel.cancelVoiceRecording() },
-                isRecording = isRecording,
-                recordingDurationMs = recordingDurationMs,
-                enabled = isPublicKeyReady,
-                replySenderName = replyingTo?.senderOrReceiver,
-                replyPreviewText = replyingTo?.content?.take(100),
-                onDismissReply = { viewModel.clearReplyingTo() }
-            )
-        },
-        snackbarHost = {
-            SnackbarHost(hostState = snackbarHostState) { data ->
-                Snackbar(
-                    snackbarData = data,
-                    containerColor = MaterialTheme.colorScheme.errorContainer,
-                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                    actionColor = MaterialTheme.colorScheme.primary
                 )
-            }
-        }
-    ) { innerPadding ->
-        Box(
-            modifier = Modifier
-                .padding(innerPadding)
-                .fillMaxSize()
-        ) {
-            when {
-                isPublicKeyLoading -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator()
-                    }
-                }
-
-                publicKeyError != null -> {
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = publicKeyError ?: stringResource(R.string.failed_to_load_encryption_key),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                        Spacer(Modifier.height(16.dp))
-                        Button(onClick = { viewModel.retryLoadPublicKey() }) {
-                            Text(stringResource(R.string.retry))
+            },
+            bottomBar = {
+                ChatScreenBottomAppBar(
+                    modifier = Modifier.imePadding(),
+                    onSendClicked = { message ->
+                        if (message.isNotBlank()) {
+                            viewModel.sendMessage(message)
                         }
-                    }
-                }
-
-                else -> {
-                    Column(modifier = Modifier.fillMaxSize()) {
-                        if (isUploading) {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                CircularProgressIndicator()
-                            }
+                    },
+                    onPickImage = {
+                        val currentAccess = MediaPermissionHandler.checkAccessLevel(context)
+                        if (currentAccess != MediaAccessLevel.DENIED) {
+                            imagePickerLauncher.launch(
+                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                            )
                         } else {
-                            Box(modifier = Modifier.fillMaxSize()) {
-                                ChatSurface(
-                                    modifier = Modifier.fillMaxSize(),
-                                    state = chatListState,
-                                    items = messages,
-                                    topOverlaySpacerHeight = reservedNowPlayingHeight,
-                                    messageDeliveryStatuses = messageDeliveryStatuses,
-                                    canLoadOlder = canLoadOlderHistory,
-                                    isLoadingOlder = isLoadingOlderHistory,
-                                    sender = chatId,
-                                    onMessageClick = { message, offset, size ->
-                                        selectedMessage = message
-                                        selectedMessageAnchor = offset to size
-                                    },
-                                    onAttachmentClick = { message ->
-                                        val openedStory = viewModel.openStoryFromAttachment(message)
-                                        if (openedStory) {
-                                            return@ChatSurface
-                                        }
-                                        val url = message.attachmentUrl
-                                        if (!url.isNullOrBlank()) {
-                                            val normalizedAttachmentType = message.attachmentType
-                                                ?.trim()
-                                                ?.lowercase()
-                                            val isStoryAttachment = normalizedAttachmentType == "story_reply" ||
-                                                normalizedAttachmentType == "story_mention"
-                                            val storyIsVideo = message.attachmentMimeType
-                                                ?.contains("video", ignoreCase = true) == true
-                                            when {
-                                                isStoryAttachment && storyIsVideo -> {
-                                                    mediaViewerUrl = url
-                                                    mediaViewerIsVideo = true
-                                                }
-                                                isStoryAttachment || message.messageType == "image" -> {
-                                                    mediaViewerUrl = url
-                                                    mediaViewerIsVideo = false
-                                                }
-                                                message.messageType == "video" -> {
-                                                    mediaViewerUrl = url
-                                                    mediaViewerIsVideo = true
-                                                }
-                                                else -> Unit
-                                            }
-                                        }
-                                    },
-                                    onSwipeToReply = { message ->
-                                        viewModel.setReplyingTo(message)
-                                    },
-                                    onPostShareClick = { postId ->
-                                        viewModel.openSharedPost(postId)
-                                    },
-                                    onLoadOlder = viewModel::loadOlderHistoryIfNeeded
-                                )
-                            }
+                            pendingMediaType = "image"
+                            mediaPermissionLauncher.launch(MediaPermissionHandler.getRequiredPermissions())
                         }
-                    }
+                    },
+                    onPickVideo = {
+                        val currentAccess = MediaPermissionHandler.checkAccessLevel(context)
+                        if (currentAccess != MediaAccessLevel.DENIED) {
+                            videoPickerLauncher.launch(
+                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)
+                            )
+                        } else {
+                            pendingMediaType = "video"
+                            mediaPermissionLauncher.launch(MediaPermissionHandler.getRequiredPermissions())
+                        }
+                    },
+                    onVoiceRecordStart = {
+                        pendingVoiceAction = { viewModel.startVoiceRecording(context) }
+                        audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                    },
+                    onVoiceRecordStop = { viewModel.stopVoiceRecording() },
+                    onVoiceRecordCancel = { viewModel.cancelVoiceRecording() },
+                    isRecording = isRecording,
+                    recordingDurationMs = recordingDurationMs,
+                    enabled = isPublicKeyReady,
+                    replySenderName = replyingTo?.senderOrReceiver,
+                    replyPreviewText = replyingTo?.content?.take(100),
+                    onDismissReply = { viewModel.clearReplyingTo() }
+                )
+            },
+            snackbarHost = {
+                SnackbarHost(hostState = snackbarHostState) { data ->
+                    Snackbar(
+                        snackbarData = data,
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                        actionColor = MaterialTheme.colorScheme.primary
+                    )
                 }
             }
-
+        )
+        { innerPadding ->
             Box(
                 modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .onGloballyPositioned { nowPlayingHeightPx = it.size.height }
-            ) {
-                NowPlayingTopBarRow(onOpenPlaylist = viewModel::openPlaylistBottomSheetIfTrackExists)
-            }
-        }
-
-        if (showDebugLog) {
-            Surface(
-                modifier = Modifier
+                    .padding(innerPadding)
                     .fillMaxSize()
-                    .padding(innerPadding),
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.97f)
             ) {
-                Column(modifier = Modifier.fillMaxSize()) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = stringResource(R.string.socket_debug_log),
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                        Row {
-                            IconButton(onClick = {
-                                val allLogs = socketDebugEvents.joinToString("\n")
-                                val clip = ClipData.newPlainText(context.getString(R.string.socket_debug_log), allLogs)
-                                clipboardManager?.setPrimaryClip(clip)
-                                Toast.makeText(context, context.getString(R.string.copied_to_clipboard), Toast.LENGTH_SHORT).show()
-                            }) {
-                                Icon(
-                                    imageVector = Icons.Rounded.ContentCopy,
-                                    contentDescription = stringResource(R.string.copy_all)
-                                )
-                            }
-                            IconButton(onClick = { showDebugLog = false }) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Close,
-                                    contentDescription = stringResource(R.string.close)
-                                )
-                            }
-                        }
-                    }
-
-                    if (socketDebugEvents.isEmpty()) {
+                when {
+                    isPublicKeyLoading -> {
                         Box(
                             modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = stringResource(R.string.no_events_yet),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                            )
+                            CircularProgressIndicator()
                         }
-                    } else {
-                        LazyColumn(
-                            state = debugListState,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(horizontal = 12.dp)
+                    }
+
+                    publicKeyError != null -> {
+                        Column(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            items(socketDebugEvents) { event ->
-                                Surface(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 2.dp),
-                                    shape = RoundedCornerShape(4.dp),
-                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                            Text(
+                                text = publicKeyError
+                                    ?: stringResource(R.string.failed_to_load_encryption_key),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                            Spacer(Modifier.height(16.dp))
+                            Button(onClick = { viewModel.retryLoadPublicKey() }) {
+                                Text(stringResource(R.string.retry))
+                            }
+                        }
+                    }
+
+                    else -> {
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            if (isUploading) {
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
                                 ) {
-                                    Text(
-                                        text = event,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    CircularProgressIndicator()
+                                }
+                            } else {
+                                Box(modifier = Modifier.fillMaxSize()) {
+                                    ChatSurface(
+                                        modifier = Modifier.fillMaxSize(),
+                                        state = chatListState,
+                                        items = messages,
+                                        topOverlaySpacerHeight = reservedNowPlayingHeight,
+                                        messageDeliveryStatuses = messageDeliveryStatuses,
+                                        canLoadOlder = canLoadOlderHistory,
+                                        isLoadingOlder = isLoadingOlderHistory,
+                                        sender = chatId,
+                                        onMessageClick = { message, offset, size ->
+                                            selectedMessage = message
+                                            selectedMessageAnchor = offset to size
+                                        },
+                                        onAttachmentClick = { message ->
+                                            val openedStory =
+                                                viewModel.openStoryFromAttachment(message)
+                                            if (openedStory) {
+                                                return@ChatSurface
+                                            }
+                                            val url = message.attachmentUrl
+                                            if (!url.isNullOrBlank()) {
+                                                val normalizedAttachmentType =
+                                                    message.attachmentType
+                                                        ?.trim()
+                                                        ?.lowercase()
+                                                val isStoryAttachment =
+                                                    normalizedAttachmentType == "story_reply" ||
+                                                            normalizedAttachmentType == "story_mention"
+                                                val storyIsVideo = message.attachmentMimeType
+                                                    ?.contains("video", ignoreCase = true) == true
+                                                when {
+                                                    isStoryAttachment && storyIsVideo -> {
+                                                        mediaViewerUrl = url
+                                                        mediaViewerIsVideo = true
+                                                    }
+
+                                                    isStoryAttachment || message.messageType == "image" -> {
+                                                        mediaViewerUrl = url
+                                                        mediaViewerIsVideo = false
+                                                    }
+
+                                                    message.messageType == "video" -> {
+                                                        mediaViewerUrl = url
+                                                        mediaViewerIsVideo = true
+                                                    }
+
+                                                    else -> Unit
+                                                }
+                                            }
+                                        },
+                                        onSwipeToReply = { message ->
+                                            viewModel.setReplyingTo(message)
+                                        },
+                                        onPostShareClick = { postId ->
+                                            viewModel.openSharedPost(postId)
+                                        },
+                                        onLoadOlder = viewModel::loadOlderHistoryIfNeeded
                                     )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .onGloballyPositioned { nowPlayingHeightPx = it.size.height }
+                ) {
+                    NowPlayingTopBarRow(onOpenPlaylist = viewModel::openPlaylistBottomSheetIfTrackExists)
+                }
+            }
+
+            if (showDebugLog) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.97f)
+                ) {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = stringResource(R.string.socket_debug_log),
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Row {
+                                IconButton(onClick = {
+                                    val allLogs = socketDebugEvents.joinToString("\n")
+                                    val clip = ClipData.newPlainText(
+                                        context.getString(R.string.socket_debug_log),
+                                        allLogs
+                                    )
+                                    clipboardManager?.setPrimaryClip(clip)
+                                    Toast.makeText(
+                                        context,
+                                        context.getString(R.string.copied_to_clipboard),
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.ContentCopy,
+                                        contentDescription = stringResource(R.string.copy_all)
+                                    )
+                                }
+                                IconButton(onClick = { showDebugLog = false }) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Close,
+                                        contentDescription = stringResource(R.string.close)
+                                    )
+                                }
+                            }
+                        }
+
+                        if (socketDebugEvents.isEmpty()) {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.no_events_yet),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                                )
+                            }
+                        } else {
+                            LazyColumn(
+                                state = debugListState,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(horizontal = 12.dp)
+                            ) {
+                                items(socketDebugEvents) { event ->
+                                    Surface(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 2.dp),
+                                        shape = RoundedCornerShape(4.dp),
+                                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                    ) {
+                                        Text(
+                                            text = event,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            modifier = Modifier.padding(
+                                                horizontal = 8.dp,
+                                                vertical = 4.dp
+                                            ),
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -740,6 +1067,21 @@ fun ChatScreen(
             }
         }
     }
+
+    if (isMenuOpen || dimAlpha > 0f) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = dimAlpha))
+                .clickable(
+                    indication = null,
+                    interactionSource = remember { MutableInteractionSource() }
+                ) {
+                    dismissPopup()
+                }
+        )
+    }
+
 }
 
 private tailrec fun Context.findActivity(): Activity? = when (this) {
@@ -775,8 +1117,13 @@ private fun MessageMenuRow(
 ) {
     Row(
         modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 10.dp, vertical = 2.dp),
+//            .fillMaxWidth()
+            .padding(horizontal = 10.dp)
+            .clip(MaterialTheme.shapes.extraLarge)
+            .clickable(
+                onClick = onClick,
+                enabled = enabled
+            ),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
@@ -792,5 +1139,42 @@ private fun MessageMenuRow(
         ) {
             Text(title)
         }
+    }
+}
+
+
+@Composable
+private fun MessagePopupPreview(
+    message: MessageEntity,
+    sender: String,
+    messageDeliveryStatuses: Map<String, MessageDeliveryStatus>
+) {
+    val isMine = message.senderOrReceiver != sender
+
+    Box(
+        modifier = Modifier
+//            .fillMaxWidth()
+            .padding(4.dp)
+    ) {
+        ChatContainer(
+            text = message.content,
+            sent = isMine,
+            messageType = message.messageType,
+            attachmentType = message.attachmentType,
+            attachmentUrl = message.attachmentUrl,
+            attachmentMimeType = message.attachmentMimeType,
+            attachmentFileName = message.attachmentFileName,
+            deliveryStatus = if (isMine) {
+                message.messageId?.let { messageDeliveryStatuses[it] }
+            } else {
+                null
+            },
+            onClick = { _, _ -> },
+            onAttachmentClick = {},
+            onPostShareClick = null,
+            onLongClick = {},
+            replySenderName = message.replyToSender,
+            replyPreviewText = message.replyPreview
+        )
     }
 }

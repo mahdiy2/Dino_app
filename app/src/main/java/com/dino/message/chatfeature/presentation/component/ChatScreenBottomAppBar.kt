@@ -2,25 +2,39 @@ package com.dino.message.chatfeature.presentation.component
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Image
@@ -55,7 +69,12 @@ import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPSmall
 import com.dino.message.corefeature.presentation.util.rememberLayoutDirection
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.res.painterResource
+import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
 
 @Composable
 fun ChatScreenBottomAppBar(
@@ -89,7 +108,14 @@ fun ChatScreenBottomAppBar(
                 onDismiss = onDismissReply
             )
         }
-        BottomAppBar {
+        BottomAppBar(
+            containerColor = Color.Transparent,
+            modifier = Modifier
+                .padding(horizontal = DPMedium)
+            // todo : change it later if you need
+//                .height(80.dp)
+//                .windowInsetsPadding(WindowInsets.navigationBars)
+        ) {
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
                 AnimatedContent(
                     targetState = isRecording,
@@ -151,18 +177,38 @@ private fun InputBar(
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
+
+        val rotation by animateFloatAsState(
+            targetValue = if (showAttachMenu) 45f else 0f,
+            animationSpec = tween(220, easing = FastOutSlowInEasing),
+            label = "attach_icon_rotation"
+        )
+
+        val scale by animateFloatAsState(
+            targetValue = if (showAttachMenu) 1.1f else 1f,
+            animationSpec = tween(220, easing = FastOutSlowInEasing),
+            label = "attach_icon_scale"
+        )
         Box {
             IconButton(
+                modifier = Modifier
+                    .size(44.dp),
+                colors = IconButtonDefaults.iconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer
+                ),
                 onClick = onToggleAttachMenu,
                 enabled = enabled
             ) {
                 Icon(
                     imageVector = Icons.Rounded.Add,
                     contentDescription = stringResource(R.string.attach),
+                    modifier = Modifier
+                        .rotate(rotation)
+                        .scale(scale),
                     tint = if (enabled)
-                        MaterialTheme.colorScheme.onSurface
+                        MaterialTheme.colorScheme.onSecondaryContainer
                     else
-                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                        MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.38f)
                 )
             }
             DropdownMenu(
@@ -187,58 +233,86 @@ private fun InputBar(
             }
         }
 
-        Spacer(Modifier.size(DPSmall))
+        Spacer(Modifier.size(DPMedium))
 
         CompositionLocalProvider(LocalLayoutDirection provides rememberLayoutDirection(text)) {
-            OutlinedTextField(
+            Box(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(end = DPSmall),
-                enabled = enabled,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                    focusedBorderColor = Color.Transparent,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.secondaryContainer,
-                    focusedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                    cursorColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                    focusedPlaceholderColor = Color.Transparent,
-                    unfocusedPlaceholderColor = MaterialTheme.colorScheme.secondary
-                ),
-                shape = MaterialTheme.shapes.extraLarge,
-                value = text,
-                onValueChange = onTextChange,
-                placeholder = { Text(stringResource(R.string.message)) },
-                singleLine = true
-            )
-        }
-
-        if (text.isNotBlank()) {
-            IconButton(
-                colors = IconButtonDefaults.iconButtonColors(
-                    containerColor = MaterialTheme.colorScheme.primary
-                ),
-                enabled = enabled,
-                onClick = onSend
+                    .height(44.dp)
+                    .clip(MaterialTheme.shapes.extraLarge)
+                    .background(MaterialTheme.colorScheme.secondaryContainer)
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                contentAlignment = Alignment.CenterStart
             ) {
-                Icon(
-                    imageVector = Icons.Default.Send,
-                    contentDescription = stringResource(R.string.send),
-                    tint = MaterialTheme.colorScheme.onPrimary
+                BasicTextField(
+                    value = text,
+                    onValueChange = onTextChange,
+                    enabled = enabled,
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.bodySmall.copy(
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                    ),
+                    cursorBrush = SolidColor(MaterialTheme.colorScheme.onSecondaryContainer),
+                    modifier = Modifier.fillMaxWidth(),
+                    decorationBox = { innerTextField ->
+                        if (text.isEmpty()) {
+                            Text(
+                                text = stringResource(R.string.message),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.secondary
+                            )
+                        }
+                        innerTextField()
+                    }
                 )
             }
-        } else {
-            IconButton(
-                enabled = enabled,
-                onClick = onMicClick
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Mic,
-                    contentDescription = stringResource(R.string.record_voice),
-                    tint = if (enabled)
-                        MaterialTheme.colorScheme.onSurface
-                    else
-                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                )
+        }
+
+        Spacer(Modifier.size(DPMedium))
+
+
+
+        AnimatedContent(
+            targetState = text.isNotBlank(),
+            label = "send_mic_animation",
+            transitionSpec = {
+                fadeIn() + scaleIn() togetherWith fadeOut() + scaleOut()
+            }
+        ) { hasText ->
+            if (hasText) {
+                IconButton(
+                    modifier = Modifier.size(44.dp),
+                    colors = IconButtonDefaults.iconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer
+                    ),
+                    enabled = enabled,
+                    onClick = onSend
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_send_filled),
+                        contentDescription = stringResource(R.string.send),
+                        tint = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                }
+            } else {
+                IconButton(
+                    modifier = Modifier.size(44.dp),
+                    colors = IconButtonDefaults.iconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer
+                    ),
+                    enabled = enabled,
+                    onClick = onMicClick
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Mic,
+                        contentDescription = stringResource(R.string.record_voice),
+                        tint = if (enabled)
+                            MaterialTheme.colorScheme.onSecondaryContainer
+                        else
+                            MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.38f)
+                    )
+                }
             }
         }
     }
@@ -303,15 +377,17 @@ private fun RecordingBar(
         }
 
         IconButton(
+            modifier = Modifier
+                .size(44.dp),
             onClick = onStop,
             colors = IconButtonDefaults.iconButtonColors(
-                containerColor = MaterialTheme.colorScheme.primary
+                containerColor = MaterialTheme.colorScheme.secondaryContainer
             )
         ) {
             Icon(
-                imageVector = Icons.Default.Send,
+                painter = painterResource(R.drawable.ic_send_filled),
                 contentDescription = stringResource(R.string.send_voice),
-                tint = MaterialTheme.colorScheme.onPrimary
+                tint = MaterialTheme.colorScheme.onSecondaryContainer
             )
         }
     }
