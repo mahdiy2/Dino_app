@@ -21,9 +21,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -67,18 +70,24 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.constraintlayout.compose.ConstraintLayout
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.dino.message.R
+import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
+import com.dino.message.corefeature.presentation.ui.theme.DPTopAppBar
 import com.dino.message.threadfeature.domain.model.PlaylistTrack
 import com.dino.message.threadfeature.presentation.component.MusicTrackPlayerCard
 import com.dino.message.threadfeature.presentation.music.MusicPlaybackManager
@@ -120,6 +129,10 @@ fun PlaylistBottomSheetScreen() {
     val scope = rememberCoroutineScope()
     var downloadingTrackId by remember { mutableStateOf<Long?>(null) }
 
+    var cardHeightPx by remember { mutableStateOf(0) }
+    val density = LocalDensity.current
+    val cardHeightDp = with(density) { cardHeightPx.toDp() }
+
     val playbackQueue = remember(tracks) {
         tracks.map { track ->
             PlaybackQueueItem(
@@ -154,14 +167,24 @@ fun PlaylistBottomSheetScreen() {
         }
     }
 
-    Box(
+
+    ConstraintLayout(
         modifier = Modifier
-            .fillMaxWidth()
+            .fillMaxSize()
             .padding(DPMedium)
             .windowInsetsPadding(WindowInsets.systemBars)
     ) {
+        val (title, button, items) = createRefs()
+
+
         Column(
-            verticalArrangement = Arrangement.spacedBy(DPMedium)
+            modifier = Modifier
+                .fillMaxWidth()
+//                .height(DPTopAppBar)
+                .constrainAs(title) {
+                top.linkTo(parent.top)
+                start.linkTo(parent.start)
+            }
         ) {
             Text(
                 text = stringResource(R.string.playlist_title),
@@ -177,91 +200,124 @@ fun PlaylistBottomSheetScreen() {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
 
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f, fill = true)
-            ) {
-                when {
-                    isLoading -> {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(vertical = 32.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator()
-                        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+
+                .constrainAs(items) {
+                    top.linkTo(title.bottom, margin = 50.dp)
+                    start.linkTo(parent.start)
+                    bottom.linkTo(parent.bottom)
+                    end.linkTo(parent.end)
+                }
+
+//                    .weight(1f, fill = true)
+        ) {
+            when {
+                isLoading -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(vertical = 32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
                     }
+                }
 
-                    tracks.isEmpty() -> {
-                        Text(
-                            text = error ?: stringResource(R.string.playlist_empty),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                tracks.isEmpty() -> {
+                    Text(
+                        text = error ?: stringResource(R.string.playlist_empty),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
 
-                    else -> {
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            state = playlistListState,
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            itemsIndexed(tracks, key = { _, item -> item.id }) { index, track ->
-                                val isCurrentTrack = playbackState.currentTrackUrl == track.trackUrl
-                                val isPlaying = isCurrentTrack && playbackState.isPlaying
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        state = playlistListState,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        itemsIndexed(tracks, key = { _, item -> item.id }) { index, track ->
+                            val isCurrentTrack = playbackState.currentTrackUrl == track.trackUrl
+                            val isPlaying = isCurrentTrack && playbackState.isPlaying
 
-                                SwipeToDeletePlaylistTrackRow(
-                                    canDownloadTrack = viewerHasBadge,
-                                    trackId = track.id,
-                                    isDownloadingTrack = downloadingTrackId == track.id,
-                                    isAnyDownloadInProgress = downloadingTrackId != null,
-                                    isSwipeEnabled = !playlistListState.isScrollInProgress,
-                                    onDelete = { viewModel.stageTrackRemoval(track) },
-                                    onDownload = {
-                                        if (downloadingTrackId != null) return@SwipeToDeletePlaylistTrackRow
-                                        downloadingTrackId = track.id
-                                        scope.launch {
-                                            try {
-                                                savePlaylistTrackToDevice(context, track)
-                                            } finally {
-                                                downloadingTrackId = null
-                                            }
+                            SwipeToDeletePlaylistTrackRow(
+                                canDownloadTrack = viewerHasBadge,
+                                trackId = track.id,
+                                isDownloadingTrack = downloadingTrackId == track.id,
+                                isAnyDownloadInProgress = downloadingTrackId != null,
+                                isSwipeEnabled = !playlistListState.isScrollInProgress,
+                                onDelete = { viewModel.stageTrackRemoval(track) },
+                                onDownload = {
+                                    if (downloadingTrackId != null) return@SwipeToDeletePlaylistTrackRow
+                                    downloadingTrackId = track.id
+                                    scope.launch {
+                                        try {
+                                            savePlaylistTrackToDevice(context, track)
+                                        } finally {
+                                            downloadingTrackId = null
                                         }
                                     }
-                                ) {
-                                    PlaylistTrackRow(
-                                        index = index,
-                                        track = track,
-                                        isCurrentTrack = isCurrentTrack,
-                                        isPlaying = isPlaying,
-                                        onRowClick = { playFromIndex(index) },
-                                        onPlayPauseClick = {
-                                            if (isCurrentTrack) {
-                                                MusicPlaybackManager.toggleTrack(
-                                                    context = context,
-                                                    trackUrl = track.trackUrl,
-                                                    title = track.title,
-                                                    artist = track.artist
-                                                )
-                                            } else {
-                                                playFromIndex(index)
-                                            }
-                                        }
-                                    )
                                 }
+                            ) {
+                                PlaylistTrackRow(
+                                    index = index,
+                                    track = track,
+                                    isCurrentTrack = isCurrentTrack,
+                                    isPlaying = isPlaying,
+                                    onRowClick = { playFromIndex(index) },
+                                    onPlayPauseClick = {
+                                        if (isCurrentTrack) {
+                                            MusicPlaybackManager.toggleTrack(
+                                                context = context,
+                                                trackUrl = track.trackUrl,
+                                                title = track.title,
+                                                artist = track.artist
+                                            )
+                                        } else {
+                                            playFromIndex(index)
+                                        }
+                                    }
+                                )
                             }
+                        }
+
+                        item {
+                            val navBarHeightDp = with(density) {
+                                WindowInsets.navigationBars.getBottom(this).toDp()
+                            }
+                            Spacer(Modifier
+                                .height(cardHeightDp + navBarHeightDp + navBarHeightDp)
+                            )
                         }
                     }
                 }
             }
+        }
 
+        Box(
+            modifier = Modifier
+                .constrainAs(button) {
+//                        top.linkTo(title.bottom)
+                    start.linkTo(parent.start)
+                    bottom.linkTo(parent.bottom)
+                    end.linkTo(parent.end)
+                }
+        ) {
             MusicTrackPlayerCard(
+                modifier = Modifier.onGloballyPositioned {
+                    cardHeightPx = it.size.height
+                },
                 trackUrl = playbackState.currentTrackUrl.orEmpty(),
-                trackTitle = playbackState.title ?: stringResource(R.string.playlist_no_track_playing),
-                trackSubtitle = playbackState.artist ?: stringResource(R.string.playlist_tap_track_to_start),
+                trackTitle = playbackState.title
+                    ?: stringResource(R.string.playlist_no_track_playing),
+                trackSubtitle = playbackState.artist
+                    ?: stringResource(R.string.playlist_tap_track_to_start),
                 enabled = hasActiveTrack,
                 footerContent = {
                     PlaylistPlaybackFooter(
@@ -283,15 +339,19 @@ fun PlaylistBottomSheetScreen() {
                     )
                 }
             )
+
+            SnackbarHost(
+                hostState = snackbarHostState,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+            )
         }
 
-        SnackbarHost(
-            hostState = snackbarHostState,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-        )
+
     }
+
+
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

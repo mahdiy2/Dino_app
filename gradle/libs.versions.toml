@@ -2,6 +2,7 @@
 accompanistSystemuicontroller = "0.31.1-alpha"
 agp = "8.9.2"
 coilCompose = "2.2.2"
+constraintlayoutCompose = "1.0.1"
 core = "2.2.0" # Updated version
 datastorePreferences = "1.1.1"
 desugar_jdk_libs = "2.0.4"
@@ -45,6 +46,7 @@ workRuntimeKtx = "2.10.1"
 material3 = "1.4.0-alpha16"
 [libraries]
 accompanist-systemuicontroller = { module = "com.google.accompanist:accompanist-systemuicontroller", version.ref = "accompanistSystemuicontroller" }
+androidx-constraintlayout-compose = { module = "androidx.constraintlayout:constraintlayout-compose", version.ref = "constraintlayoutCompose" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastorePreferences" }
 androidx-hilt-navigation-compose = { module = "androidx.hilt:hilt-navigation-compose", version.ref = "hiltNavigationCompose" }

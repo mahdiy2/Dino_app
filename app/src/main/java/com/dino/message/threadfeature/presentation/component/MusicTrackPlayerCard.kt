@@ -293,6 +293,7 @@ fun MusicTrackPlayerCard(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.fillMaxWidth()
             )
             if (!trackSubtitle.isNullOrBlank()) {

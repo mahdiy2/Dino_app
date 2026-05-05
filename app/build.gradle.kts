@@ -180,4 +180,6 @@ dependencies {
 
     implementation(libs.lottie.compose)
 
+    implementation(libs.androidx.constraintlayout.compose)
+
 }
