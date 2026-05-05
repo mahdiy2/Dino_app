@@ -2,7 +2,9 @@ package com.dino.message.chatfeature.presentation.component
 
 import android.media.MediaPlayer
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
@@ -47,7 +49,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
@@ -95,26 +99,44 @@ fun ChatContainer(
         bottomStart = if (sent) 20.dp else 4.dp,
         bottomEnd = if (sent) 4.dp else 20.dp
     )
+    val bubbleContainerColor = if (sent) {
+        MaterialTheme.colorScheme.primaryContainer
+    } else {
+        MaterialTheme.colorScheme.secondaryContainer
+    }
+    val bubbleContentColor = if (sent) {
+        MaterialTheme.colorScheme.onPrimaryContainer
+    } else {
+        MaterialTheme.colorScheme.onSecondaryContainer
+    }
 
     Card(
+        modifier = Modifier
+            .animateContentSize(),
         shape = bubbleShape,
         colors = CardDefaults.cardColors(
-            containerColor = if (sent)
-                MaterialTheme.colorScheme.primaryContainer
-            else
-                MaterialTheme.colorScheme.secondaryContainer,
-            contentColor = if (sent)
-                MaterialTheme.colorScheme.onPrimaryContainer
-            else
-                MaterialTheme.colorScheme.onSecondaryContainer
+            containerColor = bubbleContainerColor,
+            contentColor = bubbleContentColor
+        ),
+        border = androidx.compose.foundation.BorderStroke(
+            width = 1.dp,
+            color = if (sent) {
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
+            } else {
+                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+            }
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = if (sent) 1.dp else 0.dp
         )
     ) {
         var bubbleOffset = IntOffset.Zero
         var bubbleSize = IntSize.Zero
         Column(
             modifier = Modifier
-                .padding(DPMedium)
+                .padding(horizontal = 11.dp, vertical = 9.dp)
                 .widthIn(max = 280.dp)
+                .animateContentSize()
                 .onGloballyPositioned { coordinates ->
                     val position = coordinates.positionInRoot()
                     bubbleOffset = IntOffset(position.x.toInt(), position.y.toInt())
@@ -139,23 +161,33 @@ fun ChatContainer(
                 Row(
                    modifier = Modifier
                        .fillMaxWidth()
-                       .clip(RoundedCornerShape(8.dp))
+                       .clip(RoundedCornerShape(12.dp))
                         .background(
-                            if (sent)
-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
-                            else
-                                MaterialTheme.colorScheme.secondary.copy(alpha = 0.08f)
+                            if (sent) {
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                            } else {
+                                MaterialTheme.colorScheme.secondary.copy(alpha = 0.10f)
+                            }
                         )
-                        .padding(DPMedium),
+                       .border(
+                            width = 1.dp,
+                            color = if (sent) {
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
+                            } else {
+                                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)
+                            },
+                            shape = RoundedCornerShape(12.dp)
+                       )
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Box(
                         modifier = Modifier
                             .width(3.dp)
-                            .height(28.dp)
+                            .height(30.dp)
                             .background(
                                 color = MaterialTheme.colorScheme.primary,
-                                shape = RoundedCornerShape(2.dp)
+                                shape = RoundedCornerShape(3.dp)
                             )
                     )
                     Spacer(modifier = Modifier.width(DPMedium))
@@ -167,6 +199,7 @@ fun ChatContainer(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
+                        Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = replyPreviewText,
                             style = MaterialTheme.typography.bodySmall,
@@ -179,7 +212,7 @@ fun ChatContainer(
                         )
                     }
                 }
-                Spacer(modifier = Modifier.height(DPSmall))
+                Spacer(modifier = Modifier.height(6.dp))
             }
             if (isStoryReferenceAttachment && !attachmentUrl.isNullOrBlank()) {
                 StoryReferencePreviewCard(
@@ -187,7 +220,7 @@ fun ChatContainer(
                     mediaType = attachmentMimeType,
                     onClick = onAttachmentClick
                 )
-                Spacer(modifier = Modifier.height(DPSmall))
+                Spacer(modifier = Modifier.height(6.dp))
             }
             val showStatus = sent && deliveryStatus != null
             if (effectiveMessageType == "text" && text.isNotBlank()) {
@@ -260,16 +293,21 @@ private fun StoryReferencePreviewCard(
 ) {
     val isVideo = mediaType?.contains("video", ignoreCase = true) == true
     Surface(
-        shape = RoundedCornerShape(10.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
         modifier = Modifier
             .fillMaxWidth()
+            .border(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f),
+                shape = RoundedCornerShape(14.dp)
+            )
             .clickable(enabled = onClick != null) { onClick?.invoke() }
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(140.dp)
+                .height(148.dp)
         ) {
             AsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
@@ -279,6 +317,16 @@ private fun StoryReferencePreviewCard(
                 contentDescription = "Story preview",
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        brush = Brush.verticalGradient(
+                            0f to MaterialTheme.colorScheme.scrim.copy(alpha = 0.04f),
+                            1f to MaterialTheme.colorScheme.scrim.copy(alpha = 0.42f)
+                        )
+                    )
             )
             if (isVideo) {
                 Surface(
@@ -296,14 +344,21 @@ private fun StoryReferencePreviewCard(
                     )
                 }
             }
-            Text(
-                text = "Story reply",
+            Surface(
+                shape = RoundedCornerShape(999.dp),
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
                 modifier = Modifier
                     .align(Alignment.BottomStart)
                     .padding(8.dp),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
-            )
+                tonalElevation = 1.dp
+            ) {
+                Text(
+                    text = "Story reply",
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
         }
     }
 }
@@ -362,13 +417,18 @@ private fun PostShareBubble(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(14.dp))
+            .border(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+                shape = RoundedCornerShape(14.dp)
+            )
             .clickable { onClick?.invoke(payload.postId) },
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.55f),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.65f),
         tonalElevation = 1.dp,
         shadowElevation = 0.dp
     ) {
-        Column(modifier = Modifier.padding(DPMedium)) {
+        Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp)) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -386,7 +446,7 @@ private fun PostShareBubble(
                 )
             }
             if (payload.previewText.isNotBlank()) {
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(7.dp))
                 Text(
                     text = payload.previewText,
                     style = MaterialTheme.typography.bodyMedium,
@@ -395,11 +455,12 @@ private fun PostShareBubble(
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = "Tap to open post",
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.primary
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.alpha(0.92f)
             )
         }
     }
@@ -451,19 +512,41 @@ private fun ImageBubble(
     onClick: (() -> Unit)?
 ) {
     if (!attachmentUrl.isNullOrBlank()) {
-        AsyncImage(
-            model = ImageRequest.Builder(LocalContext.current)
-                .data(attachmentUrl)
-                .crossfade(true)
-                .build(),
-            contentDescription = attachmentFileName ?: "Image",
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(200.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .clickable { onClick?.invoke() },
-            contentScale = ContentScale.Crop
-        )
+                .clip(RoundedCornerShape(14.dp))
+                .border(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.42f),
+                    shape = RoundedCornerShape(14.dp)
+                )
+                .clickable { onClick?.invoke() }
+        ) {
+            AsyncImage(
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(attachmentUrl)
+                    .crossfade(true)
+                    .build(),
+                contentDescription = attachmentFileName ?: "Image",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(208.dp),
+                contentScale = ContentScale.Crop
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+                    .align(Alignment.BottomCenter)
+                    .background(
+                        brush = Brush.verticalGradient(
+                            0f to MaterialTheme.colorScheme.scrim.copy(alpha = 0f),
+                            1f to MaterialTheme.colorScheme.scrim.copy(alpha = 0.28f)
+                        )
+                    )
+            )
+        }
     }
     if (text.isNotBlank()) {
         Spacer(modifier = Modifier.height(DPSmall))
@@ -483,9 +566,19 @@ private fun VideoBubble(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(160.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .height(172.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(
+                Brush.verticalGradient(
+                    0f to MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f),
+                    1f to MaterialTheme.colorScheme.surfaceVariant
+                )
+            )
+            .border(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.42f),
+                shape = RoundedCornerShape(14.dp)
+            )
             .clickable { onClick?.invoke() },
         contentAlignment = Alignment.Center
     ) {
@@ -494,7 +587,7 @@ private fun VideoBubble(
                 modifier = Modifier
                     .size(48.dp)
                     .background(
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.9f),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.94f),
                         shape = CircleShape
                     ),
                 contentAlignment = Alignment.Center
@@ -605,7 +698,14 @@ private fun VoiceBubble(
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.widthIn(min = 180.dp)
+        modifier = Modifier
+            .widthIn(min = 190.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(
+                color = accentColor.copy(alpha = 0.08f),
+                shape = RoundedCornerShape(14.dp)
+            )
+            .padding(horizontal = 6.dp, vertical = 5.dp)
     ) {
         IconButton(
             onClick = {
@@ -619,7 +719,7 @@ private fun VoiceBubble(
                     isPlaying = true
                 }
             },
-            modifier = Modifier.size(40.dp),
+            modifier = Modifier.size(38.dp),
             colors = IconButtonDefaults.iconButtonColors(
                 containerColor = accentColor
             )
@@ -632,23 +732,24 @@ private fun VoiceBubble(
             )
         }
 
-        Spacer(Modifier.width(DPMedium))
+        Spacer(Modifier.width(10.dp))
 
         Column(modifier = Modifier.weight(1f)) {
             LinearProgressIndicator(
                 progress = { animatedProgress },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(4.dp)
-                    .clip(RoundedCornerShape(2.dp)),
+                    .height(5.dp)
+                    .clip(RoundedCornerShape(999.dp)),
                 color = accentColor,
-                trackColor = accentColor.copy(alpha = 0.2f)
+                trackColor = accentColor.copy(alpha = 0.2f),
+                drawStopIndicator = {}
             )
             Spacer(Modifier.height(4.dp))
             Text(
                 text = if (hasError) "Error" else timeLabel,
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.9f)
             )
         }
     }
