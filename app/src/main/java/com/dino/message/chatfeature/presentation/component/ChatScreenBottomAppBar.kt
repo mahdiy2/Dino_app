@@ -18,8 +18,6 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -35,7 +33,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -168,6 +165,8 @@ private fun InputBar(
     onMicClick: () -> Unit,
     enabled: Boolean
 ) {
+    val composerElementColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.62f)
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -193,6 +192,9 @@ private fun InputBar(
             IconButton(
                 modifier = Modifier
                     .size(38.dp),
+                colors = IconButtonDefaults.iconButtonColors(
+                    containerColor = composerElementColor
+                ),
                 onClick = onToggleAttachMenu,
                 enabled = enabled
             ) {
@@ -238,7 +240,7 @@ private fun InputBar(
                     .weight(1f)
                     .height(42.dp)
                     .clip(MaterialTheme.shapes.extraLarge)
-                    .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.62f))
+                    .background(composerElementColor)
             ) {
                 BasicTextField(
                     value = text,
@@ -278,6 +280,9 @@ private fun InputBar(
             if (hasText) {
                 IconButton(
                     modifier = Modifier.size(38.dp),
+                    colors = IconButtonDefaults.iconButtonColors(
+                        containerColor = composerElementColor
+                    ),
                     enabled = enabled,
                     onClick = onSend
                 ) {
@@ -290,6 +295,9 @@ private fun InputBar(
             } else {
                 IconButton(
                     modifier = Modifier.size(38.dp),
+                    colors = IconButtonDefaults.iconButtonColors(
+                        containerColor = composerElementColor
+                    ),
                     enabled = enabled,
                     onClick = onMicClick
                 ) {
@@ -313,6 +321,7 @@ private fun RecordingBar(
     onStop: () -> Unit,
     onCancel: () -> Unit
 ) {
+    val composerElementColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.62f)
     val totalSeconds = (durationMs / 1000).toInt()
     val minutes = totalSeconds / 60
     val seconds = totalSeconds % 60
@@ -329,68 +338,72 @@ private fun RecordingBar(
         label = "pulse_scale"
     )
 
-    Surface(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 58.dp),
-        shape = RoundedCornerShape(24.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        tonalElevation = 3.dp,
-        border = BorderStroke(
-            width = 1.dp,
-            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.42f)
-        )
+            .heightIn(min = 52.dp)
+            .animateContentSize()
+            .padding(horizontal = 2.dp, vertical = 2.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 10.dp, vertical = 6.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+        IconButton(
+            onClick = onCancel,
+            modifier = Modifier.size(38.dp),
+            colors = IconButtonDefaults.iconButtonColors(
+                containerColor = composerElementColor
+            )
         ) {
-            IconButton(onClick = onCancel) {
-                Icon(
-                    imageVector = Icons.Default.Close,
-                    contentDescription = stringResource(R.string.cancel_recording),
-                    tint = MaterialTheme.colorScheme.error
-                )
-            }
+            Icon(
+                imageVector = Icons.Default.Close,
+                contentDescription = stringResource(R.string.cancel_recording),
+                tint = MaterialTheme.colorScheme.error
+            )
+        }
 
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center,
-                modifier = Modifier.weight(1f)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(12.dp)
-                        .scale(pulseScale)
-                        .background(
-                            color = MaterialTheme.colorScheme.error,
-                            shape = CircleShape
-                        )
-                )
-                Spacer(Modifier.width(DPMedium))
-                Text(
-                    text = timeText,
-                    style = MaterialTheme.typography.titleMedium
-                )
-            }
+        Spacer(Modifier.width(6.dp))
 
-            IconButton(
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+            modifier = Modifier
+                .weight(1f)
+                .height(42.dp)
+                .clip(MaterialTheme.shapes.extraLarge)
+                .background(composerElementColor)
+                .padding(horizontal = 14.dp)
+        ) {
+            Box(
                 modifier = Modifier
-                    .size(42.dp),
-                onClick = onStop,
-                colors = IconButtonDefaults.iconButtonColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer
-                )
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_send_filled),
-                    contentDescription = stringResource(R.string.send_voice),
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            }
+                    .size(10.dp)
+                    .scale(pulseScale)
+                    .background(
+                        color = MaterialTheme.colorScheme.error,
+                        shape = CircleShape
+                    )
+            )
+            Spacer(Modifier.width(10.dp))
+            Text(
+                text = timeText,
+                style = MaterialTheme.typography.titleMedium
+            )
+        }
+
+        Spacer(Modifier.width(6.dp))
+
+        IconButton(
+            modifier = Modifier
+                .size(38.dp),
+            onClick = onStop,
+            colors = IconButtonDefaults.iconButtonColors(
+                containerColor = composerElementColor
+            )
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_send_filled),
+                contentDescription = stringResource(R.string.send_voice),
+                tint = MaterialTheme.colorScheme.primary
+            )
         }
     }
 }
