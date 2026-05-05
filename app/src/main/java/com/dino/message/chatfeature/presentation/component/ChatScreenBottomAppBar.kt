@@ -2,6 +2,7 @@ package com.dino.message.chatfeature.presentation.component
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
@@ -17,40 +18,38 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.defaultMinSize
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -74,7 +73,6 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
-import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
 
 @Composable
 fun ChatScreenBottomAppBar(
@@ -108,13 +106,11 @@ fun ChatScreenBottomAppBar(
                 onDismiss = onDismissReply
             )
         }
-        BottomAppBar(
-            containerColor = Color.Transparent,
+        Surface(
+            color = Color.Transparent,
             modifier = Modifier
                 .padding(horizontal = DPMedium)
-            // todo : change it later if you need
-//                .height(80.dp)
-//                .windowInsetsPadding(WindowInsets.navigationBars)
+                .windowInsetsPadding(WindowInsets.navigationBars)
         ) {
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
                 AnimatedContent(
@@ -173,7 +169,11 @@ private fun InputBar(
     enabled: Boolean
 ) {
     Row(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 52.dp)
+            .animateContentSize()
+            .padding(horizontal = 2.dp, vertical = 2.dp),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -192,10 +192,7 @@ private fun InputBar(
         Box {
             IconButton(
                 modifier = Modifier
-                    .size(44.dp),
-                colors = IconButtonDefaults.iconButtonColors(
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer
-                ),
+                    .size(38.dp),
                 onClick = onToggleAttachMenu,
                 enabled = enabled
             ) {
@@ -233,34 +230,34 @@ private fun InputBar(
             }
         }
 
-        Spacer(Modifier.size(DPMedium))
+        Spacer(Modifier.width(6.dp))
 
         CompositionLocalProvider(LocalLayoutDirection provides rememberLayoutDirection(text)) {
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .height(44.dp)
+                    .height(42.dp)
                     .clip(MaterialTheme.shapes.extraLarge)
-                    .background(MaterialTheme.colorScheme.secondaryContainer)
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                contentAlignment = Alignment.CenterStart
+                    .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.62f))
             ) {
                 BasicTextField(
                     value = text,
                     onValueChange = onTextChange,
                     enabled = enabled,
                     singleLine = true,
-                    textStyle = MaterialTheme.typography.bodySmall.copy(
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                    textStyle = MaterialTheme.typography.bodyMedium.copy(
+                        color = MaterialTheme.colorScheme.onSurface
                     ),
-                    cursorBrush = SolidColor(MaterialTheme.colorScheme.onSecondaryContainer),
-                    modifier = Modifier.fillMaxWidth(),
+                    cursorBrush = SolidColor(MaterialTheme.colorScheme.onSurface),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 9.dp),
                     decorationBox = { innerTextField ->
                         if (text.isEmpty()) {
                             Text(
                                 text = stringResource(R.string.message),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.secondary
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                         innerTextField()
@@ -269,9 +266,7 @@ private fun InputBar(
             }
         }
 
-        Spacer(Modifier.size(DPMedium))
-
-
+        Spacer(Modifier.width(6.dp))
 
         AnimatedContent(
             targetState = text.isNotBlank(),
@@ -282,25 +277,19 @@ private fun InputBar(
         ) { hasText ->
             if (hasText) {
                 IconButton(
-                    modifier = Modifier.size(44.dp),
-                    colors = IconButtonDefaults.iconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer
-                    ),
+                    modifier = Modifier.size(38.dp),
                     enabled = enabled,
                     onClick = onSend
                 ) {
                     Icon(
                         painter = painterResource(R.drawable.ic_send_filled),
                         contentDescription = stringResource(R.string.send),
-                        tint = MaterialTheme.colorScheme.onSecondaryContainer
+                        tint = MaterialTheme.colorScheme.primary
                     )
                 }
             } else {
                 IconButton(
-                    modifier = Modifier.size(44.dp),
-                    colors = IconButtonDefaults.iconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer
-                    ),
+                    modifier = Modifier.size(38.dp),
                     enabled = enabled,
                     onClick = onMicClick
                 ) {
@@ -308,9 +297,9 @@ private fun InputBar(
                         imageVector = Icons.Default.Mic,
                         contentDescription = stringResource(R.string.record_voice),
                         tint = if (enabled)
-                            MaterialTheme.colorScheme.onSecondaryContainer
+                            MaterialTheme.colorScheme.onSurfaceVariant
                         else
-                            MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.38f)
+                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
                     )
                 }
             }
@@ -340,55 +329,68 @@ private fun RecordingBar(
         label = "pulse_scale"
     )
 
-    Row(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = DPMedium),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+            .heightIn(min = 58.dp),
+        shape = RoundedCornerShape(24.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        tonalElevation = 3.dp,
+        border = BorderStroke(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.42f)
+        )
     ) {
-        IconButton(onClick = onCancel) {
-            Icon(
-                imageVector = Icons.Default.Close,
-                contentDescription = stringResource(R.string.cancel_recording),
-                tint = MaterialTheme.colorScheme.error
-            )
-        }
-
         Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center,
-            modifier = Modifier.weight(1f)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(12.dp)
-                    .scale(pulseScale)
-                    .background(
-                        color = MaterialTheme.colorScheme.error,
-                        shape = CircleShape
-                    )
-            )
-            Spacer(Modifier.width(DPMedium))
-            Text(
-                text = timeText,
-                style = MaterialTheme.typography.titleMedium
-            )
-        }
-
-        IconButton(
             modifier = Modifier
-                .size(44.dp),
-            onClick = onStop,
-            colors = IconButtonDefaults.iconButtonColors(
-                containerColor = MaterialTheme.colorScheme.secondaryContainer
-            )
+                .fillMaxWidth()
+                .padding(horizontal = 10.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                painter = painterResource(R.drawable.ic_send_filled),
-                contentDescription = stringResource(R.string.send_voice),
-                tint = MaterialTheme.colorScheme.onSecondaryContainer
-            )
+            IconButton(onClick = onCancel) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = stringResource(R.string.cancel_recording),
+                    tint = MaterialTheme.colorScheme.error
+                )
+            }
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier.weight(1f)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(12.dp)
+                        .scale(pulseScale)
+                        .background(
+                            color = MaterialTheme.colorScheme.error,
+                            shape = CircleShape
+                        )
+                )
+                Spacer(Modifier.width(DPMedium))
+                Text(
+                    text = timeText,
+                    style = MaterialTheme.typography.titleMedium
+                )
+            }
+
+            IconButton(
+                modifier = Modifier
+                    .size(42.dp),
+                onClick = onStop,
+                colors = IconButtonDefaults.iconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                )
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_send_filled),
+                    contentDescription = stringResource(R.string.send_voice),
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
         }
     }
 }
