@@ -72,4 +72,10 @@ class GroupRepositoryImpl @Inject constructor(
 
     override suspend fun markGroupMessageSeenByMessageId(messageId: String) =
         groupMessageDao.markMessageSeenByMessageId(messageId)
+
+    override suspend fun updateGroupMessageReactionsByMessageId(messageId: String, reactionsJson: String?) =
+        groupMessageDao.updateReactionsByMessageId(messageId, reactionsJson)
+
+    override suspend fun reactToMessage(messageId: String, emoji: String?) =
+        apiService.reactToMessage(messageId, emoji)
 }

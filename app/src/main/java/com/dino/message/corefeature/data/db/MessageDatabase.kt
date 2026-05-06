@@ -20,7 +20,7 @@ import com.dino.message.groupfeature.domain.model.GroupMessageEntity
         CrashLogEntity::class,
         SocketOutboundQueueEntity::class,
     ],
-    version = 12,
+    version = 13,
 )
 abstract class MessageDatabase : RoomDatabase() {
     abstract fun messageDao(): MessageDao
@@ -205,6 +205,13 @@ abstract class MessageDatabase : RoomDatabase() {
                     ON socket_outbound_queue (dedupeKey)
                     """.trimIndent()
                 )
+            }
+        }
+
+        val MIGRATION_12_13 = object : Migration(12, 13) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE messages ADD COLUMN reactionsJson TEXT")
+                db.execSQL("ALTER TABLE group_messages ADD COLUMN reactionsJson TEXT")
             }
         }
     }

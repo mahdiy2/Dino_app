@@ -6,6 +6,7 @@ import com.dino.message.corefeature.data.remote.HaveRefreshTokenAPI
 import com.dino.message.corefeature.data.remote.HaveRefreshTokenAPIImpl
 import com.dino.message.corefeature.data.remote.util.HttpAPIUtil
 import com.dino.message.corefeature.data.remote.util.appendTokenToHeader
+import com.dino.message.corefeature.data.remote.util.ensureFreshAccessTokenIfNearExpiry
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.domain.model.asStringResourceContent
 import com.dino.message.corefeature.presentation.util.Resource
@@ -105,6 +106,11 @@ class ProfileApiServiceImpl @Inject constructor(
                             )
                         )
                     } else {
+                        ensureFreshAccessTokenIfNearExpiry(
+                            sPrefManager = sPrefManager,
+                            refreshAccessToken = this@ProfileApiServiceImpl::getToken,
+                            logTag = "ProfileApiServiceImpl"
+                        )
                         setBody(
                             MultiPartFormDataContent(
                                 formData {

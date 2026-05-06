@@ -1,6 +1,7 @@
 package com.dino.message.groupfeature.data.remote.dto
 
 import com.dino.message.chatfeature.data.remote.dto.MessageAttachment
+import com.dino.message.chatfeature.domain.model.MessageReaction
 import com.dino.message.corefeature.data.remote.ResponseToResultMapper
 import com.dino.message.groupfeature.domain.model.GroupHistoryMessage
 import com.dino.message.groupfeature.domain.model.GroupHistoryPage
@@ -35,6 +36,7 @@ data class GroupHistoryMessageDto(
     @SerialName("reply_to_message_id") val replyToMessageId: String? = null,
     @SerialName("reply_to_sender") val replyToSender: String? = null,
     @SerialName("encrypted_reply_preview") val encryptedReplyPreview: String? = null,
+    val reactions: List<MessageReaction> = emptyList(),
 )
 
 private fun GroupHistoryMessageDto.toDomain(): GroupHistoryMessage = GroupHistoryMessage(
@@ -49,4 +51,5 @@ private fun GroupHistoryMessageDto.toDomain(): GroupHistoryMessage = GroupHistor
     replyToMessageId = replyToMessageId,
     replyToSender = replyToSender,
     encryptedReplyPreview = encryptedReplyPreview,
+    reactions = reactions,
 )

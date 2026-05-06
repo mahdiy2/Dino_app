@@ -27,6 +27,7 @@ interface ChatApiService {
     ): Resource<SendMessage>
 
     suspend fun uploadAttachment(fileUri: Uri): Resource<MessageAttachment>
+    suspend fun reactToMessage(messageId: String, emoji: String?): Resource<Unit>
 
     suspend fun getUnread(): Resource<UnreadResponse>
 }

@@ -2139,7 +2139,9 @@ private fun drawBaseImageLikeEditor(
         pan = pan,
         scaleToFill = false
     )
-    blurredBackground.recycle()
+    if (blurredBackground !== bitmap && !blurredBackground.isRecycled) {
+        blurredBackground.recycle()
+    }
 }
 
 private fun drawBitmapWithEditorTransform(
@@ -2185,7 +2187,7 @@ private fun createApproxBlurBitmap(bitmap: Bitmap): Bitmap {
     val sampled = Bitmap.createScaledBitmap(bitmap, sampleWidth, sampleHeight, true)
     val radius = (max(sampleWidth, sampleHeight) / 40).coerceIn(6, 14)
     val blurredSample = boxBlurBitmap(sampled, radius = radius, passes = 3)
-    if (sampled != blurredSample) {
+    if (sampled !== bitmap && sampled !== blurredSample && !sampled.isRecycled) {
         sampled.recycle()
     }
     val blurredFull = Bitmap.createScaledBitmap(
@@ -2194,7 +2196,9 @@ private fun createApproxBlurBitmap(bitmap: Bitmap): Bitmap {
         bitmap.height,
         true
     )
-    blurredSample.recycle()
+    if (blurredFull !== blurredSample && !blurredSample.isRecycled) {
+        blurredSample.recycle()
+    }
     return blurredFull
 }
 

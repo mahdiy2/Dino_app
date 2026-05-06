@@ -63,7 +63,6 @@ class MainActivity : ComponentActivity() {
 
     private val viewModel: MainActivityViewModel by viewModels()
 
-
     private var navController: NavController? = null
 
     private lateinit var webView: WebView

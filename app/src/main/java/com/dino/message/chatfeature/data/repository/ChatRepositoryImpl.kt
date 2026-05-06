@@ -56,6 +56,10 @@ class ChatRepositoryImpl(
     override suspend fun deleteMessageByLocalId(localId: Int) = dao.deleteMessageByLocalId(localId)
     override suspend fun deleteMessageByMessageId(messageId: String) = dao.deleteMessageByMessageId(messageId)
     override suspend fun markMessageSeenByMessageId(messageId: String) = dao.markMessageSeenByMessageId(messageId)
+    override suspend fun updateMessageReactionsByMessageId(messageId: String, reactionsJson: String?) =
+        dao.updateReactionsByMessageId(messageId, reactionsJson)
+    override suspend fun reactToMessage(messageId: String, emoji: String?) =
+        chatApiService.reactToMessage(messageId, emoji)
 
     override suspend fun getUnread(): Resource<UnreadResponse> =
         chatApiService.getUnread()

@@ -12,6 +12,8 @@ import androidx.lifecycle.viewModelScope
 import com.dino.message.BuildConfig
 import com.dino.message.DinoOrderApplication
 import com.dino.message.chatfeature.domain.model.MessageDeliveryStatus
+import com.dino.message.chatfeature.domain.util.encodeMessageReactions
+import com.dino.message.chatfeature.domain.util.parseMessageReactionsFromPayload
 import com.dino.message.corefeature.data.socket.AppSocketManager
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.domain.util.LocalHistoryPaging
@@ -413,6 +415,7 @@ class GroupChatViewModel @Inject constructor(
             replyToMessageId = historyMessage.replyToMessageId,
             replyToSender = historyMessage.replyToSender,
             replyPreview = decryptedReplyPreview,
+            reactionsJson = encodeMessageReactions(historyMessage.reactions),
         )
     }
 
@@ -906,6 +909,7 @@ class GroupChatViewModel @Inject constructor(
                                 replyToSender = if (item.has("reply_to_sender") && !item.isNull("reply_to_sender"))
                                     item.optString("reply_to_sender", "").ifBlank { null } else null,
                                 replyPreview = decryptedReplyPreview,
+                                reactionsJson = encodeMessageReactions(parseMessageReactionsFromPayload(item)),
                             )
                             saveMessageToDb(entity)
                             if (messageId.isNotBlank()) processedIds.add(messageId)
@@ -977,6 +981,7 @@ class GroupChatViewModel @Inject constructor(
                             replyToSender = if (payload.has("reply_to_sender") && !payload.isNull("reply_to_sender"))
                                 payload.optString("reply_to_sender", "").ifBlank { null } else null,
                             replyPreview = decryptedReplyPreview,
+                            reactionsJson = encodeMessageReactions(parseMessageReactionsFromPayload(payload)),
                         )
                         saveMessageToDb(entity)
                     }
@@ -1112,6 +1117,19 @@ class GroupChatViewModel @Inject constructor(
                         clearMessageStatus(messageId)
                     }
                 }
+                loadMessagesFromDb()
+            }
+        }
+
+        appSocketManager.registerListener(socketOwner, "message_reaction_updated") { args ->
+            viewModelScope.launch {
+                val payload = parseSocketPayload(args) ?: return@launch
+                if (payload.optString("scope", "") != "group") return@launch
+                if (payload.optInt("group_id", -1) != groupId) return@launch
+                val messageId = payload.optString("message_id", "").trim()
+                if (messageId.isBlank()) return@launch
+                val reactionsJson = encodeMessageReactions(parseMessageReactionsFromPayload(payload))
+                groupRepository.updateGroupMessageReactionsByMessageId(messageId, reactionsJson)
                 loadMessagesFromDb()
             }
         }
@@ -1419,6 +1437,27 @@ class GroupChatViewModel @Inject constructor(
         )
         if (!emitted) {
             _socketError.value = "Unable to delete for everyone right now."
+        }
+    }
+
+    fun reactToMessage(message: GroupMessageEntity, emoji: String) = viewModelScope.launch {
+        val messageId = message.messageId.trim()
+        if (messageId.isBlank()) return@launch
+        val emitted = appSocketManager.emit(
+            "react_to_message",
+            JSONObject().apply {
+                put("message_id", messageId)
+                put("emoji", emoji)
+            }
+        )
+        if (!emitted) {
+            when (groupRepository.reactToMessage(messageId = messageId, emoji = emoji)) {
+                is Resource.Success -> Unit
+                is Resource.Error -> {
+                    _socketError.value = "Unable to react right now."
+                }
+                is Resource.Loading -> Unit
+            }
         }
     }
 

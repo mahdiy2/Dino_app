@@ -5,6 +5,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -33,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import com.dino.message.DinoOrderApplication
 import com.dino.message.chatfeature.domain.model.MessageDeliveryStatus
 import com.dino.message.chatfeature.domain.model.MessageEntity
+import com.dino.message.chatfeature.domain.util.decodeMessageReactions
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPSmall
 import com.dino.message.corefeature.presentation.util.parseServerInstant
@@ -210,26 +212,38 @@ fun ChatSurface(
                             onSwipe = { onSwipeToReply?.invoke(message) },
                             enabled = onSwipeToReply != null
                         ) {
-                            ChatContainer(
-                                text = message.content,
-                                sent = entry.isMine,
-                                messageType = message.messageType,
-                                attachmentType = message.attachmentType,
-                                attachmentUrl = message.attachmentUrl,
-                                attachmentMimeType = message.attachmentMimeType,
-                                attachmentFileName = message.attachmentFileName,
-                                deliveryStatus = if (entry.isMine) {
-                                    message.messageId?.let { messageDeliveryStatuses[it] }
-                                } else {
-                                    null
-                                },
-                                onClick = { offset, size -> onMessageClick?.invoke(message, offset, size) },
-                                onAttachmentClick = { onAttachmentClick?.invoke(message) },
-                                onPostShareClick = onPostShareClick,
-                                onLongClick = { onMessageLongClick?.invoke(message) },
-                                replySenderName = message.replyToSender,
-                                replyPreviewText = message.replyPreview
-                            )
+                            Column(
+                                horizontalAlignment = if (entry.isMine) Alignment.End else Alignment.Start
+                            ) {
+                                ChatContainer(
+                                    text = message.content,
+                                    sent = entry.isMine,
+                                    messageType = message.messageType,
+                                    attachmentType = message.attachmentType,
+                                    attachmentUrl = message.attachmentUrl,
+                                    attachmentMimeType = message.attachmentMimeType,
+                                    attachmentFileName = message.attachmentFileName,
+                                    deliveryStatus = if (entry.isMine) {
+                                        message.messageId?.let { messageDeliveryStatuses[it] }
+                                    } else {
+                                        null
+                                    },
+                                    onClick = { offset, size -> onMessageClick?.invoke(message, offset, size) },
+                                    onAttachmentClick = { onAttachmentClick?.invoke(message) },
+                                    onPostShareClick = onPostShareClick,
+                                    onLongClick = { onMessageLongClick?.invoke(message) },
+                                    replySenderName = message.replyToSender,
+                                    replyPreviewText = message.replyPreview,
+                                )
+                                val reactions = decodeMessageReactions(message.reactionsJson)
+                                if (reactions.isNotEmpty()) {
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    MessageReactionSummaryRow(
+                                        reactions = reactions,
+                                        sent = entry.isMine
+                                    )
+                                }
+                            }
                         }
                     }
                 }

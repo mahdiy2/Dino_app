@@ -1,12 +1,9 @@
 package com.dino.message.chatfeature.presentation.screen
 
 import android.Manifest
-import android.app.Activity
 import android.content.ClipData
-import android.content.Context
-import android.content.ContextWrapper
+import android.os.Build
 import android.net.Uri
-import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -36,7 +33,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -82,7 +78,7 @@ import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
@@ -93,6 +89,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
@@ -104,19 +101,23 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import com.dino.message.R
 import com.dino.message.corefeature.presentation.component.UserBadgeIcon
 import com.dino.message.corefeature.presentation.util.backIconModifier
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.dino.message.chatfeature.domain.model.MessageDeliveryStatus
+import com.dino.message.chatfeature.domain.util.decodeMessageReactions
 import com.dino.message.chatfeature.presentation.component.ChatScreenBottomAppBar
 import com.dino.message.chatfeature.presentation.component.ChatSurface
+import com.dino.message.chatfeature.presentation.component.MessageReactionSummaryRow
 import com.dino.message.chatfeature.presentation.component.MediaAccessLevel
 import com.dino.message.chatfeature.presentation.component.MediaPermissionHandler
 import com.dino.message.chatfeature.presentation.component.MediaViewerDialog
@@ -132,6 +133,7 @@ import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import kotlin.math.min
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Destination<RootGraph>
@@ -170,6 +172,7 @@ fun ChatScreen(
     val recordingDurationMs by viewModel.recordingDurationMs.collectAsState()
     val replyingTo by viewModel.replyingTo.collectAsState()
     val context = LocalContext.current
+    val isAndroid12Plus = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
     val resolvedName = displayName ?: chatId
     val snackbarHostState = remember { SnackbarHostState() }
     val playbackState by MusicPlaybackManager.playbackState.collectAsState()
@@ -179,18 +182,6 @@ fun ChatScreen(
     val nowPlayingHeightDp = with(density) { nowPlayingHeightPx.toDp() }
     val reservedNowPlayingHeight =
         if (!hasNowPlaying) 0.dp else nowPlayingHeightDp.takeIf { it > 0.dp } ?: 64.dp
-
-    DisposableEffect(context) {
-        val activity = context.findActivity()
-        val window = activity?.window
-        val previousSoftInputMode = window?.attributes?.softInputMode
-        window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
-        onDispose {
-            if (previousSoftInputMode != null) {
-                window.setSoftInputMode(previousSoftInputMode)
-            }
-        }
-    }
 
     var pendingVoiceAction by remember { mutableStateOf<(() -> Unit)?>(null) }
     var mediaViewerUrl by remember { mutableStateOf<String?>(null) }
@@ -400,6 +391,7 @@ fun ChatScreen(
 
     if (popupMounted && popupMessage != null && popupMessageAnchor != null) {
         val message = popupMessage!!
+        val isMine = message.senderOrReceiver != chatId
         val (anchorOffset, anchorSize) = popupMessageAnchor!!
         val density = LocalDensity.current
         val configuration = LocalConfiguration.current
@@ -564,25 +556,56 @@ fun ChatScreen(
 
                     .onGloballyPositioned { popupSize = it.size },
             ) {
+                val quickReactions = listOf("👍", "❤️", "😂", "🔥", "😮", "😢")
                 Box(
                     modifier = Modifier.graphicsLayer {
                         alpha = previewAlpha
                         translationY = previewTranslationY
                     }
                 ) {
-                    MessagePopupPreview(
-                        message = message,
-                        sender = chatId,
-                        messageDeliveryStatuses = messageDeliveryStatuses
+                    val topReactions = decodeMessageReactions(message.reactionsJson)
+                        .map { it.emoji }
+                        .distinct()
+                        .take(2)
+                    MessageQuickReactionsRow(
+                        reactions = (topReactions + quickReactions).distinct(),
+                        alignEnd = isMine,
+                        onReactionClick = { emoji ->
+                            viewModel.reactToMessage(message, emoji)
+                            dismissPopup()
+                        }
                     )
                 }
 
                 Spacer(modifier = Modifier.height(6.dp))
 
+                if (isAndroid12Plus) {
+                    Box(
+                        modifier = Modifier.graphicsLayer {
+                            alpha = previewAlpha
+                            translationY = previewTranslationY
+                        }
+                    ) {
+                        MessagePopupPreview(
+                            message = message,
+                            sender = chatId,
+                            messageDeliveryStatuses = messageDeliveryStatuses
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+                }
+
                 Box(
-                    modifier = Modifier.graphicsLayer {
-                        alpha = menuAlpha
-                        translationY = menuTranslationY
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .graphicsLayer {
+                            alpha = menuAlpha
+                            translationY = menuTranslationY
+                        },
+                    contentAlignment = if (isMine) {
+                        AbsoluteAlignment.CenterRight
+                    } else {
+                        AbsoluteAlignment.CenterLeft
                     }
                 ) {
                     Surface(
@@ -593,7 +616,12 @@ fun ChatScreen(
                         color = MaterialTheme.colorScheme.surfaceContainerHigh
                     ) {
                         Column(
-                            modifier = Modifier.padding(vertical = 4.dp)
+                            modifier = Modifier.padding(vertical = 4.dp),
+                            horizontalAlignment = if (isMine) {
+                                AbsoluteAlignment.Right
+                            } else {
+                                AbsoluteAlignment.Left
+                            }
                         ) {
                             MessageMenuRow(
                                 icon = Icons.Rounded.AccessTime,
@@ -804,7 +832,6 @@ fun ChatScreen(
             },
             bottomBar = {
                 ChatScreenBottomAppBar(
-                    modifier = Modifier.imePadding(),
                     onSendClicked = { message ->
                         if (message.isNotBlank()) {
                             viewModel.sendMessage(message)
@@ -856,8 +883,7 @@ fun ChatScreen(
                     )
                 }
             }
-        )
-        { innerPadding ->
+        ) { innerPadding ->
             Box(
                 modifier = Modifier
                     .padding(innerPadding)
@@ -903,64 +929,66 @@ fun ChatScreen(
                                 }
                             } else {
                                 Box(modifier = Modifier.fillMaxSize()) {
-                                    ChatSurface(
-                                        modifier = Modifier.fillMaxSize(),
-                                        state = chatListState,
-                                        items = messages,
-                                        topOverlaySpacerHeight = reservedNowPlayingHeight,
-                                        messageDeliveryStatuses = messageDeliveryStatuses,
-                                        canLoadOlder = canLoadOlderHistory,
-                                        isLoadingOlder = isLoadingOlderHistory,
-                                        sender = chatId,
-                                        onMessageClick = { message, offset, size ->
-                                            selectedMessage = message
-                                            selectedMessageAnchor = offset to size
-                                        },
-                                        onAttachmentClick = { message ->
-                                            val openedStory =
-                                                viewModel.openStoryFromAttachment(message)
-                                            if (openedStory) {
-                                                return@ChatSurface
-                                            }
-                                            val url = message.attachmentUrl
-                                            if (!url.isNullOrBlank()) {
-                                                val normalizedAttachmentType =
-                                                    message.attachmentType
-                                                        ?.trim()
-                                                        ?.lowercase()
-                                                val isStoryAttachment =
-                                                    normalizedAttachmentType == "story_reply" ||
-                                                            normalizedAttachmentType == "story_mention"
-                                                val storyIsVideo = message.attachmentMimeType
-                                                    ?.contains("video", ignoreCase = true) == true
-                                                when {
-                                                    isStoryAttachment && storyIsVideo -> {
-                                                        mediaViewerUrl = url
-                                                        mediaViewerIsVideo = true
-                                                    }
-
-                                                    isStoryAttachment || message.messageType == "image" -> {
-                                                        mediaViewerUrl = url
-                                                        mediaViewerIsVideo = false
-                                                    }
-
-                                                    message.messageType == "video" -> {
-                                                        mediaViewerUrl = url
-                                                        mediaViewerIsVideo = true
-                                                    }
-
-                                                    else -> Unit
+                                    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                                        ChatSurface(
+                                            modifier = Modifier.fillMaxSize(),
+                                            state = chatListState,
+                                            items = messages,
+                                            topOverlaySpacerHeight = reservedNowPlayingHeight,
+                                            messageDeliveryStatuses = messageDeliveryStatuses,
+                                            canLoadOlder = canLoadOlderHistory,
+                                            isLoadingOlder = isLoadingOlderHistory,
+                                            sender = chatId,
+                                            onMessageClick = { message, offset, size ->
+                                                selectedMessage = message
+                                                selectedMessageAnchor = offset to size
+                                            },
+                                            onAttachmentClick = { message ->
+                                                val openedStory =
+                                                    viewModel.openStoryFromAttachment(message)
+                                                if (openedStory) {
+                                                    return@ChatSurface
                                                 }
-                                            }
-                                        },
-                                        onSwipeToReply = { message ->
-                                            viewModel.setReplyingTo(message)
-                                        },
-                                        onPostShareClick = { postId ->
-                                            viewModel.openSharedPost(postId)
-                                        },
-                                        onLoadOlder = viewModel::loadOlderHistoryIfNeeded
-                                    )
+                                                val url = message.attachmentUrl
+                                                if (!url.isNullOrBlank()) {
+                                                    val normalizedAttachmentType =
+                                                        message.attachmentType
+                                                            ?.trim()
+                                                            ?.lowercase()
+                                                    val isStoryAttachment =
+                                                        normalizedAttachmentType == "story_reply" ||
+                                                                normalizedAttachmentType == "story_mention"
+                                                    val storyIsVideo = message.attachmentMimeType
+                                                        ?.contains("video", ignoreCase = true) == true
+                                                    when {
+                                                        isStoryAttachment && storyIsVideo -> {
+                                                            mediaViewerUrl = url
+                                                            mediaViewerIsVideo = true
+                                                        }
+
+                                                        isStoryAttachment || message.messageType == "image" -> {
+                                                            mediaViewerUrl = url
+                                                            mediaViewerIsVideo = false
+                                                        }
+
+                                                        message.messageType == "video" -> {
+                                                            mediaViewerUrl = url
+                                                            mediaViewerIsVideo = true
+                                                        }
+
+                                                        else -> Unit
+                                                    }
+                                                }
+                                            },
+                                            onSwipeToReply = { message ->
+                                                viewModel.setReplyingTo(message)
+                                            },
+                                            onPostShareClick = { postId ->
+                                                viewModel.openSharedPost(postId)
+                                            },
+                                            onLoadOlder = viewModel::loadOlderHistoryIfNeeded
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -1084,12 +1112,6 @@ fun ChatScreen(
 
 }
 
-private tailrec fun Context.findActivity(): Activity? = when (this) {
-    is Activity -> this
-    is ContextWrapper -> baseContext.findActivity()
-    else -> null
-}
-
 @Composable
 private fun formatMessageSentAt(timestamp: String?): String {
     if (timestamp.isNullOrBlank()) return stringResource(R.string.unknown_time)
@@ -1153,28 +1175,90 @@ private fun MessagePopupPreview(
 
     Box(
         modifier = Modifier
-//            .fillMaxWidth()
+            .fillMaxWidth()
             .padding(4.dp)
+            .wrapContentWidth(
+                if (isMine) AbsoluteAlignment.Right else AbsoluteAlignment.Left
+            ),
     ) {
-        ChatContainer(
-            text = message.content,
-            sent = isMine,
-            messageType = message.messageType,
-            attachmentType = message.attachmentType,
-            attachmentUrl = message.attachmentUrl,
-            attachmentMimeType = message.attachmentMimeType,
-            attachmentFileName = message.attachmentFileName,
-            deliveryStatus = if (isMine) {
-                message.messageId?.let { messageDeliveryStatuses[it] }
+        Column(
+            modifier = Modifier.wrapContentWidth(),
+            horizontalAlignment = if (isMine) {
+                AbsoluteAlignment.Right
             } else {
-                null
-            },
-            onClick = { _, _ -> },
-            onAttachmentClick = {},
-            onPostShareClick = null,
-            onLongClick = {},
-            replySenderName = message.replyToSender,
-            replyPreviewText = message.replyPreview
-        )
+                AbsoluteAlignment.Left
+            }
+        ) {
+            ChatContainer(
+                text = message.content,
+                sent = isMine,
+                messageType = message.messageType,
+                attachmentType = message.attachmentType,
+                attachmentUrl = message.attachmentUrl,
+                attachmentMimeType = message.attachmentMimeType,
+                attachmentFileName = message.attachmentFileName,
+                deliveryStatus = if (isMine) {
+                    message.messageId?.let { messageDeliveryStatuses[it] }
+                } else {
+                    null
+                },
+                onClick = { _, _ -> },
+                onAttachmentClick = {},
+                onPostShareClick = null,
+                onLongClick = {},
+                replySenderName = message.replyToSender,
+                replyPreviewText = message.replyPreview,
+            )
+            val reactions = decodeMessageReactions(message.reactionsJson)
+            if (reactions.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                MessageReactionSummaryRow(
+                    reactions = reactions,
+                    sent = isMine
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MessageQuickReactionsRow(
+    reactions: List<String>,
+    alignEnd: Boolean,
+    onReactionClick: (String) -> Unit,
+) {
+    Box(
+        modifier = Modifier.fillMaxWidth(),
+        contentAlignment = if (alignEnd) AbsoluteAlignment.CenterRight else AbsoluteAlignment.CenterLeft
+    ) {
+        Surface(
+            modifier = Modifier.wrapContentWidth(),
+            shape = RoundedCornerShape(20.dp),
+            tonalElevation = 8.dp,
+            shadowElevation = 8.dp,
+            color = MaterialTheme.colorScheme.surfaceContainerHigh
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                reactions.take(min(reactions.size, 6)).forEach { emoji ->
+                    Surface(
+                        shape = RoundedCornerShape(999.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(999.dp))
+                            .clickable { onReactionClick(emoji) }
+                    ) {
+                        Text(
+                            text = emoji,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                    }
+                }
+            }
+        }
     }
 }

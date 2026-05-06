@@ -29,5 +29,6 @@ package com.dino.message.chatfeature.domain.model
      val isSeen: Boolean = false,
      val replyToMessageId: String? = null,
      val replyToSender: String? = null,
-     val replyPreview: String? = null
+     val replyPreview: String? = null,
+     val reactionsJson: String? = null,
  )

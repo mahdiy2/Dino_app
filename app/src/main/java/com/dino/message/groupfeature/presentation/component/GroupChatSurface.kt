@@ -30,8 +30,10 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.dino.message.DinoOrderApplication
 import com.dino.message.chatfeature.presentation.component.ChatContainer
+import com.dino.message.chatfeature.presentation.component.MessageReactionSummaryRow
 import com.dino.message.chatfeature.presentation.component.SwipeToReply
 import com.dino.message.chatfeature.domain.model.MessageDeliveryStatus
+import com.dino.message.chatfeature.domain.util.decodeMessageReactions
 import com.dino.message.corefeature.presentation.component.UserBadgeIcon
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPSmall
@@ -178,21 +180,33 @@ fun GroupChatSurface(
                             onSwipe = { onSwipeToReply?.invoke(message) },
                             enabled = onSwipeToReply != null
                         ) {
-                            ChatContainer(
-                                text = message.content,
-                                sent = isMine,
-                                messageType = message.messageType,
-                                attachmentUrl = message.attachmentUrl,
-                                attachmentMimeType = message.attachmentMimeType,
-                                attachmentFileName = message.attachmentFileName,
-                                deliveryStatus = if (isMine) messageDeliveryStatuses[message.messageId] else null,
-                                onClick = { offset, size -> onMessageClick?.invoke(message, offset, size) },
-                                onAttachmentClick = { onAttachmentClick?.invoke(message) },
-                                onPostShareClick = onPostShareClick,
-                                onLongClick = { onMessageLongClick?.invoke(message) },
-                                replySenderName = message.replyToSender,
-                                replyPreviewText = message.replyPreview
-                            )
+                            Column(
+                                horizontalAlignment = if (isMine) Alignment.End else Alignment.Start
+                            ) {
+                                ChatContainer(
+                                    text = message.content,
+                                    sent = isMine,
+                                    messageType = message.messageType,
+                                    attachmentUrl = message.attachmentUrl,
+                                    attachmentMimeType = message.attachmentMimeType,
+                                    attachmentFileName = message.attachmentFileName,
+                                    deliveryStatus = if (isMine) messageDeliveryStatuses[message.messageId] else null,
+                                    onClick = { offset, size -> onMessageClick?.invoke(message, offset, size) },
+                                    onAttachmentClick = { onAttachmentClick?.invoke(message) },
+                                    onPostShareClick = onPostShareClick,
+                                    onLongClick = { onMessageLongClick?.invoke(message) },
+                                    replySenderName = message.replyToSender,
+                                    replyPreviewText = message.replyPreview,
+                                )
+                                val reactions = decodeMessageReactions(message.reactionsJson)
+                                if (reactions.isNotEmpty()) {
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    MessageReactionSummaryRow(
+                                        reactions = reactions,
+                                        sent = isMine
+                                    )
+                                }
+                            }
                         }
                     }
                 }

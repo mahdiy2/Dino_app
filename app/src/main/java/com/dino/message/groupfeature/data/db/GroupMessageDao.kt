@@ -33,6 +33,9 @@ interface GroupMessageDao {
     @Query("UPDATE group_messages SET isSeen = 1 WHERE messageId = :messageId")
     suspend fun markMessageSeenByMessageId(messageId: String)
 
+    @Query("UPDATE group_messages SET reactionsJson = :reactionsJson WHERE messageId = :messageId")
+    suspend fun updateReactionsByMessageId(messageId: String, reactionsJson: String?)
+
     @Query("SELECT * FROM group_messages WHERE messageId = :messageId LIMIT 1")
     suspend fun getMessageByMessageId(messageId: String): GroupMessageEntity?
 
@@ -60,6 +63,7 @@ interface GroupMessageDao {
                         replyToMessageId = message.replyToMessageId ?: existing.replyToMessageId,
                         replyToSender = message.replyToSender ?: existing.replyToSender,
                         replyPreview = message.replyPreview ?: existing.replyPreview,
+                        reactionsJson = message.reactionsJson ?: existing.reactionsJson,
                     )
                 )
             }

@@ -26,4 +26,6 @@ interface GroupRepository {
     suspend fun clearGroupMessages(groupId: Int)
     suspend fun deleteGroupMessageByMessageId(messageId: String)
     suspend fun markGroupMessageSeenByMessageId(messageId: String)
+    suspend fun updateGroupMessageReactionsByMessageId(messageId: String, reactionsJson: String?)
+    suspend fun reactToMessage(messageId: String, emoji: String?): Resource<Unit>
 }

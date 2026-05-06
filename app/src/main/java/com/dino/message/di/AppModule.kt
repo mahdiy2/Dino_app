@@ -379,6 +379,7 @@ object AppModule {
                  MessageDatabase.MIGRATION_9_10,
                  MessageDatabase.MIGRATION_10_11,
                  MessageDatabase.MIGRATION_11_12,
+                 MessageDatabase.MIGRATION_12_13,
              )
              .build()
      }

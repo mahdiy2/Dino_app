@@ -29,4 +29,5 @@ data class GroupMessageEntity(
     val replyToMessageId: String? = null,
     val replyToSender: String? = null,
     val replyPreview: String? = null,
+    val reactionsJson: String? = null,
 )

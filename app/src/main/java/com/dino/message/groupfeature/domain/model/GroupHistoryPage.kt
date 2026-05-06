@@ -1,6 +1,7 @@
 package com.dino.message.groupfeature.domain.model
 
 import com.dino.message.chatfeature.data.remote.dto.MessageAttachment
+import com.dino.message.chatfeature.domain.model.MessageReaction
 
 data class GroupHistoryPage(
     val groupId: Int,
@@ -21,4 +22,5 @@ data class GroupHistoryMessage(
     val replyToMessageId: String?,
     val replyToSender: String?,
     val encryptedReplyPreview: String?,
+    val reactions: List<MessageReaction> = emptyList(),
 )

@@ -18,4 +18,5 @@ interface GroupApiService {
     suspend fun getGroupHistory(groupId: Int, limit: Int, before: String? = null): Resource<GroupHistoryPage>
     suspend fun getMutualFollowers(page: Int, limit: Int): Resource<MutualFollowersPage>
     suspend fun uploadGroupAttachment(groupId: Int, fileUri: Uri): Resource<MessageAttachment>
+    suspend fun reactToMessage(messageId: String, emoji: String?): Resource<Unit>
 }

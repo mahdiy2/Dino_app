@@ -2,6 +2,7 @@ package com.dino.message.chatfeature.data.remote.dto
 
 import com.dino.message.chatfeature.domain.model.PrivateHistoryMessage
 import com.dino.message.chatfeature.domain.model.PrivateHistoryPage
+import com.dino.message.chatfeature.domain.model.MessageReaction
 import com.dino.message.corefeature.data.remote.ResponseToResultMapper
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -35,6 +36,7 @@ data class PrivateHistoryMessageDto(
     @SerialName("reply_to_sender") val replyToSender: String? = null,
     @SerialName("encrypted_reply_preview") val encryptedReplyPreview: String? = null,
     @SerialName("encrypted_reply_key") val encryptedReplyKey: String? = null,
+    val reactions: List<MessageReaction> = emptyList(),
 )
 
 private fun PrivateHistoryMessageDto.toDomain(): PrivateHistoryMessage = PrivateHistoryMessage(
@@ -50,4 +52,5 @@ private fun PrivateHistoryMessageDto.toDomain(): PrivateHistoryMessage = Private
     replyToSender = replyToSender,
     encryptedReplyPreview = encryptedReplyPreview,
     encryptedReplyKey = encryptedReplyKey,
+    reactions = reactions,
 )

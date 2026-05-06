@@ -11,6 +11,7 @@ import androidx.lifecycle.viewModelScope
 import com.dino.message.DinoOrderApplication
 import com.dino.message.chatfeature.domain.model.MessageDeliveryStatus
 import com.dino.message.chatfeature.domain.model.MessageEntity
+import com.dino.message.chatfeature.domain.model.MessageReaction
 import com.dino.message.chatfeature.domain.usecase.ClearMessageFromDBUseCase
 import com.dino.message.chatfeature.domain.usecase.GetMessageFromDBUseCase
 import com.dino.message.chatfeature.domain.usecase.GetReceiverPublicKeyUseCase
@@ -52,6 +53,9 @@ import java.time.Instant
 import java.time.format.DateTimeParseException
 import kotlin.math.abs
 import com.dino.message.chatfeature.domain.util.MessageDeduplicator
+import com.dino.message.chatfeature.domain.util.decodeMessageReactions
+import com.dino.message.chatfeature.domain.util.encodeMessageReactions
+import com.dino.message.chatfeature.domain.util.parseMessageReactionsFromPayload
 import com.dino.message.chatfeature.domain.repository.ChatRepository
 import com.dino.message.threadfeature.domain.usecase.IsTrackInPlaylistUseCase
 import com.ramcosta.composedestinations.generated.destinations.PrivateKeyResetDialogScreenDestination
@@ -520,6 +524,7 @@ class ChatViewModel @Inject constructor(
             replyToMessageId = historyMessage.replyToMessageId,
             replyToSender = historyMessage.replyToSender,
             replyPreview = replyPreview,
+            reactionsJson = encodeMessageReactions(historyMessage.reactions),
         )
     }
 
@@ -917,6 +922,27 @@ class ChatViewModel @Inject constructor(
         } else {
             _socketError.value = "Unable to delete for everyone right now."
             pushSocketDebugLog("delete_message emit failed for $messageId")
+        }
+    }
+
+    fun reactToMessage(message: MessageEntity, emoji: String) = viewModelScope.launch {
+        val messageId = message.messageId?.trim().orEmpty()
+        if (messageId.isBlank()) return@launch
+        val emitted = appSocketManager.emit(
+            "react_to_message",
+            JSONObject().apply {
+                put("message_id", messageId)
+                put("emoji", emoji)
+            }
+        )
+        if (!emitted) {
+            when (chatRepository.reactToMessage(messageId = messageId, emoji = emoji)) {
+                is Resource.Success -> Unit
+                is Resource.Error -> {
+                    _socketError.value = "Unable to react right now."
+                }
+                is Resource.Loading -> Unit
+            }
         }
     }
 
@@ -1494,7 +1520,8 @@ class ChatViewModel @Inject constructor(
                         attachmentSizeBytes = pending.message.attachmentSizeBytes,
                         replyToMessageId = pending.message.replyToMessageId,
                         replyToSender = pending.message.replyToSender,
-                        replyPreview = pending.message.replyPreview
+                        replyPreview = pending.message.replyPreview,
+                        reactionsJson = pending.message.reactionsJson,
                     )
                     saveMessageToDb(message)
                     loadMessages()
@@ -1631,6 +1658,20 @@ class ChatViewModel @Inject constructor(
             }
         }
 
+        appSocketManager.registerListener(socketOwner, "message_reaction_updated") { args ->
+            viewModelScope.launch {
+                val payload = parseSocketPayload(args, "message_reaction_updated") ?: return@launch
+                if (payload.optString("scope", "private") != "private") return@launch
+                val payloadChatId = payload.optString("chat_id", "").trim()
+                if (payloadChatId != chatId) return@launch
+                val messageId = payload.optString("message_id", "").trim()
+                if (messageId.isBlank()) return@launch
+                val reactionsJson = encodeMessageReactions(parseMessageReactionsFromPayload(payload))
+                chatRepository.updateMessageReactionsByMessageId(messageId, reactionsJson)
+                loadMessages()
+            }
+        }
+
         appSocketManager.registerListener(socketOwner, "deleted_messages_status") { args ->
             viewModelScope.launch {
                 val payload = parseSocketPayload(args, "deleted_messages_status") ?: return@launch
@@ -1686,6 +1727,7 @@ class ChatViewModel @Inject constructor(
         val encryptedReplyKey = payload.optString("encrypted_reply_key", "").ifBlank { null }
 
         val replyDecryptKey = encryptedReplyKey ?: encryptedKey
+        val reactionsJson = encodeMessageReactions(parseMessageReactionsFromPayload(payload))
         val decryptedReplyPreview = if (encryptedReplyPreview != null && replyDecryptKey.isNotBlank()) {
            try {
                val privateKey = spref.getPrivateKey() ?: ""
@@ -1754,7 +1796,8 @@ class ChatViewModel @Inject constructor(
                     attachmentSizeBytes = attachmentObj.optLong("size_bytes", 0),
                     replyToMessageId = replyToMessageId,
                     replyToSender = replyToSender,
-                    replyPreview = decryptedReplyPreview
+                    replyPreview = decryptedReplyPreview,
+                    reactionsJson = reactionsJson,
                 )
             )
         } else {
@@ -1772,7 +1815,8 @@ class ChatViewModel @Inject constructor(
                 messageType = type,
                 replyToMessageId = replyToMessageId,
                 replyToSender = replyToSender,
-                replyPreview = decryptedReplyPreview
+                replyPreview = decryptedReplyPreview,
+                reactionsJson = reactionsJson,
             )
         }
     }
@@ -2006,7 +2050,8 @@ class ChatViewModel @Inject constructor(
         messageType: String = "text",
         replyToMessageId: String? = null,
         replyToSender: String? = null,
-        replyPreview: String? = null
+        replyPreview: String? = null,
+        reactionsJson: String? = null,
     ) {
         try {
             val privateKey = spref.getPrivateKey() ?: return
@@ -2027,7 +2072,8 @@ class ChatViewModel @Inject constructor(
                     messageType = messageType,
                     replyToMessageId = replyToMessageId,
                     replyToSender = replyToSender,
-                    replyPreview = replyPreview
+                    replyPreview = replyPreview,
+                    reactionsJson = reactionsJson,
                 )
             )
         } catch (e: Exception) {
@@ -2043,7 +2089,8 @@ class ChatViewModel @Inject constructor(
                     timestamp = timestamp,
                     replyToMessageId = replyToMessageId,
                     replyToSender = replyToSender,
-                    replyPreview = replyPreview
+                    replyPreview = replyPreview,
+                    reactionsJson = reactionsJson,
                 )
             )
         }

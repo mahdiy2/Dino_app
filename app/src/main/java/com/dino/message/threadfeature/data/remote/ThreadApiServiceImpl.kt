@@ -7,6 +7,7 @@ import com.dino.message.corefeature.data.remote.HaveRefreshTokenAPI
 import com.dino.message.corefeature.data.remote.HaveRefreshTokenAPIImpl
 import com.dino.message.corefeature.data.remote.util.HttpAPIUtil
 import com.dino.message.corefeature.data.remote.util.appendTokenToHeader
+import com.dino.message.corefeature.data.remote.util.ensureFreshAccessTokenIfNearExpiry
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.domain.model.asStringResourceContent
 import com.dino.message.corefeature.presentation.util.Resource
@@ -98,6 +99,10 @@ class ThreadApiServiceImpl @Inject constructor(
         followersOnly: Boolean,
         quotedPostId: Long?
     ): Resource<CreatedPost> {
+        if (mediaFiles.isNotEmpty()) {
+            ensureFreshAccessTokenBeforeUpload()
+        }
+
         if (mediaFiles.size > MAX_MEDIA_FILES_PER_POST) {
             return Resource.Error(
                 message = "Maximum 8 media files allowed".asStringResourceContent()
@@ -403,6 +408,8 @@ class ThreadApiServiceImpl @Inject constructor(
         mediaFile: CreatePostMedia,
         mentionUsernames: List<String>
     ): Resource<StoryUploadResult> {
+        ensureFreshAccessTokenBeforeUpload()
+
         val normalizedMimeType = mediaFile.mimeType.trim().lowercase()
         if (normalizedMimeType.startsWith("video/")) {
             val durationSeconds = resolveVideoDurationSeconds(mediaFile)
@@ -446,7 +453,8 @@ class ThreadApiServiceImpl @Inject constructor(
                                     .forEach { mention ->
                                         append("mentions[]", mention)
                                     }
-                            }
+                            },
+                            boundary = createMultipartBoundary()
                         )
                     )
                 }
@@ -622,5 +630,18 @@ class ThreadApiServiceImpl @Inject constructor(
                 Unit
             }
         }
+    }
+
+    private fun createMultipartBoundary(): String {
+        val randomToken = UUID.randomUUID().toString().replace("-", "")
+        return "secmsg-$randomToken"
+    }
+
+    private suspend fun ensureFreshAccessTokenBeforeUpload() {
+        ensureFreshAccessTokenIfNearExpiry(
+            sPrefManager = sPrefManager,
+            refreshAccessToken = this::getToken,
+            logTag = "ThreadApiServiceImpl"
+        )
     }
 }

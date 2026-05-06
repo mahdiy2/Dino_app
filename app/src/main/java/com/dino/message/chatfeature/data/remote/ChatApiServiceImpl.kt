@@ -11,6 +11,8 @@ import com.dino.message.chatfeature.data.remote.dto.MessageSent
 import com.dino.message.chatfeature.data.remote.dto.NewMessage
 import com.dino.message.chatfeature.data.remote.dto.PendingMessage
 import com.dino.message.chatfeature.data.remote.dto.PrivateHistoryResponse
+import com.dino.message.chatfeature.data.remote.dto.ReactToMessageRequest
+import com.dino.message.chatfeature.data.remote.dto.ReactToMessageResponse
 import com.dino.message.chatfeature.data.remote.dto.ReceiverPublicKeyResponse
 import com.dino.message.chatfeature.data.remote.dto.SendMessageRequest
 import com.dino.message.chatfeature.data.remote.dto.SendMessageResponse
@@ -24,6 +26,7 @@ import com.dino.message.corefeature.data.remote.HaveRefreshTokenAPI
 import com.dino.message.corefeature.data.remote.HaveRefreshTokenAPIImpl
 import com.dino.message.corefeature.data.remote.util.HttpAPIUtil
 import com.dino.message.corefeature.data.remote.util.appendTokenToHeader
+import com.dino.message.corefeature.data.remote.util.ensureFreshAccessTokenIfNearExpiry
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.data.upload.AttachmentUploadPolicy
 import com.dino.message.corefeature.domain.model.asStringResourceContent
@@ -135,6 +138,11 @@ class ChatApiServiceImpl @Inject constructor(
         Log.i(
             TAG,
             "upload_start scope=private mime=$mimeType sizeBytes=${fileSize ?: -1} name=$fileName"
+        )
+        ensureFreshAccessTokenIfNearExpiry(
+            sPrefManager = sPrefManager,
+            refreshAccessToken = this::getToken,
+            logTag = TAG
         )
 
         val result = httpAPIUtil.callAPIWithErrorHandling<MessageAttachment, UploadAttachmentResponse>(
@@ -268,6 +276,23 @@ class ChatApiServiceImpl @Inject constructor(
                 httpClient.get(ChatRoute.GetUnread.url) {
                     contentType(ContentType.Application.Json)
                     appendTokenToHeader(sPrefManager.getToken())
+                }
+            },
+            callRefreshTokenAPI = this::getToken
+        )
+
+    override suspend fun reactToMessage(messageId: String, emoji: String?): Resource<Unit> =
+        httpAPIUtil.callAPIWithErrorHandling<Unit, ReactToMessageResponse>(
+            callAPI = {
+                httpClient.post(ChatRoute.ReactToMessage.url) {
+                    contentType(ContentType.Application.Json)
+                    appendTokenToHeader(sPrefManager.getToken())
+                    setBody(
+                        ReactToMessageRequest(
+                            messageId = messageId,
+                            emoji = emoji
+                        )
+                    )
                 }
             },
             callRefreshTokenAPI = this::getToken

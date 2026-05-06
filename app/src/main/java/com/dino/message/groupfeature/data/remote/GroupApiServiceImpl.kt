@@ -10,6 +10,7 @@ import com.dino.message.corefeature.data.remote.HaveRefreshTokenAPI
 import com.dino.message.corefeature.data.remote.HaveRefreshTokenAPIImpl
 import com.dino.message.corefeature.data.remote.util.HttpAPIUtil
 import com.dino.message.corefeature.data.remote.util.appendTokenToHeader
+import com.dino.message.corefeature.data.remote.util.ensureFreshAccessTokenIfNearExpiry
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.data.upload.AttachmentUploadPolicy
 import com.dino.message.corefeature.domain.model.asStringResourceContent
@@ -24,6 +25,8 @@ import com.dino.message.groupfeature.data.remote.dto.GroupOnlineUsersResponse
 import com.dino.message.groupfeature.data.remote.dto.GroupUploadAttachmentResponse
 import com.dino.message.groupfeature.data.remote.dto.ListGroupsResponse
 import com.dino.message.groupfeature.data.remote.dto.MutualFollowersResponse
+import com.dino.message.chatfeature.data.remote.dto.ReactToMessageRequest
+import com.dino.message.chatfeature.data.remote.dto.ReactToMessageResponse
 import com.dino.message.groupfeature.domain.model.AddGroupMembersResult
 import com.dino.message.groupfeature.domain.model.Group
 import com.dino.message.groupfeature.domain.model.GroupHistoryPage
@@ -166,6 +169,11 @@ class GroupApiServiceImpl @Inject constructor(
             TAG,
             "upload_start scope=group groupId=$groupId mime=$mimeType sizeBytes=${fileSize ?: -1} name=$fileName"
         )
+        ensureFreshAccessTokenIfNearExpiry(
+            sPrefManager = sPrefManager,
+            refreshAccessToken = this::getToken,
+            logTag = TAG
+        )
 
         val result = httpAPIUtil.callAPIWithErrorHandling<MessageAttachment, GroupUploadAttachmentResponse>(
             callAPI = {
@@ -285,4 +293,21 @@ class GroupApiServiceImpl @Inject constructor(
             normalized.contains("network error") ||
             normalized == "retry failed"
     }
+
+    override suspend fun reactToMessage(messageId: String, emoji: String?): Resource<Unit> =
+        httpAPIUtil.callAPIWithErrorHandling<Unit, ReactToMessageResponse>(
+            callAPI = {
+                httpClient.post(com.dino.message.chatfeature.data.remote.ChatRoute.ReactToMessage.url) {
+                    contentType(ContentType.Application.Json)
+                    appendTokenToHeader(sPrefManager.getToken())
+                    setBody(
+                        ReactToMessageRequest(
+                            messageId = messageId,
+                            emoji = emoji
+                        )
+                    )
+                }
+            },
+            callRefreshTokenAPI = this::getToken
+        )
 }

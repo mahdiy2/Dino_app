@@ -60,6 +60,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -73,6 +74,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -140,7 +142,7 @@ fun ThreadScreen(initialStoryId: Long? = null) {
     val storyViewersLoading by viewModel.storyViewersLoading.collectAsState()
     val storyMentionCandidates by viewModel.storyMentionCandidates.collectAsState()
     val context = LocalContext.current
-    var hasOpenedInitialStory by remember(initialStoryId) { mutableStateOf(false) }
+    var hasOpenedInitialStory by rememberSaveable(initialStoryId) { mutableStateOf(false) }
     var pendingStoryEditorMedia by remember { mutableStateOf<CreatePostMedia?>(null) }
 
     val coroutineScope = rememberCoroutineScope()
@@ -193,6 +195,10 @@ fun ThreadScreen(initialStoryId: Long? = null) {
             hasOpenedInitialStory = true
             viewModel.openStoryById(storyId)
         }
+    }
+
+    BackHandler(enabled = isStoryViewerVisible && !storyViewerInsightsVisible) {
+        viewModel.closeStoryViewer()
     }
 
     LaunchedEffect(pendingStoryEditorMedia != null) {

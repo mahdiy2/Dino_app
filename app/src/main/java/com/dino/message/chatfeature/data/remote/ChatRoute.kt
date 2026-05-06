@@ -11,6 +11,7 @@ sealed class ChatRoute(url: String) : BaseRoute(url){
     data class GetReceiverPublicKey(val username: String) : ChatRoute("api/contacts/$username/public-key")
 
     object UploadAttachment : ChatRoute("api/messages/attachments")
+    object ReactToMessage : ChatRoute("api/messages/reactions")
 
     object GetUnread : ChatRoute("api/notifications/unread")
 }

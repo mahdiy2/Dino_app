@@ -22,4 +22,5 @@ data class PrivateHistoryMessage(
     val replyToSender: String?,
     val encryptedReplyPreview: String?,
     val encryptedReplyKey: String?,
+    val reactions: List<MessageReaction> = emptyList(),
 )

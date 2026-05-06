@@ -38,6 +38,9 @@ interface MessageDao {
     @Query("UPDATE messages SET isSeen = 1 WHERE messageId = :messageId")
     suspend fun markMessageSeenByMessageId(messageId: String)
 
+    @Query("UPDATE messages SET reactionsJson = :reactionsJson WHERE messageId = :messageId")
+    suspend fun updateReactionsByMessageId(messageId: String, reactionsJson: String?)
+
     @Query("SELECT * FROM messages ORDER BY timestamp DESC")
     suspend fun getAllMessages(): List<MessageEntity>
 
@@ -84,6 +87,7 @@ interface MessageDao {
                         replyToMessageId = message.replyToMessageId ?: existing.replyToMessageId,
                         replyToSender = message.replyToSender ?: existing.replyToSender,
                         replyPreview = message.replyPreview ?: existing.replyPreview,
+                        reactionsJson = message.reactionsJson ?: existing.reactionsJson,
                     )
                 )
             }

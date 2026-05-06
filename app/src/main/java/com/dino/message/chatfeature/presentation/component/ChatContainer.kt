@@ -63,6 +63,7 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.dino.message.chatfeature.domain.model.MessageDeliveryStatus
+import com.dino.message.chatfeature.domain.model.MessageReaction
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPSmall
 import com.dino.message.corefeature.presentation.util.decodePostShareMessage
@@ -88,7 +89,7 @@ fun ChatContainer(
     onPostShareClick: ((Long) -> Unit)? = null,
     onLongClick: (() -> Unit)? = null,
     replySenderName: String? = null,
-    replyPreviewText: String? = null
+    replyPreviewText: String? = null,
 ) {
     val normalizedAttachmentType = attachmentType?.trim()?.lowercase()
     val isStoryReferenceAttachment =
@@ -277,6 +278,57 @@ fun ChatContainer(
                     ) {
                         if (showStatus) {
                             DeliveryStatusIcon(deliveryStatus = deliveryStatus)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun MessageReactionSummaryRow(
+    reactions: List<MessageReaction>,
+    sent: Boolean,
+) {
+    val grouped = reactions
+        .groupBy { it.emoji }
+        .mapValues { (_, entries) -> entries.size }
+        .toList()
+        .sortedByDescending { (_, count) -> count }
+        .take(5)
+
+    if (grouped.isEmpty()) return
+
+    Row(
+        modifier = Modifier,
+        horizontalArrangement = if (sent) Arrangement.End else Arrangement.Start
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            grouped.forEach { (emoji, count) ->
+                Surface(
+                    shape = RoundedCornerShape(999.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f),
+                    tonalElevation = 1.dp
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(3.dp)
+                    ) {
+                        Text(
+                            text = emoji,
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                        if (count > 1) {
+                            Text(
+                                text = count.toString(),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
                 }
