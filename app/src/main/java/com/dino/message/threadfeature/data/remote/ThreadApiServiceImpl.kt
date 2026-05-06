@@ -10,6 +10,7 @@ import com.dino.message.corefeature.data.remote.util.appendTokenToHeader
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.domain.model.asStringResourceContent
 import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.crashfeature.data.service.CrashReporter
 import com.dino.message.threadfeature.data.remote.dto.CreateCommentRequest
 import com.dino.message.threadfeature.data.remote.dto.CreateCommentResponse
 import com.dino.message.threadfeature.data.remote.dto.CreatePostRequest
@@ -65,6 +66,7 @@ import io.ktor.client.request.forms.formData
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
 import io.ktor.client.request.setBody
+import io.ktor.client.plugins.timeout
 import io.ktor.http.ContentType
 import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
@@ -78,11 +80,16 @@ class ThreadApiServiceImpl @Inject constructor(
     private val httpClient: HttpClient,
     private val sPrefManager: SPrefManager,
     private val httpAPIUtil: HttpAPIUtil,
+    private val crashReporter: CrashReporter,
     @ApplicationContext private val appContext: Context,
 ) : ThreadApiService, HaveRefreshTokenAPI by HaveRefreshTokenAPIImpl(httpClient, sPrefManager) {
     companion object {
         private const val MAX_MEDIA_FILES_PER_POST = 8
         private const val MAX_STORY_VIDEO_DURATION_SECONDS = 30.0
+        private const val POST_UPLOAD_REQUEST_TIMEOUT_MS = 120_000L
+        private const val POST_UPLOAD_SOCKET_TIMEOUT_MS = 120_000L
+        private const val STORY_UPLOAD_REQUEST_TIMEOUT_MS = 120_000L
+        private const val STORY_UPLOAD_SOCKET_TIMEOUT_MS = 120_000L
     }
 
     override suspend fun createPost(
@@ -98,11 +105,15 @@ class ThreadApiServiceImpl @Inject constructor(
         }
 
         val idempotencyKey = UUID.randomUUID().toString()
-        return httpAPIUtil.callAPIWithErrorHandling<CreatedPost, CreatePostResponse>(
+        val result = httpAPIUtil.callAPIWithErrorHandling<CreatedPost, CreatePostResponse>(
             callAPI = {
                 httpClient.post(ThreadRoute.CreatePost.url) {
                     appendTokenToHeader(sPrefManager.getToken())
                     header("Idempotency-Key", idempotencyKey)
+                    timeout {
+                        requestTimeoutMillis = POST_UPLOAD_REQUEST_TIMEOUT_MS
+                        socketTimeoutMillis = POST_UPLOAD_SOCKET_TIMEOUT_MS
+                    }
 
                     if (mediaFiles.isEmpty()) {
                         contentType(ContentType.Application.Json)
@@ -157,6 +168,43 @@ class ThreadApiServiceImpl @Inject constructor(
             },
             callRefreshTokenAPI = this::getToken
         )
+
+        if (result is Resource.Error) {
+            val errorMessage = result.message.asString(appContext)
+            crashReporter.reportNonFatalIssue(
+                issueType = "CreatePostRequestFailed",
+                message = errorMessage,
+                category = "network",
+                details = buildString {
+                    append("endpoint=")
+                    append(ThreadRoute.CreatePost.url)
+                    append('\n')
+                    append("idempotency_key=")
+                    append(idempotencyKey)
+                    append('\n')
+                    append("followers_only=")
+                    append(followersOnly)
+                    append('\n')
+                    append("quoted_post_id=")
+                    append(quotedPostId?.toString() ?: "null")
+                    append('\n')
+                    append("media_count=")
+                    append(mediaFiles.size)
+                    append('\n')
+                    append("media_mime_types=")
+                    append(
+                        mediaFiles.joinToString(separator = ",") {
+                            it.mimeType.trim().ifBlank { "unknown" }
+                        }
+                    )
+                    append('\n')
+                    append("error_message=")
+                    append(errorMessage)
+                }
+            )
+        }
+
+        return result
     }
 
     private fun resolveFileSize(mediaFile: CreatePostMedia): Long? {
@@ -366,10 +414,14 @@ class ThreadApiServiceImpl @Inject constructor(
             }
         }
 
-        return httpAPIUtil.callAPIWithErrorHandling<StoryUploadResult, StoryUploadResponse>(
+        val result = httpAPIUtil.callAPIWithErrorHandling<StoryUploadResult, StoryUploadResponse>(
             callAPI = {
                 httpClient.post(ThreadRoute.UploadStory.url) {
                     appendTokenToHeader(sPrefManager.getToken())
+                    timeout {
+                        requestTimeoutMillis = STORY_UPLOAD_REQUEST_TIMEOUT_MS
+                        socketTimeoutMillis = STORY_UPLOAD_SOCKET_TIMEOUT_MS
+                    }
                     setBody(
                         MultiPartFormDataContent(
                             formData {
@@ -401,6 +453,36 @@ class ThreadApiServiceImpl @Inject constructor(
             },
             callRefreshTokenAPI = this::getToken
         )
+
+        if (result is Resource.Error) {
+            val errorMessage = result.message.asString(appContext)
+            crashReporter.reportNonFatalIssue(
+                issueType = "UploadStoryRequestFailed",
+                message = errorMessage,
+                category = "network",
+                details = buildString {
+                    append("endpoint=")
+                    append(ThreadRoute.UploadStory.url)
+                    append('\n')
+                    append("media_mime_type=")
+                    append(mediaFile.mimeType.trim().ifBlank { "unknown" })
+                    append('\n')
+                    append("media_file_name=")
+                    append(mediaFile.fileName.ifBlank { "story_media" })
+                    append('\n')
+                    append("media_size_bytes=")
+                    append(mediaFile.sizeBytes?.toString() ?: "null")
+                    append('\n')
+                    append("mentions_count=")
+                    append(mentionUsernames.size)
+                    append('\n')
+                    append("error_message=")
+                    append(errorMessage)
+                }
+            )
+        }
+
+        return result
     }
 
     override suspend fun getStoryFeed(): Resource<StoryFeed> =

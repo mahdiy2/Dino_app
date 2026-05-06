@@ -27,6 +27,7 @@ import kotlinx.coroutines.delay
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import java.net.SocketTimeoutException
 import java.nio.channels.UnresolvedAddressException
 import javax.inject.Inject
 
@@ -43,6 +44,7 @@ class HttpAPIUtil @Inject constructor(
         useServerMessageForUnauthorized: Boolean = false
     ): Resource<ResultType> {
         var firstRetryException: Exception? = null
+        var lastRetryException: Exception? = null
 
         val result = retry(
             times = 3,
@@ -52,6 +54,7 @@ class HttpAPIUtil @Inject constructor(
                 if (firstRetryException == null) {
                     firstRetryException = exception
                 }
+                lastRetryException = exception
             }
         ) {
 
@@ -97,10 +100,13 @@ class HttpAPIUtil @Inject constructor(
                             )
                         } else {
                             Resource.Error(
-                                message = context.getString(
-                                    R.string.error_with_http_status_code,
-                                    status.value
-                                ).asStringResourceContent()
+                                message = (
+                                    extractServerErrorMessage(rawErrorBody)
+                                        ?: context.getString(
+                                            R.string.error_with_http_status_code,
+                                            status.value
+                                        )
+                                    ).asStringResourceContent()
                             )
                         }
                     }
@@ -149,23 +155,35 @@ class HttpAPIUtil @Inject constructor(
                     )
 
                     status == HttpStatusCode.InternalServerError -> Resource.Error(
-                        message = R.string.internal_server_error.asStringResourceContent()
+                        message = (
+                            extractServerErrorMessage(rawErrorBody)
+                                ?: context.getString(R.string.internal_server_error)
+                            ).asStringResourceContent()
                     )
 
                     else -> Resource.Error(
-                        message = context.getString(
-                            R.string.error_with_http_status_code,
-                            status.value
-                        ).asStringResourceContent()
+                        message = (
+                            extractServerErrorMessage(rawErrorBody)
+                                ?: context.getString(
+                                    R.string.error_with_http_status_code,
+                                    status.value
+                                )
+                            ).asStringResourceContent()
                     )
                 }
 
             } catch (e: UnresolvedAddressException) {
                 throw RetryableException("Network error", e)
-            } catch (e: IOException) {
-                throw RetryableException("Network error", e)
             } catch (e: HttpRequestTimeoutException) {
                 throw RetryableException("Timeout error", e)
+            } catch (e: SocketTimeoutException) {
+                throw RetryableException("Timeout error", e)
+            } catch (e: IOException) {
+                val message = e.message
+                if (isTimeoutLikeMessage(message)) {
+                    throw RetryableException("Timeout error", e)
+                }
+                throw RetryableException("Network error", e)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: JsonConvertException) {
@@ -187,7 +205,7 @@ class HttpAPIUtil @Inject constructor(
         if (result != null) return result
 
         return Resource.Error(
-            message = resolveRetryFailureMessage(firstRetryException)
+            message = resolveRetryFailureMessage(firstRetryException, lastRetryException)
         )
     }
 
@@ -286,13 +304,24 @@ class HttpAPIUtil @Inject constructor(
     }
 
     @PublishedApi
-    internal fun resolveRetryFailureMessage(exception: Exception?): com.dino.message.corefeature.domain.model.StringResourceContent {
-        val retryableException = exception as? RetryableException
-        val rootCause = retryableException?.cause ?: exception
+    internal fun resolveRetryFailureMessage(
+        firstException: Exception?,
+        lastException: Exception?,
+    ): com.dino.message.corefeature.domain.model.StringResourceContent {
+        val selectedException = selectRetryFailureException(
+            firstException = firstException,
+            lastException = lastException
+        )
+        val retryableException = selectedException as? RetryableException
+        val rootCause = retryableException?.cause ?: selectedException
         val rootMessage = rootCause?.message?.trim().orEmpty()
 
         return when {
             rootCause is HttpRequestTimeoutException -> {
+                R.string.error_request_timed_out.asStringResourceContent()
+            }
+
+            rootCause is SocketTimeoutException -> {
                 R.string.error_request_timed_out.asStringResourceContent()
             }
 
@@ -301,7 +330,14 @@ class HttpAPIUtil @Inject constructor(
             }
 
             rootCause is IOException -> {
+                if (isTimeoutLikeMessage(rootMessage)) {
+                    return R.string.error_request_timed_out.asStringResourceContent()
+                }
                 R.string.network_error.asStringResourceContent()
+            }
+
+            isTimeoutLikeMessage(rootMessage) -> {
+                R.string.error_request_timed_out.asStringResourceContent()
             }
 
             rootMessage.isNotBlank() -> {
@@ -312,5 +348,33 @@ class HttpAPIUtil @Inject constructor(
                 R.string.error_retries_exceeded.asStringResourceContent()
             }
         }
+    }
+
+    @PublishedApi
+    internal fun selectRetryFailureException(
+        firstException: Exception?,
+        lastException: Exception?,
+    ): Exception? {
+        fun isTokenRefreshRetryOnly(exception: Exception?): Boolean {
+            if (exception !is RetryableException) return false
+            if (exception.cause != null) return false
+            val normalized = exception.message?.trim().orEmpty()
+            return normalized.equals("Token refreshed, retrying request.", ignoreCase = true)
+        }
+
+        if (lastException != null && !isTokenRefreshRetryOnly(lastException)) {
+            return lastException
+        }
+        if (firstException != null && !isTokenRefreshRetryOnly(firstException)) {
+            return firstException
+        }
+        return lastException ?: firstException
+    }
+
+    @PublishedApi
+    internal fun isTimeoutLikeMessage(message: String?): Boolean {
+        val normalized = message?.trim()?.lowercase().orEmpty()
+        if (normalized.isBlank()) return false
+        return normalized.contains("timeout") || normalized.contains("timed out")
     }
 }

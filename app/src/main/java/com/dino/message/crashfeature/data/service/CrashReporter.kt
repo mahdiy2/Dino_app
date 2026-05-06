@@ -169,6 +169,57 @@ class CrashReporter @Inject constructor(
         }
     }
 
+    fun reportNonFatalIssue(
+        issueType: String,
+        message: String,
+        details: String? = null,
+        category: String = DEFAULT_BREADCRUMB_CATEGORY,
+    ) {
+        val now = System.currentTimeMillis()
+        val normalizedIssueType = issueType.trim().ifBlank { "NonFatalIssue" }
+        val normalizedMessage = message.trim().ifBlank { "unspecified" }
+        val normalizedDetails = details
+            ?.trim()
+            ?.takeIf { it.isNotBlank() }
+            ?.trimTo(MAX_STACK_TRACE_LENGTH)
+
+        addBreadcrumb(
+            category = category,
+            message = "$normalizedIssueType message=$normalizedMessage"
+        )
+
+        val crashLog = CrashLogEntity(
+            eventId = UUID.randomUUID().toString(),
+            appVersion = BuildConfig.VERSION_NAME,
+            appVersionCode = BuildConfig.VERSION_CODE,
+            threadName = Thread.currentThread().name.ifBlank { "unknown" }.trimTo(MAX_THREAD_NAME_LENGTH),
+            exceptionType = normalizedIssueType.trimTo(MAX_EXCEPTION_TYPE_LENGTH),
+            exceptionMessage = normalizedMessage.trimTo(MAX_EXCEPTION_MESSAGE_LENGTH),
+            stackTrace = (normalizedDetails ?: "no_details").trimTo(MAX_STACK_TRACE_LENGTH),
+            occurredAtEpochMillis = now,
+            createdAtEpochMillis = now,
+            deviceModel = Build.MODEL.orEmpty().ifBlank { "unknown" }.trimTo(MAX_DEVICE_FIELD_LENGTH),
+            deviceManufacturer = Build.MANUFACTURER.orEmpty()
+                .ifBlank { "unknown" }
+                .trimTo(MAX_DEVICE_FIELD_LENGTH),
+            osVersion = Build.VERSION.RELEASE.orEmpty()
+                .ifBlank { "unknown" }
+                .trimTo(MAX_DEVICE_FIELD_LENGTH),
+            sdkInt = Build.VERSION.SDK_INT,
+            buildType = BuildConfig.BUILD_TYPE.trimTo(MAX_BUILD_TYPE_LENGTH),
+            username = sPrefManager.getUsername()?.trimTo(MAX_USERNAME_LENGTH),
+        )
+
+        scope.launch {
+            runCatching {
+                crashLogDao.insert(crashLog)
+                flushPendingLogsInternal(maxBatchSize = 5)
+            }.onFailure { error ->
+                Log.e(TAG, "Failed to persist non-fatal issue log", error)
+            }
+        }
+    }
+
     private fun handleUncaughtException(thread: Thread, throwable: Throwable) {
         addBreadcrumb(
             category = "crash",

@@ -20,6 +20,7 @@ import com.dino.message.authfeature.domain.repository.AuthRepository
 import com.dino.message.chatfeature.data.db.MessageDao
 import com.dino.message.groupfeature.data.db.GroupMessageDao
 import com.dino.message.crashfeature.data.local.CrashLogDao
+import com.dino.message.crashfeature.data.service.CrashReporter
 import com.dino.message.corefeature.data.socket.SocketOutboundQueueDao
 import com.dino.message.chatfeature.data.remote.ChatApiService
 import com.dino.message.chatfeature.data.remote.ChatApiServiceImpl
@@ -246,11 +247,13 @@ object AppModule {
         httpClient: HttpClient,
         sPrefManager: SPrefManager,
         httpAPIUtil: HttpAPIUtil,
+        crashReporter: CrashReporter,
         @ApplicationContext context: Context,
     ): ThreadApiService = ThreadApiServiceImpl(
         httpClient = httpClient,
         sPrefManager = sPrefManager,
         httpAPIUtil = httpAPIUtil,
+        crashReporter = crashReporter,
         appContext = context,
     )
 
