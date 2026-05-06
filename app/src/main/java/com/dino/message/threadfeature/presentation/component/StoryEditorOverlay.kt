@@ -1847,7 +1847,6 @@ private suspend fun exportEditedStoryVideo(
         }
     }
 
-    overlayBitmap.recycle()
     if (!exported || !outFile.exists() || outFile.length() <= 0L) {
         if (outFile.exists()) {
             outFile.delete()
