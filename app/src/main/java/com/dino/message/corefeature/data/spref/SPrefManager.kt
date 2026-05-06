@@ -32,6 +32,8 @@ class SPrefManager @Inject constructor(
         const val PENDING_REGISTRATION_NONCE = "PENDING_REGISTRATION_NONCE"
         const val PENDING_REGISTRATION_EXPIRES_AT = "PENDING_REGISTRATION_EXPIRES_AT"
         const val THREAD_REFRESH_AFTER_POST = "THREAD_REFRESH_AFTER_POST"
+        const val DEVICE_SYNC_USER_ID = "device_sync_user_id"
+        const val DEVICE_SYNC_DEVICE_ID = "device_sync_device_id"
     }
 
     private val masterKey: MasterKey =
@@ -210,12 +212,34 @@ class SPrefManager @Inject constructor(
             .remove(TOKEN_KEY)
             .remove(REFRESH_TOKEN_KEY)
             .remove(USER_NAME)
+            .remove(DEVICE_SYNC_USER_ID)
+            .remove(DEVICE_SYNC_DEVICE_ID)
             .putBoolean(USER_LOG_IN, false)
             .apply()
     }
 
     fun clearAll() {
         editor.clear().apply()
+    }
+
+    fun saveDeviceSyncUserId(userId: String) {
+        editor.putString(DEVICE_SYNC_USER_ID, userId).apply()
+    }
+
+    fun getDeviceSyncUserId(): String? {
+        return sPref.getString(DEVICE_SYNC_USER_ID, null)
+    }
+
+    fun saveDeviceSyncDeviceId(deviceId: String) {
+        editor.putString(DEVICE_SYNC_DEVICE_ID, deviceId).apply()
+    }
+
+    fun getDeviceSyncDeviceId(): String? {
+        return sPref.getString(DEVICE_SYNC_DEVICE_ID, null)
+    }
+
+    fun clearDeviceSyncState() {
+        editor.remove(DEVICE_SYNC_USER_ID).remove(DEVICE_SYNC_DEVICE_ID).apply()
     }
 
 }

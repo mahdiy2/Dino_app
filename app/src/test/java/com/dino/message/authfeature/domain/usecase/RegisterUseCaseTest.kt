@@ -31,7 +31,9 @@ class RegisterUseCaseTest {
             username = "alice",
             pass = "strong_password",
             publicKey = "public_key_value",
-            clientNonce = "nonce_abc"
+            clientNonce = "nonce_abc",
+            referralCode = "REF12345",
+            deviceId = "android-device-1"
         ).toList()
 
         assertEquals(2, emissions.size)
@@ -40,6 +42,8 @@ class RegisterUseCaseTest {
         val success = emissions[1] as Resource.Success
         assertEquals("reg_123", (success.data as RegisterStartUser).registrationId)
         assertEquals("nonce_abc", fakeRepository.lastClientNonce)
+        assertEquals("REF12345", fakeRepository.lastReferralCode)
+        assertEquals("android-device-1", fakeRepository.lastDeviceId)
     }
 
     @Test
@@ -53,7 +57,9 @@ class RegisterUseCaseTest {
             username = "alice",
             pass = "strong_password",
             publicKey = "public_key_value",
-            clientNonce = "nonce_abc"
+            clientNonce = "nonce_abc",
+            referralCode = null,
+            deviceId = null
         ).toList()
 
         assertEquals(2, emissions.size)
@@ -68,20 +74,28 @@ class RegisterUseCaseTest {
         var registerStartResult: Resource<RegisterStartUser> =
             Resource.Success(RegisterStartUser("default", 1800))
         var lastClientNonce: String? = null
+        var lastReferralCode: String? = null
+        var lastDeviceId: String? = null
 
         override suspend fun register(
             userName: String,
             pass: String,
-            publicKey: String
+            publicKey: String,
+            referralCode: String?,
+            deviceId: String?
         ): Resource<RegisterUser> = Resource.Success(RegisterUser())
 
         override suspend fun registerStart(
             userName: String,
             pass: String,
             publicKey: String,
-            clientNonce: String
+            clientNonce: String,
+            referralCode: String?,
+            deviceId: String?
         ): Resource<RegisterStartUser> {
             lastClientNonce = clientNonce
+            lastReferralCode = referralCode
+            lastDeviceId = deviceId
             return registerStartResult
         }
 
@@ -100,5 +114,9 @@ class RegisterUseCaseTest {
         override suspend fun rotatePublicKey(publicKey: String): Resource<RotatePublicKeyUser> {
             return Resource.Success(RotatePublicKeyUser())
         }
+
+        override suspend fun updateDeviceId(deviceId: String) = Resource.Success(
+            com.dino.message.profilefeature.domain.model.ProfileFollowResult("ok")
+        )
     }
 }

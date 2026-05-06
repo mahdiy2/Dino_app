@@ -391,4 +391,15 @@
     <string name="badge_type_unknown">نشان</string>
     <string name="post_winner_today_label">برنده امروز</string>
     <string name="post_winner_history_label">برنده</string>
+    <string name="referral_program_title">دعوت دوستان</string>
+    <string name="referral_code_optional">کد دعوت (اختیاری)</string>
+    <string name="referral_code_optional_hint">اگر کد دعوت دارید، اینجا وارد کنید.</string>
+    <string name="referral_share_sheet_title">اشتراک دعوت</string>
+    <string name="referral_share_card_title">دوستانت را دعوت کن</string>
+    <string name="referral_joined_count_format">%1$d نفر با کد شما عضو شده‌اند.</string>
+    <string name="referral_share_button">اشتراک متن دعوت</string>
+    <string name="referral_join_goal_format">با دعوت %1$d نفر، نشان Verified بگیر</string>
+    <string name="referral_remaining_to_verified_format">%1$d دعوت دیگر لازم است</string>
+    <string name="referral_verified_badge_title">مزایای نشان Verified</string>
+    <string name="referral_verified_badge_description">با دریافت این نشان، حساب شما تایید می‌شود و به قابلیت‌های ویژه برنامه دسترسی پیدا می‌کنید.</string>
 </resources>

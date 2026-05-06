@@ -12,6 +12,7 @@ import com.dino.message.authfeature.domain.usecase.ConfirmRegistrationUseCase
 import com.dino.message.authfeature.domain.usecase.RegisterUseCase
 import com.dino.message.corefeature.data.spref.DataStoreUtil
 import com.dino.message.corefeature.data.spref.SPrefManager
+import com.dino.message.corefeature.data.util.DeviceIdProvider
 import com.dino.message.corefeature.domain.model.AppLanguage
 import com.dino.message.corefeature.presentation.util.PopBackStackLevel
 import com.dino.message.corefeature.presentation.util.RSAUtil
@@ -34,11 +35,13 @@ class RegisterScreenViewModel @Inject constructor(
     private val confirmRegistrationUseCase: ConfirmRegistrationUseCase,
     private val sPrefManager: SPrefManager,
     private val dataStoreUtil: DataStoreUtil,
+    private val deviceIdProvider: DeviceIdProvider,
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
 
     val userName = mutableStateOf("")
     val password = mutableStateOf("")
+    val referralCode = mutableStateOf("")
 
     val registerLoadingState = mutableStateOf(false)
     val registerErrorMessage = mutableStateOf<String?>(null)
@@ -64,13 +67,17 @@ class RegisterScreenViewModel @Inject constructor(
         username: String,
         pass: String,
         publicKey: String,
-        clientNonce: String
+        clientNonce: String,
+        referralCode: String?,
+        deviceId: String
     ) = viewModelScope.launch {
         registerUseCase.execute(
             username,
             pass,
             publicKey,
-            clientNonce
+            clientNonce,
+            referralCode,
+            deviceId
         ).collect { res ->
             when (res) {
                 is Resource.Success -> {
@@ -160,6 +167,8 @@ class RegisterScreenViewModel @Inject constructor(
         val publicKeyBase64 = RSAUtil.getPublicKeyBase64(keyPair.public)
         val privateKeyBase64 = RSAUtil.getPrivateKeyBase64(keyPair.private)
         val clientNonce = UUID.randomUUID().toString()
+        val normalizedReferralCode = referralCode.value.trim().uppercase().ifBlank { null }
+        val deviceId = deviceIdProvider.getDeviceId()
 
         sPrefManager.clearPendingRegistration()
         sPrefManager.savePendingPrivateKey(privateKeyBase64)
@@ -171,7 +180,9 @@ class RegisterScreenViewModel @Inject constructor(
             trimmedUsername,
             rawPassword,
             publicKeyBase64,
-            clientNonce
+            clientNonce,
+            normalizedReferralCode,
+            deviceId
         )
     }
 
@@ -182,6 +193,11 @@ class RegisterScreenViewModel @Inject constructor(
 
     fun onPasswordValueChange(value: String) {
         password.value = value
+        registerErrorMessage.value = null
+    }
+
+    fun onReferralCodeValueChange(value: String) {
+        referralCode.value = value
         registerErrorMessage.value = null
     }
 

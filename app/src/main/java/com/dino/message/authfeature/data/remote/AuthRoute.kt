@@ -24,6 +24,7 @@ sealed class AuthRoute(url: String) : BaseRoute(url) {
      */
     object RegisterStart : AuthRoute("api/auth/register/start")
     object RegisterConfirm : AuthRoute("api/auth/register/confirm")
+    object UpdateDeviceId : AuthRoute("api/auth/users/device")
     object RotateKey : AuthRoute("api/auth/keys/rotate")
     object KeyStatus : AuthRoute("api/auth/keys/status")
 

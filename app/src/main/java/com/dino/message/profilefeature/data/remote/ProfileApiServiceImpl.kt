@@ -16,12 +16,14 @@ import com.dino.message.profilefeature.data.remote.dto.GetProfilePostsResponse
 import com.dino.message.profilefeature.data.remote.dto.ProfileFollowResponse
 import com.dino.message.profilefeature.data.remote.dto.ProfileResponse
 import com.dino.message.profilefeature.data.remote.dto.ProfileUsersPageResponse
+import com.dino.message.profilefeature.data.remote.dto.ReferralSummaryResponse
 import com.dino.message.profilefeature.data.remote.dto.UpdateMyProfileRequest
 import com.dino.message.profilefeature.domain.model.Profile
 import com.dino.message.profilefeature.domain.model.AboutUs
 import com.dino.message.profilefeature.domain.model.ProfileFollowResult
 import com.dino.message.profilefeature.domain.model.ProfileUpdateImage
 import com.dino.message.profilefeature.domain.model.ProfileUsersPage
+import com.dino.message.profilefeature.domain.model.ReferralSummary
 import com.dino.message.threadfeature.domain.model.PostsPage
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.ktor.client.HttpClient
@@ -64,6 +66,17 @@ class ProfileApiServiceImpl @Inject constructor(
             callAPI = {
                 httpClient.get(ProfileRoute.GetMyProfile.url) {
                     appendTokenToHeader(sPrefManager.getToken())
+                }
+            },
+            callRefreshTokenAPI = this::getToken
+        )
+
+    override suspend fun getMyReferralSummary(): Resource<ReferralSummary> =
+        httpAPIUtil.callAPIWithErrorHandling<ReferralSummary, ReferralSummaryResponse>(
+            callAPI = {
+                httpClient.get(ProfileRoute.GetMyReferralSummary.url) {
+                    appendTokenToHeader(sPrefManager.getToken())
+                    contentType(ContentType.Application.Json)
                 }
             },
             callRefreshTokenAPI = this::getToken

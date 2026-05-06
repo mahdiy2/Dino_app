@@ -9,6 +9,7 @@ import com.dino.message.DinoOrderApplication
 import com.dino.message.authfeature.domain.usecase.LoginUseCase
 import com.dino.message.authfeature.domain.usecase.GetKeyStatusUseCase
 import com.dino.message.authfeature.domain.usecase.RotatePublicKeyUseCase
+import com.dino.message.authfeature.domain.usecase.SyncDeviceIdUseCase
 import com.dino.message.corefeature.data.spref.DataStoreUtil
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.domain.model.AppLanguage
@@ -34,6 +35,7 @@ class LoginScreenViewModel @Inject constructor(
     private val loginUseCase: LoginUseCase,
     private val getKeyStatusUseCase: GetKeyStatusUseCase,
     private val rotatePublicKeyUseCase: RotatePublicKeyUseCase,
+    private val syncDeviceIdUseCase: SyncDeviceIdUseCase,
     ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication){
 
@@ -76,6 +78,7 @@ class LoginScreenViewModel @Inject constructor(
     private fun ensureLocalKeysThenContinue(accessToken: String) = viewModelScope.launch {
         if (!isPrivateKeyEmpty() && hasServerPublicKey()) {
             sPrefManager.setUserLogIn(true)
+            syncDeviceIdBestEffort()
             loginLoadingState.value = false
             loginErrorMessage.value = null
             getApplication<DinoOrderApplication>()
@@ -98,6 +101,7 @@ class LoginScreenViewModel @Inject constructor(
                     sPrefManager.savePrivateKey(privateKeyBase64)
                     sPrefManager.savePublicKey(publicKeyBase64)
                     sPrefManager.setUserLogIn(true)
+                    syncDeviceIdBestEffort()
                     loginLoadingState.value = false
                     loginErrorMessage.value = null
                     getApplication<DinoOrderApplication>()
@@ -175,5 +179,9 @@ class LoginScreenViewModel @Inject constructor(
 
     private fun isPrivateKeyEmpty(): Boolean {
         return sPrefManager.getPrivateKey().isNullOrEmpty()
+    }
+
+    private fun syncDeviceIdBestEffort() = viewModelScope.launch {
+        syncDeviceIdUseCase.execute().collect { _ -> }
     }
 }

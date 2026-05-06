@@ -44,6 +44,7 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import com.dino.message.chatfeature.data.notification.ActiveChatTracker
+import com.dino.message.chatfeature.data.notification.ChatMessageSoundPlayer
 import com.dino.message.chatfeature.data.notification.NotificationHelper
 import com.dino.message.chatfeature.domain.model.PrivateHistoryMessage
 import java.util.ArrayDeque
@@ -1482,6 +1483,10 @@ class ChatViewModel @Inject constructor(
                     handleIncomingMessage(payload)
                 }
                 loadMessages()
+                val messageFrom = payload.optString("from", "")
+                if (messageFrom != currentUsername && ActiveChatTracker.isChattingWith(chatId)) {
+                    ChatMessageSoundPlayer.playReceived(getApplication())
+                }
                 if (ackableMessageId != null) {
                     sendAck(listOf(ackableMessageId))
                     sendRead(listOf(ackableMessageId))
@@ -1526,6 +1531,9 @@ class ChatViewModel @Inject constructor(
                     saveMessageToDb(message)
                     loadMessages()
                     markMessageAsSent(serverMessageId)
+                    if (ActiveChatTracker.isChattingWith(chatId)) {
+                        ChatMessageSoundPlayer.playSent(getApplication())
+                    }
                     pushSocketDebugLog("Saved sent message")
                 } else {
                     clientMessageId?.let { removePendingVisibleMessage(it) }

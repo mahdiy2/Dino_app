@@ -33,6 +33,7 @@ import com.ramcosta.composedestinations.generated.destinations.DeletePostBottomS
 import com.ramcosta.composedestinations.generated.destinations.EditProfileScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.LoginScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.ProfileFollowListScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.ReferralScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.ProfileSettingsScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.ReportPostBottomSheetScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.SharePostBottomSheetScreenDestination
@@ -310,6 +311,11 @@ class ProfileScreenViewModel @Inject constructor(
         if (!_isOwnProfile.value || _isActionLoading.value) return
         shouldRefreshWhenScreenResumes = true
         navigateToDestination(EditProfileScreenDestination, viewModelScope)
+    }
+
+    fun openReferralScreen() {
+        if (!_isOwnProfile.value || _isActionLoading.value) return
+        navigateToDestination(ReferralScreenDestination, viewModelScope)
     }
 
     fun openProfileSettingsScreen() {

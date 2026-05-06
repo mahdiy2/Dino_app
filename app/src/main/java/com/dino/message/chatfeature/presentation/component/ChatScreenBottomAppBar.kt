@@ -23,17 +23,15 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
@@ -72,6 +70,8 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
 
 @Composable
 fun ChatScreenBottomAppBar(
@@ -109,11 +109,8 @@ fun ChatScreenBottomAppBar(
             color = Color.Transparent,
             modifier = Modifier
                 .padding(horizontal = DPMedium)
-                .windowInsetsPadding(
-                    WindowInsets.navigationBars.only(
-                        WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal
-                    )
-                )
+                .navigationBarsPadding()
+                .imePadding()
         ) {
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
                 AnimatedContent(
@@ -244,7 +241,7 @@ private fun InputBar(
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .height(42.dp)
+                    .heightIn(min = 42.dp, max = 120.dp)
                     .clip(MaterialTheme.shapes.extraLarge)
                     .background(composerElementColor)
             ) {
@@ -252,7 +249,11 @@ private fun InputBar(
                     value = text,
                     onValueChange = onTextChange,
                     enabled = enabled,
-                    singleLine = true,
+                    singleLine = false,
+                    maxLines = 5,
+                    keyboardOptions = KeyboardOptions(
+                        imeAction = ImeAction.Default
+                    ),
                     textStyle = MaterialTheme.typography.bodyMedium.copy(
                         color = MaterialTheme.colorScheme.onSurface
                     ),

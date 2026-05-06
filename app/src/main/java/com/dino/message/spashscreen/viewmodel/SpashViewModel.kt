@@ -6,6 +6,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.dino.message.BuildConfig
 import com.dino.message.DinoOrderApplication
+import com.dino.message.authfeature.domain.usecase.SyncDeviceIdUseCase
 import com.dino.message.corefeature.data.spref.DataStoreUtil
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.domain.model.AppLanguage
@@ -36,6 +37,7 @@ class SpashViewModel @Inject constructor(
     private val sPrefManager: SPrefManager,
     private val getMyProfileUseCase: GetMyProfileUseCase,
     private val splashApiService: SplashApiService,
+    private val syncDeviceIdUseCase: SyncDeviceIdUseCase,
 ) : AndroidViewModel(app as Application),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
 
@@ -171,6 +173,7 @@ class SpashViewModel @Inject constructor(
         if (sPrefManager.getUserLogIn()) {
             _uiState.value = _uiState.value.copy(isChecking = true)
             refreshBadgeCacheIfNeeded()
+            syncDeviceIdBestEffort()
             _uiState.value = _uiState.value.copy(isChecking = false)
         } else {
             dataStoreUtil.clearBadgeAccessCache()
@@ -263,6 +266,10 @@ class SpashViewModel @Inject constructor(
                 level = PopBackStackLevel.ALL,
             )
         }
+    }
+
+    private suspend fun syncDeviceIdBestEffort() {
+        syncDeviceIdUseCase.execute().collect { _ -> }
     }
 }
 

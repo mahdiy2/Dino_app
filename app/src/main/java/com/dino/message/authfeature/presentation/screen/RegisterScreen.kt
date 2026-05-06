@@ -182,6 +182,32 @@ fun RegisterScreen() {
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
+                    Spacer(
+                        Modifier.size(DPMedium)
+                    )
+
+                    OutlinedTextField(
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            focusedBorderColor = Color.Transparent,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.inversePrimary,
+                            focusedContainerColor = MaterialTheme.colorScheme.inversePrimary,
+                            cursorColor = Color.White,
+                            focusedPlaceholderColor = Color.Transparent,
+                            unfocusedPlaceholderColor = MaterialTheme.colorScheme.secondary
+                        ),
+                        shape = MaterialTheme.shapes.extraLarge,
+                        value = viewModel.referralCode.value,
+                        onValueChange = viewModel::onReferralCodeValueChange,
+                        placeholder = {
+                            Text(stringResource(R.string.referral_code_optional))
+                        },
+                        supportingText = {
+                            Text(stringResource(R.string.referral_code_optional_hint))
+                        },
+                        maxLines = 1
+                    )
+
                     AnimatedVisibility(
                         modifier = Modifier
                             .align(Alignment.CenterHorizontally),

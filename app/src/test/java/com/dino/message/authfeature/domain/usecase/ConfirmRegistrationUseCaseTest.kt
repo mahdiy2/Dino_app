@@ -9,6 +9,7 @@ import com.dino.message.authfeature.domain.model.RotatePublicKeyUser
 import com.dino.message.authfeature.domain.repository.AuthRepository
 import com.dino.message.corefeature.domain.model.asStringResourceContent
 import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.profilefeature.domain.model.ProfileFollowResult
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -53,14 +54,18 @@ class ConfirmRegistrationUseCaseTest {
         override suspend fun register(
             userName: String,
             pass: String,
-            publicKey: String
+            publicKey: String,
+            referralCode: String?,
+            deviceId: String?
         ): Resource<RegisterUser> = Resource.Success(RegisterUser())
 
         override suspend fun registerStart(
             userName: String,
             pass: String,
             publicKey: String,
-            clientNonce: String
+            clientNonce: String,
+            referralCode: String?,
+            deviceId: String?
         ): Resource<RegisterStartUser> = Resource.Success(RegisterStartUser("reg", 1800))
 
         override suspend fun registerConfirm(registrationId: String): Resource<RegisterConfirmUser> {
@@ -78,6 +83,10 @@ class ConfirmRegistrationUseCaseTest {
 
         override suspend fun rotatePublicKey(publicKey: String): Resource<RotatePublicKeyUser> {
             return Resource.Success(RotatePublicKeyUser())
+        }
+
+        override suspend fun updateDeviceId(deviceId: String): Resource<ProfileFollowResult> {
+            return Resource.Success(ProfileFollowResult("ok"))
         }
     }
 }

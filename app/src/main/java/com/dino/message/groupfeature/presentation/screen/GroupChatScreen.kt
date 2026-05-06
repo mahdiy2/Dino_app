@@ -3,10 +3,7 @@ package com.dino.message.groupfeature.presentation.screen
 import android.Manifest
 import android.app.Activity
 import android.content.ClipData
-import android.content.Context
-import android.content.ContextWrapper
 import android.os.Build
-import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -48,6 +45,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -64,6 +62,7 @@ import com.dino.message.chatfeature.presentation.component.MediaPermissionHandle
 import com.dino.message.chatfeature.presentation.component.MediaViewerDialog
 import com.dino.message.chatfeature.domain.model.MessageDeliveryStatus
 import com.dino.message.chatfeature.domain.util.decodeMessageReactions
+import com.dino.message.chatfeature.presentation.screen.WindowKeyboardController
 import com.dino.message.R
 import com.dino.message.corefeature.presentation.util.backIconModifier
 import com.dino.message.groupfeature.domain.model.GroupMessageEntity
@@ -75,6 +74,8 @@ import com.dino.message.threadfeature.presentation.music.MusicPlaybackManager
 import com.ramcosta.composedestinations.annotation.Destination
 import com.ramcosta.composedestinations.annotation.RootGraph
 import com.ramcosta.composedestinations.annotation.parameters.DeepLink
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
@@ -111,6 +112,8 @@ fun GroupChatScreen(
     val onlineGroupUsers by viewModel.onlineGroupUsers.collectAsState()
     val typingGroupUsers by viewModel.typingGroupUsers.collectAsState()
     val context = LocalContext.current
+    val activity = context as? Activity
+    val lifecycleOwner = LocalLifecycleOwner.current
     val isAndroid12Plus = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
     val snackbarHostState = remember { SnackbarHostState() }
     val resolvedName = groupName ?: viewModel.groupName
@@ -123,14 +126,24 @@ fun GroupChatScreen(
     val reservedNowPlayingHeight = if (!hasNowPlaying) 0.dp else nowPlayingHeightDp.takeIf { it > 0.dp } ?: 64.dp
     val groupListState = rememberLazyListState()
 
-    DisposableEffect(context) {
-        val activity = context.findActivity()
-        val window = activity?.window
-        val previousSoftInputMode = window?.attributes?.softInputMode
-        window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
-        onDispose {
-            if (previousSoftInputMode != null) {
-                window.setSoftInputMode(previousSoftInputMode)
+    DisposableEffect(lifecycleOwner, activity) {
+        if (activity == null) {
+            onDispose { }
+        } else {
+            val observer = LifecycleEventObserver { _, event ->
+                when (event) {
+                    Lifecycle.Event.ON_RESUME -> WindowKeyboardController.enableResize(activity)
+                    Lifecycle.Event.ON_PAUSE -> WindowKeyboardController.restore(activity)
+                    else -> Unit
+                }
+            }
+            lifecycleOwner.lifecycle.addObserver(observer)
+            if (lifecycleOwner.lifecycle.currentState == Lifecycle.State.RESUMED) {
+                WindowKeyboardController.enableResize(activity)
+            }
+            onDispose {
+                lifecycleOwner.lifecycle.removeObserver(observer)
+                WindowKeyboardController.restore(activity)
             }
         }
     }
@@ -758,12 +771,6 @@ fun GroupChatScreen(
                 }
         )
     }
-}
-
-private tailrec fun Context.findActivity(): Activity? = when (this) {
-    is Activity -> this
-    is ContextWrapper -> baseContext.findActivity()
-    else -> null
 }
 
 @Composable

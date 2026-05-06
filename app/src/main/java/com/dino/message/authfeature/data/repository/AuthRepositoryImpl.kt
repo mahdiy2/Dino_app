@@ -10,15 +10,26 @@ class AuthRepositoryImpl(
     override suspend fun register(
         userName: String,
         pass: String,
-        publicKey: String
-    ) = authAPIService.register(userName, pass, publicKey)
+        publicKey: String,
+        referralCode: String?,
+        deviceId: String?
+    ) = authAPIService.register(userName, pass, publicKey, referralCode, deviceId)
 
     override suspend fun registerStart(
         userName: String,
         pass: String,
         publicKey: String,
-        clientNonce: String
-    ) = authAPIService.registerStart(userName, pass, publicKey, clientNonce)
+        clientNonce: String,
+        referralCode: String?,
+        deviceId: String?
+    ) = authAPIService.registerStart(
+        userName,
+        pass,
+        publicKey,
+        clientNonce,
+        referralCode,
+        deviceId
+    )
 
     override suspend fun registerConfirm(
         registrationId: String
@@ -34,5 +45,8 @@ class AuthRepositoryImpl(
     override suspend fun rotatePublicKey(
         publicKey: String
     ) = authAPIService.rotatePublicKey(publicKey)
+
+    override suspend fun updateDeviceId(deviceId: String) =
+        authAPIService.updateDeviceId(deviceId)
 
 }

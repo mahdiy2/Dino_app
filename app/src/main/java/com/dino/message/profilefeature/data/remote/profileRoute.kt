@@ -4,6 +4,7 @@ import com.dino.message.corefeature.data.remote.BaseRoute
 
 sealed class ProfileRoute(url: String) : BaseRoute(url) {
     object GetMyProfile : ProfileRoute("api/profiles/me")
+    object GetMyReferralSummary : ProfileRoute("api/profiles/me/referral")
     object GetAboutUs : ProfileRoute("api/about-us")
 
     object UpdateMyProfile : ProfileRoute("api/profiles/me")

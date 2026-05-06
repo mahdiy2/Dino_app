@@ -27,6 +27,7 @@ import com.dino.message.corefeature.presentation.util.formatPublicKeyForLog
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.dino.message.chatfeature.data.notification.ActiveGroupTracker
+import com.dino.message.chatfeature.data.notification.ChatMessageSoundPlayer
 import com.dino.message.chatfeature.data.notification.NotificationHelper
 import com.dino.message.groupfeature.domain.model.GroupMessageEntity
 import com.dino.message.groupfeature.domain.model.GroupHistoryMessage
@@ -986,6 +987,9 @@ class GroupChatViewModel @Inject constructor(
                         saveMessageToDb(entity)
                     }
                     loadMessagesFromDb()
+                    if (sender != currentUsername && ActiveGroupTracker.isViewingGroup(groupId)) {
+                        ChatMessageSoundPlayer.playReceived(getApplication())
+                    }
                     if (sender != currentUsername && messageId.isNotBlank()) {
                         sendGroupAck(listOf(messageId))
                         sendGroupRead(listOf(messageId))
@@ -1006,6 +1010,9 @@ class GroupChatViewModel @Inject constructor(
                 if (messageId.isBlank()) return@launch
 
                 markMessageAsSent(messageId)
+                if (ActiveGroupTracker.isViewingGroup(groupId)) {
+                    ChatMessageSoundPlayer.playSent(getApplication())
+                }
                 Log.d(
                     TAG,
                     "group_message_sent ack received: messageId=$messageId clientMessageId=${payload.optString("client_message_id", "")}"

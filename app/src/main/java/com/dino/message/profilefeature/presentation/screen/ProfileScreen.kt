@@ -305,6 +305,15 @@ fun ProfileScreen(username: String? = null) {
                                 Row(
                                 ) {
                                     IconButton(
+                                        onClick = viewModel::openReferralScreen,
+                                        enabled = !isActionLoading
+                                    ) {
+                                        Icon(
+                                            painter = painterResource(R.drawable.ic_referral_program),
+                                            contentDescription = stringResource(R.string.referral_program_title)
+                                        )
+                                    }
+                                    IconButton(
                                         onClick = viewModel::openEditProfileScreen,
                                         enabled = !isActionLoading,
                                         modifier = Modifier

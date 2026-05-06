@@ -11,6 +11,8 @@ import com.dino.message.authfeature.data.remote.dto.RotatePublicKeyResponse
 import com.dino.message.authfeature.data.remote.dto.RegisterStartRequest
 import com.dino.message.authfeature.data.remote.dto.RegisterStartResponse
 import com.dino.message.authfeature.data.remote.dto.RegisterResponse
+import com.dino.message.authfeature.data.remote.dto.UpdateDeviceIdRequest
+import com.dino.message.authfeature.data.remote.dto.UpdateDeviceIdResponse
 import com.dino.message.authfeature.domain.model.LoginUser
 import com.dino.message.authfeature.domain.model.KeyStatusUser
 import com.dino.message.authfeature.domain.model.RegisterConfirmUser
@@ -23,6 +25,7 @@ import com.dino.message.corefeature.data.remote.util.HttpAPIUtil
 import com.dino.message.corefeature.data.remote.util.appendTokenToHeader
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.profilefeature.domain.model.ProfileFollowResult
 import io.ktor.client.HttpClient
 import io.ktor.client.request.post
 import io.ktor.client.request.get
@@ -40,7 +43,9 @@ class AuthAPIServiceImpl @Inject constructor(
     override suspend fun register(
         userName: String,
         pass: String,
-        publicKey: String
+        publicKey: String,
+        referralCode: String?,
+        deviceId: String?
     ) = httpAPIUtil.callAPIWithErrorHandling<RegisterUser, RegisterResponse>(
         callAPI = {
             httpClient.post(AuthRoute.RegisterLegacy.url) {
@@ -49,7 +54,9 @@ class AuthAPIServiceImpl @Inject constructor(
                     RegisterRequest(
                         username = userName,
                         password = pass,
-                        public_key = publicKey
+                        public_key = publicKey,
+                        referral_code = referralCode,
+                        device_id = deviceId
                     )
                 )
             }
@@ -63,6 +70,8 @@ class AuthAPIServiceImpl @Inject constructor(
         pass: String,
         publicKey: String,
         clientNonce: String,
+        referralCode: String?,
+        deviceId: String?,
     ) = httpAPIUtil.callAPIWithErrorHandling<RegisterStartUser, RegisterStartResponse>(
         callAPI = {
             httpClient.post(AuthRoute.RegisterStart.url) {
@@ -72,7 +81,9 @@ class AuthAPIServiceImpl @Inject constructor(
                         username = userName,
                         password = pass,
                         public_key = publicKey,
-                        client_nonce = clientNonce
+                        client_nonce = clientNonce,
+                        referral_code = referralCode,
+                        device_id = deviceId,
                     )
                 )
             }
@@ -143,6 +154,24 @@ class AuthAPIServiceImpl @Inject constructor(
                 httpClient.get(AuthRoute.KeyStatus.url) {
                     contentType(ContentType.Application.Json)
                     appendTokenToHeader(sPrefManager.getToken())
+                }
+            },
+            callRefreshTokenAPI = this::getToken
+        )
+
+    override suspend fun updateDeviceId(
+        deviceId: String
+    ): Resource<ProfileFollowResult> =
+        httpAPIUtil.callAPIWithErrorHandling<ProfileFollowResult, UpdateDeviceIdResponse>(
+            callAPI = {
+                httpClient.post(AuthRoute.UpdateDeviceId.url) {
+                    contentType(ContentType.Application.Json)
+                    appendTokenToHeader(sPrefManager.getToken())
+                    setBody(
+                        UpdateDeviceIdRequest(
+                            device_id = deviceId
+                        )
+                    )
                 }
             },
             callRefreshTokenAPI = this::getToken

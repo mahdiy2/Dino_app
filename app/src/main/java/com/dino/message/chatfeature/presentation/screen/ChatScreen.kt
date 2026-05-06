@@ -1,6 +1,7 @@
 package com.dino.message.chatfeature.presentation.screen
 
 import android.Manifest
+import android.app.Activity
 import android.content.ClipData
 import android.os.Build
 import android.net.Uri
@@ -30,6 +31,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -79,6 +81,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
@@ -102,6 +105,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import com.dino.message.R
 import com.dino.message.corefeature.presentation.component.UserBadgeIcon
@@ -129,6 +133,8 @@ import com.dino.message.threadfeature.presentation.component.NowPlayingTopBarRow
 import com.dino.message.threadfeature.presentation.music.MusicPlaybackManager
 import com.ramcosta.composedestinations.annotation.Destination
 import com.ramcosta.composedestinations.annotation.RootGraph
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
@@ -172,6 +178,8 @@ fun ChatScreen(
     val recordingDurationMs by viewModel.recordingDurationMs.collectAsState()
     val replyingTo by viewModel.replyingTo.collectAsState()
     val context = LocalContext.current
+    val activity = context as? Activity
+    val lifecycleOwner = LocalLifecycleOwner.current
     val isAndroid12Plus = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
     val resolvedName = displayName ?: chatId
     val snackbarHostState = remember { SnackbarHostState() }
@@ -197,6 +205,28 @@ fun ChatScreen(
     var popupMessageAnchor by remember { mutableStateOf<Pair<IntOffset, IntSize>?>(null) }
 
     var showMenu by remember { mutableStateOf(false) }
+
+    DisposableEffect(lifecycleOwner, activity) {
+        if (activity == null) {
+            onDispose { }
+        } else {
+            val observer = LifecycleEventObserver { _, event ->
+                when (event) {
+                    Lifecycle.Event.ON_RESUME -> WindowKeyboardController.enableResize(activity)
+                    Lifecycle.Event.ON_PAUSE -> WindowKeyboardController.restore(activity)
+                    else -> Unit
+                }
+            }
+            lifecycleOwner.lifecycle.addObserver(observer)
+            if (lifecycleOwner.lifecycle.currentState == Lifecycle.State.RESUMED) {
+                WindowKeyboardController.enableResize(activity)
+            }
+            onDispose {
+                lifecycleOwner.lifecycle.removeObserver(observer)
+                WindowKeyboardController.restore(activity)
+            }
+        }
+    }
 
     LaunchedEffect(uploadError) {
         uploadError?.let {
@@ -726,6 +756,7 @@ fun ChatScreen(
             .blur(blurRadius)
     ) {
         Scaffold(
+            contentWindowInsets = WindowInsets(0),
             topBar = {
                 TopAppBar(
                     title = {

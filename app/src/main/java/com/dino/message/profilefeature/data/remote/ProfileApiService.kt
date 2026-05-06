@@ -6,12 +6,15 @@ import com.dino.message.profilefeature.domain.model.Profile
 import com.dino.message.profilefeature.domain.model.ProfileFollowResult
 import com.dino.message.profilefeature.domain.model.ProfileUpdateImage
 import com.dino.message.profilefeature.domain.model.ProfileUsersPage
+import com.dino.message.profilefeature.domain.model.ReferralSummary
 import com.dino.message.threadfeature.domain.model.PostsPage
 
 interface ProfileApiService {
     suspend fun getAboutUs(): Resource<AboutUs>
 
     suspend fun getMyProfile(): Resource<Profile>
+
+    suspend fun getMyReferralSummary(): Resource<ReferralSummary>
 
     suspend fun updateMyProfile(
         name: String? = null,

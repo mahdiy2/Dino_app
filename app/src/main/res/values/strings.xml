@@ -412,4 +412,15 @@ Post: "%2$s"</string>
     <string name="badge_type_unknown">badge</string>
     <string name="post_winner_today_label">Winner today</string>
     <string name="post_winner_history_label">Winner</string>
+    <string name="referral_program_title">Referral</string>
+    <string name="referral_code_optional">Referral code (optional)</string>
+    <string name="referral_code_optional_hint">If you have an invite code, enter it here.</string>
+    <string name="referral_share_sheet_title">Share invite</string>
+    <string name="referral_share_card_title">Invite friends</string>
+    <string name="referral_joined_count_format">%1$d people have joined with your code.</string>
+    <string name="referral_share_button">Share Invite Text</string>
+    <string name="referral_join_goal_format">Invite %1$d people to earn the Verified badge</string>
+    <string name="referral_remaining_to_verified_format">%1$d more invites needed</string>
+    <string name="referral_verified_badge_title">Verified badge benefits</string>
+    <string name="referral_verified_badge_description">With this badge, your account becomes verified and unlocks the app’s special features.</string>
 </resources>

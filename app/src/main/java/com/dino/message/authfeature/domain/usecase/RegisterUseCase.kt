@@ -13,7 +13,9 @@ class RegisterUseCase @Inject constructor(
         username: String,
         pass: String,
         publicKey: String,
-        clientNonce: String
+        clientNonce: String,
+        referralCode: String?,
+        deviceId: String?
     ) = flow<Resource<RegisterStartUser>> {
         emit(Resource.Loading())
         emit(
@@ -21,7 +23,9 @@ class RegisterUseCase @Inject constructor(
                 userName = username,
                 pass = pass,
                 publicKey = publicKey,
-                clientNonce = clientNonce
+                clientNonce = clientNonce,
+                referralCode = referralCode,
+                deviceId = deviceId
             )
         )
     }
