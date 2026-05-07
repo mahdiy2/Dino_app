@@ -6,6 +6,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.dino.message.DinoOrderApplication
 import com.dino.message.R
+import com.dino.message.corefeature.data.spref.DataStoreUtil
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
@@ -22,6 +23,7 @@ import javax.inject.Inject
 @HiltViewModel
 class ReferralViewModel @Inject constructor(
     @ApplicationContext app: Context,
+    private val dataStoreUtil: DataStoreUtil,
     private val getMyReferralSummaryUseCase: GetMyReferralSummaryUseCase,
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
@@ -46,6 +48,9 @@ class ReferralViewModel @Inject constructor(
                     _isLoading.value = false
                     _summary.value = res.data
                     _error.value = null
+                    dataStoreUtil.saveBadgeAccessCache(
+                        hasBadge = hasVerifiedReferralBadge(res.data)
+                    )
                 }
 
                 is Resource.Error -> {
@@ -80,6 +85,12 @@ ${summary.downloadLink}
 کد دعوت من:
 ${summary.referralCode}
         """.trimIndent()
+    }
+
+    private fun hasVerifiedReferralBadge(summary: ReferralSummary): Boolean {
+        if (summary.isVerified) return true
+        val required = summary.requiredInvitesForVerified
+        return required > 0 && summary.joinedCount >= required
     }
 
     fun navigateUp() {

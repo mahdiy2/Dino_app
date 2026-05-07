@@ -149,6 +149,9 @@ private fun ReferralLoadedContent(
     onShareClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val hasVerifiedReferralBadge = summary.isVerified ||
+        (summary.requiredInvitesForVerified > 0 &&
+            summary.joinedCount >= summary.requiredInvitesForVerified)
     val progressTarget = if (summary.requiredInvitesForVerified <= 0) {
         0f
     } else {
@@ -189,8 +192,8 @@ private fun ReferralLoadedContent(
         item("badge") {
             AnimatedSection(delayMillis = 150) {
                 ReferralBadgeCard(
-                    summary = summary,
                     progress = progress,
+                    hasVerifiedReferralBadge = hasVerifiedReferralBadge,
                 )
             }
         }
@@ -378,8 +381,8 @@ private fun ReferralProgressCard(
 
 @Composable
 private fun ReferralBadgeCard(
-    summary: ReferralSummary,
     progress: Float,
+    hasVerifiedReferralBadge: Boolean,
 ) {
     val transition = rememberInfiniteTransition(label = "referral_badge")
     val badgeScale by transition.animateFloat(
@@ -392,8 +395,8 @@ private fun ReferralBadgeCard(
         label = "referral_badge_scale",
     )
     val glowAlpha by transition.animateFloat(
-        initialValue = if (summary.isVerified) 0.36f else 0.22f,
-        targetValue = if (summary.isVerified) 0.7f else 0.45f,
+        initialValue = if (hasVerifiedReferralBadge) 0.36f else 0.22f,
+        targetValue = if (hasVerifiedReferralBadge) 0.7f else 0.45f,
         animationSpec = infiniteRepeatable(
             animation = tween(durationMillis = 1600, easing = LinearEasing),
             repeatMode = RepeatMode.Reverse,
@@ -472,7 +475,7 @@ private fun ReferralBadgeCard(
                             text = stringResource(R.string.referral_verified_badge_title),
                             style = MaterialTheme.typography.titleMedium,
                         )
-                        if (summary.isVerified) {
+                        if (hasVerifiedReferralBadge) {
                             Icon(
                                 imageVector = Icons.Rounded.Star,
                                 contentDescription = null,
