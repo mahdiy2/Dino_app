@@ -1,7 +1,9 @@
 package com.dino.message.threadfeature.presentation.screen
 
+import android.annotation.SuppressLint
 import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateIntOffsetAsState
 import androidx.compose.animation.slideInVertically
@@ -13,13 +15,16 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.paddingFromBaseline
+import androidx.compose.foundation.layout.requiredHeightIn
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.asPaddingValues
@@ -30,10 +35,15 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.FilledTonalButton
@@ -48,8 +58,10 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -71,6 +83,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -78,6 +91,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Create
@@ -99,8 +113,11 @@ import com.dino.message.threadfeature.presentation.component.StoryRow
 import com.dino.message.threadfeature.presentation.component.StoryViewerOverlay
 import com.dino.message.threadfeature.presentation.component.ThreadPostCard
 import com.dino.message.threadfeature.domain.model.CreatePostMedia
+import com.dino.message.threadfeature.domain.model.FeedMode
 import com.dino.message.threadfeature.presentation.music.MusicPlaybackManager
+import com.dino.message.threadfeature.presentation.viewmodel.FollowSuggestion
 import com.dino.message.threadfeature.presentation.viewmodel.ThreadViewModel
+import com.dino.message.profilefeature.presentation.component.ProfileAvatarMedia
 import com.ramcosta.composedestinations.annotation.Destination
 import com.ramcosta.composedestinations.annotation.RootGraph
 import kotlinx.coroutines.flow.collectLatest
@@ -130,6 +147,10 @@ fun ThreadScreen(initialStoryId: Long? = null) {
     val playbackState by MusicPlaybackManager.playbackState.collectAsState()
     val hasNowPlaying = !playbackState.currentTrackUrl.isNullOrBlank()
     val snackbarHostState = remember { SnackbarHostState() }
+    val selectedFeedMode by viewModel.selectedFeedMode.collectAsState()
+    val followingSuggestions by viewModel.followingSuggestions.collectAsState()
+    val followedSuggestedUsernames by viewModel.followedSuggestedUsernames.collectAsState()
+    val isFollowingSuggestionsLoading by viewModel.isFollowingSuggestionsLoading.collectAsState()
     val storyFeed by viewModel.storyFeed.collectAsState()
     val storyFeedError by viewModel.storyFeedError.collectAsState()
     val isStoryFeedLoading by viewModel.isStoryFeedLoading.collectAsState()
@@ -293,101 +314,127 @@ fun ThreadScreen(initialStoryId: Long? = null) {
                     .fillMaxSize()
                     .padding(top = animatedTopPadding)
             ) {
-                if (viewModel.posts.isEmpty()) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .verticalScroll(rememberScrollState()),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = postsError ?: "No posts found.",
-                            style = MaterialTheme.typography.bodyMedium
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(DPMedium)
+                ) {
+                    if (reservedNowPlayingHeight > 0.dp) {
+                        item(key = "thread_now_playing_spacer") {
+                            Spacer(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(reservedNowPlayingHeight)
+                            )
+                        }
+                    }
+
+                    item(key = "thread_story_row") {
+                        StoryRow(
+                            items = storyFeed.filter { it.username != viewModel.viewerUsername },
+                            viewerProfile = profile,
+                            hasActiveYourStory = ownStory?.story_ids?.isNotEmpty() == true,
+                            onViewYourStory = {
+                                ownStory?.let(viewModel::openStoryForUser)
+                            },
+                            onCreateNewStory = launchNewStoryPicker,
+                            onStoryClick = viewModel::openStoryForUser,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = DPMedium)
                         )
                     }
-                } else {
-                    LazyColumn(
-                        state = listState,
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.spacedBy(DPMedium)
-                    ) {
-                        if (reservedNowPlayingHeight > 0.dp) {
-                            item(key = "thread_now_playing_spacer") {
-                                Spacer(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(reservedNowPlayingHeight)
+
+                    if (storyFeedError != null) {
+                        item(key = "thread_story_error_banner") {
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = DPMedium),
+                                color = MaterialTheme.colorScheme.errorContainer,
+                                shape = MaterialTheme.shapes.medium
+                            ) {
+                                Text(
+                                    modifier = Modifier.padding(DPMedium),
+                                    text = storyFeedError!!,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onErrorContainer
                                 )
                             }
                         }
+                    }
 
-                        item(key = "thread_story_row") {
-                            StoryRow(
-                                items = storyFeed.filter { it.username != viewModel.viewerUsername },
-                                viewerProfile = profile,
-                                hasActiveYourStory = ownStory?.story_ids?.isNotEmpty() == true,
-                                onViewYourStory = {
-                                    ownStory?.let(viewModel::openStoryForUser)
-                                },
-                                onCreateNewStory = launchNewStoryPicker,
-                                onStoryClick = viewModel::openStoryForUser,
+                    if (isStoryFeedLoading && storyFeed.isEmpty()) {
+                        item(key = "thread_story_loading") {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = DPMedium),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator()
+                            }
+                        }
+                    }
+
+                    item(key = "thread_feed_mode_switcher") {
+                        ExpressiveFeedModeTabs(
+                            selectedMode = selectedFeedMode,
+                            onModeSelected = viewModel::onFeedModeSelected,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = DPMedium)
+                        )
+                    }
+
+                    if (postsError != null) {
+                        item(key = "thread_posts_error_banner") {
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = DPMedium),
+                                color = MaterialTheme.colorScheme.errorContainer,
+                                shape = MaterialTheme.shapes.medium
+                            ) {
+                                Text(
+                                    modifier = Modifier.padding(DPMedium),
+                                    text = postsError!!,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                            }
+                        }
+                    }
+
+                    if (selectedFeedMode == FeedMode.FOLLOWERS && viewModel.posts.isEmpty()) {
+                        item(key = "thread_following_empty_suggestions") {
+                            FollowingSuggestionsSection(
+                                suggestions = followingSuggestions,
+                                followedUsernames = followedSuggestedUsernames,
+                                isLoading = isFollowingSuggestionsLoading,
+                                onFollowClick = viewModel::followSuggestedUser,
+                                onConfirm = viewModel::confirmFollowSuggestions,
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(horizontal = DPMedium)
                             )
                         }
-
-                        if (storyFeedError != null) {
-                            item(key = "thread_story_error_banner") {
-                                Surface(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = DPMedium),
-                                    color = MaterialTheme.colorScheme.errorContainer,
-                                    shape = MaterialTheme.shapes.medium
-                                ) {
-                                    Text(
-                                        modifier = Modifier.padding(DPMedium),
-                                        text = storyFeedError!!,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onErrorContainer
-                                    )
-                                }
+                    } else if (viewModel.posts.isEmpty()) {
+                        item(key = "thread_posts_empty_state") {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = DPMedium, vertical = 24.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = postsError ?: stringResource(R.string.thread_posts_empty),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                         }
-
-                        if (isStoryFeedLoading && storyFeed.isEmpty()) {
-                            item(key = "thread_story_loading") {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = DPMedium),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    CircularProgressIndicator()
-                                }
-                            }
-                        }
-
-                        if (postsError != null) {
-                            item(key = "thread_posts_error_banner") {
-                                Surface(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = DPMedium),
-                                    color = MaterialTheme.colorScheme.errorContainer,
-                                    shape = MaterialTheme.shapes.medium
-                                ) {
-                                    Text(
-                                        modifier = Modifier.padding(DPMedium),
-                                        text = postsError!!,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onErrorContainer
-                                    )
-                                }
-                            }
-                        }
-
+                    } else {
                         items(
                             items = viewModel.posts,
                             key = { it.id }
@@ -421,17 +468,17 @@ fun ThreadScreen(initialStoryId: Long? = null) {
                                 }
                             )
                         }
+                    }
 
-                        if (isLoadingMore) {
-                            item(key = "thread_loading_more_indicator") {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(DPMedium),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    CircularProgressIndicator()
-                                }
+                    if (isLoadingMore) {
+                        item(key = "thread_loading_more_indicator") {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(DPMedium),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator()
                             }
                         }
                     }
@@ -558,6 +605,231 @@ fun ThreadScreen(initialStoryId: Long? = null) {
         }
     }
 
+}
+
+@SuppressLint("UnusedBoxWithConstraintsScope")
+@Composable
+private fun ExpressiveFeedModeTabs(
+    selectedMode: FeedMode,
+    onModeSelected: (FeedMode) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val tabItems = listOf(
+        FeedMode.FOLLOWERS to stringResource(R.string.feed_mode_followers),
+        FeedMode.MIXED to stringResource(R.string.feed_mode_mixed),
+        FeedMode.MUSIC to stringResource(R.string.feed_mode_music),
+    )
+
+    val selectedIndex = tabItems.indexOfFirst { it.first == selectedMode }.coerceAtLeast(0)
+    val horizontalInset = 6.dp
+    val tabSpacing = 6.dp
+
+    val interactionSource = remember { MutableInteractionSource() }
+
+
+    Card(
+        modifier = modifier,
+        shape = MaterialTheme.shapes.extraLarge,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+        )
+    ) {
+        androidx.compose.foundation.layout.BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = horizontalInset, vertical = 6.dp)
+        ) {
+            val tabCount = tabItems.size
+            val tabWidth = (maxWidth - (tabSpacing * (tabCount - 1))) / tabCount
+            val indicatorOffsetTarget =
+                (tabWidth + tabSpacing) * selectedIndex
+            val indicatorOffset by animateDpAsState(
+                targetValue = indicatorOffsetTarget,
+                animationSpec = androidx.compose.animation.core.spring(
+                    dampingRatio = 0.78f,
+                    stiffness = 520f
+                ),
+                label = "feedTabsIndicatorOffset"
+            )
+            val indicatorColor by animateColorAsState(
+                targetValue = MaterialTheme.colorScheme.primaryContainer,
+                label = "feedTabsIndicatorColor"
+            )
+
+            Surface(
+                modifier = Modifier
+                    .offset(x = indicatorOffset)
+                    .width(tabWidth)
+                    .requiredHeightIn(min = 44.dp),
+                shape = MaterialTheme.shapes.extraLarge,
+                color = indicatorColor,
+                tonalElevation = 2.dp,
+                shadowElevation = 0.dp
+            ) {}
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(tabSpacing)
+            ) {
+                tabItems.forEach { (mode, label) ->
+                    val selected = mode == selectedMode
+                    val animatedTextColor by animateColorAsState(
+                        targetValue = if (selected) {
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        label = "feedTabTextColor"
+                    )
+
+                    Surface(
+                        modifier = Modifier
+                            .width(tabWidth)
+                            .requiredHeightIn(min = 44.dp)
+                            .clip(MaterialTheme.shapes.extraLarge)
+                            .clickable(
+                                interactionSource = interactionSource,
+                                indication = null
+                            ) {
+                                onModeSelected(mode)
+                            },
+                        color = Color.Transparent,
+                        shape = MaterialTheme.shapes.extraLarge
+                    ) {
+                        Box(
+                            modifier = Modifier.fillMaxWidth(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                modifier = Modifier
+                                    .padding(horizontal = 10.dp, vertical = 12.dp),
+                                text = label,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                style = if (selected) {
+                                    MaterialTheme.typography.labelLarge
+                                } else {
+                                    MaterialTheme.typography.labelMedium
+                                },
+                                color = animatedTextColor
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FollowingSuggestionsSection(
+    suggestions: List<FollowSuggestion>,
+    followedUsernames: Set<String>,
+    isLoading: Boolean,
+    onFollowClick: (String) -> Unit,
+    onConfirm: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier,
+        shape = MaterialTheme.shapes.extraLarge,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.following_empty_title),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = stringResource(R.string.following_empty_subtitle),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            if (isLoading) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 12.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            } else if (suggestions.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.following_empty_no_suggestions),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                suggestions.forEach { suggestion ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        ProfileAvatarMedia(
+                            modifier = Modifier.size(48.dp),
+                            profileImageUrl = suggestion.profileImageUrl,
+                            profileVideoUrl = null,
+                            badge = suggestion.badge,
+                            profileImageShape = suggestion.profileImageShape
+                        )
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                            Text(
+                                text = suggestion.username,
+                                style = MaterialTheme.typography.titleSmall,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            if (!suggestion.name.isNullOrBlank()) {
+                                Text(
+                                    text = suggestion.name,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                        val followed = followedUsernames.contains(suggestion.username)
+                        if (followed) {
+                            FilledTonalButton(
+                                enabled = false,
+                                onClick = {}
+                            ) {
+                                Text(text = stringResource(R.string.following_suggestion_following))
+                            }
+                        } else {
+                            OutlinedButton(onClick = { onFollowClick(suggestion.username) }) {
+                                Text(text = stringResource(R.string.following_suggestion_follow))
+                            }
+                        }
+                    }
+                }
+            }
+
+            Button(
+                onClick = onConfirm,
+                enabled = followedUsernames.isNotEmpty(),
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors()
+            ) {
+                Text(text = stringResource(R.string.following_suggestion_confirm))
+            }
+        }
+    }
 }
 
 @Composable

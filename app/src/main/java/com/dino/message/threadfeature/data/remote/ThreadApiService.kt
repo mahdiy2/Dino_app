@@ -7,8 +7,9 @@ import com.dino.message.threadfeature.domain.model.DeleteContentResult
 import com.dino.message.threadfeature.domain.model.CreatedComment
 import com.dino.message.threadfeature.domain.model.CreatedPost
 import com.dino.message.threadfeature.domain.model.CreatePostMedia
+import com.dino.message.threadfeature.domain.model.FeedMode
+import com.dino.message.threadfeature.domain.model.FeedPage
 import com.dino.message.threadfeature.domain.model.Post
-import com.dino.message.threadfeature.domain.model.PostsPage
 import com.dino.message.threadfeature.domain.model.PlaylistPage
 import com.dino.message.threadfeature.domain.model.PlaylistTrackMutation
 import com.dino.message.threadfeature.domain.model.StoryBundle
@@ -32,7 +33,11 @@ interface ThreadApiService {
 
     suspend fun getPost(postId: Long): Resource<Post>
 
-    suspend fun getPosts(page: Int, limit: Int): Resource<PostsPage>
+    suspend fun getFeed(
+        mode: FeedMode,
+        cursor: String?,
+        limit: Int
+    ): Resource<FeedPage>
 
     suspend fun getComments(postId: Long, page: Int, pageSize: Int): Resource<List<Comment>>
 

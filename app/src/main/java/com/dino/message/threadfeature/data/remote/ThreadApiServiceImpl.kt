@@ -21,10 +21,10 @@ import com.dino.message.threadfeature.data.remote.dto.AddPlaylistTrackResponse
 import com.dino.message.threadfeature.data.remote.dto.BlockUserResponse
 import com.dino.message.threadfeature.data.remote.dto.DeleteContentResponse
 import com.dino.message.threadfeature.data.remote.dto.GetCommentsResponse
+import com.dino.message.threadfeature.data.remote.dto.GetFeedResponse
 import com.dino.message.threadfeature.data.remote.dto.GetPlaylistTracksResponse
 import com.dino.message.threadfeature.data.remote.dto.PlaylistTrackExistsResponse
 import com.dino.message.threadfeature.data.remote.dto.GetPostResponse
-import com.dino.message.threadfeature.data.remote.dto.GetPostsResponse
 import com.dino.message.threadfeature.data.remote.dto.GetStoryBundleResponse
 import com.dino.message.threadfeature.data.remote.dto.GetStoryFeedResponse
 import com.dino.message.threadfeature.data.remote.dto.GetStoryMentionCandidatesResponse
@@ -44,8 +44,9 @@ import com.dino.message.threadfeature.domain.model.DeleteContentResult
 import com.dino.message.threadfeature.domain.model.CreatedComment
 import com.dino.message.threadfeature.domain.model.CreatedPost
 import com.dino.message.threadfeature.domain.model.CreatePostMedia
+import com.dino.message.threadfeature.domain.model.FeedMode
+import com.dino.message.threadfeature.domain.model.FeedPage
 import com.dino.message.threadfeature.domain.model.Post
-import com.dino.message.threadfeature.domain.model.PostsPage
 import com.dino.message.threadfeature.domain.model.PlaylistPage
 import com.dino.message.threadfeature.domain.model.PlaylistTrackMutation
 import com.dino.message.threadfeature.domain.model.StoryBundle
@@ -241,12 +242,21 @@ class ThreadApiServiceImpl @Inject constructor(
             ?: error("Unable to open input stream")
     }
 
-    override suspend fun getPosts(page: Int, limit: Int): Resource<PostsPage> =
-        httpAPIUtil.callAPIWithErrorHandling<PostsPage, GetPostsResponse>(
+    override suspend fun getFeed(
+        mode: FeedMode,
+        cursor: String?,
+        limit: Int
+    ): Resource<FeedPage> =
+        httpAPIUtil.callAPIWithErrorHandling<FeedPage, GetFeedResponse>(
             callAPI = {
-                httpClient.get(ThreadRoute.GetPosts(page = page, limit = limit).url) {
+                httpClient.get(ThreadRoute.GetFeed.url) {
                     contentType(ContentType.Application.Json)
                     appendTokenToHeader(sPrefManager.getToken())
+                    parameter("mode", mode.apiValue)
+                    parameter("limit", limit)
+                    if (!cursor.isNullOrBlank()) {
+                        parameter("cursor", cursor)
+                    }
                 }
             },
             callRefreshTokenAPI = this::getToken

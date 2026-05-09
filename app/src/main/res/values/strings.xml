@@ -133,6 +133,16 @@
     <string name="fix_message_encryption_description">Reset keys if messages can’t decrypt</string>
     <string name="followers_only">Followers only</string>
     <string name="followers_only_hint">Only your followers can see this post in Threads.</string>
+    <string name="feed_mode_mixed">Mixed</string>
+    <string name="feed_mode_music">Music</string>
+    <string name="feed_mode_followers">Following</string>
+    <string name="thread_posts_empty">No posts found.</string>
+    <string name="following_empty_title">Your Following feed is empty</string>
+    <string name="following_empty_subtitle">Follow active people to fill this feed. Pick one or more users, then confirm.</string>
+    <string name="following_empty_no_suggestions">No active suggestions right now.</string>
+    <string name="following_suggestion_follow">Follow</string>
+    <string name="following_suggestion_following">Following</string>
+    <string name="following_suggestion_confirm">Confirm</string>
     <string name="for_both_sides">For both sides</string>
     <string name="for_everyone">For everyone</string>
     <string name="got_it">Got it</string>

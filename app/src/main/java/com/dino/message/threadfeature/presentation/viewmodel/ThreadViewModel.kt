@@ -14,7 +14,9 @@ import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.dino.message.profilefeature.domain.model.Profile
+import com.dino.message.profilefeature.domain.usecase.FollowUserUseCase
 import com.dino.message.profilefeature.domain.usecase.GetMyProfileUseCase
+import com.dino.message.threadfeature.domain.model.FeedMode
 import com.dino.message.threadfeature.domain.model.Post
 import com.dino.message.threadfeature.domain.model.CreatePostMedia
 import com.dino.message.threadfeature.domain.model.PostMedia
@@ -66,6 +68,15 @@ import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import com.ramcosta.composedestinations.generated.destinations.ThreadCommentsBottomSheetScreenDestination
 
+data class FollowSuggestion(
+    val userId: Long,
+    val username: String,
+    val name: String?,
+    val badge: String?,
+    val profileImageUrl: String?,
+    val profileImageShape: String?,
+)
+
 @HiltViewModel
 class ThreadViewModel @Inject constructor(
     @ApplicationContext app: Context,
@@ -83,6 +94,7 @@ class ThreadViewModel @Inject constructor(
     private val getStoryViewersUseCase: GetStoryViewersUseCase,
     private val replyToStoryUseCase: ReplyToStoryUseCase,
     private val uploadStoryUseCase: UploadStoryUseCase,
+    private val followUserUseCase: FollowUserUseCase,
     private val getMyProfileUseCase: GetMyProfileUseCase,
     private val dataStoreUtil: DataStoreUtil,
     private val sPrefManager: SPrefManager,
@@ -93,12 +105,21 @@ class ThreadViewModel @Inject constructor(
 
     val profile = mutableStateOf<Profile?>(null)
     private val postsPageLimit = 10
-    private var currentPostsPage = 1
-    private var totalPosts = Int.MAX_VALUE
+    private var nextFeedCursor: String? = null
+    private var hasMorePosts = true
     private var isPostsRequestRunning = false
+    private var pendingFeedRefresh = false
 
     private val _posts = mutableStateListOf<Post>()
     val posts: List<Post> = _posts
+    private val _selectedFeedMode = MutableStateFlow(FeedMode.FOLLOWERS)
+    val selectedFeedMode: StateFlow<FeedMode> = _selectedFeedMode.asStateFlow()
+    private val _followingSuggestions = MutableStateFlow<List<FollowSuggestion>>(emptyList())
+    val followingSuggestions: StateFlow<List<FollowSuggestion>> = _followingSuggestions.asStateFlow()
+    private val _followedSuggestedUsernames = MutableStateFlow<Set<String>>(emptySet())
+    val followedSuggestedUsernames: StateFlow<Set<String>> = _followedSuggestedUsernames.asStateFlow()
+    private val _isFollowingSuggestionsLoading = MutableStateFlow(false)
+    val isFollowingSuggestionsLoading: StateFlow<Boolean> = _isFollowingSuggestionsLoading.asStateFlow()
 
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
@@ -192,11 +213,7 @@ class ThreadViewModel @Inject constructor(
 
     fun refresh() {
         if (isPostsRequestRunning) return
-        currentPostsPage = 1
-        totalPosts = Int.MAX_VALUE
-        _posts.clear()
-        postVoteByPost.clear()
-        postErrorByPost.clear()
+        resetFeedState()
         _activeStoryBundle.value = null
         _isStoryViewerVisible.value = false
         _storyViewerInsightsVisible.value = false
@@ -206,10 +223,117 @@ class ThreadViewModel @Inject constructor(
         loadProfile()
     }
 
+    fun onFeedModeSelected(mode: FeedMode) {
+        if (_selectedFeedMode.value == mode) return
+        _selectedFeedMode.value = mode
+        clearFollowingSuggestions()
+        if (isPostsRequestRunning) {
+            pendingFeedRefresh = true
+            return
+        }
+        refreshFeedOnly()
+    }
+
     fun loadNextPage() {
         if (isPostsRequestRunning) return
-        if (_posts.size >= totalPosts) return
+        if (!hasMorePosts) return
         requestPage(isRefresh = false)
+    }
+
+    private fun refreshFeedOnly() {
+        if (isPostsRequestRunning) return
+        resetFeedState()
+        requestPage(isRefresh = true)
+    }
+
+    private fun resetFeedState() {
+        nextFeedCursor = null
+        hasMorePosts = true
+        _posts.clear()
+        postVoteByPost.clear()
+        postErrorByPost.clear()
+        clearFollowingSuggestions()
+    }
+
+    fun followSuggestedUser(username: String) = viewModelScope.launch {
+        if (username.isBlank()) return@launch
+        if (_followedSuggestedUsernames.value.contains(username)) return@launch
+
+        followUserUseCase.execute(username).collect { res ->
+            when (res) {
+                is Resource.Success -> {
+                    _followedSuggestedUsernames.value =
+                        _followedSuggestedUsernames.value + username
+                }
+                is Resource.Loading -> Unit
+                is Resource.Error -> {
+                    _error.value = res.message.asString(getApplication())
+                }
+            }
+        }
+    }
+
+    fun confirmFollowSuggestions() {
+        if (_followedSuggestedUsernames.value.isEmpty()) return
+        refreshFeedOnly()
+    }
+
+    private fun clearFollowingSuggestions() {
+        _followingSuggestions.value = emptyList()
+        _followedSuggestedUsernames.value = emptySet()
+        _isFollowingSuggestionsLoading.value = false
+    }
+
+    private fun loadFollowingSuggestionsIfNeeded() = viewModelScope.launch {
+        if (_selectedFeedMode.value != FeedMode.FOLLOWERS) return@launch
+        if (_posts.isNotEmpty()) return@launch
+        if (_isFollowingSuggestionsLoading.value) return@launch
+
+        _isFollowingSuggestionsLoading.value = true
+        getPostsUseCase.execute(
+            mode = FeedMode.MIXED,
+            cursor = null,
+            limit = 50
+        ).collect { res ->
+            when (res) {
+                is Resource.Success -> {
+                    val frequencyByUsername = linkedMapOf<String, Pair<FollowSuggestion, Int>>()
+                    res.data.posts.forEach { post ->
+                        val author = post.author
+                        if (author.username == currentUsername) return@forEach
+                        val key = author.username
+                        val existing = frequencyByUsername[key]
+                        val suggestion = FollowSuggestion(
+                            userId = author.id,
+                            username = author.username,
+                            name = author.name,
+                            badge = author.badge,
+                            profileImageUrl = author.profile_image_url,
+                            profileImageShape = author.profile_image_shape
+                        )
+                        if (existing == null) {
+                            frequencyByUsername[key] = suggestion to 1
+                        } else {
+                            frequencyByUsername[key] = existing.first to (existing.second + 1)
+                        }
+                    }
+
+                    _followingSuggestions.value = frequencyByUsername.values
+                        .sortedWith(
+                            compareByDescending<Pair<FollowSuggestion, Int>> { it.second }
+                                .thenByDescending { it.first.userId }
+                        )
+                        .map { it.first }
+                        .take(10)
+                    _isFollowingSuggestionsLoading.value = false
+                }
+                is Resource.Loading -> Unit
+                is Resource.Error -> {
+                    _followingSuggestions.value = emptyList()
+                    _isFollowingSuggestionsLoading.value = false
+                }
+            }
+        }
     }
 
     private fun loadProfile() = viewModelScope.launch {
@@ -243,23 +367,31 @@ class ThreadViewModel @Inject constructor(
         if (isPostsRequestRunning) return@launch
         isPostsRequestRunning = true
 
-        getPostsUseCase.execute(page = currentPostsPage, limit = postsPageLimit).collect { res ->
+        val cursor = if (isRefresh) null else nextFeedCursor
+        getPostsUseCase.execute(
+            mode = _selectedFeedMode.value,
+            cursor = cursor,
+            limit = postsPageLimit
+        ).collect { res ->
             when (res) {
                 is Resource.Success -> {
                     if (isRefresh) _posts.clear()
-                    totalPosts = res.data.total
+                    hasMorePosts = res.data.hasMore
+                    nextFeedCursor = res.data.nextCursor
                     val existingPostIds = _posts.mapTo(mutableSetOf()) { it.id }
                     val incomingUniquePosts = res.data.posts.filter { post ->
                         existingPostIds.add(post.id)
                     }
                     _posts.addAll(incomingUniquePosts)
                     seedVotesFromPosts(incomingUniquePosts)
-                    if (res.data.posts.isNotEmpty()) {
-                        currentPostsPage = res.data.page + 1
+                    if (_selectedFeedMode.value == FeedMode.FOLLOWERS && _posts.isEmpty()) {
+                        loadFollowingSuggestionsIfNeeded()
+                    } else {
+                        clearFollowingSuggestions()
                     }
                     _error.value = null
                     showLoading(isRefresh = false, isLoadMore = false)
-                    isPostsRequestRunning = false
+                    finishPostsRequest()
                 }
 
                 is Resource.Loading -> {
@@ -269,9 +401,17 @@ class ThreadViewModel @Inject constructor(
                 is Resource.Error -> {
                     _error.value = res.message.asString(getApplication())
                     showLoading(isRefresh = false, isLoadMore = false)
-                    isPostsRequestRunning = false
+                    finishPostsRequest()
                 }
             }
+        }
+    }
+
+    private fun finishPostsRequest() {
+        isPostsRequestRunning = false
+        if (pendingFeedRefresh) {
+            pendingFeedRefresh = false
+            refreshFeedOnly()
         }
     }
 

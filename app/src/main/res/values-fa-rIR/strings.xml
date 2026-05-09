@@ -125,6 +125,16 @@
     <string name="fix_message_encryption_description">اگر پیام باز نمی‌شود، کلید را ریست کنید</string>
     <string name="followers_only">فقط دنبال‌کننده‌ها</string>
     <string name="followers_only_hint">این پست فقط برای دنبال‌کننده‌های شما نمایش داده می‌شود.</string>
+    <string name="feed_mode_mixed">ترکیبی</string>
+    <string name="feed_mode_music">موسیقی</string>
+    <string name="feed_mode_followers">دنبال‌شده‌ها</string>
+    <string name="thread_posts_empty">پستی یافت نشد.</string>
+    <string name="following_empty_title">بخش دنبال‌شده‌ها خالی است</string>
+    <string name="following_empty_subtitle">برای پر شدن این بخش، کاربران فعال را دنبال کن. می‌توانی چند نفر را انتخاب کنی و سپس تأیید بزنی.</string>
+    <string name="following_empty_no_suggestions">فعلاً پیشنهاد فعالی وجود ندارد.</string>
+    <string name="following_suggestion_follow">دنبال کردن</string>
+    <string name="following_suggestion_following">دنبال شد</string>
+    <string name="following_suggestion_confirm">تأیید</string>
     <string name="for_both_sides">برای هر دو طرف</string>
     <string name="for_everyone">برای همه</string>
     <string name="got_it">متوجه شدم</string>

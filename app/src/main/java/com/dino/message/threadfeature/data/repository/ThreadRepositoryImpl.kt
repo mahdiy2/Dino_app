@@ -8,8 +8,9 @@ import com.dino.message.threadfeature.domain.model.DeleteContentResult
 import com.dino.message.threadfeature.domain.model.CreatedComment
 import com.dino.message.threadfeature.domain.model.CreatedPost
 import com.dino.message.threadfeature.domain.model.CreatePostMedia
+import com.dino.message.threadfeature.domain.model.FeedMode
+import com.dino.message.threadfeature.domain.model.FeedPage
 import com.dino.message.threadfeature.domain.model.Post
-import com.dino.message.threadfeature.domain.model.PostsPage
 import com.dino.message.threadfeature.domain.model.PlaylistPage
 import com.dino.message.threadfeature.domain.model.PlaylistTrackMutation
 import com.dino.message.threadfeature.domain.model.StoryBundle
@@ -44,8 +45,16 @@ class ThreadRepositoryImpl(
     override suspend fun getPost(postId: Long): Resource<Post> =
         threadApiService.getPost(postId = postId)
 
-    override suspend fun getPosts(page: Int, limit: Int): Resource<PostsPage> =
-        threadApiService.getPosts(page = page, limit = limit)
+    override suspend fun getFeed(
+        mode: FeedMode,
+        cursor: String?,
+        limit: Int
+    ): Resource<FeedPage> =
+        threadApiService.getFeed(
+            mode = mode,
+            cursor = cursor,
+            limit = limit
+        )
 
     override suspend fun getComments(
         postId: Long,
