@@ -41,13 +41,14 @@ class HttpAPIUtil @Inject constructor(
         noinline callAPI: suspend () -> HttpResponse,
         noinline callRefreshTokenAPI: suspend () -> String,
         needToUpdateToken: Boolean = true,
-        useServerMessageForUnauthorized: Boolean = false
+        useServerMessageForUnauthorized: Boolean = false,
+        maxAttempts: Int = 3,
     ): Resource<ResultType> {
         var firstRetryException: Exception? = null
         var lastRetryException: Exception? = null
 
         val result = retry(
-            times = 3,
+            times = maxAttempts.coerceAtLeast(1),
             initialDelay = 1000,
             factor = 2.0,
             onFailure = { exception ->

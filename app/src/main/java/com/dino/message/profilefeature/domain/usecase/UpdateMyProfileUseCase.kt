@@ -15,7 +15,9 @@ class UpdateMyProfileUseCase @Inject constructor(
         bio: String? = null,
         profileImageShape: String? = null,
         profileImage: ProfileUpdateImage? = null,
-        profileVideo: ProfileUpdateImage? = null
+        profileVideo: ProfileUpdateImage? = null,
+        removeProfileImage: Boolean = false,
+        removeProfileVideo: Boolean = false,
     ) = flow<Resource<Profile>> {
         emit(Resource.Loading())
         emit(
@@ -24,7 +26,9 @@ class UpdateMyProfileUseCase @Inject constructor(
                 bio = bio,
                 profileImageShape = profileImageShape,
                 profileImage = profileImage,
-                profileVideo = profileVideo
+                profileVideo = profileVideo,
+                removeProfileImage = removeProfileImage,
+                removeProfileVideo = removeProfileVideo,
             )
         )
     }

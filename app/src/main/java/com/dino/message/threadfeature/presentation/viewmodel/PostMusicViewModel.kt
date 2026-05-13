@@ -3,13 +3,13 @@ package com.dino.message.threadfeature.presentation.viewmodel
 import android.content.Context
 import android.media.MediaMetadataRetriever
 import android.net.Uri
-import android.provider.OpenableColumns
 import android.webkit.MimeTypeMap
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.dino.message.DinoOrderApplication
+import com.dino.message.corefeature.data.upload.MediaFileResolver
 import com.dino.message.corefeature.data.upload.MediaMimePolicy
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.presentation.util.Resource
@@ -214,23 +214,12 @@ class PostMusicViewModel @Inject constructor(
 
     private fun queryDisplayName(uri: Uri): String? {
         val resolver = getApplication<DinoOrderApplication>().contentResolver
-        val cursor = resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
-        return cursor?.use {
-            val nameIndex = it.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-            if (nameIndex == -1 || !it.moveToFirst()) return@use null
-            it.getString(nameIndex)
-        }
+        return MediaFileResolver.queryDisplayName(resolver, uri)
     }
 
     private fun queryFileSize(uri: Uri): Long? {
         val resolver = getApplication<DinoOrderApplication>().contentResolver
-        val cursor = resolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)
-        return cursor?.use {
-            val sizeIndex = it.getColumnIndex(OpenableColumns.SIZE)
-            if (sizeIndex == -1 || !it.moveToFirst()) return@use null
-            if (it.isNull(sizeIndex)) return@use null
-            it.getLong(sizeIndex)
-        }
+        return MediaFileResolver.resolveFileSize(resolver, uri)
     }
 
     private fun extractMetadata(uri: Uri): Pair<String?, String?> {

@@ -3,12 +3,12 @@ package com.dino.message.profilefeature.presentation.viewmodel
 import android.content.Context
 import android.media.MediaMetadataRetriever
 import android.net.Uri
-import android.provider.OpenableColumns
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.dino.message.DinoOrderApplication
 import com.dino.message.corefeature.data.spref.DataStoreUtil
+import com.dino.message.corefeature.data.upload.MediaFileResolver
 import com.dino.message.corefeature.data.upload.MediaMimePolicy
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.corefeature.presentation.util.PROFILE_IMAGE_SHAPE_CIRCLE
@@ -54,6 +54,8 @@ class EditProfileViewModel @Inject constructor(
     val selectedVideo = mutableStateOf<SelectedProfileMedia?>(null)
     val currentProfileImageUrl = mutableStateOf<String?>(null)
     val currentProfileVideoUrl = mutableStateOf<String?>(null)
+    val removeProfileImageRequested = mutableStateOf(false)
+    val removeProfileVideoRequested = mutableStateOf(false)
     val selectedProfileImageShape = mutableStateOf(PROFILE_IMAGE_SHAPE_CIRCLE)
     val currentProfileBadge = mutableStateOf<String?>(null)
 
@@ -83,7 +85,10 @@ class EditProfileViewModel @Inject constructor(
     fun onImagePicked(uri: Uri?) {
         if (uri == null) return
         val resolver = getApplication<DinoOrderApplication>().contentResolver
-        val mimeType = resolver.getType(uri)?.lowercase().orEmpty()
+        val mimeType = MediaFileResolver.resolveMimeType(
+            contentResolver = resolver,
+            uri = uri,
+        )
         if (!mimeType.startsWith("image/") ||
             !MediaMimePolicy.isSupportedUploadMimeType(mimeType)
         ) {
@@ -96,13 +101,17 @@ class EditProfileViewModel @Inject constructor(
             displayName = queryDisplayName(uri) ?: "profile_image",
             mimeType = mimeType
         )
+        removeProfileImageRequested.value = false
         _error.value = null
     }
 
     fun onVideoPicked(uri: Uri?) {
         if (uri == null) return
         val resolver = getApplication<DinoOrderApplication>().contentResolver
-        val mimeType = resolver.getType(uri)?.lowercase().orEmpty()
+        val mimeType = MediaFileResolver.resolveMimeType(
+            contentResolver = resolver,
+            uri = uri,
+        )
         if (!mimeType.startsWith("video/") ||
             !MediaMimePolicy.isSupportedUploadMimeType(mimeType)
         ) {
@@ -133,15 +142,32 @@ class EditProfileViewModel @Inject constructor(
             displayName = queryDisplayName(uri) ?: "profile_video",
             mimeType = mimeType
         )
+        removeProfileVideoRequested.value = false
         _error.value = null
     }
 
     fun clearSelectedImage() {
         selectedImage.value = null
+        removeProfileImageRequested.value = false
     }
 
     fun clearSelectedVideo() {
         selectedVideo.value = null
+        removeProfileVideoRequested.value = false
+    }
+
+    fun removeProfileImage() {
+        selectedImage.value = null
+        currentProfileImageUrl.value = null
+        removeProfileImageRequested.value = true
+        if (_error.value != null) _error.value = null
+    }
+
+    fun removeProfileVideo() {
+        selectedVideo.value = null
+        currentProfileVideoUrl.value = null
+        removeProfileVideoRequested.value = true
+        if (_error.value != null) _error.value = null
     }
 
     fun onProfileImageShapeSelected(shape: String) {
@@ -187,7 +213,9 @@ class EditProfileViewModel @Inject constructor(
                     hasBadgeAccess(currentProfileBadge.value)
                 },
                 profileImage = imagePayload,
-                profileVideo = videoPayload
+                profileVideo = videoPayload,
+                removeProfileImage = removeProfileImageRequested.value,
+                removeProfileVideo = removeProfileVideoRequested.value,
             ).collect { res ->
                 when (res) {
                     is Resource.Success -> {
@@ -220,6 +248,8 @@ class EditProfileViewModel @Inject constructor(
                     selectedProfileImageShape.value = normalizeProfileImageShape(res.data.profile_image_shape)
                     currentProfileBadge.value = res.data.badge
                     currentProfileVideoUrl.value = res.data.profile_video_url
+                    removeProfileImageRequested.value = false
+                    removeProfileVideoRequested.value = false
                     dataStoreUtil.saveBadgeAccessCache(
                         hasBadge = hasBadgeAccess(res.data.badge)
                     )
@@ -257,22 +287,12 @@ class EditProfileViewModel @Inject constructor(
 
     private fun queryDisplayName(uri: Uri): String? {
         val resolver = getApplication<DinoOrderApplication>().contentResolver
-        val cursor = resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
-        return cursor?.use {
-            val nameIndex = it.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-            if (nameIndex == -1 || !it.moveToFirst()) return@use null
-            it.getString(nameIndex)
-        }
+        return MediaFileResolver.queryDisplayName(resolver, uri)
     }
 
     private fun queryFileSize(uri: Uri): Long? {
         val resolver = getApplication<DinoOrderApplication>().contentResolver
-        val cursor = resolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)
-        return cursor?.use {
-            val sizeIndex = it.getColumnIndex(OpenableColumns.SIZE)
-            if (sizeIndex == -1 || !it.moveToFirst()) return@use null
-            it.getLong(sizeIndex)
-        }
+        return MediaFileResolver.resolveFileSize(resolver, uri)
     }
 
     private fun getVideoDurationMs(uri: Uri): Long? {

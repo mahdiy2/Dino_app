@@ -4,7 +4,6 @@ import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
 import android.util.Log
-import android.webkit.MimeTypeMap
 import com.dino.message.chatfeature.data.remote.dto.InboxResponse
 import com.dino.message.chatfeature.data.remote.dto.MessageAttachment
 import com.dino.message.chatfeature.data.remote.dto.MessageSent
@@ -29,6 +28,7 @@ import com.dino.message.corefeature.data.remote.util.appendTokenToHeader
 import com.dino.message.corefeature.data.remote.util.ensureFreshAccessTokenIfNearExpiry
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.data.upload.AttachmentUploadPolicy
+import com.dino.message.corefeature.data.upload.MediaFileResolver
 import com.dino.message.corefeature.domain.model.asStringResourceContent
 import com.dino.message.corefeature.presentation.util.Resource
 import io.ktor.client.HttpClient
@@ -39,6 +39,7 @@ import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.request.parameter
 import io.ktor.client.request.setBody
+import io.ktor.client.plugins.timeout
 import io.ktor.http.ContentType
 import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
@@ -55,6 +56,7 @@ class ChatApiServiceImpl @Inject constructor(
 ) : ChatApiService, HaveRefreshTokenAPI by HaveRefreshTokenAPIImpl(httpClient, sPrefManager) {
     companion object {
         private const val TAG = "ChatApiServiceImpl"
+        private const val ATTACHMENT_UPLOAD_TIMEOUT_MS = 120_000L
     }
 
     override suspend fun getInbox(): Resource<List<Inbox>?> =
@@ -149,6 +151,10 @@ class ChatApiServiceImpl @Inject constructor(
             callAPI = {
                 httpClient.post(ChatRoute.UploadAttachment.url) {
                     appendTokenToHeader(sPrefManager.getToken())
+                    timeout {
+                        requestTimeoutMillis = ATTACHMENT_UPLOAD_TIMEOUT_MS
+                        socketTimeoutMillis = ATTACHMENT_UPLOAD_TIMEOUT_MS
+                    }
                     setBody(
                         MultiPartFormDataContent(
                             formData {
@@ -215,33 +221,15 @@ class ChatApiServiceImpl @Inject constructor(
     }
 
     private fun resolveMimeType(uri: Uri): String {
-        val fromResolver = appContext.contentResolver.getType(uri)
-        if (!fromResolver.isNullOrBlank() && fromResolver != "application/octet-stream") {
-            return fromResolver
-        }
-        val extension = uri.lastPathSegment
-            ?.substringAfterLast('.', "")
-            ?.lowercase()
-        if (!extension.isNullOrBlank()) {
-            val fromExtension = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension)
-            if (!fromExtension.isNullOrBlank()) return fromExtension
-        }
-        return fromResolver ?: "application/octet-stream"
+        return MediaFileResolver.resolveMimeType(
+            contentResolver = appContext.contentResolver,
+            uri = uri,
+            displayNameHint = resolveFileName(uri),
+        )
     }
 
     private fun resolveFileSize(uri: Uri): Long? {
-        if (uri.scheme == "file") {
-            val path = uri.path ?: return null
-            val file = File(path)
-            return if (file.exists()) file.length() else null
-        }
-        val cursor = appContext.contentResolver.query(uri, null, null, null, null)
-            ?: return null
-        return cursor.use {
-            if (!it.moveToFirst()) return@use null
-            val index = it.getColumnIndex(OpenableColumns.SIZE)
-            if (index >= 0 && !it.isNull(index)) it.getLong(index) else null
-        }
+        return MediaFileResolver.resolveFileSize(appContext.contentResolver, uri)
     }
 
     private fun canReadFile(uri: Uri): Boolean {

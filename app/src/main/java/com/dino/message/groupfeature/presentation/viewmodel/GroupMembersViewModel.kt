@@ -65,7 +65,8 @@ class GroupMembersViewModel @Inject constructor(
                     _groupName.value = result.data.name
                     _members.value = result.data.members.orEmpty()
                     _creatorUsername.value = result.data.creator.username
-                    _canManageMembers.value = result.data.creator.username == currentUsername
+                    _canManageMembers.value =
+                        !result.data.isPublicRoom && result.data.creator.username == currentUsername
                 }
                 is Resource.Error -> {
                     _isLoading.value = false

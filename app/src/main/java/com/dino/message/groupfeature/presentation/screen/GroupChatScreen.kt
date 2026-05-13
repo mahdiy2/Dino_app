@@ -27,9 +27,13 @@ import androidx.compose.material.icons.rounded.ArrowBackIosNew
 import androidx.compose.material.icons.rounded.AccessTime
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.VpnKey
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.AbsoluteAlignment
@@ -92,6 +96,7 @@ import kotlin.math.min
 fun GroupChatScreen(
     groupId: Int,
     groupName: String? = null,
+    isPublicRoom: Boolean = false,
 ) {
     val viewModel: GroupChatViewModel = hiltViewModel()
     val messages by viewModel.messages.collectAsState()
@@ -117,6 +122,7 @@ fun GroupChatScreen(
     val isAndroid12Plus = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
     val snackbarHostState = remember { SnackbarHostState() }
     val resolvedName = groupName ?: viewModel.groupName
+    val isPublicRoomChat = viewModel.isPublicRoom || isPublicRoom
     val myUsername = viewModel.getMyUsername()
     val playbackState by MusicPlaybackManager.playbackState.collectAsState()
     val hasNowPlaying = !playbackState.currentTrackUrl.isNullOrBlank()
@@ -160,6 +166,7 @@ fun GroupChatScreen(
     var popupSize by remember { mutableStateOf(IntSize.Zero) }
     var popupVisible by remember { mutableStateOf(false) }
     var popupMounted by remember { mutableStateOf(false) }
+    var showMessageSecurityDialog by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(uploadError) {
         uploadError?.let {
@@ -538,6 +545,23 @@ fun GroupChatScreen(
         )
     }
 
+    if (showMessageSecurityDialog) {
+        AlertDialog(
+            onDismissRequest = { showMessageSecurityDialog = false },
+            title = { Text("Security Alert") },
+            text = {
+                Text(
+                    "در این بخش پیام ها به صورت پابلیک می باشد. برخلاف گروه های شخصی فعلا پیام ها بدون رمز نگاری ارسال می شود!"
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { showMessageSecurityDialog = false }) {
+                    Text(stringResource(R.string.got_it))
+                }
+            }
+        )
+    }
+
     val isMenuOpen = selectedMessage != null
     val blurRadius by animateDpAsState(
         targetValue = if (isMenuOpen) 8.dp else 0.dp,
@@ -577,7 +601,10 @@ fun GroupChatScreen(
                             Text(
                                 text = resolvedName,
                                 style = MaterialTheme.typography.titleMedium,
-                                modifier = Modifier.clickable {
+                                modifier = Modifier.clickable(
+                                    enabled = !isPublicRoomChat
+                                ) {
+
                                     viewModel.openGroupMembersScreen(resolvedName)
                                 },
                             )
@@ -588,7 +615,9 @@ fun GroupChatScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier
                                     .padding(bottom = 6.dp)
-                                    .clickable {
+                                    .clickable(
+                                        enabled = !isPublicRoomChat
+                                    ) {
                                         viewModel.openGroupMembersScreen(resolvedName)
                                     },
                             )
@@ -613,8 +642,17 @@ fun GroupChatScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { viewModel.openPrivateKeyResetDialog() }) {
-                        Icon(Icons.Rounded.VpnKey, stringResource(R.string.reset_encryption_key))
+                    if (!isPublicRoomChat) {
+                        IconButton(onClick = { viewModel.openPrivateKeyResetDialog() }) {
+                            Icon(Icons.Rounded.VpnKey, stringResource(R.string.reset_encryption_key))
+                        }
+                    } else {
+                        IconButton(onClick = { showMessageSecurityDialog = true }) {
+                            Icon(
+                                imageVector = Icons.Rounded.Info,
+                                contentDescription = stringResource(R.string.message_security_info)
+                            )
+                        }
                     }
                 }
             )

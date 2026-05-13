@@ -26,13 +26,17 @@ class ProfileRepositoryImpl(
         bio: String?,
         profileImageShape: String?,
         profileImage: ProfileUpdateImage?,
-        profileVideo: ProfileUpdateImage?
+        profileVideo: ProfileUpdateImage?,
+        removeProfileImage: Boolean,
+        removeProfileVideo: Boolean,
     ): Resource<Profile> = profileApiService.updateMyProfile(
         name = name,
         bio = bio,
         profileImageShape = profileImageShape,
         profileImage = profileImage,
-        profileVideo = profileVideo
+        profileVideo = profileVideo,
+        removeProfileImage = removeProfileImage,
+        removeProfileVideo = removeProfileVideo,
     )
 
     override suspend fun deleteMyAccount(): Resource<ProfileFollowResult> =

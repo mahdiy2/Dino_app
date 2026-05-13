@@ -8,6 +8,7 @@ import com.dino.message.corefeature.data.remote.util.HttpAPIUtil
 import com.dino.message.corefeature.data.remote.util.appendTokenToHeader
 import com.dino.message.corefeature.data.remote.util.ensureFreshAccessTokenIfNearExpiry
 import com.dino.message.corefeature.data.spref.SPrefManager
+import com.dino.message.corefeature.data.upload.MediaFileResolver
 import com.dino.message.corefeature.domain.model.asStringResourceContent
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.profilefeature.data.remote.dto.AboutUsResponse
@@ -27,6 +28,7 @@ import com.dino.message.profilefeature.domain.model.ReferralSummary
 import com.dino.message.threadfeature.domain.model.PostsPage
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.ktor.client.HttpClient
+import io.ktor.client.plugins.timeout
 import io.ktor.client.request.delete
 import io.ktor.client.request.forms.InputProvider
 import io.ktor.client.request.forms.MultiPartFormDataContent
@@ -49,6 +51,11 @@ class ProfileApiServiceImpl @Inject constructor(
     private val httpAPIUtil: HttpAPIUtil,
     @ApplicationContext private val appContext: Context,
 ) : ProfileApiService, HaveRefreshTokenAPI by HaveRefreshTokenAPIImpl(httpClient, sPrefManager) {
+
+    companion object {
+        private const val DELETE_ACCOUNT_REQUEST_TIMEOUT_MS = 120_000L
+        private const val PROFILE_MEDIA_UPLOAD_TIMEOUT_MS = 120_000L
+    }
 
     override suspend fun getAboutUs(): Resource<AboutUs> =
         httpAPIUtil.callAPIWithErrorHandling<AboutUs, AboutUsResponse>(
@@ -87,11 +94,19 @@ class ProfileApiServiceImpl @Inject constructor(
         bio: String?,
         profileImageShape: String?,
         profileImage: ProfileUpdateImage?,
-        profileVideo: ProfileUpdateImage?
+        profileVideo: ProfileUpdateImage?,
+        removeProfileImage: Boolean,
+        removeProfileVideo: Boolean,
     ): Resource<Profile> {
         val sanitizedName = name?.trim()
         if (sanitizedName != null && sanitizedName.isEmpty()) {
             return Resource.Error(message = "Name must be a non-empty string".asStringResourceContent())
+        }
+        if (removeProfileImage && profileImage != null) {
+            return Resource.Error(message = "Cannot upload and remove profile image in the same request".asStringResourceContent())
+        }
+        if (removeProfileVideo && profileVideo != null) {
+            return Resource.Error(message = "Cannot upload and remove profile video in the same request".asStringResourceContent())
         }
         val sanitizedBio = bio?.trim()
         val sanitizedProfileImageShape = profileImageShape?.trim()?.lowercase()
@@ -100,36 +115,52 @@ class ProfileApiServiceImpl @Inject constructor(
             sanitizedBio == null &&
             sanitizedProfileImageShape == null &&
             profileImage == null &&
-            profileVideo == null
+            profileVideo == null &&
+            !removeProfileImage &&
+            !removeProfileVideo
         ) {
             return Resource.Error(message = "At least one field is required".asStringResourceContent())
         }
 
         return httpAPIUtil.callAPIWithErrorHandling<Profile, ProfileResponse>(
             callAPI = {
+                val hasMedia = profileImage != null || profileVideo != null
+                val hasRemoveDirectives = removeProfileImage || removeProfileVideo
+                if (hasMedia) {
+                    ensureFreshAccessTokenIfNearExpiry(
+                        sPrefManager = sPrefManager,
+                        refreshAccessToken = this@ProfileApiServiceImpl::getToken,
+                        logTag = "ProfileApiServiceImpl"
+                    )
+                }
                 httpClient.put(ProfileRoute.UpdateMyProfile.url) {
                     appendTokenToHeader(sPrefManager.getToken())
-                    if (profileImage == null && profileVideo == null) {
+                    if (!hasMedia) {
                         contentType(ContentType.Application.Json)
                         setBody(
                             UpdateMyProfileRequest(
                                 name = sanitizedName,
                                 bio = sanitizedBio,
-                                profile_image_shape = sanitizedProfileImageShape
+                                profile_image_shape = sanitizedProfileImageShape,
+                                remove_profile_image = removeProfileImage.takeIf { it },
+                                remove_profile_video = removeProfileVideo.takeIf { it },
                             )
                         )
                     } else {
-                        ensureFreshAccessTokenIfNearExpiry(
-                            sPrefManager = sPrefManager,
-                            refreshAccessToken = this@ProfileApiServiceImpl::getToken,
-                            logTag = "ProfileApiServiceImpl"
-                        )
+                        timeout {
+                            requestTimeoutMillis = PROFILE_MEDIA_UPLOAD_TIMEOUT_MS
+                            socketTimeoutMillis = PROFILE_MEDIA_UPLOAD_TIMEOUT_MS
+                        }
                         setBody(
                             MultiPartFormDataContent(
                                 formData {
                                     sanitizedName?.let { append("name", it) }
                                     sanitizedBio?.let { append("bio", it) }
                                     sanitizedProfileImageShape?.let { append("profile_image_shape", it) }
+                                    if (hasRemoveDirectives) {
+                                        if (removeProfileImage) append("remove_profile_image", "true")
+                                        if (removeProfileVideo) append("remove_profile_video", "true")
+                                    }
                                     profileImage?.let {
                                         append(
                                             key = "profile_image",
@@ -172,19 +203,7 @@ class ProfileApiServiceImpl @Inject constructor(
 
     private fun resolveFileSize(media: ProfileUpdateImage): Long? {
         media.sizeBytes?.let { if (it >= 0) return it }
-        val uri = media.uri
-        if (uri.scheme == "file") {
-            val path = uri.path ?: return null
-            val file = File(path)
-            return if (file.exists()) file.length() else null
-        }
-        val cursor = appContext.contentResolver.query(uri, null, null, null, null)
-            ?: return null
-        return cursor.use {
-            if (!it.moveToFirst()) return@use null
-            val index = it.getColumnIndex(OpenableColumns.SIZE)
-            if (index >= 0 && !it.isNull(index)) it.getLong(index) else null
-        }
+        return MediaFileResolver.resolveFileSize(appContext.contentResolver, media.uri)
     }
 
     private fun openInputStream(media: ProfileUpdateImage): java.io.InputStream {
@@ -205,9 +224,14 @@ class ProfileApiServiceImpl @Inject constructor(
                 httpClient.delete(ProfileRoute.DeleteMyProfile.url) {
                     appendTokenToHeader(sPrefManager.getToken())
                     contentType(ContentType.Application.Json)
+                    timeout {
+                        requestTimeoutMillis = DELETE_ACCOUNT_REQUEST_TIMEOUT_MS
+                        socketTimeoutMillis = DELETE_ACCOUNT_REQUEST_TIMEOUT_MS
+                    }
                 }
             },
-            callRefreshTokenAPI = this::getToken
+            callRefreshTokenAPI = this::getToken,
+            maxAttempts = 1,
         )
 
     override suspend fun getProfile(username: String): Resource<Profile> =

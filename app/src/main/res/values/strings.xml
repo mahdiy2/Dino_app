@@ -232,6 +232,8 @@
     <string name="refresh">Refresh</string>
     <string name="register">Register</string>
     <string name="remove_media">Remove media</string>
+    <string name="remove_profile_image">Remove profile image</string>
+    <string name="remove_profile_video">Remove profile video</string>
     <string name="report">Report</string>
     <string name="report_post_confirm">Confirm report</string>
     <string name="report_post_description_count">%1$d/255</string>
@@ -433,4 +435,7 @@ Post: "%2$s"</string>
     <string name="referral_remaining_to_verified_format">%1$d more invites needed</string>
     <string name="referral_verified_badge_title">Verified badge benefits</string>
     <string name="referral_verified_badge_description">With this badge, your account becomes verified and unlocks the app’s special features.</string>
+    <string name="public_room_section_title">Public Room</string>
+    <string name="public_room_join_prompt">Tap to join. Messages auto-delete after 30 minutes.</string>
+    <string name="public_room_joined_subtitle">Joined. Messages auto-delete after 30 minutes.</string>
 </resources>

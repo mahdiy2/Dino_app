@@ -102,6 +102,7 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.dino.message.R
+import com.dino.message.corefeature.data.upload.MediaFileResolver
 import com.dino.message.corefeature.presentation.util.UserBadgeRole
 import com.dino.message.corefeature.presentation.util.parseUserBadgeRole
 import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
@@ -272,12 +273,17 @@ fun ThreadScreen(initialStoryId: Long? = null) {
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri: Uri? ->
         if (uri != null) {
-            val mimeType = context.contentResolver.getType(uri).orEmpty()
-            val normalizedMimeType = if (mimeType.isBlank()) "image/jpeg" else mimeType
-            val guessedFileName = uri.lastPathSegment
-                ?.substringAfterLast('/')
-                ?.ifBlank { "story_media" }
+            val contentResolver = context.contentResolver
+            val guessedFileName = MediaFileResolver.queryDisplayName(contentResolver, uri)
+                ?: uri.lastPathSegment
+                    ?.substringAfterLast('/')
+                    ?.ifBlank { "story_media" }
                 ?: "story_media"
+            val normalizedMimeType = MediaFileResolver.resolveMimeType(
+                contentResolver = contentResolver,
+                uri = uri,
+                displayNameHint = guessedFileName,
+            )
             pendingStoryEditorMedia = CreatePostMedia(
                 uri = uri,
                 fileName = guessedFileName,
@@ -364,18 +370,18 @@ fun ThreadScreen(initialStoryId: Long? = null) {
                         }
                     }
 
-                    if (isStoryFeedLoading && storyFeed.isEmpty()) {
-                        item(key = "thread_story_loading") {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = DPMedium),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                CircularProgressIndicator()
-                            }
-                        }
-                    }
+//                    if (isStoryFeedLoading && storyFeed.isEmpty()) {
+//                        item(key = "thread_story_loading") {
+//                            Box(
+//                                modifier = Modifier
+//                                    .fillMaxWidth()
+//                                    .padding(vertical = DPMedium),
+//                                contentAlignment = Alignment.Center
+//                            ) {
+//                                CircularProgressIndicator()
+//                            }
+//                        }
+//                    }
 
                     item(key = "thread_feed_mode_switcher") {
                         ExpressiveFeedModeTabs(
@@ -406,7 +412,7 @@ fun ThreadScreen(initialStoryId: Long? = null) {
                         }
                     }
 
-                    if (selectedFeedMode == FeedMode.FOLLOWERS && viewModel.posts.isEmpty()) {
+                    if (selectedFeedMode == FeedMode.FOLLOWERS && viewModel.posts.isEmpty() && !isRefreshing) {
                         item(key = "thread_following_empty_suggestions") {
                             FollowingSuggestionsSection(
                                 suggestions = followingSuggestions,

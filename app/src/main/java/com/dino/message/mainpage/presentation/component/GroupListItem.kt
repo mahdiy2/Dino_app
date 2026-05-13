@@ -29,6 +29,7 @@ fun GroupListItem(
     modifier: Modifier = Modifier,
     groupName: String,
     memberCount: Int,
+    subtitle: String? = null,
     newMessage: Boolean = false,
     onClick: () -> Unit,
 ) {
@@ -69,7 +70,7 @@ fun GroupListItem(
                 )
                 Spacer(Modifier.size(DPSmall))
                 Text(
-                    text = "$memberCount members",
+                    text = subtitle ?: "$memberCount members",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

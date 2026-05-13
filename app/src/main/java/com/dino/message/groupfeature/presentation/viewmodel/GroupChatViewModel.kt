@@ -104,6 +104,7 @@ class GroupChatViewModel @Inject constructor(
 
     val groupId: Int = checkNotNull(savedStateHandle["groupId"])
     val groupName: String = savedStateHandle["groupName"] ?: "Group"
+    val isPublicRoom: Boolean = savedStateHandle["isPublicRoom"] ?: false
 
     private val currentUsername: String = spref.getUsername() ?: ""
 
@@ -600,8 +601,8 @@ class GroupChatViewModel @Inject constructor(
         _memberProfileImageShapes.value = snapshot.profileImageShapes
         _memberBadges.value = snapshot.memberBadges
         memberIdsByUsername = snapshot.memberIds
-        memberPublicKeys = snapshot.decodedKeys
-        memberKeysReady = snapshot.decodedKeys.isNotEmpty()
+        memberPublicKeys = if (isPublicRoom) emptyMap() else snapshot.decodedKeys
+        memberKeysReady = isPublicRoom || snapshot.decodedKeys.isNotEmpty()
         reconcileOnlineUsersWithKnownMembers(snapshot.profileImages, snapshot.memberIds)
         if (previousFingerprint != newFingerprint) {
             invalidateGroupKeySession()
@@ -701,6 +702,7 @@ class GroupChatViewModel @Inject constructor(
         encryptedKeys: Map<String, String>?,
     ): String {
         if (encryptedMessage.isNullOrBlank()) return ""
+        if (isPublicRoom) return encryptedMessage
         if (encryptedKeys.isNullOrEmpty()) return GROUP_DECRYPTION_FALLBACK
 
         val myEncryptedKey = encryptedKeys[currentUsername].orEmpty()
@@ -816,6 +818,17 @@ class GroupChatViewModel @Inject constructor(
         appSocketManager.registerListener(socketOwner, "group_joined") {
             Log.d(TAG, "Joined group room $groupId")
             requestGroupOnlineUsersFromSocket()
+        }
+
+        appSocketManager.registerListener(socketOwner, "group_read_state_synced") { args ->
+            viewModelScope.launch {
+                val payload = parseSocketPayload(args) ?: return@launch
+                if (payload.optInt("group_id", -1) != groupId) return@launch
+                if (payload.optInt("marked", 0) <= 0) return@launch
+                historyMutex.withLock {
+                    fetchGroupHistoryPage(before = null)
+                }
+            }
         }
 
         appSocketManager.registerListener(socketOwner, "group_online_users") { args ->
@@ -1213,39 +1226,57 @@ class GroupChatViewModel @Inject constructor(
         val trimmed = text.trim()
         if (trimmed.isBlank()) return
 
-        val (keySession, encryptedMessage) = encryptForGroup(trimmed) ?: return
         val clientMessageId = UUID.randomUUID().toString()
-
         val replyTo = _replyingTo.value
-        val json = JSONObject().apply {
-            put("group_id", groupId)
-            put("message", encryptedMessage)
-            put("group_key_ref", keySession.keyRef)
-            put("type", "text")
-            put("client_message_id", clientMessageId)
-            if (keySession.includeKeyRecordsOnNextSend) {
-                put(
-                    "recipient_key_records",
-                    buildRecipientKeyRecordsJson(keySession.encryptedKeys),
-                )
+
+        val json = if (isPublicRoom) {
+            JSONObject().apply {
+                put("group_id", groupId)
+                put("message", trimmed)
+                put("type", "text")
+                put("client_message_id", clientMessageId)
+                if (replyTo != null) {
+                    put("reply_to_message_id", replyTo.messageId)
+                    put("reply_to_sender", replyTo.sender)
+                    val preview = replyTo.content.take(100)
+                    if (preview.isNotBlank()) {
+                        put("encrypted_reply_preview", preview)
+                    }
+                }
             }
-            if (replyTo != null) {
-                put("reply_to_message_id", replyTo.messageId)
-                put("reply_to_sender", replyTo.sender)
-                val preview = replyTo.content.take(100)
-                if (preview.isNotBlank()) {
+        } else {
+            val (keySession, encryptedMessage) = encryptForGroup(trimmed) ?: return
+            JSONObject().apply {
+                put("group_id", groupId)
+                put("message", encryptedMessage)
+                put("group_key_ref", keySession.keyRef)
+                put("type", "text")
+                put("client_message_id", clientMessageId)
+                if (keySession.includeKeyRecordsOnNextSend) {
                     put(
-                        "encrypted_reply_preview",
-                        CryptoUtil.encryptWithAesKey(preview, keySession.rawAesKey),
+                        "recipient_key_records",
+                        buildRecipientKeyRecordsJson(keySession.encryptedKeys),
                     )
                 }
+                if (replyTo != null) {
+                    put("reply_to_message_id", replyTo.messageId)
+                    put("reply_to_sender", replyTo.sender)
+                    val preview = replyTo.content.take(100)
+                    if (preview.isNotBlank()) {
+                        put(
+                            "encrypted_reply_preview",
+                            CryptoUtil.encryptWithAesKey(preview, keySession.rawAesKey),
+                        )
+                    }
+                }
+            }.also {
+                keySession.includeKeyRecordsOnNextSend = false
             }
         }
         emitGroupMessageWithRetry(
             payload = json,
             clientMessageId = clientMessageId,
         )
-        keySession.includeKeyRecordsOnNextSend = false
         stopTypingNow()
         clearReply()
     }
@@ -1280,46 +1311,71 @@ class GroupChatViewModel @Inject constructor(
                         _isUploading.value = false
                         val att = res.data
 
-                        val (keySession, encryptedMessage) = encryptForGroup("") ?: return@collect
                         val clientMessageId = UUID.randomUUID().toString()
-
                         val replyTo = _replyingTo.value
-                        val json = JSONObject().apply {
-                            put("group_id", groupId)
-                            put("message", encryptedMessage)
-                            put("group_key_ref", keySession.keyRef)
-                            put("type", mediaType)
-                            put("client_message_id", clientMessageId)
-                            if (keySession.includeKeyRecordsOnNextSend) {
-                                put(
-                                    "recipient_key_records",
-                                    buildRecipientKeyRecordsJson(keySession.encryptedKeys),
-                                )
+
+                        val json = if (isPublicRoom) {
+                            JSONObject().apply {
+                                put("group_id", groupId)
+                                put("message", "")
+                                put("type", mediaType)
+                                put("client_message_id", clientMessageId)
+                                put("attachment", JSONObject().apply {
+                                    put("type", att.type)
+                                    put("url", att.url)
+                                    put("mime_type", att.mimeType)
+                                    att.fileName?.let { put("file_name", it) }
+                                    att.sizeBytes?.let { put("size_bytes", it) }
+                                })
+                                if (replyTo != null) {
+                                    put("reply_to_message_id", replyTo.messageId)
+                                    put("reply_to_sender", replyTo.sender)
+                                    val preview = replyTo.content.take(100)
+                                    if (preview.isNotBlank()) {
+                                        put("encrypted_reply_preview", preview)
+                                    }
+                                }
                             }
-                            put("attachment", JSONObject().apply {
-                                put("type", att.type)
-                                put("url", att.url)
-                                put("mime_type", att.mimeType)
-                                att.fileName?.let { put("file_name", it) }
-                                att.sizeBytes?.let { put("size_bytes", it) }
-                            })
-                            if (replyTo != null) {
-                                put("reply_to_message_id", replyTo.messageId)
-                                put("reply_to_sender", replyTo.sender)
-                                val preview = replyTo.content.take(100)
-                                if (preview.isNotBlank()) {
+                        } else {
+                            val (keySession, encryptedMessage) = encryptForGroup("") ?: return@collect
+                            JSONObject().apply {
+                                put("group_id", groupId)
+                                put("message", encryptedMessage)
+                                put("group_key_ref", keySession.keyRef)
+                                put("type", mediaType)
+                                put("client_message_id", clientMessageId)
+                                if (keySession.includeKeyRecordsOnNextSend) {
                                     put(
-                                        "encrypted_reply_preview",
-                                        CryptoUtil.encryptWithAesKey(preview, keySession.rawAesKey),
+                                        "recipient_key_records",
+                                        buildRecipientKeyRecordsJson(keySession.encryptedKeys),
                                     )
                                 }
+                                put("attachment", JSONObject().apply {
+                                    put("type", att.type)
+                                    put("url", att.url)
+                                    put("mime_type", att.mimeType)
+                                    att.fileName?.let { put("file_name", it) }
+                                    att.sizeBytes?.let { put("size_bytes", it) }
+                                })
+                                if (replyTo != null) {
+                                    put("reply_to_message_id", replyTo.messageId)
+                                    put("reply_to_sender", replyTo.sender)
+                                    val preview = replyTo.content.take(100)
+                                    if (preview.isNotBlank()) {
+                                        put(
+                                            "encrypted_reply_preview",
+                                            CryptoUtil.encryptWithAesKey(preview, keySession.rawAesKey),
+                                        )
+                                    }
+                                }
+                            }.also {
+                                keySession.includeKeyRecordsOnNextSend = false
                             }
                         }
                         emitGroupMessageWithRetry(
                             payload = json,
                             clientMessageId = clientMessageId,
                         )
-                        keySession.includeKeyRecordsOnNextSend = false
                         clearReply()
                     }
                     is Resource.Error -> {
@@ -1730,6 +1786,12 @@ class GroupChatViewModel @Inject constructor(
     }
 
     private fun disconnectSocket() {
+        if (appSocketManager.isConnected()) {
+            appSocketManager.emit(
+                "leave_group",
+                JSONObject().apply { put("group_id", groupId) }
+            )
+        }
         appSocketManager.unregisterOwner(socketOwner)
     }
 

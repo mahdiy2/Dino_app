@@ -10,7 +10,9 @@ import com.dino.message.groupfeature.domain.model.Group
 import com.dino.message.groupfeature.domain.model.GroupHistoryPage
 import com.dino.message.groupfeature.domain.model.GroupMessageEntity
 import com.dino.message.groupfeature.domain.model.GroupOnlineUser
+import com.dino.message.groupfeature.domain.model.JoinPublicRoomResult
 import com.dino.message.groupfeature.domain.model.MutualFollowersPage
+import com.dino.message.groupfeature.domain.model.PublicRoomStatus
 import com.dino.message.groupfeature.domain.repository.GroupRepository
 import javax.inject.Inject
 
@@ -48,6 +50,12 @@ class GroupRepositoryImpl @Inject constructor(
 
     override suspend fun getMutualFollowers(page: Int, limit: Int): Resource<MutualFollowersPage> =
         apiService.getMutualFollowers(page, limit)
+
+    override suspend fun getPublicRoomStatus(): Resource<PublicRoomStatus> =
+        apiService.getPublicRoomStatus()
+
+    override suspend fun joinPublicRoom(): Resource<JoinPublicRoomResult> =
+        apiService.joinPublicRoom()
 
     override suspend fun uploadGroupAttachment(groupId: Int, fileUri: Uri): Resource<MessageAttachment> =
          apiService.uploadGroupAttachment(groupId, fileUri)

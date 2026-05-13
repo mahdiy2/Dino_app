@@ -5,6 +5,8 @@ import com.dino.message.corefeature.data.remote.BaseRoute
 sealed class GroupRoute(url: String) : BaseRoute(url) {
     object CreateGroup : GroupRoute("api/groups")
     object ListGroups : GroupRoute("api/groups")
+    object PublicRoomStatus : GroupRoute("api/groups/public-room")
+    object JoinPublicRoom : GroupRoute("api/groups/public-room/join")
     object GetUnreadGroups : GroupRoute("api/groups/unread")
     data class GroupDetail(val groupId: Int) : GroupRoute("api/groups/$groupId")
     data class GroupMembers(val groupId: Int) : GroupRoute("api/groups/$groupId/members")

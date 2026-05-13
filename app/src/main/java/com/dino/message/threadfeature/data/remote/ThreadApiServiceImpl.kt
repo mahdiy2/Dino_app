@@ -9,6 +9,7 @@ import com.dino.message.corefeature.data.remote.util.HttpAPIUtil
 import com.dino.message.corefeature.data.remote.util.appendTokenToHeader
 import com.dino.message.corefeature.data.remote.util.ensureFreshAccessTokenIfNearExpiry
 import com.dino.message.corefeature.data.spref.SPrefManager
+import com.dino.message.corefeature.data.upload.MediaFileResolver
 import com.dino.message.corefeature.domain.model.asStringResourceContent
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.crashfeature.data.service.CrashReporter
@@ -215,19 +216,7 @@ class ThreadApiServiceImpl @Inject constructor(
 
     private fun resolveFileSize(mediaFile: CreatePostMedia): Long? {
         mediaFile.sizeBytes?.let { if (it >= 0) return it }
-        val uri = mediaFile.uri
-        if (uri.scheme == "file") {
-            val path = uri.path ?: return null
-            val file = File(path)
-            return if (file.exists()) file.length() else null
-        }
-        val cursor = appContext.contentResolver.query(uri, null, null, null, null)
-            ?: return null
-        return cursor.use {
-            if (!it.moveToFirst()) return@use null
-            val index = it.getColumnIndex(OpenableColumns.SIZE)
-            if (index >= 0 && !it.isNull(index)) it.getLong(index) else null
-        }
+        return MediaFileResolver.resolveFileSize(appContext.contentResolver, mediaFile.uri)
     }
 
     private fun openInputStream(mediaFile: CreatePostMedia): java.io.InputStream {

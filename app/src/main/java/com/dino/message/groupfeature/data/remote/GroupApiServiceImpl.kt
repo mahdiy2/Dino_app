@@ -4,7 +4,6 @@ import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
 import android.util.Log
-import android.webkit.MimeTypeMap
 import com.dino.message.chatfeature.data.remote.dto.MessageAttachment
 import com.dino.message.corefeature.data.remote.HaveRefreshTokenAPI
 import com.dino.message.corefeature.data.remote.HaveRefreshTokenAPIImpl
@@ -13,6 +12,7 @@ import com.dino.message.corefeature.data.remote.util.appendTokenToHeader
 import com.dino.message.corefeature.data.remote.util.ensureFreshAccessTokenIfNearExpiry
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.data.upload.AttachmentUploadPolicy
+import com.dino.message.corefeature.data.upload.MediaFileResolver
 import com.dino.message.corefeature.domain.model.asStringResourceContent
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.groupfeature.data.remote.dto.AddGroupMembersRequest
@@ -25,13 +25,17 @@ import com.dino.message.groupfeature.data.remote.dto.GroupOnlineUsersResponse
 import com.dino.message.groupfeature.data.remote.dto.GroupUploadAttachmentResponse
 import com.dino.message.groupfeature.data.remote.dto.ListGroupsResponse
 import com.dino.message.groupfeature.data.remote.dto.MutualFollowersResponse
+import com.dino.message.groupfeature.data.remote.dto.PublicRoomStatusResponse
+import com.dino.message.groupfeature.data.remote.dto.JoinPublicRoomResponse
 import com.dino.message.chatfeature.data.remote.dto.ReactToMessageRequest
 import com.dino.message.chatfeature.data.remote.dto.ReactToMessageResponse
 import com.dino.message.groupfeature.domain.model.AddGroupMembersResult
 import com.dino.message.groupfeature.domain.model.Group
 import com.dino.message.groupfeature.domain.model.GroupHistoryPage
 import com.dino.message.groupfeature.domain.model.GroupOnlineUser
+import com.dino.message.groupfeature.domain.model.JoinPublicRoomResult
 import com.dino.message.groupfeature.domain.model.MutualFollowersPage
+import com.dino.message.groupfeature.domain.model.PublicRoomStatus
 import io.ktor.client.HttpClient
 import io.ktor.client.request.forms.MultiPartFormDataContent
 import io.ktor.client.request.forms.InputProvider
@@ -40,6 +44,7 @@ import io.ktor.client.request.get
 import io.ktor.client.request.parameter
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
+import io.ktor.client.plugins.timeout
 import io.ktor.http.ContentType
 import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
@@ -56,6 +61,7 @@ class GroupApiServiceImpl @Inject constructor(
 ) : GroupApiService, HaveRefreshTokenAPI by HaveRefreshTokenAPIImpl(httpClient, sPrefManager) {
     companion object {
         private const val TAG = "GroupApiServiceImpl"
+        private const val ATTACHMENT_UPLOAD_TIMEOUT_MS = 120_000L
     }
 
     override suspend fun createGroup(name: String, members: List<String>): Resource<Group> =
@@ -150,6 +156,28 @@ class GroupApiServiceImpl @Inject constructor(
             callRefreshTokenAPI = this::getToken
         )
 
+    override suspend fun getPublicRoomStatus(): Resource<PublicRoomStatus> =
+        httpAPIUtil.callAPIWithErrorHandling<PublicRoomStatus, PublicRoomStatusResponse>(
+            callAPI = {
+                httpClient.get(GroupRoute.PublicRoomStatus.url) {
+                    contentType(ContentType.Application.Json)
+                    appendTokenToHeader(sPrefManager.getToken())
+                }
+            },
+            callRefreshTokenAPI = this::getToken
+        )
+
+    override suspend fun joinPublicRoom(): Resource<JoinPublicRoomResult> =
+        httpAPIUtil.callAPIWithErrorHandling<JoinPublicRoomResult, JoinPublicRoomResponse>(
+            callAPI = {
+                httpClient.post(GroupRoute.JoinPublicRoom.url) {
+                    contentType(ContentType.Application.Json)
+                    appendTokenToHeader(sPrefManager.getToken())
+                }
+            },
+            callRefreshTokenAPI = this::getToken
+        )
+
     override suspend fun uploadGroupAttachment(groupId: Int, fileUri: Uri): Resource<MessageAttachment> {
         val mimeType = AttachmentUploadPolicy.normalizeMimeType(resolveMimeType(fileUri))
         val fileName = resolveFileName(fileUri)
@@ -179,6 +207,10 @@ class GroupApiServiceImpl @Inject constructor(
             callAPI = {
                 httpClient.post(GroupRoute.GroupAttachments(groupId).url) {
                     appendTokenToHeader(sPrefManager.getToken())
+                    timeout {
+                        requestTimeoutMillis = ATTACHMENT_UPLOAD_TIMEOUT_MS
+                        socketTimeoutMillis = ATTACHMENT_UPLOAD_TIMEOUT_MS
+                    }
                     setBody(
                         MultiPartFormDataContent(
                             formData {
@@ -243,29 +275,15 @@ class GroupApiServiceImpl @Inject constructor(
     }
 
     private fun resolveMimeType(uri: Uri): String {
-        val fromResolver = appContext.contentResolver.getType(uri)
-        if (!fromResolver.isNullOrBlank() && fromResolver != "application/octet-stream") return fromResolver
-        val extension = uri.lastPathSegment?.substringAfterLast('.', "")?.lowercase()
-        if (!extension.isNullOrBlank()) {
-            val fromExtension = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension)
-            if (!fromExtension.isNullOrBlank()) return fromExtension
-        }
-        return fromResolver ?: "application/octet-stream"
+        return MediaFileResolver.resolveMimeType(
+            contentResolver = appContext.contentResolver,
+            uri = uri,
+            displayNameHint = resolveFileName(uri),
+        )
     }
 
     private fun resolveFileSize(uri: Uri): Long? {
-        if (uri.scheme == "file") {
-            val path = uri.path ?: return null
-            val file = File(path)
-            return if (file.exists()) file.length() else null
-        }
-        val cursor = appContext.contentResolver.query(uri, null, null, null, null)
-            ?: return null
-        return cursor.use {
-            if (!it.moveToFirst()) return@use null
-            val index = it.getColumnIndex(OpenableColumns.SIZE)
-            if (index >= 0 && !it.isNull(index)) it.getLong(index) else null
-        }
+        return MediaFileResolver.resolveFileSize(appContext.contentResolver, uri)
     }
 
     private fun canReadFile(uri: Uri): Boolean {

@@ -107,6 +107,8 @@ fun MainScreen() {
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val isLoadingMore by viewModel.isLoadingMore.collectAsState()
     val hasMore by viewModel.hasMore.collectAsState()
+    val publicRoom by viewModel.publicRoom.collectAsState()
+    val isPublicRoomMember by viewModel.isPublicRoomMember.collectAsState()
     val playbackState by MusicPlaybackManager.playbackState.collectAsState()
     val hasNowPlaying = !playbackState.currentTrackUrl.isNullOrBlank()
     var nowPlayingHeightPx by remember { mutableIntStateOf(0) }
@@ -234,7 +236,7 @@ fun MainScreen() {
 
                         }
 
-                        if (viewModel.groupList.isEmpty() && viewModel.contactList.isEmpty() && !isRefreshing) {
+                        if (viewModel.groupList.isEmpty() && publicRoom == null && viewModel.contactList.isEmpty() && !isRefreshing) {
                                 Column(
                                     Modifier.fillMaxSize(),
                                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -282,7 +284,37 @@ fun MainScreen() {
                                 }
 
 
-                                if (viewModel.groupList.isNotEmpty()) {
+                                if (publicRoom != null || viewModel.groupList.isNotEmpty()) {
+                                    publicRoom?.let { room ->
+                                        item {
+                                            Text(
+                                                text = stringResource(R.string.public_room_section_title),
+                                                style = MaterialTheme.typography.titleSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.padding(
+                                                    start = DPMedium,
+                                                    top = DPSmall,
+                                                    bottom = DPSmall
+                                                )
+                                            )
+                                        }
+                                        item {
+                                            GroupListItem(
+                                                groupName = room.name,
+                                                memberCount = room.memberCount,
+                                                subtitle = if (isPublicRoomMember) {
+                                                    stringResource(R.string.public_room_joined_subtitle)
+                                                } else {
+                                                    stringResource(R.string.public_room_join_prompt)
+                                                },
+                                                newMessage = room.hasUnread,
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                viewModel.openPublicRoom()
+                                            }
+                                        }
+                                    }
+
                                     item {
                                         Text(
                                             text = stringResource(R.string.groups),
@@ -296,6 +328,7 @@ fun MainScreen() {
                                         )
                                     }
                                     items(viewModel.groupList) { group ->
+                                        if (group.isPublicRoom) return@items
                                         GroupListItem(
                                             groupName = group.name,
                                             memberCount = group.memberCount,

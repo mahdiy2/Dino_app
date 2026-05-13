@@ -21,7 +21,9 @@ interface ProfileApiService {
         bio: String? = null,
         profileImageShape: String? = null,
         profileImage: ProfileUpdateImage? = null,
-        profileVideo: ProfileUpdateImage? = null
+        profileVideo: ProfileUpdateImage? = null,
+        removeProfileImage: Boolean = false,
+        removeProfileVideo: Boolean = false,
     ): Resource<Profile>
 
     suspend fun deleteMyAccount(): Resource<ProfileFollowResult>

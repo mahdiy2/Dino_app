@@ -18,6 +18,8 @@ import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.dino.message.groupfeature.domain.model.Group
+import com.dino.message.groupfeature.domain.usecase.GetPublicRoomStatusUseCase
+import com.dino.message.groupfeature.domain.usecase.JoinPublicRoomUseCase
 import com.dino.message.groupfeature.domain.usecase.ListGroupsUseCase
 import com.dino.message.mainpage.data.remote.dto.DetailedContact
 import com.dino.message.mainpage.domain.model.MessageList
@@ -48,6 +50,8 @@ class MainScreenViewModel @Inject constructor(
     private val getContactsDeltaUseCase: GetContactsDeltaUseCase,
     private val getDetailedContactsUseCase: GetDetailedContactsUseCase,
     private val listGroupsUseCase: ListGroupsUseCase,
+    private val getPublicRoomStatusUseCase: GetPublicRoomStatusUseCase,
+    private val joinPublicRoomUseCase: JoinPublicRoomUseCase,
     private val isTrackInPlaylistUseCase: IsTrackInPlaylistUseCase,
     private val appSocketManager: AppSocketManager,
 ) : AndroidViewModel(app as DinoOrderApplication),
@@ -74,6 +78,10 @@ class MainScreenViewModel @Inject constructor(
 
     private var _groupList = mutableStateListOf<Group>()
     val groupList: List<Group> get() = _groupList
+    private val _publicRoom = MutableStateFlow<Group?>(null)
+    val publicRoom: StateFlow<Group?> = _publicRoom.asStateFlow()
+    private val _isPublicRoomMember = MutableStateFlow(false)
+    val isPublicRoomMember: StateFlow<Boolean> = _isPublicRoomMember.asStateFlow()
 
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
@@ -119,6 +127,7 @@ class MainScreenViewModel @Inject constructor(
         }
         if (shouldRefreshContacts) {
             loadGroups()
+            loadPublicRoomStatus()
         }
     }
 
@@ -224,6 +233,31 @@ class MainScreenViewModel @Inject constructor(
         }
     }
 
+    private fun loadPublicRoomStatus() = viewModelScope.launch {
+        getPublicRoomStatusUseCase.execute().collect { res ->
+            when (res) {
+                is Resource.Success -> {
+                    _publicRoom.value = res.data.group
+                    _isPublicRoomMember.value = res.data.isMember
+                    if (res.data.isMember) {
+                        val index = _groupList.indexOfFirst { it.id == res.data.group.id }
+                        if (index >= 0) {
+                            _groupList[index] = _groupList[index].copy(
+                                isPublicRoom = true,
+                                roomKey = res.data.group.roomKey,
+                                messageTtlSeconds = res.data.group.messageTtlSeconds,
+                            )
+                        }
+                    }
+                }
+                is Resource.Loading -> Unit
+                is Resource.Error -> {
+                    Log.e(TAG, "Failed to load public room status")
+                }
+            }
+        }
+    }
+
     private fun connectSocket() {
         registerSocketListeners()
         appSocketManager.connect()
@@ -308,6 +342,10 @@ class MainScreenViewModel @Inject constructor(
         val index = _groupList.indexOfFirst { it.id == groupId }
         if (index >= 0) {
             _groupList[index] = _groupList[index].copy(hasUnread = hasUnread)
+        }
+        val room = _publicRoom.value
+        if (room != null && room.id == groupId) {
+            _publicRoom.value = room.copy(hasUnread = hasUnread)
         }
     }
 
@@ -499,9 +537,37 @@ class MainScreenViewModel @Inject constructor(
             GroupChatScreenDestination(
                 groupId = group.id,
                 groupName = group.name,
+                isPublicRoom = group.isPublicRoom,
             ),
             viewModelScope
         )
+    }
+
+    fun openPublicRoom() = viewModelScope.launch {
+        val room = _publicRoom.value ?: return@launch
+        if (_isPublicRoomMember.value) {
+            navigateToGroupChatScreen(room.copy(isPublicRoom = true))
+            return@launch
+        }
+
+        joinPublicRoomUseCase.execute().collect { res ->
+            when (res) {
+                is Resource.Success -> {
+                    _publicRoom.value = res.data.group
+                    _isPublicRoomMember.value = true
+                    loadGroups()
+                    navigateToGroupChatScreen(res.data.group.copy(isPublicRoom = true))
+                }
+                is Resource.Loading -> Unit
+                is Resource.Error -> {
+                    Toast.makeText(
+                        context,
+                        res.message.asString(context),
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        }
     }
 
     fun showBottomSheet() {

@@ -13,15 +13,18 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBackIosNew
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.Card
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -150,13 +153,31 @@ fun EditProfileScreen() {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    ProfileMediaPickerCircle(
-                        previewModel = imagePreviewModel,
-                        isVideoPreview = false,
-                        shape = resolvedAvatarShape,
-                        enabled = isFormEnabled,
-                        onClick = { imagePickerLauncher.launch(arrayOf("image/*")) }
-                    )
+                    Box {
+                        ProfileMediaPickerCircle(
+                            previewModel = imagePreviewModel,
+                            isVideoPreview = false,
+                            shape = resolvedAvatarShape,
+                            enabled = isFormEnabled,
+                            onClick = { imagePickerLauncher.launch(arrayOf("image/*")) }
+                        )
+                        if (imagePreviewModel != null) {
+                            FilledIconButton(
+                                onClick = viewModel::removeProfileImage,
+                                enabled = isFormEnabled,
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .size(30.dp),
+                                shape = CircleShape
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Close,
+                                    contentDescription = stringResource(R.string.remove_profile_image),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                    }
 
                     Spacer(modifier = Modifier.size(DPMedium))
                     Text(
@@ -173,13 +194,31 @@ fun EditProfileScreen() {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    ProfileMediaPickerCircle(
-                        previewModel = videoPreviewModel,
-                        isVideoPreview = true,
-                        shape = resolvedAvatarShape,
-                        enabled = isFormEnabled,
-                        onClick = { videoPickerLauncher.launch(arrayOf("video/*")) }
-                    )
+                    Box {
+                        ProfileMediaPickerCircle(
+                            previewModel = videoPreviewModel,
+                            isVideoPreview = true,
+                            shape = resolvedAvatarShape,
+                            enabled = isFormEnabled,
+                            onClick = { videoPickerLauncher.launch(arrayOf("video/*")) }
+                        )
+                        if (videoPreviewModel != null) {
+                            FilledIconButton(
+                                onClick = viewModel::removeProfileVideo,
+                                enabled = isFormEnabled,
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .size(30.dp),
+                                shape = CircleShape
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Close,
+                                    contentDescription = stringResource(R.string.remove_profile_video),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                    }
 
                     Spacer(modifier = Modifier.size(DPMedium))
                     Text(
