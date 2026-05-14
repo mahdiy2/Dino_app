@@ -29,6 +29,14 @@ interface ThreadRepository {
         quotedPostId: Long? = null
     ): Resource<CreatedPost>
 
+    suspend fun editPost(
+        postId: Long,
+        text: String,
+        mediaFiles: List<CreatePostMedia> = emptyList(),
+        keepMediaIds: List<Long> = emptyList(),
+        followersOnly: Boolean? = null
+    ): Resource<DeleteContentResult>
+
     suspend fun deletePost(postId: Long): Resource<DeleteContentResult>
 
     suspend fun getPost(postId: Long): Resource<Post>

@@ -8,6 +8,7 @@ sealed class ThreadRoute(url: String) : BaseRoute(url) {
     data class DeletePost(val postId: Long) : ThreadRoute("api/posts/$postId")
 
     data class GetPost(val postId: Long) : ThreadRoute("api/posts/$postId")
+    data class UpdatePost(val postId: Long) : ThreadRoute("api/posts/$postId")
 
     data class GetPosts(val page: Int, val limit: Int) : ThreadRoute("api/posts?page=$page&limit=$limit")
     object GetFeed : ThreadRoute("api/posts/feed")

@@ -31,9 +31,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.dino.message.R
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
+import com.dino.message.corefeature.presentation.ui.theme.DPSmall
 import com.dino.message.corefeature.presentation.util.backIconModifier
+import com.dino.message.threadfeature.presentation.component.ThreadCommentsSection
+import com.dino.message.threadfeature.presentation.component.ThreadCommentsSectionStyle
 import com.dino.message.threadfeature.presentation.component.ThreadPostCard
 import com.dino.message.threadfeature.presentation.viewmodel.SharedPostDetailsViewModel
+import com.dino.message.threadfeature.presentation.viewmodel.ThreadCommentsViewModel
 import com.ramcosta.composedestinations.annotation.Destination
 import com.ramcosta.composedestinations.annotation.RootGraph
 
@@ -41,9 +45,10 @@ import com.ramcosta.composedestinations.annotation.RootGraph
 @Destination<RootGraph>
 @Composable
 fun SharedPostDetailsScreen(
-    postId: Long,
+    postId: Long
 ) {
     val viewModel: SharedPostDetailsViewModel = hiltViewModel()
+    val commentsViewModel: ThreadCommentsViewModel = hiltViewModel()
     val post by viewModel.post.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
@@ -93,13 +98,13 @@ fun SharedPostDetailsScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(paddingValues),
-                    verticalArrangement = Arrangement.spacedBy(DPMedium)
+                    verticalArrangement = Arrangement.spacedBy(DPSmall)
                 ) {
                     item {
                         ThreadPostCard(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(DPMedium),
+                                .padding(horizontal = DPMedium, vertical = DPSmall),
                             post = post!!,
                             canDownloadMedia = viewerHasBadge,
                             selectedPostVote = selectedVote,
@@ -117,6 +122,16 @@ fun SharedPostDetailsScreen(
                             onShowTrackPlaylistAddersClick = { media, trackTitle ->
                                 viewModel.openTrackPlaylistAddersDialog(media, trackTitle)
                             }
+                        )
+                    }
+
+                    item {
+                        ThreadCommentsSection(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = DPMedium, vertical = DPSmall),
+                            viewModel = commentsViewModel,
+                            style = ThreadCommentsSectionStyle.Embedded
                         )
                     }
                 }

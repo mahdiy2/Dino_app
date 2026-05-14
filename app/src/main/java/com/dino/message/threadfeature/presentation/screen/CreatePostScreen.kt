@@ -70,25 +70,46 @@ import com.ramcosta.composedestinations.annotation.RootGraph
 @Destination<RootGraph>
 @Composable
 fun CreatePostScreen(
-    quotedPostId: Long = 0L
+    quotedPostId: Long = 0L,
+    editPostId: Long = 0L
 ) {
     val viewModel: CreatePostViewModel = hiltViewModel()
     val isSubmitting by viewModel.isSubmitting.collectAsState()
+    val isInitialPostLoading by viewModel.isInitialPostLoading.collectAsState()
     val error by viewModel.error.collectAsState()
     val quotedPost by viewModel.quotedPost.collectAsState()
     val isQuotedPostLoading by viewModel.isQuotedPostLoading.collectAsState()
     val quotedPostError by viewModel.quotedPostError.collectAsState()
     val selectedMedia = viewModel.selectedMedia
     val context = LocalContext.current
-    val previewMedia = selectedMedia.map {
-        PostMedia(
-            id = it.id,
-            url = it.uri.toString(),
-            mime_type = it.mimeType
+    val previewMedia = buildList {
+        addAll(viewModel.existingMedia)
+        addAll(
+            selectedMedia.map {
+                PostMedia(
+                    id = it.id,
+                    url = it.uri.toString(),
+                    mime_type = it.mimeType
+                )
+            }
         )
     }
 
-    val canSubmit = viewModel.postDraft.value.trim().isNotEmpty()
+    val canSubmit = if (viewModel.isEditMode) {
+        viewModel.postDraft.value.trim().isNotEmpty() || previewMedia.isNotEmpty()
+    } else {
+        viewModel.postDraft.value.trim().isNotEmpty()
+    }
+    val screenTitle = if (viewModel.isEditMode) {
+        stringResource(R.string.edit_post_title)
+    } else {
+        stringResource(R.string.create_post_title)
+    }
+    val submitText = if (viewModel.isEditMode) {
+        stringResource(R.string.save)
+    } else {
+        stringResource(R.string.post)
+    }
     val mediaPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickMultipleVisualMedia(
             CreatePostViewModel.MAX_MEDIA_FILES_PER_POST
@@ -116,11 +137,11 @@ fun CreatePostScreen(
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text(text = stringResource(R.string.create_post_title)) },
+                title = { Text(text = screenTitle) },
                 navigationIcon = {
                     IconButton(
                         onClick = { viewModel.closeScreen() },
-                        enabled = !isSubmitting
+                        enabled = !isSubmitting && !isInitialPostLoading
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.ArrowBackIosNew,
@@ -132,7 +153,7 @@ fun CreatePostScreen(
                 actions = {
                     FilledTonalButton(
                         onClick = { viewModel.submitPost() },
-                        enabled = canSubmit && !isSubmitting
+                        enabled = canSubmit && !isSubmitting && !isInitialPostLoading
                     ) {
                         if (isSubmitting) {
                             CircularProgressIndicator(
@@ -140,7 +161,7 @@ fun CreatePostScreen(
                                 strokeWidth = 2.dp
                             )
                         } else {
-                            Text(stringResource(R.string.post))
+                            Text(submitText)
                         }
                     }
                 }
@@ -154,9 +175,19 @@ fun CreatePostScreen(
                 .padding(horizontal = DPExtraLarge, vertical = DPMedium),
             verticalArrangement = Arrangement.spacedBy(DPMedium)
         ) {
-
-
-
+            if (isInitialPostLoading) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = DPMedium),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 2.dp
+                    )
+                }
+            }
 
             Spacer(modifier = Modifier.height(DPSmall))
             Text(
@@ -216,7 +247,7 @@ fun CreatePostScreen(
                         )
                     }
 
-                    AnimatedVisibility(visible = selectedMedia.isNotEmpty()) {
+                    AnimatedVisibility(visible = previewMedia.isNotEmpty()) {
                         Column(verticalArrangement = Arrangement.spacedBy(DPSmall)) {
                             Carousel(
                                 modifier = Modifier.fillMaxWidth(),
@@ -234,6 +265,30 @@ fun CreatePostScreen(
                                     AssistChip(
                                         onClick = { viewModel.removeSelectedMedia(media.id) },
                                         label = { Text(media.displayName, maxLines = 1) },
+                                        trailingIcon = {
+                                            Icon(
+                                                imageVector = Icons.Rounded.Close,
+                                                contentDescription = stringResource(R.string.remove_media)
+                                            )
+                                        },
+                                        colors = AssistChipDefaults.assistChipColors(
+                                            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest
+                                        )
+                                    )
+                                }
+                                items(
+                                    items = viewModel.existingMedia,
+                                    key = { "existing_${it.id}" }
+                                ) { media ->
+                                    AssistChip(
+                                        onClick = { viewModel.removeExistingMedia(media.id) },
+                                        label = {
+                                            Text(
+                                                text = media.display_name?.ifBlank { null }
+                                                    ?: stringResource(R.string.existing_media_label),
+                                                maxLines = 1
+                                            )
+                                        },
                                         trailingIcon = {
                                             Icon(
                                                 imageVector = Icons.Rounded.Close,
@@ -274,40 +329,42 @@ fun CreatePostScreen(
                         }
                     }
 
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        color = MaterialTheme.colorScheme.inversePrimary,
-                        shape = MaterialTheme.shapes.extraLarge
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .selectable(
-                                    selected = viewModel.followersOnly.value,
-                                    enabled = !isSubmitting,
-                                    onClick = {
-                                        viewModel.onFollowersOnlyChanged(!viewModel.followersOnly.value)
-                                    }
-                                )
-                                .padding(horizontal = DPMedium, vertical = DPSmall),
-                            horizontalArrangement = Arrangement.spacedBy(DPSmall),
-                            verticalAlignment = Alignment.CenterVertically
+                    if (!viewModel.isEditMode) {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = MaterialTheme.colorScheme.inversePrimary,
+                            shape = MaterialTheme.shapes.extraLarge
                         ) {
-                            RadioButton(
-                                selected = viewModel.followersOnly.value,
-                                onClick = { viewModel.onFollowersOnlyChanged(!viewModel.followersOnly.value) },
-                                enabled = !isSubmitting
-                            )
-                            Column {
-                                Text(
-                                    text = stringResource(R.string.followers_only),
-                                    style = MaterialTheme.typography.bodyMedium
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .selectable(
+                                        selected = viewModel.followersOnly.value,
+                                        enabled = !isSubmitting,
+                                        onClick = {
+                                            viewModel.onFollowersOnlyChanged(!viewModel.followersOnly.value)
+                                        }
+                                    )
+                                    .padding(horizontal = DPMedium, vertical = DPSmall),
+                                horizontalArrangement = Arrangement.spacedBy(DPSmall),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = viewModel.followersOnly.value,
+                                    onClick = { viewModel.onFollowersOnlyChanged(!viewModel.followersOnly.value) },
+                                    enabled = !isSubmitting
                                 )
-                                Text(
-                                    text = stringResource(R.string.followers_only_hint),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                Column {
+                                    Text(
+                                        text = stringResource(R.string.followers_only),
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.followers_only_hint),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             }
                         }
                     }
@@ -347,7 +404,9 @@ fun CreatePostScreen(
                             mediaPermissionLauncher.launch(MediaPermissionHandler.getRequiredPermissions())
                         }
                     },
-                    enabled = !isSubmitting && selectedMedia.size < CreatePostViewModel.MAX_MEDIA_FILES_PER_POST
+                    enabled = !isSubmitting &&
+                        !isInitialPostLoading &&
+                        previewMedia.size < CreatePostViewModel.MAX_MEDIA_FILES_PER_POST
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.AttachFile,
@@ -358,7 +417,7 @@ fun CreatePostScreen(
                 }
 
                 Text(
-                    text = "${selectedMedia.size}/${CreatePostViewModel.MAX_MEDIA_FILES_PER_POST}",
+                    text = "${previewMedia.size}/${CreatePostViewModel.MAX_MEDIA_FILES_PER_POST}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

@@ -121,6 +121,7 @@ fun ActivityNotificationScreen() {
                             isReplyComposerVisible = viewModel.isReplyComposerVisible(notification.id),
                             replyDraft = viewModel.replyDraft(notification.id),
                             isReplySending = viewModel.isReplySending(notification.id),
+                            onNotificationClick = { viewModel.openNotification(notification) },
                             onToggleReplyComposer = { viewModel.toggleReplyComposer(notification.id) },
                             onReplyDraftChanged = { viewModel.onReplyDraftChanged(notification.id, it) },
                             onSendReply = { viewModel.submitReply(notification) }

@@ -39,6 +39,21 @@ class ThreadRepositoryImpl(
             quotedPostId = quotedPostId
         )
 
+    override suspend fun editPost(
+        postId: Long,
+        text: String,
+        mediaFiles: List<CreatePostMedia>,
+        keepMediaIds: List<Long>,
+        followersOnly: Boolean?
+    ): Resource<DeleteContentResult> =
+        threadApiService.editPost(
+            postId = postId,
+            text = text,
+            mediaFiles = mediaFiles,
+            keepMediaIds = keepMediaIds,
+            followersOnly = followersOnly
+        )
+
     override suspend fun deletePost(postId: Long): Resource<DeleteContentResult> =
         threadApiService.deletePost(postId = postId)
 

@@ -212,6 +212,17 @@
     <string name="private_key_not_found">کلید خصوصی پیدا نشد. ثبت‌نام را دوباره انجام دهید.</string>
     <string name="private_key_title">کلید خصوصی</string>
     <string name="profile_media">رسانه پروفایل</string>
+    <string name="edit_profile_tagline">حال‌وهوای پروفایلت را با رسانه و فرم ظاهری شخصی‌تر کن.</string>
+    <string name="edit_profile_media_hint">با یک عکس خوب و یک ویدیوی کوتاه، پروفایلت زنده‌تر دیده می‌شود.</string>
+    <string name="edit_profile_photo_hint">عکس‌های مربعی بهترین نمایش را دارند.</string>
+    <string name="edit_profile_video_hint">ویدیو را کوتاه و تاثیرگذار نگه دار.</string>
+    <string name="edit_profile_identity_title">هویت</string>
+    <string name="edit_profile_identity_subtitle">نام و بیویی را که دیگران در پروفایل عمومی می‌بینند به‌روز کن.</string>
+    <string name="edit_profile_character_counter">%1$d / %2$d کاراکتر</string>
+    <string name="edit_profile_status_saving">در حال ذخیره تغییرات پروفایل...</string>
+    <string name="edit_profile_status_loading">در حال همگام‌سازی پروفایل فعلی...</string>
+    <string name="edit_profile_status_pending">تغییرات رسانه‌ای ذخیره‌نشده داری.</string>
+    <string name="edit_profile_status_ready">همه‌چیز برای ذخیره آماده است.</string>
     <string name="quoted_post">پست نقل‌قول</string>
     <string name="record_voice">ضبط صدا</string>
     <string name="refresh">نوسازی</string>

@@ -17,8 +17,10 @@ import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.dino.message.threadfeature.domain.model.CreatePostMedia
 import com.dino.message.threadfeature.domain.model.Post
+import com.dino.message.threadfeature.domain.model.PostMedia
 import com.dino.message.threadfeature.domain.model.QuotedPostPreview
 import com.dino.message.threadfeature.domain.usecase.CreatePostUseCase
+import com.dino.message.threadfeature.domain.usecase.EditPostUseCase
 import com.dino.message.threadfeature.domain.usecase.GetPostUseCase
 import com.dino.message.threadfeature.presentation.util.resolveMusicMetadata
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -44,20 +46,27 @@ class PostMusicViewModel @Inject constructor(
     @ApplicationContext app: Context,
     private val sPrefManager: SPrefManager,
     private val createPostUseCase: CreatePostUseCase,
+    private val editPostUseCase: EditPostUseCase,
     private val getPostUseCase: GetPostUseCase,
     savedStateHandle: SavedStateHandle
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
 
     private val quotedPostIdArg: Long = savedStateHandle.get<Long>("quotedPostId") ?: 0L
+    private val editPostIdArg: Long = savedStateHandle.get<Long>("editPostId") ?: 0L
     val quotedPostId: Long? = quotedPostIdArg.takeIf { it > 0L }
+    val editPostId: Long? = editPostIdArg.takeIf { it > 0L }
+    val isEditMode: Boolean = editPostId != null
 
     val postDraft = mutableStateOf("")
     val followersOnly = mutableStateOf(false)
     val selectedTrack = mutableStateOf<SelectedMusicTrack?>(null)
+    val existingTrack = mutableStateOf<PostMedia?>(null)
 
     private val _isSubmitting = MutableStateFlow(false)
     val isSubmitting: StateFlow<Boolean> = _isSubmitting.asStateFlow()
+    private val _isInitialPostLoading = MutableStateFlow(false)
+    val isInitialPostLoading: StateFlow<Boolean> = _isInitialPostLoading.asStateFlow()
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
@@ -69,7 +78,11 @@ class PostMusicViewModel @Inject constructor(
     val quotedPostError: StateFlow<String?> = _quotedPostError.asStateFlow()
 
     init {
-        loadQuotedPostPreviewIfNeeded()
+        if (isEditMode) {
+            loadPostForEditing()
+        } else {
+            loadQuotedPostPreviewIfNeeded()
+        }
     }
 
     fun onPostDraftChanged(value: String) {
@@ -104,18 +117,23 @@ class PostMusicViewModel @Inject constructor(
             artist = resolved.artist,
             mimeType = mimeType
         )
+        if (isEditMode) {
+            existingTrack.value = null
+        }
         _error.value = null
     }
 
     fun clearSelectedTrack() {
         selectedTrack.value = null
+        existingTrack.value = null
     }
 
     fun submitPost() {
         if (_isSubmitting.value) return
 
         val track = selectedTrack.value
-        if (track == null) {
+        val originalTrack = existingTrack.value
+        if (track == null && originalTrack == null) {
             _error.value = "Please select one music track"
             return
         }
@@ -125,21 +143,35 @@ class PostMusicViewModel @Inject constructor(
         viewModelScope.launch {
             _isSubmitting.value = true
             try {
-                val media = withContext(Dispatchers.IO) {
-                    buildMedia(track)
+                val media = if (track != null) {
+                    withContext(Dispatchers.IO) {
+                        buildMedia(track)
+                    } ?: run {
+                        _error.value = "Failed to read selected music file"
+                        return@launch
+                    }
+                } else {
+                    null
                 }
 
-                if (media == null) {
-                    _error.value = "Failed to read selected music file"
-                    return@launch
+                val submitFlow = if (isEditMode) {
+                    editPostUseCase.execute(
+                        postId = editPostId ?: return@launch,
+                        text = text,
+                        mediaFiles = media?.let { listOf(it) } ?: emptyList(),
+                        keepMediaIds = originalTrack?.let { listOf(it.id) } ?: emptyList(),
+                        followersOnly = null
+                    )
+                } else {
+                    createPostUseCase.execute(
+                        text = text,
+                        mediaFiles = listOfNotNull(media),
+                        followersOnly = followersOnly.value,
+                        quotedPostId = quotedPostId,
+                    )
                 }
 
-                createPostUseCase.execute(
-                    text = text,
-                    mediaFiles = listOf(media),
-                    followersOnly = followersOnly.value,
-                    quotedPostId = quotedPostId,
-                ).collect { res ->
+                submitFlow.collect { res ->
                     when (res) {
                         is Resource.Loading -> Unit
                         is Resource.Success -> {
@@ -148,6 +180,7 @@ class PostMusicViewModel @Inject constructor(
                             postDraft.value = ""
                             followersOnly.value = false
                             selectedTrack.value = null
+                            existingTrack.value = null
                             navigateUp(viewModelScope)
                         }
                         is Resource.Error -> {
@@ -187,6 +220,35 @@ class PostMusicViewModel @Inject constructor(
                     is Resource.Error -> {
                         _isQuotedPostLoading.value = false
                         _quotedPostError.value = res.message.asString(getApplication())
+                    }
+                }
+            }
+        }
+    }
+
+    private fun loadPostForEditing() {
+        val postId = editPostId ?: return
+
+        viewModelScope.launch {
+            getPostUseCase.execute(postId).collect { res ->
+                when (res) {
+                    is Resource.Loading -> {
+                        _isInitialPostLoading.value = true
+                        _error.value = null
+                    }
+
+                    is Resource.Success -> {
+                        _isInitialPostLoading.value = false
+                        _error.value = null
+                        postDraft.value = res.data.text
+                        existingTrack.value = res.data.media.firstOrNull {
+                            it.mime_type.startsWith("audio/", ignoreCase = true)
+                        }
+                    }
+
+                    is Resource.Error -> {
+                        _isInitialPostLoading.value = false
+                        _error.value = res.message.asString(getApplication())
                     }
                 }
             }
@@ -298,6 +360,8 @@ class PostMusicViewModel @Inject constructor(
         text = text,
         author = author,
         created_at = created_at,
+        editedAt = editedAt,
+        isEdited = isEdited,
         media = media
     )
 }

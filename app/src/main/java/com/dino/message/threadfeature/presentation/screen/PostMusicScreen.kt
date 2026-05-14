@@ -62,17 +62,30 @@ import com.ramcosta.composedestinations.annotation.RootGraph
 @Destination<RootGraph>
 @Composable
 fun PostMusicScreen(
-    quotedPostId: Long = 0L
+    quotedPostId: Long = 0L,
+    editPostId: Long = 0L
 ) {
     val viewModel: PostMusicViewModel = hiltViewModel()
     val context = LocalContext.current
     val selectedTrack = viewModel.selectedTrack.value
+    val existingTrack = viewModel.existingTrack.value
     val isSubmitting by viewModel.isSubmitting.collectAsState()
+    val isInitialPostLoading by viewModel.isInitialPostLoading.collectAsState()
     val error by viewModel.error.collectAsState()
     val quotedPost by viewModel.quotedPost.collectAsState()
     val isQuotedPostLoading by viewModel.isQuotedPostLoading.collectAsState()
     val quotedPostError by viewModel.quotedPostError.collectAsState()
-    val canSubmit = selectedTrack != null
+    val canSubmit = selectedTrack != null || existingTrack != null
+    val screenTitle = if (viewModel.isEditMode) {
+        stringResource(R.string.edit_post_music_title)
+    } else {
+        stringResource(R.string.post_music_title)
+    }
+    val submitText = if (viewModel.isEditMode) {
+        stringResource(R.string.save)
+    } else {
+        stringResource(R.string.post)
+    }
 
     val musicPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
@@ -91,11 +104,11 @@ fun PostMusicScreen(
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text(text = stringResource(R.string.post_music_title)) },
+                title = { Text(text = screenTitle) },
                 navigationIcon = {
                     IconButton(
                         onClick = { viewModel.closeScreen() },
-                        enabled = !isSubmitting
+                        enabled = !isSubmitting && !isInitialPostLoading
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.ArrowBackIosNew,
@@ -107,7 +120,7 @@ fun PostMusicScreen(
                 actions = {
                     FilledTonalButton(
                         onClick = { viewModel.submitPost() },
-                        enabled = canSubmit && !isSubmitting
+                        enabled = canSubmit && !isSubmitting && !isInitialPostLoading
                     ) {
                         if (isSubmitting) {
                             CircularProgressIndicator(
@@ -115,7 +128,7 @@ fun PostMusicScreen(
                                 strokeWidth = 2.dp
                             )
                         } else {
-                            Text(stringResource(R.string.post))
+                            Text(submitText)
                         }
                     }
                 }
@@ -129,6 +142,20 @@ fun PostMusicScreen(
                 .padding(horizontal = DPExtraLarge, vertical = DPMedium),
             verticalArrangement = Arrangement.spacedBy(DPMedium)
         ) {
+            if (isInitialPostLoading) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = DPMedium),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 2.dp
+                    )
+                }
+            }
+
             Text(
                 text = stringResource(R.string.preview),
                 style = MaterialTheme.typography.titleMedium
@@ -193,6 +220,15 @@ fun PostMusicScreen(
                             trackSubtitle = artistTextOrUnknown(selectedTrack.artist),
                             enabled = !isSubmitting
                         )
+                    } else if (existingTrack != null) {
+                        MusicTrackPlayerCard(
+                            trackUrl = existingTrack.url,
+                            trackTitle = existingTrack.title?.ifBlank { null }
+                                ?: existingTrack.display_name?.ifBlank { null }
+                                ?: stringResource(R.string.post_music_title_fallback),
+                            trackSubtitle = artistTextOrUnknown(existingTrack.artist),
+                            enabled = !isSubmitting
+                        )
                     } else {
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
@@ -233,40 +269,42 @@ fun PostMusicScreen(
                         }
                     }
 
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        color = MaterialTheme.colorScheme.inversePrimary,
-                        shape = MaterialTheme.shapes.extraLarge
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .selectable(
-                                    selected = viewModel.followersOnly.value,
-                                    enabled = !isSubmitting,
-                                    onClick = {
-                                        viewModel.onFollowersOnlyChanged(!viewModel.followersOnly.value)
-                                    }
-                                )
-                                .padding(horizontal = DPMedium, vertical = DPSmall),
-                            horizontalArrangement = Arrangement.spacedBy(DPSmall),
-                            verticalAlignment = Alignment.CenterVertically
+                    if (!viewModel.isEditMode) {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = MaterialTheme.colorScheme.inversePrimary,
+                            shape = MaterialTheme.shapes.extraLarge
                         ) {
-                            RadioButton(
-                                selected = viewModel.followersOnly.value,
-                                onClick = { viewModel.onFollowersOnlyChanged(!viewModel.followersOnly.value) },
-                                enabled = !isSubmitting
-                            )
-                            Column {
-                                Text(
-                                    text = stringResource(R.string.followers_only),
-                                    style = MaterialTheme.typography.bodyMedium
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .selectable(
+                                        selected = viewModel.followersOnly.value,
+                                        enabled = !isSubmitting,
+                                        onClick = {
+                                            viewModel.onFollowersOnlyChanged(!viewModel.followersOnly.value)
+                                        }
+                                    )
+                                    .padding(horizontal = DPMedium, vertical = DPSmall),
+                                horizontalArrangement = Arrangement.spacedBy(DPSmall),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = viewModel.followersOnly.value,
+                                    onClick = { viewModel.onFollowersOnlyChanged(!viewModel.followersOnly.value) },
+                                    enabled = !isSubmitting
                                 )
-                                Text(
-                                    text = stringResource(R.string.followers_only_hint),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                Column {
+                                    Text(
+                                        text = stringResource(R.string.followers_only),
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.followers_only_hint),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             }
                         }
                     }
@@ -297,7 +335,7 @@ fun PostMusicScreen(
                     onClick = {
                         musicPickerLauncher.launch(arrayOf("*/*"))
                     },
-                    enabled = !isSubmitting
+                    enabled = !isSubmitting && !isInitialPostLoading
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.LibraryMusic,
@@ -305,7 +343,7 @@ fun PostMusicScreen(
                     )
                     Spacer(modifier = Modifier.size(DPSmall))
                     Text(
-                        if (selectedTrack == null) {
+                        if (selectedTrack == null && existingTrack == null) {
                             stringResource(R.string.post_music_select)
                         } else {
                             stringResource(R.string.post_music_replace)
@@ -313,10 +351,10 @@ fun PostMusicScreen(
                     )
                 }
 
-                if (selectedTrack != null) {
+                if (selectedTrack != null || existingTrack != null) {
                     IconButton(
                         onClick = { viewModel.clearSelectedTrack() },
-                        enabled = !isSubmitting
+                        enabled = !isSubmitting && !isInitialPostLoading
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Close,
@@ -327,10 +365,16 @@ fun PostMusicScreen(
             }
 
             Text(
-                text = if (selectedTrack == null) {
-                    stringResource(R.string.post_music_required)
-                } else {
+                text = if (selectedTrack != null) {
                     stringResource(R.string.post_music_selected_format, selectedTrack.displayName)
+                } else if (existingTrack != null) {
+                    stringResource(
+                        R.string.post_music_selected_format,
+                        existingTrack.display_name?.ifBlank { null }
+                            ?: stringResource(R.string.post_music_title_fallback)
+                    )
+                } else {
+                    stringResource(R.string.post_music_required)
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant

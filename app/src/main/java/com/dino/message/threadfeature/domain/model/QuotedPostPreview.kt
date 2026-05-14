@@ -9,6 +9,10 @@ data class QuotedPostPreview(
     val text: String,
     val author: Author,
     val created_at: String,
+    @SerialName("edited_at")
+    val editedAt: String? = null,
+    @SerialName("is_edited")
+    val isEdited: Boolean = false,
     val media: List<PostMedia> = emptyList(),
     @SerialName("is_daily_winner")
     val isDailyWinner: Boolean = false,

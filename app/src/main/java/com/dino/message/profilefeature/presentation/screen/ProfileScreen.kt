@@ -568,6 +568,11 @@ fun ProfileScreen(username: String? = null) {
                         } else {
                             null
                         },
+                        onEditPostClick = if (isOwnProfile) {
+                            { viewModel.openEditPostScreen(post) }
+                        } else {
+                            null
+                        },
                         onAddTrackToPlaylistClick = { media ->
                             viewModel.addTrackToPlaylist(media.id)
                         },

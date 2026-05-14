@@ -17,8 +17,10 @@ import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.dino.message.threadfeature.domain.model.CreatePostMedia
 import com.dino.message.threadfeature.domain.model.Post
+import com.dino.message.threadfeature.domain.model.PostMedia
 import com.dino.message.threadfeature.domain.model.QuotedPostPreview
 import com.dino.message.threadfeature.domain.usecase.CreatePostUseCase
+import com.dino.message.threadfeature.domain.usecase.EditPostUseCase
 import com.dino.message.threadfeature.domain.usecase.GetPostUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -42,6 +44,7 @@ class CreatePostViewModel @Inject constructor(
     @ApplicationContext app: Context,
     private val sPrefManager: SPrefManager,
     private val createPostUseCase: CreatePostUseCase,
+    private val editPostUseCase: EditPostUseCase,
     private val getPostUseCase: GetPostUseCase,
     savedStateHandle: SavedStateHandle
 ) : AndroidViewModel(app as DinoOrderApplication),
@@ -52,16 +55,23 @@ class CreatePostViewModel @Inject constructor(
     }
 
     private val quotedPostIdArg: Long = savedStateHandle.get<Long>("quotedPostId") ?: 0L
+    private val editPostIdArg: Long = savedStateHandle.get<Long>("editPostId") ?: 0L
     val quotedPostId: Long? = quotedPostIdArg.takeIf { it > 0L }
+    val editPostId: Long? = editPostIdArg.takeIf { it > 0L }
+    val isEditMode: Boolean = editPostId != null
 
     val postDraft = mutableStateOf("")
     val followersOnly = mutableStateOf(false)
     private val _selectedMedia = mutableStateListOf<SelectedPostMedia>()
     val selectedMedia: List<SelectedPostMedia> = _selectedMedia
+    private val _existingMedia = mutableStateListOf<PostMedia>()
+    val existingMedia: List<PostMedia> = _existingMedia
     private var mediaIdSequence = 0L
 
     private val _isSubmitting = MutableStateFlow(false)
     val isSubmitting: StateFlow<Boolean> = _isSubmitting.asStateFlow()
+    private val _isInitialPostLoading = MutableStateFlow(false)
+    val isInitialPostLoading: StateFlow<Boolean> = _isInitialPostLoading.asStateFlow()
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
@@ -73,7 +83,11 @@ class CreatePostViewModel @Inject constructor(
     val quotedPostError: StateFlow<String?> = _quotedPostError.asStateFlow()
 
     init {
-        loadQuotedPostPreviewIfNeeded()
+        if (isEditMode) {
+            loadPostForEditing()
+        } else {
+            loadQuotedPostPreviewIfNeeded()
+        }
     }
 
 
@@ -97,7 +111,7 @@ class CreatePostViewModel @Inject constructor(
         var skippedUnknownVideoDuration = 0
 
         uris.forEach { uri ->
-            if (_selectedMedia.size >= MAX_MEDIA_FILES_PER_POST) {
+            if (_selectedMedia.size + _existingMedia.size >= MAX_MEDIA_FILES_PER_POST) {
                 skippedMaxLimit++
                 return@forEach
             }
@@ -155,12 +169,21 @@ class CreatePostViewModel @Inject constructor(
         _selectedMedia.removeAll { it.id == id }
     }
 
+    fun removeExistingMedia(id: Long) {
+        _existingMedia.removeAll { it.id == id }
+    }
+
     fun submitPost() {
         if (_isSubmitting.value) return
 
         val text = postDraft.value.trim()
-        if (text.isEmpty()) {
+        val totalMediaCount = _existingMedia.size + _selectedMedia.size
+        if (!isEditMode && text.isEmpty()) {
             _error.value = "Post text is required"
+            return
+        }
+        if (isEditMode && text.isEmpty() && totalMediaCount == 0) {
+            _error.value = "Text is required"
             return
         }
 
@@ -175,12 +198,24 @@ class CreatePostViewModel @Inject constructor(
                     return@launch
                 }
 
-                createPostUseCase.execute(
-                    text = text,
-                    mediaFiles = mediaFiles,
-                    followersOnly = followersOnly.value,
-                    quotedPostId = quotedPostId,
-                ).collect { res ->
+                val submitFlow = if (isEditMode) {
+                    editPostUseCase.execute(
+                        postId = editPostId ?: return@launch,
+                        text = text,
+                        mediaFiles = mediaFiles,
+                        keepMediaIds = _existingMedia.map { it.id },
+                        followersOnly = null
+                    )
+                } else {
+                    createPostUseCase.execute(
+                        text = text,
+                        mediaFiles = mediaFiles,
+                        followersOnly = followersOnly.value,
+                        quotedPostId = quotedPostId,
+                    )
+                }
+
+                submitFlow.collect { res ->
                     when (res) {
                         is Resource.Loading -> Unit
                         is Resource.Success -> {
@@ -188,6 +223,7 @@ class CreatePostViewModel @Inject constructor(
                             sPrefManager.markThreadRefreshAfterPost()
                             postDraft.value = ""
                             followersOnly.value = false
+                            _existingMedia.clear()
                             _selectedMedia.clear()
                             navigateUp(viewModelScope)
                         }
@@ -228,6 +264,37 @@ class CreatePostViewModel @Inject constructor(
                     is Resource.Error -> {
                         _isQuotedPostLoading.value = false
                         _quotedPostError.value = res.message.asString(getApplication())
+                    }
+                }
+            }
+        }
+    }
+
+    private fun loadPostForEditing() {
+        val postId = editPostId ?: return
+
+        viewModelScope.launch {
+            getPostUseCase.execute(postId).collect { res ->
+                when (res) {
+                    is Resource.Loading -> {
+                        _isInitialPostLoading.value = true
+                        _error.value = null
+                    }
+
+                    is Resource.Success -> {
+                        _isInitialPostLoading.value = false
+                        _error.value = null
+                        postDraft.value = res.data.text
+                        followersOnly.value = false
+                        _existingMedia.clear()
+                        _existingMedia.addAll(
+                            res.data.media.filterNot { it.mime_type.startsWith("audio/", ignoreCase = true) }
+                        )
+                    }
+
+                    is Resource.Error -> {
+                        _isInitialPostLoading.value = false
+                        _error.value = res.message.asString(getApplication())
                     }
                 }
             }
@@ -289,6 +356,8 @@ class CreatePostViewModel @Inject constructor(
         text = text,
         author = author,
         created_at = created_at,
+        editedAt = editedAt,
+        isEdited = isEdited,
         media = media
     )
 }

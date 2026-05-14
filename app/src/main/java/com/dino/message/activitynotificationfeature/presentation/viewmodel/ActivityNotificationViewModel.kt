@@ -16,6 +16,7 @@ import com.dino.message.profilefeature.domain.usecase.FollowUserUseCase
 import com.dino.message.profilefeature.domain.usecase.GetFollowStatusUseCase
 import com.dino.message.threadfeature.domain.usecase.CreateCommentUseCase
 import com.ramcosta.composedestinations.generated.destinations.ProfileScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.SharedPostDetailsScreenDestination
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -195,6 +196,27 @@ class ActivityNotificationViewModel @Inject constructor(
         navigateToDestination(ProfileScreenDestination(username = username), viewModelScope)
     }
 
+    fun shouldOpenPostDetails(notification: ActivityNotification): Boolean {
+        return resolvePostId(notification) != null && (
+            notification.kind == "comment" ||
+                notification.kind == "comment_reply" ||
+                isUpvoteNotification(notification)
+            )
+    }
+
+    fun openNotification(notification: ActivityNotification) {
+        val postId = resolvePostId(notification)
+        if (postId != null && shouldOpenPostDetails(notification)) {
+            navigateToDestination(
+                SharedPostDetailsScreenDestination(postId = postId),
+                viewModelScope
+            )
+            return
+        }
+
+        openUserProfile(notification.actor.username)
+    }
+
     fun canReply(notification: ActivityNotification): Boolean {
         if (notification.kind != "comment" && notification.kind != "comment_reply") return false
         return resolvePostId(notification) != null && resolveParentCommentId(notification) != null
@@ -260,6 +282,13 @@ class ActivityNotificationViewModel @Inject constructor(
     private fun resolveParentCommentId(notification: ActivityNotification): Long? {
         return notification.extra?.comment_id
             ?: if (notification.target_type == "comment") notification.target_id else null
+    }
+
+    private fun isUpvoteNotification(notification: ActivityNotification): Boolean {
+        if (notification.kind != "vote") return false
+        val voteValue = notification.extra?.vote_value
+        val voteLabel = notification.extra?.vote_label?.lowercase()
+        return voteValue == 1 || voteLabel == "upvote"
     }
 
     private fun showLoading(isRefresh: Boolean, isLoadMore: Boolean) {

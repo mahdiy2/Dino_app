@@ -18,14 +18,14 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
-import androidx.compose.material3.Text
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -33,8 +33,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.dino.message.R
 import com.dino.message.activitynotificationfeature.domain.model.ActivityNotification
-import com.dino.message.corefeature.presentation.ui.theme.DPLarge
 import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
+import com.dino.message.corefeature.presentation.ui.theme.DPLarge
 import com.dino.message.corefeature.presentation.util.getRelativeTimeLabel
 import com.dino.message.profilefeature.presentation.component.ProfileAvatarMedia
 
@@ -49,6 +49,7 @@ fun ActivityNotificationItem(
     isReplyComposerVisible: Boolean,
     replyDraft: String,
     isReplySending: Boolean,
+    onNotificationClick: () -> Unit,
     onToggleReplyComposer: () -> Unit,
     onReplyDraftChanged: (String) -> Unit,
     onSendReply: () -> Unit,
@@ -65,6 +66,7 @@ fun ActivityNotificationItem(
         modifier = modifier
             .fillMaxWidth()
             .background(bgColor)
+            .clickable(onClick = onNotificationClick)
             .padding(horizontal = DPExtraLarge, vertical = DPLarge),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(DPLarge)
@@ -88,7 +90,6 @@ fun ActivityNotificationItem(
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontWeight = if (!notification.is_read) FontWeight.SemiBold else FontWeight.Normal
                 ),
-                modifier = Modifier.clickable { onOpenProfile(notification.actor.username) },
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
@@ -197,17 +198,20 @@ private fun buildNotificationTitle(notification: ActivityNotification, context: 
                 ?: context.getString(R.string.notification_your_post)
             context.getString(R.string.notification_title_comment, actorName, postPreview)
         }
+
         "comment_reply" -> {
             val postPreview = quotedPreview(notification.extra?.post_text_preview, 40)
                 ?: context.getString(R.string.notification_your_post)
             context.getString(R.string.notification_title_comment_reply, actorName, postPreview)
         }
+
         "vote" -> {
             val label = notification.extra?.vote_label ?: context.getString(R.string.notification_vote_label_default)
             val postPreview = quotedPreview(notification.extra?.post_text_preview, 40)
                 ?: context.getString(R.string.notification_your_post)
             context.getString(R.string.notification_title_vote, actorName, label, postPreview)
         }
+
         "post_like_milestone" -> {
             val count = notification.extra?.engagement_count ?: notification.extra?.milestone_count
             val postPreview = quotedPreview(notification.extra?.post_text_preview, 40)
@@ -218,6 +222,7 @@ private fun buildNotificationTitle(notification: ActivityNotification, context: 
                 context.getString(R.string.notification_title_like_milestone_many, postPreview)
             }
         }
+
         "post_comment_milestone" -> {
             val count = notification.extra?.engagement_count ?: notification.extra?.milestone_count
             val postPreview = quotedPreview(notification.extra?.post_text_preview, 40)
@@ -228,6 +233,7 @@ private fun buildNotificationTitle(notification: ActivityNotification, context: 
                 context.getString(R.string.notification_title_comment_milestone_many, postPreview)
             }
         }
+
         "story_mention" -> context.getString(R.string.notification_title_story_mention, actorName)
         "story_reply" -> context.getString(R.string.notification_title_story_reply, actorName)
         else -> context.getString(R.string.notification_title_interacted, actorName)
@@ -243,12 +249,15 @@ private fun buildNotificationSubtitle(notification: ActivityNotification, contex
             when {
                 commentPreview.isNotBlank() && postPreview.isNotBlank() ->
                     context.getString(R.string.notification_subtitle_comment_post, commentPreview, postLine)
+
                 commentPreview.isNotBlank() -> context.getString(R.string.notification_subtitle_comment, commentPreview)
                 postPreview.isNotBlank() ->
                     context.getString(R.string.notification_subtitle_post, postLine)
+
                 else -> null
             }
         }
+
         "comment_reply" -> {
             val replyPreview = notification.extra?.comment_preview?.trim().orEmpty()
             val parentPreview = notification.extra?.parent_comment_preview?.trim().orEmpty()
@@ -266,6 +275,7 @@ private fun buildNotificationSubtitle(notification: ActivityNotification, contex
             }
             parts.takeIf { it.isNotEmpty() }?.joinToString("\n")
         }
+
         "post_like_milestone", "post_comment_milestone" -> {
             val thresholdPercent = notification.extra?.percent_threshold
             val activeUsers = notification.extra?.active_users
@@ -275,6 +285,7 @@ private fun buildNotificationSubtitle(notification: ActivityNotification, contex
                 null
             }
         }
+
         "story_mention" -> context.getString(R.string.notification_subtitle_story_mention)
         "story_reply" -> {
             val preview = notification.extra?.reply_preview?.trim().orEmpty()
@@ -284,6 +295,7 @@ private fun buildNotificationSubtitle(notification: ActivityNotification, contex
                 context.getString(R.string.notification_subtitle_story_reply)
             }
         }
+
         else -> null
     }
 }

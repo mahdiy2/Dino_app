@@ -82,6 +82,7 @@ fun ThreadPostCard(
     onUserClick: (() -> Unit)? = null,
     onReportClick: (() -> Unit)? = null,
     onBlockUserClick: (() -> Unit)? = null,
+    onEditPostClick: (() -> Unit)? = null,
     onDeletePostClick: (() -> Unit)? = null,
     onAddTrackToPlaylistClick: ((PostMedia) -> Unit)? = null,
     onShowTrackPlaylistAddersClick: ((PostMedia, String) -> Unit)? = null,
@@ -194,12 +195,26 @@ fun ThreadPostCard(
                             border = null
                         )
                     }
-                    Text(
-                        text = stringResource(R.string.time_ago_format, getTimeAgo(post.created_at)),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    if (onReportClick != null || onBlockUserClick != null || onDeletePostClick != null) {
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(
+                            text = stringResource(R.string.time_ago_format, getTimeAgo(post.created_at)),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        if (post.isEdited) {
+                            Text(
+                                text = stringResource(R.string.post_edited_label),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    if (
+                        onReportClick != null ||
+                        onBlockUserClick != null ||
+                        onEditPostClick != null ||
+                        onDeletePostClick != null
+                    ) {
                         Box {
                             IconButton(
                                 onClick = { showPostMenu = true },
@@ -230,6 +245,15 @@ fun ThreadPostCard(
                                         onClick = {
                                             showPostMenu = false
                                             onBlockUserClick()
+                                        }
+                                    )
+                                }
+                                if (onEditPostClick != null) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.edit_post_action)) },
+                                        onClick = {
+                                            showPostMenu = false
+                                            onEditPostClick()
                                         }
                                     )
                                 }

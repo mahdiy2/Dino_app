@@ -28,12 +28,14 @@ import com.dino.message.threadfeature.domain.model.VoteTargetType
 import com.dino.message.threadfeature.domain.usecase.AddTrackToPlaylistUseCase
 import com.dino.message.threadfeature.domain.usecase.GetStoryFeedUseCase
 import com.dino.message.threadfeature.domain.usecase.VoteUseCase
+import com.ramcosta.composedestinations.generated.destinations.CreatePostScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.CreatePostOptionsBottomSheetScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.DeletePostBottomSheetScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.EditProfileScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.LoginScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.ProfileFollowListScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.ReferralScreenDestination
+import com.ramcosta.composedestinations.generated.destinations.PostMusicScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.ProfileSettingsScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.ReportPostBottomSheetScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.SharePostBottomSheetScreenDestination
@@ -477,6 +479,28 @@ class ProfileScreenViewModel @Inject constructor(
         shouldRefreshWhenScreenResumes = true
         navigateToDestination(
             DeletePostBottomSheetScreenDestination(postId),
+            viewModelScope
+        )
+    }
+
+    fun openEditPostScreen(post: Post) {
+        if (!_isOwnProfile.value) return
+        shouldRefreshWhenScreenResumes = true
+        val isMusicPost = post.media.any { it.mime_type.startsWith("audio/", ignoreCase = true) }
+        if (isMusicPost) {
+            navigateToDestination(
+                PostMusicScreenDestination(
+                    editPostId = post.id
+                ),
+                viewModelScope
+            )
+            return
+        }
+
+        navigateToDestination(
+            CreatePostScreenDestination(
+                editPostId = post.id
+            ),
             viewModelScope
         )
     }

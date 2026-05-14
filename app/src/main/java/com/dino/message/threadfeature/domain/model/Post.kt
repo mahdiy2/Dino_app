@@ -9,6 +9,10 @@ data class Post(
     val text: String,
     val author: Author,
     val created_at: String,
+    @SerialName("edited_at")
+    val editedAt: String? = null,
+    @SerialName("is_edited")
+    val isEdited: Boolean = false,
     @SerialName("viewer_vote")
     val viewerVote: Long = 0L,
     val media: List<PostMedia>,

@@ -117,6 +117,9 @@
     <string name="delete_post_body">This action cannot be undone.</string>
     <string name="delete_post_title">Delete post?</string>
     <string name="dismiss">Dismiss</string>
+    <string name="edit_post_action">Edit</string>
+    <string name="edit_post_title">Edit post</string>
+    <string name="edit_post_music_title">Edit music post</string>
     <string name="edit_profile">Edit profile</string>
     <string name="encryption_keys_auto_generated">Encryption keys are generated and saved automatically.</string>
     <string name="english_short">English</string>
@@ -128,6 +131,7 @@
     <string name="error_try_again">%1$s. Try again.</string>
     <string name="error_username_allowed_chars">Username can only contain English letters, numbers, ’.’, ’-’, and ’_’.</string>
     <string name="error_username_min_length">Username must be at least 7 characters.</string>
+    <string name="existing_media_label">Existing media</string>
     <string name="failed_to_load_encryption_key">Failed to load encryption key</string>
     <string name="fix_message_encryption">Fix message encryption</string>
     <string name="fix_message_encryption_description">Reset keys if messages can’t decrypt</string>
@@ -207,8 +211,10 @@
     <string name="post_music_required">Required: 1 music track</string>
     <string name="post_music_select">Select music</string>
     <string name="post_music_selected_format">Selected: %1$s</string>
+    <string name="post_music_title_fallback">Music track</string>
     <string name="post_music_title">Post music</string>
     <string name="post_not_found">Post not found</string>
+    <string name="post_edited_label">Edited</string>
     <string name="preview">Preview</string>
     <string name="privacy">Privacy</string>
     <string name="privacy_policy">Privacy policy</string>
@@ -220,6 +226,17 @@
     <string name="private_key_not_found">Private key not found. Please restart registration.</string>
     <string name="private_key_title">Private key</string>
     <string name="profile_media">Profile media</string>
+    <string name="edit_profile_tagline">Design your profile vibe with expressive media and shape.</string>
+    <string name="edit_profile_media_hint">Use a strong photo and a short intro clip to make your profile feel alive.</string>
+    <string name="edit_profile_photo_hint">Square photos look best.</string>
+    <string name="edit_profile_video_hint">Keep it short and punchy.</string>
+    <string name="edit_profile_identity_title">Identity</string>
+    <string name="edit_profile_identity_subtitle">Update the name and bio people will see on your public profile.</string>
+    <string name="edit_profile_character_counter">%1$d / %2$d characters</string>
+    <string name="edit_profile_status_saving">Saving your profile changes...</string>
+    <string name="edit_profile_status_loading">Syncing your current profile...</string>
+    <string name="edit_profile_status_pending">You have pending media updates.</string>
+    <string name="edit_profile_status_ready">Everything looks ready to save.</string>
     <string name="profile_picture_shape_title">Profile picture shape</string>
     <string name="profile_picture_shape_subtitle">Badge members can choose how their avatar appears across the app.</string>
     <string name="profile_picture_shape_more_coming">More shapes coming soon.</string>

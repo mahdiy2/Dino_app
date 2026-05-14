@@ -17,6 +17,7 @@ import com.dino.message.threadfeature.data.remote.dto.CreateCommentRequest
 import com.dino.message.threadfeature.data.remote.dto.CreateCommentResponse
 import com.dino.message.threadfeature.data.remote.dto.CreatePostRequest
 import com.dino.message.threadfeature.data.remote.dto.CreatePostResponse
+import com.dino.message.threadfeature.data.remote.dto.EditPostRequest
 import com.dino.message.threadfeature.data.remote.dto.AddPlaylistTrackRequest
 import com.dino.message.threadfeature.data.remote.dto.AddPlaylistTrackResponse
 import com.dino.message.threadfeature.data.remote.dto.BlockUserResponse
@@ -68,6 +69,7 @@ import io.ktor.client.request.forms.MultiPartFormDataContent
 import io.ktor.client.request.forms.formData
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
+import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.client.plugins.timeout
 import io.ktor.http.ContentType
@@ -204,6 +206,119 @@ class ThreadApiServiceImpl @Inject constructor(
                             it.mimeType.trim().ifBlank { "unknown" }
                         }
                     )
+                    append('\n')
+                    append("error_message=")
+                    append(errorMessage)
+                }
+            )
+        }
+
+        return result
+    }
+
+    override suspend fun editPost(
+        postId: Long,
+        text: String,
+        mediaFiles: List<CreatePostMedia>,
+        keepMediaIds: List<Long>,
+        followersOnly: Boolean?
+    ): Resource<DeleteContentResult> {
+        if (mediaFiles.isNotEmpty()) {
+            ensureFreshAccessTokenBeforeUpload()
+        }
+
+        if (mediaFiles.size > MAX_MEDIA_FILES_PER_POST) {
+            return Resource.Error(
+                message = "Maximum 8 media files allowed".asStringResourceContent()
+            )
+        }
+
+        val result = httpAPIUtil.callAPIWithErrorHandling<DeleteContentResult, DeleteContentResponse>(
+            callAPI = {
+                httpClient.put(ThreadRoute.UpdatePost(postId).url) {
+                    appendTokenToHeader(sPrefManager.getToken())
+                    timeout {
+                        requestTimeoutMillis = POST_UPLOAD_REQUEST_TIMEOUT_MS
+                        socketTimeoutMillis = POST_UPLOAD_SOCKET_TIMEOUT_MS
+                    }
+
+                    if (mediaFiles.isEmpty()) {
+                        contentType(ContentType.Application.Json)
+                        setBody(
+                            EditPostRequest(
+                                text = text,
+                                keep_media_ids = keepMediaIds,
+                                followers_only = followersOnly
+                            )
+                        )
+                    } else {
+                        setBody(
+                            MultiPartFormDataContent(
+                                formData {
+                                    append("text", text)
+                                    keepMediaIds.forEach { mediaId ->
+                                        append("keep_media_ids[]", mediaId.toString())
+                                    }
+                                    followersOnly?.let {
+                                        append("followers_only", it.toString())
+                                    }
+                                    val firstAudioMedia = mediaFiles.firstOrNull {
+                                        it.mimeType.startsWith("audio/", ignoreCase = true)
+                                    }
+                                    firstAudioMedia?.trackTitle
+                                        ?.trim()
+                                        ?.takeIf { it.isNotBlank() }
+                                        ?.let { append("track_title", it) }
+                                    firstAudioMedia?.trackArtist
+                                        ?.trim()
+                                        ?.takeIf { it.isNotBlank() }
+                                        ?.let { append("track_artist", it) }
+                                    mediaFiles.forEach { mediaFile ->
+                                        val fileName = mediaFile.fileName.ifBlank { "media_file" }
+                                        append(
+                                            key = "media[]",
+                                            value = InputProvider(size = resolveFileSize(mediaFile)) {
+                                                openInputStream(mediaFile).asInput()
+                                            },
+                                            headers = Headers.build {
+                                                append(
+                                                    HttpHeaders.ContentDisposition,
+                                                    "form-data; name=\"media[]\"; filename=\"$fileName\""
+                                                )
+                                                append(HttpHeaders.ContentType, mediaFile.mimeType)
+                                            }
+                                        )
+                                    }
+                                }
+                            )
+                        )
+                    }
+                }
+            },
+            callRefreshTokenAPI = this::getToken
+        )
+
+        if (result is Resource.Error) {
+            val errorMessage = result.message.asString(appContext)
+            crashReporter.reportNonFatalIssue(
+                issueType = "EditPostRequestFailed",
+                message = errorMessage,
+                category = "network",
+                details = buildString {
+                    append("endpoint=")
+                    append(ThreadRoute.UpdatePost(postId).url)
+                    append('\n')
+                    append("post_id=")
+                    append(postId)
+                    append('\n')
+                    append("keep_media_ids=")
+                    append(keepMediaIds.joinToString(","))
+                    append('\n')
+                    append("followers_only=")
+                    append(followersOnly?.toString() ?: "null")
+                    append('\n')
+                    append("media_count=")
+                    append(mediaFiles.size)
                     append('\n')
                     append("error_message=")
                     append(errorMessage)
