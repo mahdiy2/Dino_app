@@ -23,6 +23,7 @@ import com.dino.message.groupfeature.data.remote.dto.GroupDetailResponse
 import com.dino.message.groupfeature.data.remote.dto.GroupHistoryResponse
 import com.dino.message.groupfeature.data.remote.dto.GroupOnlineUsersResponse
 import com.dino.message.groupfeature.data.remote.dto.GroupUploadAttachmentResponse
+import com.dino.message.groupfeature.data.remote.dto.LeaveGroupResponse
 import com.dino.message.groupfeature.data.remote.dto.ListGroupsResponse
 import com.dino.message.groupfeature.data.remote.dto.MutualFollowersResponse
 import com.dino.message.groupfeature.data.remote.dto.PublicRoomStatusResponse
@@ -106,6 +107,17 @@ class GroupApiServiceImpl @Inject constructor(
         httpAPIUtil.callAPIWithErrorHandling<Group, GroupDetailResponse>(
             callAPI = {
                 httpClient.get(GroupRoute.GroupDetail(groupId).url) {
+                    contentType(ContentType.Application.Json)
+                    appendTokenToHeader(sPrefManager.getToken())
+                }
+            },
+            callRefreshTokenAPI = this::getToken
+        )
+
+    override suspend fun leaveGroup(groupId: Int): Resource<Unit> =
+        httpAPIUtil.callAPIWithErrorHandling<Unit, LeaveGroupResponse>(
+            callAPI = {
+                httpClient.post(GroupRoute.LeaveGroup(groupId).url) {
                     contentType(ContentType.Application.Json)
                     appendTokenToHeader(sPrefManager.getToken())
                 }

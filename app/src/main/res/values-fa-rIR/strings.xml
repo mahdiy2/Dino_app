@@ -245,6 +245,7 @@
     <string name="report_type_violence">خشونت</string>
     <string name="report_type_copyright">نقض حق نشر</string>
     <string name="reset_encryption_key">ریست کلید رمزنگاری</string>
+    <string name="leave_group">ترک گروه</string>
     <string name="reset_encryption_key_body">کلید جدید ساخته می‌شود و بعضی پیام‌های قدیمی شاید باز نشوند.</string>
     <string name="reset_encryption_key_title">ریست کلید رمزنگاری؟</string>
     <string name="save">ذخیره</string>

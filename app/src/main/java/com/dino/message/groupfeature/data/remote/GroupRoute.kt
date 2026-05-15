@@ -9,6 +9,7 @@ sealed class GroupRoute(url: String) : BaseRoute(url) {
     object JoinPublicRoom : GroupRoute("api/groups/public-room/join")
     object GetUnreadGroups : GroupRoute("api/groups/unread")
     data class GroupDetail(val groupId: Int) : GroupRoute("api/groups/$groupId")
+    data class LeaveGroup(val groupId: Int) : GroupRoute("api/groups/$groupId/leave")
     data class GroupMembers(val groupId: Int) : GroupRoute("api/groups/$groupId/members")
     data class GroupOnlineUsers(val groupId: Int) : GroupRoute("api/groups/$groupId/online-users")
     data class GroupAttachments(val groupId: Int) : GroupRoute("api/groups/$groupId/attachments")

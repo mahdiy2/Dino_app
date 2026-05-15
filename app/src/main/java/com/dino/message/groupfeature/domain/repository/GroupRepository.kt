@@ -17,6 +17,7 @@ interface GroupRepository {
     suspend fun addGroupMembers(groupId: Int, usernames: List<String>): Resource<AddGroupMembersResult>
     suspend fun listGroups(): Resource<List<Group>>
     suspend fun getGroupDetail(groupId: Int): Resource<Group>
+    suspend fun leaveGroup(groupId: Int): Resource<Unit>
     suspend fun getGroupOnlineUsers(groupId: Int): Resource<List<GroupOnlineUser>>
     suspend fun getGroupHistory(groupId: Int, limit: Int, before: String? = null): Resource<GroupHistoryPage>
     suspend fun getMutualFollowers(page: Int = 1, limit: Int = 50): Resource<MutualFollowersPage>

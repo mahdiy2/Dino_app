@@ -23,11 +23,13 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ExitToApp
 import androidx.compose.material.icons.rounded.ArrowBackIosNew
 import androidx.compose.material.icons.rounded.AccessTime
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.VpnKey
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -116,6 +118,7 @@ fun GroupChatScreen(
     val memberBadges by viewModel.memberBadges.collectAsState()
     val onlineGroupUsers by viewModel.onlineGroupUsers.collectAsState()
     val typingGroupUsers by viewModel.typingGroupUsers.collectAsState()
+    val isLeavingGroup by viewModel.isLeavingGroup.collectAsState()
     val context = LocalContext.current
     val activity = context as? Activity
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -167,6 +170,7 @@ fun GroupChatScreen(
     var popupVisible by remember { mutableStateOf(false) }
     var popupMounted by remember { mutableStateOf(false) }
     var showMessageSecurityDialog by rememberSaveable { mutableStateOf(false) }
+    var showGroupMenu by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(uploadError) {
         uploadError?.let {
@@ -643,8 +647,53 @@ fun GroupChatScreen(
                 },
                 actions = {
                     if (!isPublicRoomChat) {
-                        IconButton(onClick = { viewModel.openPrivateKeyResetDialog() }) {
-                            Icon(Icons.Rounded.VpnKey, stringResource(R.string.reset_encryption_key))
+                        Box {
+                            IconButton(
+                                onClick = { showGroupMenu = true },
+                                enabled = !isLeavingGroup
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.MoreVert,
+                                    contentDescription = null
+                                )
+                            }
+                            DropdownMenu(
+                                shape = MaterialTheme.shapes.extraLarge,
+                                expanded = showGroupMenu,
+                                onDismissRequest = { showGroupMenu = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(stringResource(R.string.reset_encryption_key))
+                                    },
+                                    onClick = {
+                                        showGroupMenu = false
+                                        viewModel.openPrivateKeyResetDialog()
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Rounded.VpnKey,
+                                            contentDescription = null
+                                        )
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(stringResource(R.string.leave_group))
+                                    },
+                                    onClick = {
+                                        showGroupMenu = false
+                                        viewModel.leaveGroup()
+                                    },
+                                    enabled = !isLeavingGroup,
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Rounded.ExitToApp,
+                                            contentDescription = null
+                                        )
+                                    }
+                                )
+                            }
                         }
                     } else {
                         IconButton(onClick = { showMessageSecurityDialog = true }) {

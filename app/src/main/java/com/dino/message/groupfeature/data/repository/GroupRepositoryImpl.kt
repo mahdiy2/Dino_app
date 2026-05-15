@@ -35,6 +35,9 @@ class GroupRepositoryImpl @Inject constructor(
     override suspend fun getGroupDetail(groupId: Int): Resource<Group> =
         apiService.getGroupDetail(groupId)
 
+    override suspend fun leaveGroup(groupId: Int): Resource<Unit> =
+        apiService.leaveGroup(groupId)
+
     override suspend fun getGroupOnlineUsers(groupId: Int): Resource<List<GroupOnlineUser>> =
         apiService.getGroupOnlineUsers(groupId)
 

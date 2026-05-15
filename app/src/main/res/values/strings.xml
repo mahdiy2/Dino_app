@@ -268,6 +268,7 @@
     <string name="report_type_violence">Violence</string>
     <string name="report_type_copyright">Copyright</string>
     <string name="reset_encryption_key">Reset encryption key</string>
+    <string name="leave_group">Leave group</string>
     <string name="reset_encryption_key_body">This will generate a new key pair. Some older unread messages may not decrypt.</string>
     <string name="reset_encryption_key_title">Reset encryption key?</string>
     <string name="save">Save</string>

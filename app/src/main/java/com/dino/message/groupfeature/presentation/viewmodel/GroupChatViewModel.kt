@@ -132,6 +132,9 @@ class GroupChatViewModel @Inject constructor(
     private val _socketError = MutableStateFlow<String?>(null)
     val socketError: StateFlow<String?> = _socketError.asStateFlow()
 
+    private val _isLeavingGroup = MutableStateFlow(false)
+    val isLeavingGroup: StateFlow<Boolean> = _isLeavingGroup.asStateFlow()
+
     private val _exitChatReason = MutableStateFlow<String?>(null)
     val exitChatReason: StateFlow<String?> = _exitChatReason.asStateFlow()
 
@@ -1542,6 +1545,25 @@ class GroupChatViewModel @Inject constructor(
 
     fun openPrivateKeyResetDialog() {
         navigateToDestination(PrivateKeyResetDialogScreenDestination, viewModelScope)
+    }
+
+    fun leaveGroup() = viewModelScope.launch {
+        if (_isLeavingGroup.value) return@launch
+        _isLeavingGroup.value = true
+        try {
+            when (val result = groupRepository.leaveGroup(groupId)) {
+                is Resource.Success -> {
+                    groupRepository.clearGroupMessages(groupId)
+                    revokeMembershipAndExit("You left the group.")
+                }
+                is Resource.Error -> {
+                    _socketError.value = result.message.asString(getApplication<DinoOrderApplication>())
+                }
+                is Resource.Loading -> Unit
+            }
+        } finally {
+            _isLeavingGroup.value = false
+        }
     }
 
     fun openSharedPost(postId: Long) {
