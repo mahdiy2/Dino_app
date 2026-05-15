@@ -341,6 +341,10 @@
     <string name="notification_subtitle_post">پست: "%1$s"</string>
     <string name="notification_subtitle_reply">پاسخ: "%1$s"</string>
     <string name="notification_subtitle_on_comment">روی کامنت: "%1$s"</string>
+    <string name="notification_detail_label_comment">کامنت</string>
+    <string name="notification_detail_label_reply">پاسخ</string>
+    <string name="notification_detail_label_on_comment">روی کامنت</string>
+    <string name="notification_detail_label_post">پست</string>
     <string name="notification_subtitle_milestone">نقطه عطف: %1$d%% از کاربران فعال</string>
     <string name="quote_post">نقل قول پست</string>
     <string name="share_post">اشتراک پست</string>

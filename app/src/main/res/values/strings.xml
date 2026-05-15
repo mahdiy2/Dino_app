@@ -367,6 +367,10 @@ Post: "%2$s"</string>
     <string name="notification_subtitle_post">Post: "%1$s"</string>
     <string name="notification_subtitle_reply">Reply: "%1$s"</string>
     <string name="notification_subtitle_on_comment">On comment: "%1$s"</string>
+    <string name="notification_detail_label_comment">Comment</string>
+    <string name="notification_detail_label_reply">Reply</string>
+    <string name="notification_detail_label_on_comment">On comment</string>
+    <string name="notification_detail_label_post">Post</string>
     <string name="notification_subtitle_milestone">Milestone reached: %1$d%% of active users</string>
     <string name="notification_subtitle_story_mention">You were mentioned in a story.</string>
     <string name="notification_subtitle_story_reply">Someone replied to your story.</string>

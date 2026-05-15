@@ -1,6 +1,16 @@
 package com.dino.message.activitynotificationfeature.presentation.component
 
 import android.content.Context
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -11,10 +21,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Reply
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -23,6 +35,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -94,13 +107,29 @@ fun ActivityNotificationItem(
                 overflow = TextOverflow.Ellipsis
             )
 
-            val subtitle = buildNotificationSubtitle(notification, context)
-            if (subtitle != null) {
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            val detailLines = buildNotificationDetails(notification, context)
+            if (detailLines.isNotEmpty()) {
+                AnimatedVisibility(
+                    visible = true,
+                    enter = fadeIn() + expandVertically(
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioNoBouncy,
+                            stiffness = Spring.StiffnessMediumLow
+                        )
+                    ),
+                    exit = fadeOut() + shrinkVertically()
+                ) {
+                    NotificationDetailSection(detailLines)
+                }
+            } else {
+                val subtitle = buildNotificationSubtitle(notification, context)
+                subtitle?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
 
             Text(
@@ -188,6 +217,85 @@ fun ActivityNotificationItem(
     }
 }
 
+@Composable
+private fun NotificationDetailSection(lines: List<NotificationDetailLine>) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .animateContentSize(
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioNoBouncy,
+                    stiffness = Spring.StiffnessLow
+                )
+            )
+            .padding(top = 4.dp)
+            .background(
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                shape = RoundedCornerShape(12.dp)
+            )
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(0.dp)
+    ) {
+        lines.forEachIndexed { index, line ->
+            val rowVisibility = remember(index, line.label, line.value) {
+                MutableTransitionState(false).apply { targetState = true }
+            }
+            AnimatedVisibility(
+                visibleState = rowVisibility,
+                enter = fadeIn(
+                    animationSpec = tween(
+                        durationMillis = 180,
+                        delayMillis = index * 45
+                    )
+                ) + expandVertically(
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioNoBouncy,
+                        stiffness = Spring.StiffnessMediumLow
+                    )
+                ),
+                exit = fadeOut() + shrinkVertically()
+            ) {
+                Column {
+                    if (index > 0) {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(vertical = 6.dp),
+                            thickness = 0.5.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f)
+                        )
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 1.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = line.label,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = "•",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.outline
+                        )
+                        Text(
+                            text = line.value,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
 private fun buildNotificationTitle(notification: ActivityNotification, context: Context): String {
     val actorName = notification.actor.name ?: notification.actor.username
     return when (notification.kind) {
@@ -240,21 +348,36 @@ private fun buildNotificationTitle(notification: ActivityNotification, context: 
     }
 }
 
-private fun buildNotificationSubtitle(notification: ActivityNotification, context: Context): String? {
+private data class NotificationDetailLine(
+    val label: String,
+    val value: String
+)
+
+private fun buildNotificationDetails(
+    notification: ActivityNotification,
+    context: Context
+): List<NotificationDetailLine> {
     return when (notification.kind) {
         "comment" -> {
             val commentPreview = notification.extra?.comment_preview?.trim().orEmpty()
             val postPreview = notification.extra?.post_text_preview?.trim().orEmpty()
-            val postLine = truncateText(postPreview, 80)
-            when {
-                commentPreview.isNotBlank() && postPreview.isNotBlank() ->
-                    context.getString(R.string.notification_subtitle_comment_post, commentPreview, postLine)
-
-                commentPreview.isNotBlank() -> context.getString(R.string.notification_subtitle_comment, commentPreview)
-                postPreview.isNotBlank() ->
-                    context.getString(R.string.notification_subtitle_post, postLine)
-
-                else -> null
+            buildList {
+                if (commentPreview.isNotBlank()) {
+                    add(
+                        NotificationDetailLine(
+                            label = context.getString(R.string.notification_detail_label_comment),
+                            value = truncateText(commentPreview, 100)
+                        )
+                    )
+                }
+                if (postPreview.isNotBlank()) {
+                    add(
+                        NotificationDetailLine(
+                            label = context.getString(R.string.notification_detail_label_post),
+                            value = truncateText(postPreview, 100)
+                        )
+                    )
+                }
             }
         }
 
@@ -262,19 +385,54 @@ private fun buildNotificationSubtitle(notification: ActivityNotification, contex
             val replyPreview = notification.extra?.comment_preview?.trim().orEmpty()
             val parentPreview = notification.extra?.parent_comment_preview?.trim().orEmpty()
             val postPreview = notification.extra?.post_text_preview?.trim().orEmpty()
-            val parts = buildList {
+            buildList {
                 if (replyPreview.isNotBlank()) {
-                    add(context.getString(R.string.notification_subtitle_reply, replyPreview))
+                    add(
+                        NotificationDetailLine(
+                            label = context.getString(R.string.notification_detail_label_reply),
+                            value = truncateText(replyPreview, 100)
+                        )
+                    )
                 }
                 if (parentPreview.isNotBlank()) {
-                    add(context.getString(R.string.notification_subtitle_on_comment, truncateText(parentPreview, 80)))
+                    add(
+                        NotificationDetailLine(
+                            label = context.getString(R.string.notification_detail_label_on_comment),
+                            value = truncateText(parentPreview, 100)
+                        )
+                    )
                 }
                 if (postPreview.isNotBlank()) {
-                    add(context.getString(R.string.notification_subtitle_post, truncateText(postPreview, 80)))
+                    add(
+                        NotificationDetailLine(
+                            label = context.getString(R.string.notification_detail_label_post),
+                            value = truncateText(postPreview, 100)
+                        )
+                    )
                 }
             }
-            parts.takeIf { it.isNotEmpty() }?.joinToString("\n")
         }
+
+        "story_reply" -> {
+            val preview = notification.extra?.reply_preview?.trim().orEmpty()
+            if (preview.isBlank()) emptyList()
+            else {
+                listOf(
+                    NotificationDetailLine(
+                        label = context.getString(R.string.notification_detail_label_reply),
+                        value = truncateText(preview, 100)
+                    )
+                )
+            }
+        }
+
+        else -> emptyList()
+    }
+}
+
+private fun buildNotificationSubtitle(notification: ActivityNotification, context: Context): String? {
+    return when (notification.kind) {
+        "comment", "comment_reply" -> null
 
         "post_like_milestone", "post_comment_milestone" -> {
             val thresholdPercent = notification.extra?.percent_threshold
@@ -289,11 +447,7 @@ private fun buildNotificationSubtitle(notification: ActivityNotification, contex
         "story_mention" -> context.getString(R.string.notification_subtitle_story_mention)
         "story_reply" -> {
             val preview = notification.extra?.reply_preview?.trim().orEmpty()
-            if (preview.isNotBlank()) {
-                context.getString(R.string.notification_subtitle_story_reply_with_preview, truncateText(preview, 80))
-            } else {
-                context.getString(R.string.notification_subtitle_story_reply)
-            }
+            if (preview.isBlank()) context.getString(R.string.notification_subtitle_story_reply) else null
         }
 
         else -> null
