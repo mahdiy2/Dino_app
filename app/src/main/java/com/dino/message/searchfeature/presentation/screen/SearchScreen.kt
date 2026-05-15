@@ -134,6 +134,7 @@ fun SearchScreen() {
                 onCommentsClick = viewModel::openCommentsBottomSheet,
                 onQuoteClick = viewModel::openQuotePostOptions,
                 onShareClick = viewModel::openShareBottomSheet,
+                onPostLongClick = viewModel::openQuotedPost,
                 onQuotedPostClick = viewModel::openQuotedPost,
                 onReportClick = viewModel::openReportBottomSheet,
                 onAddTrackToPlaylistClick = viewModel::addTrackToPlaylist,

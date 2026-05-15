@@ -458,6 +458,7 @@ fun ThreadScreen(initialStoryId: Long? = null) {
                                 onCommentsClick = { viewModel.openCommentsBottomSheet(post.id) },
                                 onQuoteClick = { viewModel.openQuotePostOptions(post) },
                                 onShareClick = { viewModel.openShareBottomSheet(post) },
+                                onPostLongClick = viewModel::openQuotedPost,
                                 onQuotedPostClick = viewModel::openQuotedPost,
                                 onReportClick = { viewModel.openReportBottomSheet(post.id) },
                                 onBlockUserClick = if (viewModel.shouldShowBlockForAuthor(post.author.username)) {

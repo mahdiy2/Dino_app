@@ -11,6 +11,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -86,6 +87,7 @@ fun ThreadPostCard(
     onDeletePostClick: (() -> Unit)? = null,
     onAddTrackToPlaylistClick: ((PostMedia) -> Unit)? = null,
     onShowTrackPlaylistAddersClick: ((PostMedia, String) -> Unit)? = null,
+    onPostLongClick: ((Long) -> Unit)? = null,
     showHistoricalWinnerMarkOnProfile: Boolean = false
 ) {
     val commentsContentColor by animateColorAsState(
@@ -109,8 +111,19 @@ fun ThreadPostCard(
         else -> null
     }
 
+    val postContainerModifier = if (onPostLongClick != null) {
+        modifier
+            .clip(MaterialTheme.shapes.extraLarge)
+            .combinedClickable(
+                onClick = {},
+                onLongClick = { onPostLongClick(post.id) }
+            )
+    } else {
+        modifier
+    }
+
     PostContainer(
-        modifier = modifier,
+        modifier = postContainerModifier,
         borderColor = if (isCurrentWinner) winnerBorderColor else null
     ) {
         Column(

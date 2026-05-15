@@ -559,6 +559,7 @@ fun ProfileScreen(username: String? = null) {
                         onCommentsClick = { viewModel.openCommentsBottomSheet(post.id) },
                         onQuoteClick = { viewModel.openQuotePostOptions(post) },
                         onShareClick = { viewModel.openShareBottomSheet(post) },
+                        onPostLongClick = viewModel::openQuotedPost,
                         onQuotedPostClick = viewModel::openQuotedPost,
                         onReportClick = if (isOwnProfile) null else {
                             { viewModel.openReportBottomSheet(post.id) }
