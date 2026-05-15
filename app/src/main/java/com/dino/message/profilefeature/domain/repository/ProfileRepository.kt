@@ -36,6 +36,8 @@ interface ProfileRepository {
 
     suspend fun unfollowUser(username: String): Resource<ProfileFollowResult>
 
+    suspend fun removeFollower(username: String): Resource<ProfileFollowResult>
+
     suspend fun getFollowStatus(username: String): Resource<Boolean>
 
     suspend fun getFollowers(username: String, page: Int, limit: Int): Resource<ProfileUsersPage>

@@ -23,6 +23,8 @@ sealed class ProfileRoute(url: String) : BaseRoute(url) {
 
     data class Unfollow(val username: String) : ProfileRoute("api/follows/$username")
 
+    data class RemoveFollower(val username: String) : ProfileRoute("api/follows/me/followers/$username")
+
     data class FollowStatus(val username: String) : ProfileRoute("api/follows/$username/status")
 
     data class GetFollowers(

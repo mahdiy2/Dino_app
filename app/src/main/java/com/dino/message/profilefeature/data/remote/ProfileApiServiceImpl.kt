@@ -286,6 +286,17 @@ class ProfileApiServiceImpl @Inject constructor(
             callRefreshTokenAPI = this::getToken
         )
 
+    override suspend fun removeFollower(username: String): Resource<ProfileFollowResult> =
+        httpAPIUtil.callAPIWithErrorHandling<ProfileFollowResult, ProfileFollowResponse>(
+            callAPI = {
+                httpClient.delete(ProfileRoute.RemoveFollower(username).url) {
+                    appendTokenToHeader(sPrefManager.getToken())
+                    contentType(ContentType.Application.Json)
+                }
+            },
+            callRefreshTokenAPI = this::getToken
+        )
+
     override suspend fun getFollowStatus(username: String): Resource<Boolean> =
         httpAPIUtil.callAPIWithErrorHandling<Boolean, FollowStatusResponse>(
             callAPI = {

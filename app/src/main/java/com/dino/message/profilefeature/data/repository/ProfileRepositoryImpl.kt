@@ -54,6 +54,9 @@ class ProfileRepositoryImpl(
     override suspend fun unfollowUser(username: String): Resource<ProfileFollowResult> =
         profileApiService.unfollowUser(username = username)
 
+    override suspend fun removeFollower(username: String): Resource<ProfileFollowResult> =
+        profileApiService.removeFollower(username = username)
+
     override suspend fun getFollowStatus(username: String): Resource<Boolean> =
         profileApiService.getFollowStatus(username = username)
 

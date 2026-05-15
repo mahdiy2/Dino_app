@@ -298,6 +298,7 @@
     <string name="posts">پست‌ها</string>
     <string name="profile_image">عکس پروفایل</string>
     <string name="search_placeholder">جستجو...</string>
+    <string name="remove_follower">حذف</string>
     <string name="unfollow">لغو فالو</string>
     <string name="undo">برگشت</string>
     <string name="reply">پاسخ</string>

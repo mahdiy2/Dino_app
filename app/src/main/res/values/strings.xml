@@ -322,6 +322,7 @@
     <string name="posts">Posts</string>
     <string name="profile_image">Profile image</string>
     <string name="search_placeholder">Search...</string>
+    <string name="remove_follower">Remove</string>
     <string name="unfollow">Unfollow</string>
     <string name="undo">Undo</string>
     <string name="reply">Reply</string>

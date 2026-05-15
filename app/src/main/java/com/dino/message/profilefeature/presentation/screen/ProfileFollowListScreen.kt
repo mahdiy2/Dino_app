@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBackIosNew
@@ -34,6 +35,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -48,9 +50,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.graphicsLayer
@@ -85,15 +87,31 @@ fun ProfileFollowListScreen(
     showFollowers: Boolean,
 ) {
     val viewModel: ProfileFollowListViewModel = hiltViewModel()
+    val listState = rememberLazyListState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val isLoadingMore by viewModel.isLoadingMore.collectAsState()
+    val hasMore by viewModel.hasMore.collectAsState()
     val error by viewModel.error.collectAsState()
     val title by viewModel.title.collectAsState()
+    val isOwnProfile by viewModel.isOwnProfile.collectAsState()
+    val totalCount by viewModel.totalCount.collectAsState()
 
     LaunchedEffect(username, showFollowers) {
         viewModel.initialize(
             username = username,
             showFollowers = showFollowers,
         )
+    }
+
+    LaunchedEffect(listState, hasMore, isLoadingMore, isLoading) {
+        snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1 }
+            .collect { lastVisibleIndex ->
+                val shouldLoadMore = hasMore && !isLoadingMore && !isLoading
+                val triggerIndex = (viewModel.users.lastIndex - 3).coerceAtLeast(0)
+                if (shouldLoadMore && viewModel.users.isNotEmpty() && lastVisibleIndex >= triggerIndex) {
+                    viewModel.loadNextPage()
+                }
+            }
     }
 
     Scaffold(
@@ -125,6 +143,7 @@ fun ProfileFollowListScreen(
                 modifier = Modifier.fillMaxSize(),
             ) {
                 LazyColumn(
+                    state = listState,
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(
                         horizontal = DPExtraLarge,
@@ -137,7 +156,7 @@ fun ProfileFollowListScreen(
                             FollowListHeroCard(
                                 showFollowers = showFollowers,
                                 username = username,
-                                usersCount = viewModel.users.size,
+                                usersCount = totalCount,
                             )
                         }
                     }
@@ -215,7 +234,28 @@ fun ProfileFollowListScreen(
                                 FollowUserCard(
                                     user = user,
                                     onClick = { viewModel.openUserProfile(user.username) },
+                                    showActionButton = isOwnProfile,
+                                    actionLabel = if (showFollowers) {
+                                        stringResource(R.string.remove_follower)
+                                    } else {
+                                        stringResource(R.string.unfollow)
+                                    },
+                                    isActionLoading = viewModel.isActionLoading(user.username),
+                                    onActionClick = { viewModel.onUserAction(user) },
                                 )
+                            }
+                        }
+
+                        if (isLoadingMore) {
+                            item("load_more") {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = DPMedium),
+                                    horizontalArrangement = Arrangement.Center,
+                                ) {
+                                    CircularProgressIndicator()
+                                }
                             }
                         }
                     }
@@ -531,6 +571,10 @@ private fun FollowListSectionHeader(title: String) {
 private fun FollowUserCard(
     user: ProfileUserSummary,
     onClick: () -> Unit,
+    showActionButton: Boolean,
+    actionLabel: String,
+    isActionLoading: Boolean,
+    onActionClick: () -> Unit,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
@@ -598,6 +642,22 @@ private fun FollowUserCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+            }
+
+            if (showActionButton) {
+                FilledTonalButton(
+                    onClick = onActionClick,
+                    enabled = !isActionLoading,
+                ) {
+                    if (isActionLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
+                        )
+                    } else {
+                        Text(text = actionLabel)
+                    }
+                }
             }
         }
     }

@@ -2,15 +2,19 @@ package com.dino.message.profilefeature.presentation.viewmodel
 
 import android.content.Context
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.dino.message.DinoOrderApplication
+import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.dino.message.profilefeature.domain.model.ProfileUserSummary
 import com.dino.message.profilefeature.domain.usecase.GetFollowersUseCase
 import com.dino.message.profilefeature.domain.usecase.GetFollowingUseCase
+import com.dino.message.profilefeature.domain.usecase.RemoveFollowerUseCase
+import com.dino.message.profilefeature.domain.usecase.UnfollowUserUseCase
 import com.ramcosta.composedestinations.generated.destinations.ProfileScreenDestination
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -23,15 +27,26 @@ import javax.inject.Inject
 @HiltViewModel
 class ProfileFollowListViewModel @Inject constructor(
     @ApplicationContext app: Context,
+    private val sPrefManager: SPrefManager,
     private val getFollowersUseCase: GetFollowersUseCase,
-    private val getFollowingUseCase: GetFollowingUseCase
+    private val getFollowingUseCase: GetFollowingUseCase,
+    private val removeFollowerUseCase: RemoveFollowerUseCase,
+    private val unfollowUserUseCase: UnfollowUserUseCase,
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
 
     val users = mutableStateListOf<ProfileUserSummary>()
 
+    private val actionLoadingByUsername = mutableStateMapOf<String, Boolean>()
+
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    private val _isLoadingMore = MutableStateFlow(false)
+    val isLoadingMore: StateFlow<Boolean> = _isLoadingMore.asStateFlow()
+
+    private val _hasMore = MutableStateFlow(true)
+    val hasMore: StateFlow<Boolean> = _hasMore.asStateFlow()
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
@@ -39,46 +54,153 @@ class ProfileFollowListViewModel @Inject constructor(
     private val _title = MutableStateFlow("Followers")
     val title: StateFlow<String> = _title.asStateFlow()
 
+    private val _isOwnProfile = MutableStateFlow(false)
+    val isOwnProfile: StateFlow<Boolean> = _isOwnProfile.asStateFlow()
+    private val _totalCount = MutableStateFlow(0)
+    val totalCount: StateFlow<Int> = _totalCount.asStateFlow()
+
     private var targetUsername: String = ""
     private var showFollowers: Boolean = true
     private var initializedKey: String? = null
+
+    private val pageLimit = 30
+    private var currentPage = 1
+    private var totalUsers = Int.MAX_VALUE
+    private var isUsersRequestRunning = false
 
     fun initialize(username: String, showFollowers: Boolean) {
         val key = "$username#$showFollowers"
         if (initializedKey == key) return
         initializedKey = key
 
-        targetUsername = username
+        targetUsername = username.trim()
         this.showFollowers = showFollowers
         _title.value = if (showFollowers) "Followers" else "Following"
+        _isOwnProfile.value = targetUsername.equals(sPrefManager.getUsername()?.trim(), ignoreCase = true)
         refresh()
     }
 
     fun refresh() {
         if (targetUsername.isBlank()) return
+        currentPage = 1
+        totalUsers = Int.MAX_VALUE
+        _totalCount.value = 0
+        _hasMore.value = true
+        actionLoadingByUsername.clear()
+        users.clear()
+        requestUsersPage(isRefresh = true)
+    }
+
+    fun loadNextPage() {
+        if (targetUsername.isBlank()) return
+        if (isUsersRequestRunning || !_hasMore.value) return
+        requestUsersPage(isRefresh = false)
+    }
+
+    private fun requestUsersPage(isRefresh: Boolean) {
         viewModelScope.launch {
+            if (isUsersRequestRunning) return@launch
+            isUsersRequestRunning = true
+
             val flow = if (showFollowers) {
-                getFollowersUseCase.execute(username = targetUsername, page = 1, limit = 50)
+                getFollowersUseCase.execute(username = targetUsername, page = currentPage, limit = pageLimit)
             } else {
-                getFollowingUseCase.execute(username = targetUsername, page = 1, limit = 50)
+                getFollowingUseCase.execute(username = targetUsername, page = currentPage, limit = pageLimit)
             }
 
             flow.collect { res ->
                 when (res) {
                     is Resource.Success -> {
-                        users.clear()
-                        users.addAll(res.data.users)
+                        if (isRefresh) {
+                            users.clear()
+                        }
+
+                        totalUsers = res.data.total
+                        _totalCount.value = totalUsers
+                        val existingIds = users.mapTo(mutableSetOf()) { it.id }
+                        val incomingUsers = res.data.users.filter { user ->
+                            existingIds.add(user.id)
+                        }
+                        users.addAll(incomingUsers)
+
+                        if (res.data.users.isNotEmpty()) {
+                            currentPage = res.data.page + 1
+                        }
+
+                        _hasMore.value = users.size < totalUsers && incomingUsers.isNotEmpty()
                         _isLoading.value = false
+                        _isLoadingMore.value = false
                         _error.value = null
+                        isUsersRequestRunning = false
                     }
 
                     is Resource.Loading -> {
-                        _isLoading.value = true
+                        if (isRefresh) {
+                            _isLoading.value = true
+                        } else {
+                            _isLoadingMore.value = true
+                        }
                     }
 
                     is Resource.Error -> {
                         _isLoading.value = false
+                        _isLoadingMore.value = false
                         _error.value = res.message.asString(getApplication())
+                        isUsersRequestRunning = false
+                    }
+                }
+            }
+        }
+    }
+
+    fun isActionLoading(username: String): Boolean = actionLoadingByUsername[username] == true
+
+    fun onUserAction(user: ProfileUserSummary) {
+        if (!_isOwnProfile.value) return
+        if (isActionLoading(user.username)) return
+        if (showFollowers) {
+            removeFollower(user.username)
+        } else {
+            unfollowUser(user.username)
+        }
+    }
+
+    private fun removeFollower(username: String) {
+        runUserAction(
+            username = username,
+            action = { removeFollowerUseCase.execute(username) },
+        )
+    }
+
+    private fun unfollowUser(username: String) {
+        runUserAction(
+            username = username,
+            action = { unfollowUserUseCase.execute(username) },
+        )
+    }
+
+    private fun runUserAction(
+        username: String,
+        action: () -> kotlinx.coroutines.flow.Flow<Resource<*>>,
+    ) {
+        viewModelScope.launch {
+            action().collect { res ->
+                when (res) {
+                    is Resource.Success -> {
+                        users.removeAll { it.username.equals(username, ignoreCase = true) }
+                        totalUsers = (totalUsers - 1).coerceAtLeast(0)
+                        _totalCount.value = totalUsers
+                        _error.value = null
+                        actionLoadingByUsername.remove(username)
+                    }
+
+                    is Resource.Loading -> {
+                        actionLoadingByUsername[username] = true
+                    }
+
+                    is Resource.Error -> {
+                        _error.value = res.message.asString(getApplication())
+                        actionLoadingByUsername.remove(username)
                     }
                 }
             }
