@@ -46,9 +46,8 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 import io.ktor.utils.io.streams.asInput
 import java.io.File
-import javax.inject.Inject
 
-class ChatApiServiceImpl @Inject constructor(
+class ChatApiServiceImpl constructor(
     private val httpClient: HttpClient,
     private val sPrefManager: SPrefManager,
     private val httpAPIUtil: HttpAPIUtil,

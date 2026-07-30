@@ -79,9 +79,8 @@ import io.ktor.http.contentType
 import io.ktor.utils.io.streams.asInput
 import java.io.File
 import java.util.UUID
-import javax.inject.Inject
 
-class ThreadApiServiceImpl @Inject constructor(
+class ThreadApiServiceImpl constructor(
     private val httpClient: HttpClient,
     private val sPrefManager: SPrefManager,
     private val httpAPIUtil: HttpAPIUtil,

@@ -2,7 +2,6 @@ package com.dino.message.corefeature.data.spref
 
 import android.content.Context
 import androidx.security.crypto.EncryptedSharedPreferences
-import javax.inject.Inject
 import androidx.security.crypto.MasterKey
 import com.dino.message.corefeature.data.util.Constants.REFRESH_TOKEN_KEY
 import com.dino.message.corefeature.data.util.Constants.SEC_MESSAGE_SHARED_PREFERENCES_NAME
@@ -15,7 +14,7 @@ import com.google.gson.Gson
  *
  * @param context The `Context` object used for accessing resources.
  */
-class SPrefManager @Inject constructor(
+class SPrefManager constructor(
     private val gson: Gson,
     context: Context
 ) {

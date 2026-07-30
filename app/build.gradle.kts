@@ -117,6 +117,14 @@ dependencies {
     // For Jetpack Compose integration
     implementation (libs.androidx.hilt.navigation.compose)
 
+    implementation(platform(libs.koin.bom))
+    implementation(libs.koin.android)
+    implementation(libs.koin.androidx.compose)
+    implementation(libs.koin.compose)
+    implementation(libs.koin.compose.viewmodel)
+    implementation(libs.koin.compose.viewmodel.navigation)
+    testImplementation(libs.koin.test)
+
     // compose-destinations
     implementation (libs.core)
     implementation(libs.bottom.sheet)

@@ -29,9 +29,8 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.net.SocketTimeoutException
 import java.nio.channels.UnresolvedAddressException
-import javax.inject.Inject
 
-class HttpAPIUtil @Inject constructor(
+class HttpAPIUtil constructor(
     val sPrefManager: SPrefManager,
     val context: Context
 ) {

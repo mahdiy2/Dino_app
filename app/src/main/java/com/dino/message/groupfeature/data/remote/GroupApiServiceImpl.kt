@@ -52,9 +52,8 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 import io.ktor.utils.io.streams.asInput
 import java.io.File
-import javax.inject.Inject
 
-class GroupApiServiceImpl @Inject constructor(
+class GroupApiServiceImpl constructor(
     private val httpClient: HttpClient,
     private val sPrefManager: SPrefManager,
     private val httpAPIUtil: HttpAPIUtil,

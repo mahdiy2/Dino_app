@@ -10,9 +10,8 @@ import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
-import javax.inject.Inject
 
-class SplashApiServiceImpl @Inject constructor(
+class SplashApiServiceImpl constructor(
     private val httpClient: HttpClient,
     private val httpAPIUtil: HttpAPIUtil,
 ) : SplashApiService {

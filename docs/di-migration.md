@@ -446,44 +446,44 @@ Acceptance criteria:
 
 ### Gradle and Bootstrap
 
-- [ ] Add Koin version catalog entries.
-- [ ] Add Koin app dependencies.
-- [ ] Keep Hilt dependencies during parallel migration.
-- [ ] Create Koin module files.
-- [ ] Create `appModules` list.
-- [ ] Start Koin from `DinoOrderApplication`.
-- [ ] Verify app compiles with Hilt and Koin temporarily coexisting.
+- [x] Add Koin version catalog entries.
+- [x] Add Koin app dependencies.
+- [x] Keep Hilt dependencies during parallel migration.
+- [x] Create Koin module files.
+- [x] Create `appModules` list.
+- [x] Start Koin from `DinoOrderApplication`.
+- [x] Verify app compiles with Hilt and Koin temporarily coexisting.
 
 ### Core Graph
 
-- [ ] Port `Gson`.
-- [ ] Port application `Context`.
-- [ ] Port `SPrefManager`.
-- [ ] Port `SPrefSessionProvider` and `SessionProvider`.
-- [ ] Port `HttpClient`.
-- [ ] Port `HttpAPIUtil`.
-- [ ] Port `DataStoreUtil`.
-- [ ] Port `MessageDatabase`.
-- [ ] Port `MessageDao`.
-- [ ] Port `GroupMessageDao`.
-- [ ] Port `CrashLogDao`.
-- [ ] Port `SocketOutboundQueueDao`.
-- [ ] Port `CrashReporter`.
-- [ ] Port `AppSocketManager`.
-- [ ] Port `InAppNotificationManager`.
+- [x] Port `Gson`.
+- [x] Port application `Context`.
+- [x] Port `SPrefManager`.
+- [x] Port `SPrefSessionProvider` and `SessionProvider`.
+- [x] Port `HttpClient`.
+- [x] Port `HttpAPIUtil`.
+- [x] Port `DataStoreUtil`.
+- [x] Port `MessageDatabase`.
+- [x] Port `MessageDao`.
+- [x] Port `GroupMessageDao`.
+- [x] Port `CrashLogDao`.
+- [x] Port `SocketOutboundQueueDao`.
+- [x] Port `CrashReporter`.
+- [x] Port `AppSocketManager`.
+- [x] Port `InAppNotificationManager`.
 
 ### Data and Repository Graph
 
-- [ ] Port auth API/repository.
-- [ ] Port main API/repository.
-- [ ] Port chat API/repository.
-- [ ] Port thread API/repository.
-- [ ] Port profile API/repository.
-- [ ] Port search API/repository.
-- [ ] Port splash API service.
-- [ ] Port report API/repository.
-- [ ] Port activity notification API/repository.
-- [ ] Port group API/repository.
+- [x] Port auth API/repository.
+- [x] Port main API/repository.
+- [x] Port chat API/repository.
+- [x] Port thread API/repository.
+- [x] Port profile API/repository.
+- [x] Port search API/repository.
+- [x] Port splash API service.
+- [x] Port report API/repository.
+- [x] Port activity notification API/repository.
+- [x] Port group API/repository.
 
 ### Use Cases
 

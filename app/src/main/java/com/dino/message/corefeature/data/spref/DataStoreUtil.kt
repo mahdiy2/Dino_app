@@ -2,7 +2,6 @@ package com.dino.message.corefeature.data.spref
 
 import android.content.Context
 import kotlinx.coroutines.flow.Flow
-import javax.inject.Inject
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
@@ -20,7 +19,7 @@ import kotlinx.coroutines.flow.map
  *
  * @param context The `Context` object used for accessing resources.
  */
-class DataStoreUtil @Inject constructor(private val context: Context) {
+class DataStoreUtil constructor(private val context: Context) {
     companion object {
         // Define the DataStore with the specified name
         private val Context.dataStore: DataStore<Preferences> by preferencesDataStore("settings")

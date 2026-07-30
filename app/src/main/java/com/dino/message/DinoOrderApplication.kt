@@ -11,10 +11,14 @@ import com.dino.message.chatfeature.data.notification.ActiveChatTracker
 import com.dino.message.chatfeature.data.notification.ActiveGroupTracker
 import com.dino.message.crashfeature.data.service.CrashReporter
 import com.dino.message.corefeature.presentation.util.UIEvent
+import com.dino.message.di.appModules
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import com.dino.message.chatfeature.data.notification.InAppNotificationManager
 import javax.inject.Inject
+import org.koin.android.ext.koin.androidContext
+import org.koin.android.ext.koin.androidLogger
+import org.koin.core.context.startKoin
 
 @HiltAndroidApp
 class DinoOrderApplication: Application() {
@@ -40,6 +44,11 @@ class DinoOrderApplication: Application() {
         super.onCreate()
         if (isCrashUiProcess()) {
             return
+        }
+        startKoin {
+            androidLogger()
+            androidContext(this@DinoOrderApplication)
+            modules(appModules)
         }
         crashReporter.addBreadcrumb(
             category = "lifecycle",

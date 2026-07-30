@@ -14,9 +14,8 @@ import com.dino.message.groupfeature.domain.model.JoinPublicRoomResult
 import com.dino.message.groupfeature.domain.model.MutualFollowersPage
 import com.dino.message.groupfeature.domain.model.PublicRoomStatus
 import com.dino.message.groupfeature.domain.repository.GroupRepository
-import javax.inject.Inject
 
-class GroupRepositoryImpl @Inject constructor(
+class GroupRepositoryImpl constructor(
     private val apiService: GroupApiService,
     private val groupMessageDao: GroupMessageDao,
 ) : GroupRepository {
