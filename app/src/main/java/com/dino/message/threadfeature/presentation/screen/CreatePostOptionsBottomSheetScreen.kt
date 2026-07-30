@@ -57,7 +57,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import org.koin.compose.viewmodel.koinViewModel
 import com.airbnb.lottie.compose.LottieAnimation
 import com.airbnb.lottie.compose.LottieCompositionSpec
 import com.airbnb.lottie.compose.LottieConstants
@@ -80,7 +80,7 @@ fun CreatePostOptionsBottomSheetScreen(
     quotedPostId: Long = 0L,
 ){
 
-    val viewModel: CreatePostOptionsBottomSheetScreenViewModel = hiltViewModel()
+    val viewModel: CreatePostOptionsBottomSheetScreenViewModel = koinViewModel()
 
     Column(
         modifier = Modifier

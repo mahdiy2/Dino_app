@@ -78,7 +78,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.hilt.navigation.compose.hiltViewModel
+import org.koin.compose.viewmodel.koinViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -112,7 +112,7 @@ import com.ramcosta.composedestinations.annotation.RootGraph
 @Destination<RootGraph>
 @Composable
 fun ProfileScreen(username: String? = null) {
-    val viewModel: ProfileScreenViewModel = hiltViewModel()
+    val viewModel: ProfileScreenViewModel = koinViewModel()
     val lifecycleOwner = LocalLifecycleOwner.current
     val profile = viewModel.profile.value
     val posts = viewModel.posts

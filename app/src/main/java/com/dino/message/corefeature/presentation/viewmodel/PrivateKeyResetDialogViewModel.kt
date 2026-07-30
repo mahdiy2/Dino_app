@@ -8,17 +8,13 @@ import com.dino.message.authfeature.domain.usecase.RotatePublicKeyUseCase
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.presentation.util.RSAUtil
 import com.dino.message.corefeature.presentation.util.Resource
-import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
-@HiltViewModel
-class PrivateKeyResetDialogViewModel @Inject constructor(
-    @ApplicationContext app: Context,
+class PrivateKeyResetDialogViewModel constructor(
+    app: Context,
     private val rotatePublicKeyUseCase: RotatePublicKeyUseCase,
     private val sPrefManager: SPrefManager,
 ) : AndroidViewModel(app as DinoOrderApplication),

@@ -12,14 +12,11 @@ import com.dino.message.crashfeature.data.local.CrashLogEntity
 import com.dino.message.crashfeature.data.remote.CrashLogApiService
 import com.dino.message.crashfeature.data.remote.dto.CrashLogUploadRequest
 import com.dino.message.crashfeature.presentation.activity.CrashReportActivity
-import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.PrintWriter
 import java.io.StringWriter
 import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
-import javax.inject.Inject
-import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -29,9 +26,8 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.system.exitProcess
 
-@Singleton
-class CrashReporter @Inject constructor(
-    @ApplicationContext private val context: Context,
+class CrashReporter constructor(
+    private val context: Context,
     private val crashLogDao: CrashLogDao,
     private val crashLogApiService: CrashLogApiService,
     private val sPrefManager: SPrefManager,

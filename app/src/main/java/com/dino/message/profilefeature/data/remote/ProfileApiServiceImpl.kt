@@ -26,7 +26,6 @@ import com.dino.message.profilefeature.domain.model.ProfileUpdateImage
 import com.dino.message.profilefeature.domain.model.ProfileUsersPage
 import com.dino.message.profilefeature.domain.model.ReferralSummary
 import com.dino.message.threadfeature.domain.model.PostsPage
-import dagger.hilt.android.qualifiers.ApplicationContext
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.timeout
 import io.ktor.client.request.delete
@@ -48,7 +47,7 @@ class ProfileApiServiceImpl constructor(
     private val httpClient: HttpClient,
     private val sPrefManager: SPrefManager,
     private val httpAPIUtil: HttpAPIUtil,
-    @ApplicationContext private val appContext: Context,
+    private val appContext: Context,
 ) : ProfileApiService, HaveRefreshTokenAPI by HaveRefreshTokenAPIImpl(httpClient, sPrefManager) {
 
     companion object {

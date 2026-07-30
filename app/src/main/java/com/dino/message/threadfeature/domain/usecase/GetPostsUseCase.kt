@@ -5,9 +5,8 @@ import com.dino.message.threadfeature.domain.model.FeedMode
 import com.dino.message.threadfeature.domain.model.FeedPage
 import com.dino.message.threadfeature.domain.repository.ThreadRepository
 import kotlinx.coroutines.flow.flow
-import javax.inject.Inject
 
-class GetPostsUseCase @Inject constructor(
+class GetPostsUseCase constructor(
     private val threadRepository: ThreadRepository
 ) {
     fun execute(

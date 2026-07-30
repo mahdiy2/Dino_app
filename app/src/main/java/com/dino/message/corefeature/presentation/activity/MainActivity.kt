@@ -13,7 +13,6 @@ import androidx.lifecycle.lifecycleScope
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.viewModels
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.ModalBottomSheetValue
 import androidx.compose.material.rememberModalBottomSheetState
@@ -34,8 +33,6 @@ import com.ramcosta.composedestinations.generated.destinations.ActivityNotificat
 import com.ramcosta.composedestinations.generated.destinations.GroupChatScreenDestination
 import com.dino.message.chatfeature.data.notification.NotificationHelper
 import com.dino.message.corefeature.data.spref.SPrefManager
-import dagger.hilt.android.AndroidEntryPoint
-import dagger.hilt.android.qualifiers.ApplicationContext
 import com.dino.message.DinoOrderApplication
 import com.dino.message.corefeature.domain.model.AppLanguage
 import com.dino.message.corefeature.domain.model.toLayoutDirection
@@ -49,19 +46,16 @@ import com.dino.message.threadfeature.presentation.music.MusicPlaybackManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.ramcosta.composedestinations.generated.NavGraphs
-import javax.inject.Inject
+import org.koin.android.ext.android.inject
+import org.koin.androidx.viewmodel.ext.android.viewModel
 
-@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
-    @Inject
-    @ApplicationContext
-    lateinit var app: Context
+    private val app: Context by inject()
 
-    @Inject
-    lateinit var sPrefManager: SPrefManager
+    private val sPrefManager: SPrefManager by inject()
 
-    private val viewModel: MainActivityViewModel by viewModels()
+    private val viewModel: MainActivityViewModel by viewModel()
 
     private var navController: NavController? = null
 

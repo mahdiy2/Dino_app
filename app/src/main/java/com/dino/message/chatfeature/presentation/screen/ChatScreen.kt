@@ -116,7 +116,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
-import androidx.hilt.navigation.compose.hiltViewModel
+import org.koin.compose.viewmodel.koinViewModel
 import com.dino.message.chatfeature.domain.model.MessageDeliveryStatus
 import com.dino.message.chatfeature.domain.util.decodeMessageReactions
 import com.dino.message.chatfeature.presentation.component.ChatScreenBottomAppBar
@@ -152,7 +152,7 @@ fun ChatScreen(
     profileImageShape: String? = null,
     profileVideoUrl: String? = null
 ) {
-    val viewModel: ChatViewModel = hiltViewModel()
+    val viewModel: ChatViewModel = koinViewModel()
     val isPeerOnline by viewModel.isPeerOnline.collectAsState()
     val isUploading by viewModel.isUploading.collectAsState()
     val isLoadingOlderHistory by viewModel.isLoadingOlderHistory.collectAsState()

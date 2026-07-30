@@ -22,7 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import org.koin.compose.viewmodel.koinViewModel
 import com.dino.message.R
 import com.dino.message.updatefeature.presentation.viewmodel.AppUpdateViewModel
 import com.ramcosta.composedestinations.annotation.Destination
@@ -37,7 +37,7 @@ fun AppUpdateScreen(
     @Suppress("UNUSED_PARAMETER")
     downloadUrl: String,
 ) {
-    val viewModel: AppUpdateViewModel = hiltViewModel()
+    val viewModel: AppUpdateViewModel = koinViewModel()
     val context = androidx.compose.ui.platform.LocalContext.current
 
     val statusMessage = remember { mutableStateOf(message) }

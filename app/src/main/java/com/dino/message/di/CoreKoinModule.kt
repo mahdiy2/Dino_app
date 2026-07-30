@@ -1,6 +1,5 @@
 package com.dino.message.di
 
-import android.content.Context
 import androidx.room.Room
 import com.dino.message.BuildConfig
 import com.dino.message.DinoOrderApplication
@@ -33,7 +32,6 @@ import org.koin.dsl.module
 
 val coreModule = module {
     single<DinoOrderApplication> { androidApplication() as DinoOrderApplication }
-    single<Context> { androidContext() }
     single { Gson() }
     single { SPrefManager(gson = get(), context = androidContext()) }
     single<SessionProvider> { SPrefSessionProvider(sPrefManager = get()) }

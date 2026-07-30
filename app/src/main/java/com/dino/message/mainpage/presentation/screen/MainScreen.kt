@@ -67,7 +67,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import org.koin.compose.viewmodel.koinViewModel
 import com.dino.message.R
 import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
@@ -93,7 +93,7 @@ import kotlinx.coroutines.delay
 @Composable
 fun MainScreen() {
     val context = LocalContext.current
-    val viewModel: MainScreenViewModel = hiltViewModel()
+    val viewModel: MainScreenViewModel = koinViewModel()
     var isNoInternet by remember { mutableStateOf(!viewModel.isConnected(context)) }
 
     val listState = remember { LazyListState() }

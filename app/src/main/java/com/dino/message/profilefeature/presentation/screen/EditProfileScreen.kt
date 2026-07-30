@@ -82,7 +82,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.hilt.navigation.compose.hiltViewModel
+import org.koin.compose.viewmodel.koinViewModel
 import coil.compose.SubcomposeAsyncImage
 import coil.decode.VideoFrameDecoder
 import coil.request.ImageRequest
@@ -111,7 +111,7 @@ import kotlinx.coroutines.delay
 @Destination<RootGraph>
 @Composable
 fun EditProfileScreen() {
-    val viewModel: EditProfileViewModel = hiltViewModel()
+    val viewModel: EditProfileViewModel = koinViewModel()
     val isLoading by viewModel.isLoading.collectAsState()
     val isSaving by viewModel.isSaving.collectAsState()
     val error by viewModel.error.collectAsState()

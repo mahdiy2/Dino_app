@@ -4,9 +4,8 @@ import com.dino.message.authfeature.domain.model.RotatePublicKeyUser
 import com.dino.message.authfeature.domain.repository.AuthRepository
 import com.dino.message.corefeature.presentation.util.Resource
 import kotlinx.coroutines.flow.flow
-import javax.inject.Inject
 
-class RotatePublicKeyUseCase @Inject constructor(
+class RotatePublicKeyUseCase constructor(
     private val authRepository: AuthRepository,
 ) {
     fun execute(publicKey: String) = flow<Resource<RotatePublicKeyUser>> {

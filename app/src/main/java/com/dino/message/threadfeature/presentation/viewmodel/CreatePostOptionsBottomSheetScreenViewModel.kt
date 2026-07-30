@@ -11,13 +11,9 @@ import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.dino.message.groupfeature.domain.usecase.SaveGroupMessageUseCase
 import com.ramcosta.composedestinations.generated.destinations.CreatePostScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.PostMusicScreenDestination
-import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
-import javax.inject.Inject
 
-@HiltViewModel
-class CreatePostOptionsBottomSheetScreenViewModel @Inject constructor(
-    @ApplicationContext app: Context,
+class CreatePostOptionsBottomSheetScreenViewModel constructor(
+    app: Context,
     private val saveGroupMessageUseCase: SaveGroupMessageUseCase,
     private val sPrefManager: SPrefManager,
     savedStateHandle: SavedStateHandle,

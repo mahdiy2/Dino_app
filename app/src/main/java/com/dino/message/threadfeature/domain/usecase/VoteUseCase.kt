@@ -4,9 +4,8 @@ import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.threadfeature.domain.model.VoteResult
 import com.dino.message.threadfeature.domain.repository.ThreadRepository
 import kotlinx.coroutines.flow.flow
-import javax.inject.Inject
 
-class VoteUseCase @Inject constructor(
+class VoteUseCase constructor(
     private val threadRepository: ThreadRepository
 ) {
     fun execute(targetType: String, targetId: Long, value: Long) = flow<Resource<VoteResult>> {

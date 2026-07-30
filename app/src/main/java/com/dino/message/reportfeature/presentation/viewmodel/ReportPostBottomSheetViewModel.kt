@@ -13,17 +13,13 @@ import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.dino.message.reportfeature.domain.usecase.CreatePostReportUseCase
 import com.dino.message.reportfeature.domain.usecase.GetReportTypesUseCase
-import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
-@HiltViewModel
-class ReportPostBottomSheetViewModel @Inject constructor(
-    @ApplicationContext app: Context,
+class ReportPostBottomSheetViewModel constructor(
+    app: Context,
     private val getReportTypesUseCase: GetReportTypesUseCase,
     private val createPostReportUseCase: CreatePostReportUseCase,
     savedStateHandle: SavedStateHandle,

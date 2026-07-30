@@ -3,14 +3,10 @@ package com.dino.message.chatfeature.data.notification
 import android.content.Context
 import android.util.Log
 import com.dino.message.corefeature.data.socket.AppSocketManager
-import dagger.hilt.android.qualifiers.ApplicationContext
 import org.json.JSONObject
-import javax.inject.Inject
-import javax.inject.Singleton
 
-@Singleton
-class InAppNotificationManager @Inject constructor(
-    @ApplicationContext private val context: Context,
+class InAppNotificationManager constructor(
+    private val context: Context,
     private val appSocketManager: AppSocketManager,
 ) {
     companion object {

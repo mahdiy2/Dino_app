@@ -4,13 +4,10 @@ import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
-import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import com.dino.message.DinoOrderApplication
 import com.dino.message.R
 import com.dino.message.corefeature.domain.model.CustomMessageDialogData
 import com.dino.message.corefeature.domain.model.CustomMessageDialogType
-import javax.inject.Inject
 
 
 /**
@@ -21,9 +18,8 @@ import javax.inject.Inject
  * @param app The application context.
  * @param savedStateHandle The saved state handle.
  */
-@HiltViewModel
-class CustomMessageDialogViewModel @Inject constructor(
-    @ApplicationContext app: Context,
+class CustomMessageDialogViewModel constructor(
+    app: Context,
     savedStateHandle: SavedStateHandle
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {

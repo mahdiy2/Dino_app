@@ -11,8 +11,6 @@ import com.dino.message.threadfeature.domain.model.PlaylistTrack
 import com.dino.message.threadfeature.domain.usecase.AddTrackToPlaylistUseCase
 import com.dino.message.threadfeature.domain.usecase.GetPlaylistTracksUseCase
 import com.dino.message.threadfeature.domain.usecase.RemoveTrackFromPlaylistUseCase
-import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,11 +18,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
-@HiltViewModel
-class PlaylistBottomSheetViewModel @Inject constructor(
-    @ApplicationContext app: Context,
+class PlaylistBottomSheetViewModel constructor(
+    app: Context,
     private val dataStoreUtil: DataStoreUtil,
     private val getPlaylistTracksUseCase: GetPlaylistTracksUseCase,
     private val removeTrackFromPlaylistUseCase: RemoveTrackFromPlaylistUseCase,

@@ -20,11 +20,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 import java.net.URISyntaxException
-import javax.inject.Inject
-import javax.inject.Singleton
 
-@Singleton
-class AppSocketManager @Inject constructor(
+class AppSocketManager constructor(
     private val sprefManager: SPrefManager,
     private val crashReporter: CrashReporter,
     private val socketOutboundQueueDao: SocketOutboundQueueDao,

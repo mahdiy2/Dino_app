@@ -47,7 +47,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.hilt.navigation.compose.hiltViewModel
+import org.koin.compose.viewmodel.koinViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -71,7 +71,7 @@ fun GroupMembersScreen(
     groupId: Int,
     groupName: String? = null,
 ) {
-    val viewModel: GroupMembersViewModel = hiltViewModel()
+    val viewModel: GroupMembersViewModel = koinViewModel()
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 

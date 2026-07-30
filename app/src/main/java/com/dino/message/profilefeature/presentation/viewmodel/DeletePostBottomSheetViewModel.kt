@@ -9,17 +9,13 @@ import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.dino.message.threadfeature.domain.usecase.DeletePostUseCase
-import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
-@HiltViewModel
-class DeletePostBottomSheetViewModel @Inject constructor(
-    @ApplicationContext app: Context,
+class DeletePostBottomSheetViewModel constructor(
+    app: Context,
     private val deletePostUseCase: DeletePostUseCase,
     savedStateHandle: SavedStateHandle,
 ) : AndroidViewModel(app as DinoOrderApplication),

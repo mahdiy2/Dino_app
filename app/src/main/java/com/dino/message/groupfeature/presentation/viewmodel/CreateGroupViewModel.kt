@@ -13,17 +13,13 @@ import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.dino.message.groupfeature.domain.model.MutualFollower
 import com.dino.message.groupfeature.domain.usecase.CreateGroupUseCase
 import com.dino.message.groupfeature.domain.usecase.GetMutualFollowersUseCase
-import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
-@HiltViewModel
-class CreateGroupViewModel @Inject constructor(
-    @ApplicationContext app: Context,
+class CreateGroupViewModel constructor(
+    app: Context,
     private val createGroupUseCase: CreateGroupUseCase,
     private val getMutualFollowersUseCase: GetMutualFollowersUseCase,
 ) : AndroidViewModel(app as DinoOrderApplication),

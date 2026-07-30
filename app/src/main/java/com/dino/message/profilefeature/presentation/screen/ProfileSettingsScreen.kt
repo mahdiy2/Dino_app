@@ -75,7 +75,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import org.koin.compose.viewmodel.koinViewModel
 import com.dino.message.R
 import com.dino.message.corefeature.domain.model.AppLanguage
 import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
@@ -93,7 +93,7 @@ import kotlinx.coroutines.delay
 @Destination<RootGraph>
 @Composable
 fun ProfileSettingsScreen() {
-    val viewModel: ProfileSettingsViewModel = hiltViewModel()
+    val viewModel: ProfileSettingsViewModel = koinViewModel()
     val showDeleteAccountDialog by viewModel.showDeleteAccountDialog.collectAsState()
     val deleteAccountLoading by viewModel.deleteAccountLoading.collectAsState()
     val deleteAccountError by viewModel.deleteAccountError.collectAsState()

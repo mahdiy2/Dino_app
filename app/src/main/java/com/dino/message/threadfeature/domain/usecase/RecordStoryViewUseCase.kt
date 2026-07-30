@@ -4,9 +4,8 @@ import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.threadfeature.domain.model.StoryViewResult
 import com.dino.message.threadfeature.domain.repository.ThreadRepository
 import kotlinx.coroutines.flow.flow
-import javax.inject.Inject
 
-class RecordStoryViewUseCase @Inject constructor(
+class RecordStoryViewUseCase constructor(
     private val threadRepository: ThreadRepository
 ) {
     fun execute(storyId: Long) = flow<Resource<StoryViewResult>> {

@@ -9,8 +9,6 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import com.dino.message.DinoOrderApplication
 import com.dino.message.R
 import com.dino.message.corefeature.data.socket.AppSocketManager
@@ -38,11 +36,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
-import javax.inject.Inject
 
-@HiltViewModel
-class MainScreenViewModel @Inject constructor(
-    @ApplicationContext app: Context,
+class MainScreenViewModel constructor(
+    app: Context,
     private val addContactUseCase: AddContactUseCase,
     private val getContactsUseCase: GetContactsUseCase,
     private val getContactsDeltaUseCase: GetContactsDeltaUseCase,

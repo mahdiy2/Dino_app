@@ -21,18 +21,14 @@ import com.ramcosta.composedestinations.generated.destinations.AppUpdateScreenDe
 import com.ramcosta.composedestinations.generated.destinations.PrivateKeyAlertScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.RegisterScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.ThreadScreenDestination
-import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
-import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-@HiltViewModel
-class SpashViewModel @Inject constructor(
-    @ApplicationContext app: Context,
+class SpashViewModel constructor(
+    app: Context,
     private val dataStoreUtil: DataStoreUtil,
     private val sPrefManager: SPrefManager,
     private val getMyProfileUseCase: GetMyProfileUseCase,

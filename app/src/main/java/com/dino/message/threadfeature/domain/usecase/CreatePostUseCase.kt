@@ -5,9 +5,8 @@ import com.dino.message.threadfeature.domain.model.CreatedPost
 import com.dino.message.threadfeature.domain.model.CreatePostMedia
 import com.dino.message.threadfeature.domain.repository.ThreadRepository
 import kotlinx.coroutines.flow.flow
-import javax.inject.Inject
 
-class CreatePostUseCase @Inject constructor(
+class CreatePostUseCase constructor(
     private val threadRepository: ThreadRepository
 ) {
     fun execute(

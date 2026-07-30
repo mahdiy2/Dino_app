@@ -4,9 +4,8 @@ import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.threadfeature.domain.model.Post
 import com.dino.message.threadfeature.domain.repository.ThreadRepository
 import kotlinx.coroutines.flow.flow
-import javax.inject.Inject
 
-class GetPostUseCase @Inject constructor(
+class GetPostUseCase constructor(
     private val threadRepository: ThreadRepository
 ) {
     fun execute(postId: Long) = flow<Resource<Post>> {

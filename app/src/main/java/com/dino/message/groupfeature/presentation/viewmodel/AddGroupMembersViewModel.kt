@@ -15,17 +15,13 @@ import com.dino.message.groupfeature.domain.model.MutualFollower
 import com.dino.message.groupfeature.domain.usecase.AddGroupMembersUseCase
 import com.dino.message.groupfeature.domain.usecase.GetGroupDetailUseCase
 import com.dino.message.groupfeature.domain.usecase.GetMutualFollowersUseCase
-import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
-@HiltViewModel
-class AddGroupMembersViewModel @Inject constructor(
-    @ApplicationContext app: Context,
+class AddGroupMembersViewModel constructor(
+    app: Context,
     savedStateHandle: SavedStateHandle,
     private val getMutualFollowersUseCase: GetMutualFollowersUseCase,
     private val getGroupDetailUseCase: GetGroupDetailUseCase,

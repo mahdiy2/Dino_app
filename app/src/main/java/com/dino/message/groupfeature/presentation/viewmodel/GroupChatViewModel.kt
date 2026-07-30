@@ -43,8 +43,6 @@ import com.ramcosta.composedestinations.generated.destinations.GroupMembersScree
 import com.ramcosta.composedestinations.generated.destinations.PlaylistBottomSheetScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.PrivateKeyResetDialogScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.SharedPostDetailsScreenDestination
-import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import io.socket.client.Socket
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -61,11 +59,9 @@ import java.time.Instant
 import java.security.PublicKey
 import java.util.Collections
 import java.util.UUID
-import javax.inject.Inject
 
-@HiltViewModel
-class GroupChatViewModel @Inject constructor(
-    @ApplicationContext app: Context,
+class GroupChatViewModel constructor(
+    app: Context,
     private val spref: SPrefManager,
     private val getGroupDetailUseCase: GetGroupDetailUseCase,
     private val uploadGroupAttachmentUseCase: UploadGroupAttachmentUseCase,

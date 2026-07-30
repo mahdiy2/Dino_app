@@ -16,17 +16,13 @@ import com.ramcosta.composedestinations.generated.destinations.BlockListScreenDe
 import com.ramcosta.composedestinations.generated.destinations.LoginScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.PrivateKeyResetDialogScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.AboutUsScreenDestination
-import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
-import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-@HiltViewModel
-class ProfileSettingsViewModel @Inject constructor(
-    @ApplicationContext app: Context,
+class ProfileSettingsViewModel constructor(
+    app: Context,
     private val deleteMyAccountUseCase: DeleteMyAccountUseCase,
     private val clearLocalSessionUseCase: ClearLocalSessionUseCase,
     private val dataStoreUtil: DataStoreUtil

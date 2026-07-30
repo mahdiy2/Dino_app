@@ -28,7 +28,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.hilt.navigation.compose.hiltViewModel
+import org.koin.compose.viewmodel.koinViewModel
 import com.dino.message.R
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPSmall
@@ -47,8 +47,8 @@ import com.ramcosta.composedestinations.annotation.RootGraph
 fun SharedPostDetailsScreen(
     postId: Long
 ) {
-    val viewModel: SharedPostDetailsViewModel = hiltViewModel()
-    val commentsViewModel: ThreadCommentsViewModel = hiltViewModel()
+    val viewModel: SharedPostDetailsViewModel = koinViewModel()
+    val commentsViewModel: ThreadCommentsViewModel = koinViewModel()
     val post by viewModel.post.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()

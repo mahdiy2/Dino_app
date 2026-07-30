@@ -77,7 +77,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import org.koin.compose.viewmodel.koinViewModel
 import coil.compose.SubcomposeAsyncImage
 import com.dino.message.R
 import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
@@ -98,7 +98,7 @@ import kotlinx.coroutines.launch
 @Destination<RootGraph>
 @Composable
 fun AboutUsScreen() {
-    val viewModel: AboutUsViewModel = hiltViewModel()
+    val viewModel: AboutUsViewModel = koinViewModel()
     val aboutUs by viewModel.aboutUs.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()

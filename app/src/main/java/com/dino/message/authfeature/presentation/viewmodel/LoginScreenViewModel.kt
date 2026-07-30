@@ -20,16 +20,12 @@ import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.ramcosta.composedestinations.generated.destinations.RegisterScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.ThreadScreenDestination
-import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
-@HiltViewModel
-class LoginScreenViewModel @Inject constructor(
-    @ApplicationContext app: Context,
+class LoginScreenViewModel constructor(
+    app: Context,
     private val sPrefManager: SPrefManager,
     private val dataStoreUtil: DataStoreUtil,
     private val loginUseCase: LoginUseCase,

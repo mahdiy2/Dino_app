@@ -3,7 +3,6 @@ import java.util.Properties
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.jetbrains.kotlin.android)
-    alias(libs.plugins.dagger.hilt)
     alias(libs.plugins.kotlinx.serialization)
 //    alias(libs.plugins.ksp)
     id ("com.google.devtools.ksp") version libs.versions.kspVersion.get() // Updated KSP plugin version
@@ -111,11 +110,6 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
-
-    implementation (libs.hilt.android)
-    ksp (libs.hilt.compiler)
-    // For Jetpack Compose integration
-    implementation (libs.androidx.hilt.navigation.compose)
 
     implementation(platform(libs.koin.bom))
     implementation(libs.koin.android)

@@ -41,8 +41,6 @@ import com.dino.message.threadfeature.domain.usecase.UploadStoryUseCase
 import com.dino.message.threadfeature.domain.usecase.VoteUseCase
 import com.dino.message.activitynotificationfeature.domain.usecase.GetUnreadCountUseCase
 import com.dino.message.threadfeature.presentation.screen.CreatePostOptionsBottomSheetScreen
-import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import com.ramcosta.composedestinations.generated.destinations.CreatePostScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.SearchScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.MainScreenDestination
@@ -65,7 +63,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import javax.inject.Inject
 import com.ramcosta.composedestinations.generated.destinations.ThreadCommentsBottomSheetScreenDestination
 
 data class FollowSuggestion(
@@ -77,9 +74,8 @@ data class FollowSuggestion(
     val profileImageShape: String?,
 )
 
-@HiltViewModel
-class ThreadViewModel @Inject constructor(
-    @ApplicationContext app: Context,
+class ThreadViewModel constructor(
+    app: Context,
     private val getPostsUseCase: GetPostsUseCase,
     private val voteUseCase: VoteUseCase,
     private val blockUserUseCase: BlockUserUseCase,

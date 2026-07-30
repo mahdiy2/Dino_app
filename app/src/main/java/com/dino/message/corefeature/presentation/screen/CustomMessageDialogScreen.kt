@@ -24,7 +24,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import org.koin.compose.viewmodel.koinViewModel
 import com.dino.message.R
 import com.ramcosta.composedestinations.annotation.Destination
 import com.ramcosta.composedestinations.spec.DestinationStyle
@@ -54,7 +54,7 @@ import com.ramcosta.composedestinations.annotation.RootGraph
 @Suppress("UNUSED_PARAMETER")
 fun CustomMessageDialogScreen(customMessageDialogData: CustomMessageDialogData) {
     // Create an instance of the CustomMessageDialogViewModel using Hilt
-    val viewModel: CustomMessageDialogViewModel = hiltViewModel()
+    val viewModel: CustomMessageDialogViewModel = koinViewModel()
 
     // Determine the context color based on the custom message dialog type
     val contextColor = when (viewModel.customMessageDialogData.type) {

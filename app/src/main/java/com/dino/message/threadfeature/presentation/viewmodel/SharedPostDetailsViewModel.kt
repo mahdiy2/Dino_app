@@ -21,19 +21,15 @@ import com.ramcosta.composedestinations.generated.destinations.SharePostBottomSh
 import com.ramcosta.composedestinations.generated.destinations.SharedPostDetailsScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.TrackPlaylistAddersDialogScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.ThreadCommentsBottomSheetScreenDestination
-import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import javax.inject.Inject
 
-@HiltViewModel
-class SharedPostDetailsViewModel @Inject constructor(
-    @ApplicationContext app: Context,
+class SharedPostDetailsViewModel constructor(
+    app: Context,
     private val dataStoreUtil: DataStoreUtil,
     private val getPostUseCase: GetPostUseCase,
     private val voteUseCase: VoteUseCase,

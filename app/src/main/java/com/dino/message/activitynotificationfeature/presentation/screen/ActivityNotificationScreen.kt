@@ -31,7 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import org.koin.compose.viewmodel.koinViewModel
 import com.dino.message.R
 import com.dino.message.activitynotificationfeature.presentation.component.ActivityNotificationItem
 import com.dino.message.activitynotificationfeature.presentation.viewmodel.ActivityNotificationViewModel
@@ -48,7 +48,7 @@ import kotlinx.coroutines.flow.map
 @Destination<RootGraph>
 @Composable
 fun ActivityNotificationScreen() {
-    val viewModel: ActivityNotificationViewModel = hiltViewModel()
+    val viewModel: ActivityNotificationViewModel = koinViewModel()
     val listState = rememberLazyListState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val isLoadingMore by viewModel.isLoadingMore.collectAsState()

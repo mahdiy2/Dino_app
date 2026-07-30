@@ -14,4 +14,5 @@ val appModules = listOf(
     activityNotificationModule,
     splashModule,
     updateModule,
+    viewModelModule,
 )

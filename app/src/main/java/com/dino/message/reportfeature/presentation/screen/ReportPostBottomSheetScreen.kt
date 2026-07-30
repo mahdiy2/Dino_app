@@ -42,7 +42,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import org.koin.compose.viewmodel.koinViewModel
 import com.dino.message.R
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPSmall
@@ -57,7 +57,7 @@ import com.ramcosta.composedestinations.bottomsheet.spec.DestinationStyleBottomS
 fun ReportPostBottomSheetScreen(
     postId: Long,
 ) {
-    val viewModel: ReportPostBottomSheetViewModel = hiltViewModel()
+    val viewModel: ReportPostBottomSheetViewModel = koinViewModel()
     val isTypesLoading by viewModel.isTypesLoading.collectAsState()
     val isSubmitting by viewModel.isSubmitting.collectAsState()
     val error by viewModel.error.collectAsState()

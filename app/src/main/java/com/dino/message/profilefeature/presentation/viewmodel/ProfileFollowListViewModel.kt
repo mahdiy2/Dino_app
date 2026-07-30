@@ -16,17 +16,13 @@ import com.dino.message.profilefeature.domain.usecase.GetFollowingUseCase
 import com.dino.message.profilefeature.domain.usecase.RemoveFollowerUseCase
 import com.dino.message.profilefeature.domain.usecase.UnfollowUserUseCase
 import com.ramcosta.composedestinations.generated.destinations.ProfileScreenDestination
-import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
-@HiltViewModel
-class ProfileFollowListViewModel @Inject constructor(
-    @ApplicationContext app: Context,
+class ProfileFollowListViewModel constructor(
+    app: Context,
     private val sPrefManager: SPrefManager,
     private val getFollowersUseCase: GetFollowersUseCase,
     private val getFollowingUseCase: GetFollowingUseCase,

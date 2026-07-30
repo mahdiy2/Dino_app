@@ -15,7 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import org.koin.compose.viewmodel.koinViewModel
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPSmall
 import com.dino.message.threadfeature.presentation.component.ThreadCommentsSection
@@ -30,7 +30,7 @@ import com.ramcosta.composedestinations.bottomsheet.spec.DestinationStyleBottomS
 fun ThreadCommentsBottomSheetScreen(
     postId: Long
 ) {
-    val viewModel: ThreadCommentsViewModel = hiltViewModel()
+    val viewModel: ThreadCommentsViewModel = koinViewModel()
 
     Column(
         modifier = Modifier

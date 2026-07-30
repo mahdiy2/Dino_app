@@ -30,8 +30,6 @@ import com.dino.message.corefeature.presentation.util.formatPublicKeyForLog
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.dino.message.corefeature.domain.util.LocalHistoryPaging
-import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import io.socket.client.Socket
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -65,11 +63,9 @@ import com.ramcosta.composedestinations.generated.destinations.ProfileScreenDest
 import com.ramcosta.composedestinations.generated.destinations.SharedPostDetailsScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.ThreadScreenDestination
 import java.security.PublicKey
-import javax.inject.Inject
 
-@HiltViewModel
-class ChatViewModel @Inject constructor(
-    @ApplicationContext app: Context,
+class ChatViewModel constructor(
+    app: Context,
     private val spref: SPrefManager,
     private val getReceiverPublicKeyUseCase: GetReceiverPublicKeyUseCase,
     private val getMessageFromDBUseCase: GetMessageFromDBUseCase,

@@ -5,9 +5,8 @@ import com.dino.message.threadfeature.domain.model.CreatePostMedia
 import com.dino.message.threadfeature.domain.model.StoryUploadResult
 import com.dino.message.threadfeature.domain.repository.ThreadRepository
 import kotlinx.coroutines.flow.flow
-import javax.inject.Inject
 
-class UploadStoryUseCase @Inject constructor(
+class UploadStoryUseCase constructor(
     private val threadRepository: ThreadRepository
 ) {
     fun execute(mediaFile: CreatePostMedia, mentions: List<String>) = flow<Resource<StoryUploadResult>> {

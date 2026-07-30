@@ -4,9 +4,8 @@ import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.threadfeature.domain.model.DeleteContentResult
 import com.dino.message.threadfeature.domain.repository.ThreadRepository
 import kotlinx.coroutines.flow.flow
-import javax.inject.Inject
 
-class DeleteCommentUseCase @Inject constructor(
+class DeleteCommentUseCase constructor(
     private val threadRepository: ThreadRepository
 ) {
     fun execute(commentId: Long) = flow<Resource<DeleteContentResult>> {

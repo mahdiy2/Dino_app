@@ -4,9 +4,8 @@ import com.dino.message.authfeature.domain.model.RegisterConfirmUser
 import com.dino.message.authfeature.domain.repository.AuthRepository
 import com.dino.message.corefeature.presentation.util.Resource
 import kotlinx.coroutines.flow.flow
-import javax.inject.Inject
 
-class ConfirmRegistrationUseCase @Inject constructor(
+class ConfirmRegistrationUseCase constructor(
     private val authRepository: AuthRepository
 ) {
     fun execute(registrationId: String) = flow<Resource<RegisterConfirmUser>> {

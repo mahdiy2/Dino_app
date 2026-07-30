@@ -50,7 +50,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.dino.message.corefeature.presentation.util.rememberLayoutDirection
-import androidx.hilt.navigation.compose.hiltViewModel
+import org.koin.compose.viewmodel.koinViewModel
 import com.dino.message.chatfeature.presentation.component.MediaAccessLevel
 import com.dino.message.chatfeature.presentation.component.MediaPermissionHandler
 import com.dino.message.R
@@ -73,7 +73,7 @@ fun CreatePostScreen(
     quotedPostId: Long = 0L,
     editPostId: Long = 0L
 ) {
-    val viewModel: CreatePostViewModel = hiltViewModel()
+    val viewModel: CreatePostViewModel = koinViewModel()
     val isSubmitting by viewModel.isSubmitting.collectAsState()
     val isInitialPostLoading by viewModel.isInitialPostLoading.collectAsState()
     val error by viewModel.error.collectAsState()

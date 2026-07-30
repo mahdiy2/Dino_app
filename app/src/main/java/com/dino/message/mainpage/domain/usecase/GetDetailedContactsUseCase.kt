@@ -4,9 +4,8 @@ import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.mainpage.data.remote.dto.PaginatedContacts
 import com.dino.message.mainpage.domain.repository.MainRepository
 import kotlinx.coroutines.flow.flow
-import javax.inject.Inject
 
-class GetDetailedContactsUseCase @Inject constructor(
+class GetDetailedContactsUseCase constructor(
     private val mainRepository: MainRepository
 ) {
 

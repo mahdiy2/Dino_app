@@ -12,17 +12,13 @@ import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.dino.message.profilefeature.domain.model.ReferralSummary
 import com.dino.message.profilefeature.domain.usecase.GetMyReferralSummaryUseCase
-import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
-@HiltViewModel
-class ReferralViewModel @Inject constructor(
-    @ApplicationContext app: Context,
+class ReferralViewModel constructor(
+    app: Context,
     private val dataStoreUtil: DataStoreUtil,
     private val getMyReferralSummaryUseCase: GetMyReferralSummaryUseCase,
 ) : AndroidViewModel(app as DinoOrderApplication),

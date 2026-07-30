@@ -10,17 +10,13 @@ import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.dino.message.profilefeature.domain.model.AboutUs
 import com.dino.message.profilefeature.domain.usecase.GetAboutUsUseCase
 import com.ramcosta.composedestinations.generated.destinations.ProfileScreenDestination
-import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
-import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-@HiltViewModel
-class AboutUsViewModel @Inject constructor(
-    @ApplicationContext app: Context,
+class AboutUsViewModel constructor(
+    app: Context,
     private val getAboutUsUseCase: GetAboutUsUseCase,
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {

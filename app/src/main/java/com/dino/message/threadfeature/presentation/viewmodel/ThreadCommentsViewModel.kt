@@ -20,17 +20,13 @@ import com.dino.message.threadfeature.domain.usecase.GetCommentsUseCase
 import com.dino.message.threadfeature.domain.usecase.VoteUseCase
 import com.dino.message.threadfeature.presentation.util.orderCommentsByScoreAndRecency
 import com.ramcosta.composedestinations.generated.destinations.ProfileScreenDestination
-import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
-@HiltViewModel
-class ThreadCommentsViewModel @Inject constructor(
-    @ApplicationContext app: Context,
+class ThreadCommentsViewModel constructor(
+    app: Context,
     private val getCommentsUseCase: GetCommentsUseCase,
     private val createCommentUseCase: CreateCommentUseCase,
     private val deleteCommentUseCase: DeleteCommentUseCase,

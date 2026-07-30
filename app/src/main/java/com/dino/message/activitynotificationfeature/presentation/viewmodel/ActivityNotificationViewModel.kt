@@ -17,18 +17,14 @@ import com.dino.message.profilefeature.domain.usecase.GetFollowStatusUseCase
 import com.dino.message.threadfeature.domain.usecase.CreateCommentUseCase
 import com.ramcosta.composedestinations.generated.destinations.ProfileScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.SharedPostDetailsScreenDestination
-import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
-@HiltViewModel
-class ActivityNotificationViewModel @Inject constructor(
-    @ApplicationContext app: Context,
+class ActivityNotificationViewModel constructor(
+    app: Context,
     private val getActivityNotificationsUseCase: GetActivityNotificationsUseCase,
     private val markNotificationsReadUseCase: MarkNotificationsReadUseCase,
     private val getFollowStatusUseCase: GetFollowStatusUseCase,

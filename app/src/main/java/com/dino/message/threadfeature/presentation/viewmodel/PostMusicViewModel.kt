@@ -23,15 +23,12 @@ import com.dino.message.threadfeature.domain.usecase.CreatePostUseCase
 import com.dino.message.threadfeature.domain.usecase.EditPostUseCase
 import com.dino.message.threadfeature.domain.usecase.GetPostUseCase
 import com.dino.message.threadfeature.presentation.util.resolveMusicMetadata
-import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import javax.inject.Inject
 
 data class SelectedMusicTrack(
     val uri: Uri,
@@ -41,9 +38,8 @@ data class SelectedMusicTrack(
     val mimeType: String
 )
 
-@HiltViewModel
-class PostMusicViewModel @Inject constructor(
-    @ApplicationContext app: Context,
+class PostMusicViewModel constructor(
+    app: Context,
     private val sPrefManager: SPrefManager,
     private val createPostUseCase: CreatePostUseCase,
     private val editPostUseCase: EditPostUseCase,

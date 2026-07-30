@@ -43,7 +43,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import org.koin.compose.viewmodel.koinViewModel
 import com.dino.message.R
 import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
@@ -65,7 +65,7 @@ fun PostMusicScreen(
     quotedPostId: Long = 0L,
     editPostId: Long = 0L
 ) {
-    val viewModel: PostMusicViewModel = hiltViewModel()
+    val viewModel: PostMusicViewModel = koinViewModel()
     val context = LocalContext.current
     val selectedTrack = viewModel.selectedTrack.value
     val existingTrack = viewModel.existingTrack.value

@@ -28,7 +28,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
-import androidx.hilt.navigation.compose.hiltViewModel
+import org.koin.compose.viewmodel.koinViewModel
 import com.dino.message.R
 import com.dino.message.corefeature.presentation.util.backIconModifier
 import com.dino.message.searchfeature.presentation.component.SearchResultsList
@@ -41,7 +41,7 @@ import com.ramcosta.composedestinations.annotation.RootGraph
 @Destination<RootGraph>
 @Composable
 fun SearchScreen() {
-    val viewModel: SearchViewModel = hiltViewModel()
+    val viewModel: SearchViewModel = koinViewModel()
     val query = viewModel.query.value
     val selectedTab = viewModel.selectedTab.value
     val isLoading by viewModel.isLoading.collectAsState()

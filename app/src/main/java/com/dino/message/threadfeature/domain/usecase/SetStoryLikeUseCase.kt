@@ -4,9 +4,8 @@ import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.threadfeature.domain.model.StoryLikeResult
 import com.dino.message.threadfeature.domain.repository.ThreadRepository
 import kotlinx.coroutines.flow.flow
-import javax.inject.Inject
 
-class SetStoryLikeUseCase @Inject constructor(
+class SetStoryLikeUseCase constructor(
     private val threadRepository: ThreadRepository
 ) {
     fun execute(storyId: Long, liked: Boolean) = flow<Resource<StoryLikeResult>> {

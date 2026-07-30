@@ -12,13 +12,9 @@ import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.ramcosta.composedestinations.generated.destinations.PrivateKeyAlertScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.RegisterScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.ThreadScreenDestination
-import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
-import javax.inject.Inject
 
-@HiltViewModel
-class AppUpdateViewModel @Inject constructor(
-    @ApplicationContext app: Context,
+class AppUpdateViewModel constructor(
+    app: Context,
     private val sPrefManager: SPrefManager,
 ) : AndroidViewModel(app as Application),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {

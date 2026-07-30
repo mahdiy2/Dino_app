@@ -14,14 +14,10 @@ import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.ramcosta.composedestinations.generated.destinations.LoginScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.RegisterScreenDestination
-import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
-@HiltViewModel
-class PrivateKeyAlertScreenViewModel @Inject constructor(
-    @ApplicationContext app: Context,
+class PrivateKeyAlertScreenViewModel constructor(
+    app: Context,
     private val confirmRegistrationUseCase: ConfirmRegistrationUseCase,
     private val sPrefManager: SPrefManager,
 ) : AndroidViewModel(app as DinoOrderApplication),

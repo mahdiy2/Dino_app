@@ -5,9 +5,8 @@ import com.dino.message.chatfeature.data.remote.dto.MessageAttachment
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.groupfeature.domain.repository.GroupRepository
 import kotlinx.coroutines.flow.flow
-import javax.inject.Inject
 
-class UploadGroupAttachmentUseCase @Inject constructor(
+class UploadGroupAttachmentUseCase constructor(
     private val repository: GroupRepository,
 ) {
     fun execute(groupId: Int, fileUri: Uri) = flow<Resource<MessageAttachment>> {

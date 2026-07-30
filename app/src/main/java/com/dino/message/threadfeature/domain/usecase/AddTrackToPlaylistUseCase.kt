@@ -4,9 +4,8 @@ import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.threadfeature.domain.model.PlaylistTrackMutation
 import com.dino.message.threadfeature.domain.repository.ThreadRepository
 import kotlinx.coroutines.flow.flow
-import javax.inject.Inject
 
-class AddTrackToPlaylistUseCase @Inject constructor(
+class AddTrackToPlaylistUseCase constructor(
     private val threadRepository: ThreadRepository
 ) {
     fun execute(mediaId: Long) = flow<Resource<PlaylistTrackMutation>> {

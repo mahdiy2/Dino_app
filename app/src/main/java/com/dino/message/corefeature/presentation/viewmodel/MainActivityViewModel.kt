@@ -2,21 +2,17 @@ package com.dino.message.corefeature.presentation.viewmodel
 
 import android.content.Context
 import androidx.lifecycle.AndroidViewModel
-import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import com.dino.message.DinoOrderApplication
 import com.dino.message.corefeature.data.spref.DataStoreUtil
 import com.dino.message.corefeature.domain.model.AppLanguage
 import com.dino.message.corefeature.domain.model.toBoolean
 import kotlinx.coroutines.flow.Flow
-import javax.inject.Inject
 import kotlinx.coroutines.flow.map
 
 
-@HiltViewModel
-class MainActivityViewModel @Inject constructor(
+class MainActivityViewModel constructor(
     private val dataStoreUtil: DataStoreUtil,
-    @ApplicationContext private val app: Context
+    private val app: Context
 
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication){

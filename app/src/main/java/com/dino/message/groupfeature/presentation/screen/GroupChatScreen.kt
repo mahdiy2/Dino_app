@@ -59,7 +59,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
-import androidx.hilt.navigation.compose.hiltViewModel
+import org.koin.compose.viewmodel.koinViewModel
 import com.dino.message.chatfeature.presentation.component.ChatScreenBottomAppBar
 import com.dino.message.chatfeature.presentation.component.ChatContainer
 import com.dino.message.chatfeature.presentation.component.MessageReactionSummaryRow
@@ -100,7 +100,7 @@ fun GroupChatScreen(
     groupName: String? = null,
     isPublicRoom: Boolean = false,
 ) {
-    val viewModel: GroupChatViewModel = hiltViewModel()
+    val viewModel: GroupChatViewModel = koinViewModel()
     val messages by viewModel.messages.collectAsState()
     val messageDeliveryStatuses by viewModel.messageDeliveryStatuses.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()

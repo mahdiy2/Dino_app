@@ -11,17 +11,13 @@ import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.dino.message.profilefeature.domain.model.ProfileUserSummary
 import com.dino.message.profilefeature.domain.usecase.GetBlockedUsersUseCase
 import com.dino.message.profilefeature.domain.usecase.UnblockUserUseCase
-import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
-@HiltViewModel
-class BlockListViewModel @Inject constructor(
-    @ApplicationContext app: Context,
+class BlockListViewModel constructor(
+    app: Context,
     private val getBlockedUsersUseCase: GetBlockedUsersUseCase,
     private val unblockUserUseCase: UnblockUserUseCase
 ) : AndroidViewModel(app as DinoOrderApplication),

@@ -5,9 +5,8 @@ import com.dino.message.profilefeature.domain.model.Profile
 import com.dino.message.profilefeature.domain.model.ProfileUpdateImage
 import com.dino.message.profilefeature.domain.repository.ProfileRepository
 import kotlinx.coroutines.flow.flow
-import javax.inject.Inject
 
-class UpdateMyProfileUseCase @Inject constructor(
+class UpdateMyProfileUseCase constructor(
     private val profileRepository: ProfileRepository
 ) {
     fun execute(

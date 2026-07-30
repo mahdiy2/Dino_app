@@ -59,7 +59,6 @@ import com.dino.message.threadfeature.domain.model.StoryUploadResult
 import com.dino.message.threadfeature.domain.model.StoryViewResult
 import com.dino.message.threadfeature.domain.model.StoryViewersPage
 import com.dino.message.threadfeature.domain.model.VoteResult
-import dagger.hilt.android.qualifiers.ApplicationContext
 import io.ktor.client.HttpClient
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
@@ -85,7 +84,7 @@ class ThreadApiServiceImpl constructor(
     private val sPrefManager: SPrefManager,
     private val httpAPIUtil: HttpAPIUtil,
     private val crashReporter: CrashReporter,
-    @ApplicationContext private val appContext: Context,
+    private val appContext: Context,
 ) : ThreadApiService, HaveRefreshTokenAPI by HaveRefreshTokenAPIImpl(httpClient, sPrefManager) {
     companion object {
         private const val MAX_MEDIA_FILES_PER_POST = 8

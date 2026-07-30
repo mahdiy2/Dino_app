@@ -6,7 +6,6 @@ import android.app.Application
 import android.app.Activity
 import android.os.Bundle
 import android.os.Build
-import dagger.hilt.android.HiltAndroidApp
 import com.dino.message.chatfeature.data.notification.ActiveChatTracker
 import com.dino.message.chatfeature.data.notification.ActiveGroupTracker
 import com.dino.message.crashfeature.data.service.CrashReporter
@@ -15,16 +14,14 @@ import com.dino.message.di.appModules
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import com.dino.message.chatfeature.data.notification.InAppNotificationManager
-import javax.inject.Inject
 import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
+import org.koin.android.ext.android.inject
 import org.koin.core.context.startKoin
 
-@HiltAndroidApp
 class DinoOrderApplication: Application() {
 
-    @Inject
-    lateinit var crashReporter: CrashReporter
+    val crashReporter: CrashReporter by inject()
 
     /**
      * A mutable shared flow used for emitting UI events.
@@ -36,8 +33,7 @@ class DinoOrderApplication: Application() {
      */
     val uIEventFlow: SharedFlow<UIEvent> = mutableUIEventFlow
 
-    @Inject
-    lateinit var inAppNotificationManager: InAppNotificationManager
+    val inAppNotificationManager: InAppNotificationManager by inject()
     private var startedActivitiesCount: Int = 0
 
     override fun onCreate() {

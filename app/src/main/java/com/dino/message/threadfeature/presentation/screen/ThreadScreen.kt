@@ -85,7 +85,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import org.koin.compose.viewmodel.koinViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -131,7 +131,7 @@ import kotlinx.coroutines.launch
 @Destination<RootGraph>
 @Composable
 fun ThreadScreen(initialStoryId: Long? = null) {
-    val viewModel: ThreadViewModel = hiltViewModel()
+    val viewModel: ThreadViewModel = koinViewModel()
     val listState = rememberLazyListState()
     val profile = viewModel.profile.value
     val canDownloadPostMedia by viewModel.viewerHasBadge.collectAsState()

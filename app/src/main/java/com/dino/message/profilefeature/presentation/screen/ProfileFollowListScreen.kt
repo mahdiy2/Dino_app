@@ -59,7 +59,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import org.koin.compose.viewmodel.koinViewModel
 import coil.compose.SubcomposeAsyncImage
 import com.dino.message.R
 import com.dino.message.corefeature.presentation.component.UserBadgeIcon
@@ -86,7 +86,7 @@ fun ProfileFollowListScreen(
     username: String,
     showFollowers: Boolean,
 ) {
-    val viewModel: ProfileFollowListViewModel = hiltViewModel()
+    val viewModel: ProfileFollowListViewModel = koinViewModel()
     val listState = rememberLazyListState()
     val isLoading by viewModel.isLoading.collectAsState()
     val isLoadingMore by viewModel.isLoadingMore.collectAsState()

@@ -500,32 +500,32 @@ Acceptance criteria:
 
 ### ViewModels and UI
 
-- [ ] Register all 34 Hilt ViewModels in Koin.
-- [ ] Replace `@HiltViewModel` annotations.
-- [ ] Remove ViewModel `@Inject constructor` annotations.
-- [ ] Replace all `hiltViewModel()` usages with `koinViewModel()`.
-- [ ] Handle runtime navigation arguments with Koin parameters.
+- [x] Register all 34 Hilt ViewModels in Koin.
+- [x] Replace `@HiltViewModel` annotations.
+- [x] Remove ViewModel `@Inject constructor` annotations.
+- [x] Replace all `hiltViewModel()` usages with `koinViewModel()`.
+- [x] Handle runtime navigation arguments with Koin parameters.
 - [ ] Verify ViewModel state survives recomposition/configuration changes.
 
 ### Android Components
 
-- [ ] Replace application field injection.
-- [ ] Replace activity field injection.
-- [ ] Audit services for injected dependencies.
-- [ ] Audit workers/receivers for injected dependencies.
+- [x] Replace application field injection.
+- [x] Replace activity field injection.
+- [x] Audit services for injected dependencies.
+- [x] Audit workers/receivers for injected dependencies.
 - [ ] Verify notification and crash-report flows.
 
 ### Final Cleanup
 
-- [ ] Remove `AppModule` after all providers are replaced.
-- [ ] Remove Hilt plugin from root Gradle.
-- [ ] Remove Hilt plugin from app Gradle.
-- [ ] Remove Hilt libraries from version catalog.
-- [ ] Remove Hilt compiler dependency.
-- [ ] Remove Hilt navigation compose dependency.
-- [ ] Remove unused imports.
-- [ ] Confirm no `dagger`, `hilt`, `javax.inject`, or `@Inject` usages remain.
-- [ ] Run `./gradlew :app:compileDebugKotlin`.
+- [x] Remove `AppModule` after all providers are replaced.
+- [x] Remove Hilt plugin from root Gradle.
+- [x] Remove Hilt plugin from app Gradle.
+- [x] Remove Hilt libraries from version catalog.
+- [x] Remove Hilt compiler dependency.
+- [x] Remove Hilt navigation compose dependency.
+- [x] Remove unused imports.
+- [x] Confirm no `dagger`, `hilt`, `javax.inject`, or `@Inject` usages remain.
+- [x] Run `./gradlew :app:compileDebugKotlin`.
 - [ ] Run relevant unit/instrumented tests.
 
 ## Koin Definition Examples

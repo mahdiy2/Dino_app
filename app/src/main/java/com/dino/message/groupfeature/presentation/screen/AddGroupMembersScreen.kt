@@ -36,7 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import org.koin.compose.viewmodel.koinViewModel
 import com.dino.message.R
 import com.dino.message.corefeature.presentation.component.UserBadgeIcon
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
@@ -54,7 +54,7 @@ fun AddGroupMembersScreen(
     groupId: Int,
     groupName: String? = null,
 ) {
-    val viewModel: AddGroupMembersViewModel = hiltViewModel()
+    val viewModel: AddGroupMembersViewModel = koinViewModel()
     val context = LocalContext.current
 
     val title by viewModel.groupName.collectAsState()

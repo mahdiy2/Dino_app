@@ -19,15 +19,12 @@ import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.dino.message.profilefeature.domain.model.ProfileUpdateImage
 import com.dino.message.profilefeature.domain.usecase.GetMyProfileUseCase
 import com.dino.message.profilefeature.domain.usecase.UpdateMyProfileUseCase
-import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import javax.inject.Inject
 
 data class SelectedProfileMedia(
     val uri: Uri,
@@ -35,9 +32,8 @@ data class SelectedProfileMedia(
     val mimeType: String
 )
 
-@HiltViewModel
-class EditProfileViewModel @Inject constructor(
-    @ApplicationContext app: Context,
+class EditProfileViewModel constructor(
+    app: Context,
     private val dataStoreUtil: DataStoreUtil,
     private val getMyProfileUseCase: GetMyProfileUseCase,
     private val updateMyProfileUseCase: UpdateMyProfileUseCase

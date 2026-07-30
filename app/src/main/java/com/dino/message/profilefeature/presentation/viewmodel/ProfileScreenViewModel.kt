@@ -43,19 +43,15 @@ import com.ramcosta.composedestinations.generated.destinations.SharedPostDetails
 import com.ramcosta.composedestinations.generated.destinations.TrackPlaylistAddersDialogScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.ThreadCommentsBottomSheetScreenDestination
 import com.ramcosta.composedestinations.generated.destinations.ThreadScreenDestination
-import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import javax.inject.Inject
 
-@HiltViewModel
-class ProfileScreenViewModel @Inject constructor(
-    @ApplicationContext app: Context,
+class ProfileScreenViewModel constructor(
+    app: Context,
     private val dataStoreUtil: DataStoreUtil,
     private val sPrefManager: SPrefManager,
     private val getMyProfileUseCase: GetMyProfileUseCase,

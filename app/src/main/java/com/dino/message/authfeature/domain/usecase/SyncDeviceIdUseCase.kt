@@ -6,9 +6,8 @@ import com.dino.message.corefeature.presentation.util.Resource
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
-import javax.inject.Inject
 
-class SyncDeviceIdUseCase @Inject constructor(
+class SyncDeviceIdUseCase constructor(
     private val sPrefManager: SPrefManager,
     private val deviceIdProvider: DeviceIdProvider,
     private val updateDeviceIdUseCase: UpdateDeviceIdUseCase,

@@ -27,7 +27,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import org.koin.compose.viewmodel.koinViewModel
 import com.dino.message.R
 import com.dino.message.corefeature.presentation.viewmodel.PrivateKeyResetDialogViewModel
 import com.ramcosta.composedestinations.annotation.Destination
@@ -38,7 +38,7 @@ import androidx.compose.material3.Icon
 @Destination<RootGraph>(style = DestinationStyle.Dialog::class)
 @Composable
 fun PrivateKeyResetDialogScreen() {
-    val viewModel: PrivateKeyResetDialogViewModel = hiltViewModel()
+    val viewModel: PrivateKeyResetDialogViewModel = koinViewModel()
     val isSubmitting by viewModel.isSubmitting.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
 

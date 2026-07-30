@@ -4,9 +4,8 @@ import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.reportfeature.domain.model.CreatedReport
 import com.dino.message.reportfeature.domain.repository.ReportRepository
 import kotlinx.coroutines.flow.flow
-import javax.inject.Inject
 
-class CreatePostReportUseCase @Inject constructor(
+class CreatePostReportUseCase constructor(
     private val reportRepository: ReportRepository,
 ) {
     fun execute(

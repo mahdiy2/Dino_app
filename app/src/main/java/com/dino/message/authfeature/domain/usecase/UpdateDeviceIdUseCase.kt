@@ -4,9 +4,8 @@ import com.dino.message.authfeature.domain.repository.AuthRepository
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.profilefeature.domain.model.ProfileFollowResult
 import kotlinx.coroutines.flow.flow
-import javax.inject.Inject
 
-class UpdateDeviceIdUseCase @Inject constructor(
+class UpdateDeviceIdUseCase constructor(
     private val authRepository: AuthRepository
 ) {
     fun execute(deviceId: String) = flow<Resource<ProfileFollowResult>> {

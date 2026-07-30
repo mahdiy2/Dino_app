@@ -23,8 +23,6 @@ import com.dino.message.groupfeature.domain.usecase.GetGroupDetailUseCase
 import com.dino.message.groupfeature.domain.usecase.ListGroupsUseCase
 import com.dino.message.groupfeature.domain.usecase.SaveGroupMessageUseCase
 import com.dino.message.mainpage.domain.usecase.GetDetailedContactsUseCase
-import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -34,7 +32,6 @@ import org.json.JSONObject
 import java.security.PublicKey
 import java.time.Instant
 import java.util.UUID
-import javax.inject.Inject
 
 private const val CONTACTS_PAGE_SIZE = 50
 
@@ -63,9 +60,8 @@ private data class ShareDispatchResult(
     val error: String? = null,
 )
 
-@HiltViewModel
-class SharePostBottomSheetViewModel @Inject constructor(
-    @ApplicationContext app: Context,
+class SharePostBottomSheetViewModel constructor(
+    app: Context,
     private val getDetailedContactsUseCase: GetDetailedContactsUseCase,
     private val listGroupsUseCase: ListGroupsUseCase,
     private val getReceiverPublicKeyUseCase: GetReceiverPublicKeyUseCase,
