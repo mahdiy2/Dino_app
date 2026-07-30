@@ -27,3 +27,4 @@ local.properties
 /.idea/runConfigurations.xml
 /.idea/vcs.xml
 /.idea/appInsightsSettings.xml
+/docs/di-migration-task-prompts.md
