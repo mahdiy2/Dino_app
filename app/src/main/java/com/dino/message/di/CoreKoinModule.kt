@@ -5,7 +5,13 @@ import com.dino.message.BuildConfig
 import com.dino.message.DinoOrderApplication
 import com.dino.message.chatfeature.data.notification.InAppNotificationManager
 import com.dino.message.corefeature.data.db.MessageDatabase
+import com.dino.message.corefeature.data.remote.NetworkExceptionClassifier
+import com.dino.message.corefeature.data.remote.JvmNetworkExceptionClassifier
 import com.dino.message.corefeature.data.remote.util.HttpAPIUtil
+import com.dino.message.corefeature.data.remote.createAppHttpClient
+import com.dino.message.corefeature.data.remote.logging.AppLogger
+import com.dino.message.corefeature.data.remote.logging.AndroidAppLogger
+import com.dino.message.corefeature.data.upload.AndroidUploadContentProvider
 import com.dino.message.corefeature.data.session.SPrefSessionProvider
 import com.dino.message.corefeature.data.socket.AppSocketManager
 import com.dino.message.corefeature.data.spref.DataStoreUtil
@@ -14,18 +20,7 @@ import com.dino.message.corefeature.domain.session.SessionProvider
 import com.dino.message.crashfeature.data.remote.CrashLogApiService
 import com.dino.message.crashfeature.data.service.CrashReporter
 import com.google.gson.Gson
-import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
-import io.ktor.client.plugins.HttpTimeout
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.client.plugins.defaultRequest
-import io.ktor.client.plugins.logging.DEFAULT
-import io.ktor.client.plugins.logging.LogLevel
-import io.ktor.client.plugins.logging.Logger
-import io.ktor.client.plugins.logging.Logging
-import io.ktor.serialization.kotlinx.json.json
-import kotlinx.serialization.ExperimentalSerializationApi
-import kotlinx.serialization.json.Json
 import org.koin.android.ext.koin.androidApplication
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
@@ -35,8 +30,25 @@ val coreModule = module {
     single { Gson() }
     single { SPrefManager(gson = get(), context = androidContext()) }
     single<SessionProvider> { SPrefSessionProvider(sPrefManager = get()) }
-    single { provideHttpClient() }
-    single { HttpAPIUtil(sPrefManager = get(), context = androidContext()) }
+    single<AppLogger> { AndroidAppLogger }
+    single<NetworkExceptionClassifier> { JvmNetworkExceptionClassifier }
+    single { AndroidUploadContentProvider(contentResolver = androidContext().contentResolver) }
+    single {
+        createAppHttpClient(
+            engineFactory = OkHttp,
+            baseUrl = BuildConfig.BASE_URL,
+            isDebug = BuildConfig.DEBUG,
+            appLogger = get(),
+        )
+    }
+    single {
+        HttpAPIUtil(
+            sPrefManager = get(),
+            context = androidContext(),
+            networkExceptionClassifier = get(),
+            appLogger = get(),
+        )
+    }
     single { DataStoreUtil(context = androidContext()) }
     single { CrashLogApiService(httpClient = get(), sPrefManager = get()) }
     single {
@@ -90,28 +102,3 @@ val databaseModule = module {
     single { get<MessageDatabase>().crashLogDao() }
     single { get<MessageDatabase>().socketOutboundQueueDao() }
 }
-
-@OptIn(ExperimentalSerializationApi::class)
-private fun provideHttpClient() =
-    HttpClient(OkHttp) {
-        defaultRequest {
-            url(BuildConfig.BASE_URL)
-        }
-        install(Logging) {
-            logger = Logger.DEFAULT
-            level = if (BuildConfig.DEBUG) LogLevel.ALL else LogLevel.HEADERS
-        }
-        install(HttpTimeout) {
-            requestTimeoutMillis = 20_000
-            connectTimeoutMillis = 20_000
-            socketTimeoutMillis = 20_000
-        }
-        install(ContentNegotiation) {
-            json(
-                Json {
-                    ignoreUnknownKeys = true
-                    explicitNulls = false
-                }
-            )
-        }
-    }

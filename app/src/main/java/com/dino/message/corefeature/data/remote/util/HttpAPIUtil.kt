@@ -1,11 +1,12 @@
 package com.dino.message.corefeature.data.remote.util
 
 import android.content.Context
-import android.util.Log
 import com.dino.message.BuildConfig
 import com.dino.message.DinoOrderApplication
 import com.dino.message.R
+import com.dino.message.corefeature.data.remote.NetworkExceptionClassifier
 import com.dino.message.corefeature.data.remote.ResponseToResultMapper
+import com.dino.message.corefeature.data.remote.logging.AppLogger
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.domain.model.asStringResourceContent
 import com.dino.message.corefeature.presentation.util.PopBackStackLevel
@@ -26,13 +27,15 @@ import kotlinx.coroutines.delay
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import java.net.SocketTimeoutException
-import java.nio.channels.UnresolvedAddressException
 import com.dino.message.corefeature.presentation.navigation.AppRoute
 
 class HttpAPIUtil constructor(
     val sPrefManager: SPrefManager,
-    val context: Context
+    val context: Context,
+    @PublishedApi
+    internal val networkExceptionClassifier: NetworkExceptionClassifier,
+    @PublishedApi
+    internal val appLogger: AppLogger,
 ) {
 
 
@@ -91,7 +94,7 @@ class HttpAPIUtil constructor(
                             .contains("Bad Authorization header", ignoreCase = true)
 
                         if (isAuthorizationHeaderError) {
-                            Log.w("HttpAPIUtil", "422 with bad authorization header; trying token refresh")
+                            appLogger.warning("HttpAPIUtil", "422 with bad authorization header; trying token refresh")
                             handleUnauthorized(
                                 callRefreshTokenAPI = callRefreshTokenAPI,
                                 needToUpdateToken = needToUpdateToken,
@@ -172,15 +175,11 @@ class HttpAPIUtil constructor(
                     )
                 }
 
-            } catch (e: UnresolvedAddressException) {
-                throw RetryableException("Network error", e)
             } catch (e: HttpRequestTimeoutException) {
-                throw RetryableException("Timeout error", e)
-            } catch (e: SocketTimeoutException) {
                 throw RetryableException("Timeout error", e)
             } catch (e: IOException) {
                 val message = e.message
-                if (isTimeoutLikeMessage(message)) {
+                if (networkExceptionClassifier.isTimeout(e, message.orEmpty())) {
                     throw RetryableException("Timeout error", e)
                 }
                 throw RetryableException("Network error", e)
@@ -194,7 +193,13 @@ class HttpAPIUtil constructor(
             } catch (e: RetryableException) {
                 throw e
             } catch (e: Exception) {
-                Log.e("HttpAPIUtil", "Unhandled exception", e)
+                if (networkExceptionClassifier.isTimeout(e)) {
+                    throw RetryableException("Timeout error", e)
+                }
+                if (networkExceptionClassifier.isNetworkFailure(e)) {
+                    throw RetryableException("Network error", e)
+                }
+                appLogger.error("HttpAPIUtil", "Unhandled exception", e)
                 Resource.Error(
                     message = e.message?.asStringResourceContent()
                         ?: R.string.unknown_error_occurred.asStringResourceContent()
@@ -258,7 +263,7 @@ class HttpAPIUtil constructor(
     suspend fun readResponseBodySafely(response: HttpResponse): String? {
         return runCatching { response.bodyAsText() }
             .onFailure {
-                Log.w("HttpAPIUtil", "Failed to consume error response body", it)
+                appLogger.warning("HttpAPIUtil", "Failed to consume error response body", it)
             }
             .getOrNull()
     }
@@ -321,22 +326,14 @@ class HttpAPIUtil constructor(
                 R.string.error_request_timed_out.asStringResourceContent()
             }
 
-            rootCause is SocketTimeoutException -> {
-                R.string.error_request_timed_out.asStringResourceContent()
-            }
-
-            rootCause is UnresolvedAddressException -> {
-                R.string.network_error.asStringResourceContent()
-            }
-
             rootCause is IOException -> {
-                if (isTimeoutLikeMessage(rootMessage)) {
+                if (networkExceptionClassifier.isTimeout(rootCause, rootMessage)) {
                     return R.string.error_request_timed_out.asStringResourceContent()
                 }
                 R.string.network_error.asStringResourceContent()
             }
 
-            isTimeoutLikeMessage(rootMessage) -> {
+            rootCause != null && networkExceptionClassifier.isTimeout(rootCause, rootMessage) -> {
                 R.string.error_request_timed_out.asStringResourceContent()
             }
 
@@ -369,12 +366,5 @@ class HttpAPIUtil constructor(
             return firstException
         }
         return lastException ?: firstException
-    }
-
-    @PublishedApi
-    internal fun isTimeoutLikeMessage(message: String?): Boolean {
-        val normalized = message?.trim()?.lowercase().orEmpty()
-        if (normalized.isBlank()) return false
-        return normalized.contains("timeout") || normalized.contains("timed out")
     }
 }

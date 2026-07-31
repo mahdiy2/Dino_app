@@ -8,7 +8,9 @@ import com.dino.message.corefeature.data.remote.util.HttpAPIUtil
 import com.dino.message.corefeature.data.remote.util.appendTokenToHeader
 import com.dino.message.corefeature.data.remote.util.ensureFreshAccessTokenIfNearExpiry
 import com.dino.message.corefeature.data.spref.SPrefManager
+import com.dino.message.corefeature.data.upload.AndroidUploadContentProvider
 import com.dino.message.corefeature.data.upload.MediaFileResolver
+import com.dino.message.corefeature.data.upload.appendUploadFile
 import com.dino.message.corefeature.domain.model.asStringResourceContent
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.profilefeature.data.remote.dto.AboutUsResponse
@@ -29,7 +31,6 @@ import com.dino.message.threadfeature.domain.model.PostsPage
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.timeout
 import io.ktor.client.request.delete
-import io.ktor.client.request.forms.InputProvider
 import io.ktor.client.request.forms.MultiPartFormDataContent
 import io.ktor.client.request.forms.formData
 import io.ktor.client.request.get
@@ -37,16 +38,13 @@ import io.ktor.client.request.post
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
-import io.ktor.http.Headers
-import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
-import io.ktor.utils.io.streams.asInput
-import java.io.File
 
 class ProfileApiServiceImpl constructor(
     private val httpClient: HttpClient,
     private val sPrefManager: SPrefManager,
     private val httpAPIUtil: HttpAPIUtil,
+    private val uploadContentProvider: AndroidUploadContentProvider,
     private val appContext: Context,
 ) : ProfileApiService, HaveRefreshTokenAPI by HaveRefreshTokenAPIImpl(httpClient, sPrefManager) {
 
@@ -160,33 +158,25 @@ class ProfileApiServiceImpl constructor(
                                         if (removeProfileVideo) append("remove_profile_video", "true")
                                     }
                                     profileImage?.let {
-                                        append(
-                                            key = "profile_image",
-                                            value = InputProvider(size = resolveFileSize(it)) {
-                                                openInputStream(it).asInput()
-                                            },
-                                            headers = Headers.build {
-                                                append(
-                                                    HttpHeaders.ContentDisposition,
-                                                    "form-data; name=\"profile_image\"; filename=\"${it.fileName}\""
-                                                )
-                                                append(HttpHeaders.ContentType, it.mimeType)
-                                            }
+                                        appendUploadFile(
+                                            uploadContentProvider.filePart(
+                                                uri = it.uri,
+                                                formName = "profile_image",
+                                                fileName = it.fileName,
+                                                mimeType = it.mimeType,
+                                                size = resolveFileSize(it),
+                                            )
                                         )
                                     }
                                     profileVideo?.let {
-                                        append(
-                                            key = "profile_video",
-                                            value = InputProvider(size = resolveFileSize(it)) {
-                                                openInputStream(it).asInput()
-                                            },
-                                            headers = Headers.build {
-                                                append(
-                                                    HttpHeaders.ContentDisposition,
-                                                    "form-data; name=\"profile_video\"; filename=\"${it.fileName}\""
-                                                )
-                                                append(HttpHeaders.ContentType, it.mimeType)
-                                            }
+                                        appendUploadFile(
+                                            uploadContentProvider.filePart(
+                                                uri = it.uri,
+                                                formName = "profile_video",
+                                                fileName = it.fileName,
+                                                mimeType = it.mimeType,
+                                                size = resolveFileSize(it),
+                                            )
                                         )
                                     }
                                 }
@@ -202,18 +192,6 @@ class ProfileApiServiceImpl constructor(
     private fun resolveFileSize(media: ProfileUpdateImage): Long? {
         media.sizeBytes?.let { if (it >= 0) return it }
         return MediaFileResolver.resolveFileSize(appContext.contentResolver, media.uri)
-    }
-
-    private fun openInputStream(media: ProfileUpdateImage): java.io.InputStream {
-        val uri = media.uri
-        if (uri.scheme == "file") {
-            val path = uri.path ?: error("File path is missing")
-            val file = File(path)
-            if (!file.exists()) error("File does not exist")
-            return file.inputStream()
-        }
-        return appContext.contentResolver.openInputStream(uri)
-            ?: error("Unable to open input stream")
     }
 
     override suspend fun deleteMyAccount(): Resource<ProfileFollowResult> =

@@ -11,8 +11,10 @@ import com.dino.message.corefeature.data.remote.util.HttpAPIUtil
 import com.dino.message.corefeature.data.remote.util.appendTokenToHeader
 import com.dino.message.corefeature.data.remote.util.ensureFreshAccessTokenIfNearExpiry
 import com.dino.message.corefeature.data.spref.SPrefManager
+import com.dino.message.corefeature.data.upload.AndroidUploadContentProvider
 import com.dino.message.corefeature.data.upload.AttachmentUploadPolicy
 import com.dino.message.corefeature.data.upload.MediaFileResolver
+import com.dino.message.corefeature.data.upload.appendUploadFile
 import com.dino.message.corefeature.domain.model.asStringResourceContent
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.groupfeature.data.remote.dto.AddGroupMembersRequest
@@ -39,7 +41,6 @@ import com.dino.message.groupfeature.domain.model.MutualFollowersPage
 import com.dino.message.groupfeature.domain.model.PublicRoomStatus
 import io.ktor.client.HttpClient
 import io.ktor.client.request.forms.MultiPartFormDataContent
-import io.ktor.client.request.forms.InputProvider
 import io.ktor.client.request.forms.formData
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
@@ -47,16 +48,13 @@ import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.plugins.timeout
 import io.ktor.http.ContentType
-import io.ktor.http.Headers
-import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
-import io.ktor.utils.io.streams.asInput
-import java.io.File
 
 class GroupApiServiceImpl constructor(
     private val httpClient: HttpClient,
     private val sPrefManager: SPrefManager,
     private val httpAPIUtil: HttpAPIUtil,
+    private val uploadContentProvider: AndroidUploadContentProvider,
     private val appContext: Context,
 ) : GroupApiService, HaveRefreshTokenAPI by HaveRefreshTokenAPIImpl(httpClient, sPrefManager) {
     companion object {
@@ -200,7 +198,7 @@ class GroupApiServiceImpl constructor(
         if (validationError != null) {
             return Resource.Error(message = validationError.asStringResourceContent())
         }
-        if (!canReadFile(fileUri)) {
+        if (!uploadContentProvider.canRead(fileUri)) {
             return Resource.Error(message = "Cannot read file".asStringResourceContent())
         }
         val startedAt = System.currentTimeMillis()
@@ -225,18 +223,14 @@ class GroupApiServiceImpl constructor(
                     setBody(
                         MultiPartFormDataContent(
                             formData {
-                                append(
-                                    key = "file",
-                                    value = InputProvider(size = fileSize) {
-                                        openInputStream(fileUri).asInput()
-                                    },
-                                    headers = Headers.build {
-                                        append(HttpHeaders.ContentType, mimeType)
-                                        append(
-                                            HttpHeaders.ContentDisposition,
-                                            "form-data; name=\"file\"; filename=\"$fileName\""
-                                        )
-                                    },
+                                appendUploadFile(
+                                    uploadContentProvider.filePart(
+                                        uri = fileUri,
+                                        formName = "file",
+                                        fileName = fileName,
+                                        mimeType = mimeType,
+                                        size = fileSize,
+                                    )
                                 )
                             }
                         )
@@ -295,24 +289,6 @@ class GroupApiServiceImpl constructor(
 
     private fun resolveFileSize(uri: Uri): Long? {
         return MediaFileResolver.resolveFileSize(appContext.contentResolver, uri)
-    }
-
-    private fun canReadFile(uri: Uri): Boolean {
-        return runCatching {
-            openInputStream(uri).use { }
-            true
-        }.getOrDefault(false)
-    }
-
-    private fun openInputStream(uri: Uri): java.io.InputStream {
-        if (uri.scheme == "file") {
-            val path = uri.path ?: error("File path is missing")
-            val file = File(path)
-            if (!file.exists()) error("File does not exist")
-            return file.inputStream()
-        }
-        return appContext.contentResolver.openInputStream(uri)
-            ?: error("Unable to open input stream")
     }
 
     private fun isLikelyWeakNetworkError(message: String): Boolean {

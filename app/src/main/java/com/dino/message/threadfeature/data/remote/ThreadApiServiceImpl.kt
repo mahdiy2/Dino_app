@@ -9,7 +9,9 @@ import com.dino.message.corefeature.data.remote.util.HttpAPIUtil
 import com.dino.message.corefeature.data.remote.util.appendTokenToHeader
 import com.dino.message.corefeature.data.remote.util.ensureFreshAccessTokenIfNearExpiry
 import com.dino.message.corefeature.data.spref.SPrefManager
+import com.dino.message.corefeature.data.upload.AndroidUploadContentProvider
 import com.dino.message.corefeature.data.upload.MediaFileResolver
+import com.dino.message.corefeature.data.upload.appendUploadFile
 import com.dino.message.corefeature.domain.model.asStringResourceContent
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.crashfeature.data.service.CrashReporter
@@ -63,7 +65,6 @@ import io.ktor.client.HttpClient
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.post
-import io.ktor.client.request.forms.InputProvider
 import io.ktor.client.request.forms.MultiPartFormDataContent
 import io.ktor.client.request.forms.formData
 import io.ktor.client.request.header
@@ -72,11 +73,7 @@ import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.client.plugins.timeout
 import io.ktor.http.ContentType
-import io.ktor.http.Headers
-import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
-import io.ktor.utils.io.streams.asInput
-import java.io.File
 import java.util.UUID
 
 class ThreadApiServiceImpl constructor(
@@ -84,6 +81,7 @@ class ThreadApiServiceImpl constructor(
     private val sPrefManager: SPrefManager,
     private val httpAPIUtil: HttpAPIUtil,
     private val crashReporter: CrashReporter,
+    private val uploadContentProvider: AndroidUploadContentProvider,
     private val appContext: Context,
 ) : ThreadApiService, HaveRefreshTokenAPI by HaveRefreshTokenAPIImpl(httpClient, sPrefManager) {
     companion object {
@@ -153,18 +151,14 @@ class ThreadApiServiceImpl constructor(
                                         ?.let { append("track_artist", it) }
                                     mediaFiles.forEach { mediaFile ->
                                         val fileName = mediaFile.fileName.ifBlank { "media_file" }
-                                        append(
-                                            key = "media[]",
-                                            value = InputProvider(size = resolveFileSize(mediaFile)) {
-                                                openInputStream(mediaFile).asInput()
-                                            },
-                                            headers = Headers.build {
-                                                append(
-                                                    HttpHeaders.ContentDisposition,
-                                                    "form-data; name=\"media[]\"; filename=\"$fileName\""
-                                                )
-                                                append(HttpHeaders.ContentType, mediaFile.mimeType)
-                                            }
+                                        appendUploadFile(
+                                            uploadContentProvider.filePart(
+                                                uri = mediaFile.uri,
+                                                formName = "media[]",
+                                                fileName = fileName,
+                                                mimeType = mediaFile.mimeType,
+                                                size = resolveFileSize(mediaFile),
+                                            )
                                         )
                                     }
                                 }
@@ -273,18 +267,14 @@ class ThreadApiServiceImpl constructor(
                                         ?.let { append("track_artist", it) }
                                     mediaFiles.forEach { mediaFile ->
                                         val fileName = mediaFile.fileName.ifBlank { "media_file" }
-                                        append(
-                                            key = "media[]",
-                                            value = InputProvider(size = resolveFileSize(mediaFile)) {
-                                                openInputStream(mediaFile).asInput()
-                                            },
-                                            headers = Headers.build {
-                                                append(
-                                                    HttpHeaders.ContentDisposition,
-                                                    "form-data; name=\"media[]\"; filename=\"$fileName\""
-                                                )
-                                                append(HttpHeaders.ContentType, mediaFile.mimeType)
-                                            }
+                                        appendUploadFile(
+                                            uploadContentProvider.filePart(
+                                                uri = mediaFile.uri,
+                                                formName = "media[]",
+                                                fileName = fileName,
+                                                mimeType = mediaFile.mimeType,
+                                                size = resolveFileSize(mediaFile),
+                                            )
                                         )
                                     }
                                 }
@@ -330,18 +320,6 @@ class ThreadApiServiceImpl constructor(
     private fun resolveFileSize(mediaFile: CreatePostMedia): Long? {
         mediaFile.sizeBytes?.let { if (it >= 0) return it }
         return MediaFileResolver.resolveFileSize(appContext.contentResolver, mediaFile.uri)
-    }
-
-    private fun openInputStream(mediaFile: CreatePostMedia): java.io.InputStream {
-        val uri = mediaFile.uri
-        if (uri.scheme == "file") {
-            val path = uri.path ?: error("File path is missing")
-            val file = File(path)
-            if (!file.exists()) error("File does not exist")
-            return file.inputStream()
-        }
-        return appContext.contentResolver.openInputStream(uri)
-            ?: error("Unable to open input stream")
     }
 
     override suspend fun getFeed(
@@ -545,18 +523,14 @@ class ThreadApiServiceImpl constructor(
                         MultiPartFormDataContent(
                             formData {
                                 val fileName = mediaFile.fileName.ifBlank { "story_media" }
-                                append(
-                                    key = "file",
-                                    value = InputProvider(size = resolveFileSize(mediaFile)) {
-                                        openInputStream(mediaFile).asInput()
-                                    },
-                                    headers = Headers.build {
-                                        append(
-                                            HttpHeaders.ContentDisposition,
-                                            "form-data; name=\"file\"; filename=\"$fileName\""
-                                        )
-                                        append(HttpHeaders.ContentType, mediaFile.mimeType)
-                                    }
+                                appendUploadFile(
+                                    uploadContentProvider.filePart(
+                                        uri = mediaFile.uri,
+                                        formName = "file",
+                                        fileName = fileName,
+                                        mimeType = mediaFile.mimeType,
+                                        size = resolveFileSize(mediaFile),
+                                    )
                                 )
                                 mentionUsernames
                                     .asSequence()

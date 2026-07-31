@@ -26,7 +26,6 @@ ktorSerializationKotlinxJson = "2.2.3"
 lifecycleRuntimeKtx = "2.9.1"
 activityCompose = "1.9.1"
 composeBom = "2025.06.01"
-logbackClassic = "1.2.6"
 lottieCompose = "6.4.0"
 media3Exoplayer = "1.6.0"
 media3Ui = "1.6.0"
@@ -91,7 +90,6 @@ ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktorCli
 ktor-client-logging = { module = "io.ktor:ktor-client-logging", version.ref = "ktorClientLogging" }
 ktor-client-serialization = { module = "io.ktor:ktor-client-serialization", version.ref = "ktorClientSerialization" }
 ktor-serialization-kotlinx-json = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktorSerializationKotlinxJson" }
-logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logbackClassic" }
 lottie-compose = { module = "com.airbnb.android:lottie-compose", version.ref = "lottieCompose" }
 room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }

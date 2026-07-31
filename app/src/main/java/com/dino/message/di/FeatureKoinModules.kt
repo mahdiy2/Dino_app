@@ -58,6 +58,7 @@ val chatModule = module {
             httpClient = get(),
             sPrefManager = get(),
             httpAPIUtil = get(),
+            uploadContentProvider = get(),
             appContext = androidContext(),
         )
     }
@@ -76,6 +77,7 @@ val threadModule = module {
             sPrefManager = get(),
             httpAPIUtil = get(),
             crashReporter = get(),
+            uploadContentProvider = get(),
             appContext = androidContext(),
         )
     }
@@ -88,6 +90,7 @@ val profileModule = module {
             httpClient = get(),
             sPrefManager = get(),
             httpAPIUtil = get(),
+            uploadContentProvider = get(),
             appContext = androidContext(),
         )
     }
@@ -100,6 +103,7 @@ val groupModule = module {
             httpClient = get(),
             sPrefManager = get(),
             httpAPIUtil = get(),
+            uploadContentProvider = get(),
             appContext = androidContext(),
         )
     }

@@ -130,7 +130,7 @@ Migration actions:
   Workers, and Android ViewModel integration only in `androidMain`.
 - Avoid Koin APIs that depend on Android framework types inside common modules.
 
-### Networking / HTTP
+### Networking / HTTP ✅ Done for bridge milestone
 
 Current dependencies:
 
@@ -140,25 +140,36 @@ Current dependencies:
 - `ktor-serialization-kotlinx-json`
 - `ktor-client-serialization`
 - `ktor-client-logging`
-- `logback-classic`
 
 Migration actions:
 
-- Keep Ktor client core, content negotiation, logging, and
+- [x] Keep Ktor client core, content negotiation, logging, and
   kotlinx.serialization in shared code.
-- Move `ktor-client-okhttp` to `androidMain`.
-- Add platform-specific engines:
+- [x] Move `ktor-client-okhttp` to `androidMain`.
+- [x] Add platform-specific engines:
   - Android: OkHttp or Android engine.
   - iOS/macOS: Darwin engine.
   - Desktop/JVM: CIO or Java engine.
   - Web/Wasm: supported Ktor web engine choice.
-- Replace JVM stream upload usage such as `io.ktor.utils.io.streams.asInput()`
+- [x] Replace JVM stream upload usage such as `io.ktor.utils.io.streams.asInput()`
   with a multiplatform upload abstraction.
-- Move `java.net.SocketTimeoutException`,
+- [x] Move `java.net.SocketTimeoutException`,
   `java.nio.channels.UnresolvedAddressException`, and other JVM exceptions out
   of common error handling.
-- Replace `logback-classic` with a multiplatform logger such as Kermit or Napier,
+- [x] Replace `logback-classic` with a multiplatform logger such as Kermit or Napier,
   or wrap logging behind a common interface.
+
+Bridge completion notes:
+
+- HTTP client setup now lives in a reusable Ktor factory that accepts the base
+  URL, debug flag, engine factory, and logger; Android DI supplies the OkHttp
+  engine for the current app target.
+- Multipart uploads now go through upload part helpers, while Android URI and
+  stream opening details are contained in an Android upload content provider.
+- Retry/error handling now delegates timeout and network exception detection to
+  a classifier; JVM-only exceptions are isolated in the Android/JVM classifier.
+- Ktor logging now uses an app logger interface backed by Android `Log`, so the
+  JVM-only `logback-classic` dependency was removed.
 
 ### Realtime Socket
 

@@ -130,7 +130,6 @@ dependencies {
     implementation (libs.ktor.serialization.kotlinx.json)
     implementation (libs.ktor.client.serialization)
     implementation (libs.ktor.client.logging)
-    implementation (libs.logback.classic)
 
     implementation(libs.socket.io.client)
 
