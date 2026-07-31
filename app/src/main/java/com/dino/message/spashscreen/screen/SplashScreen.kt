@@ -35,17 +35,14 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import org.koin.compose.viewmodel.koinViewModel
-import androidx.navigation.NavController
+import androidx.navigation.NavHostController
 import com.dino.message.R
 import com.dino.message.corefeature.domain.model.AppLanguage
 import com.dino.message.spashscreen.viewmodel.SpashViewModel
-import com.ramcosta.composedestinations.annotation.Destination
-import com.ramcosta.composedestinations.annotation.RootGraph
 import androidx.compose.runtime.collectAsState
 
-@Destination<RootGraph>(start = true)
 @Composable
-fun SplashScreen(navController: NavController) {
+fun SplashScreen(navController: NavHostController) {
     val viewModel: SpashViewModel = koinViewModel()
     val uiState by viewModel.uiState.collectAsState()
 

@@ -89,13 +89,10 @@ import com.dino.message.profilefeature.domain.model.AboutUsLink
 import com.dino.message.profilefeature.domain.model.AboutUsTeamMember
 import com.dino.message.profilefeature.presentation.viewmodel.AboutUsViewModel
 import com.dino.message.threadfeature.presentation.component.PostContainer
-import com.ramcosta.composedestinations.annotation.Destination
-import com.ramcosta.composedestinations.annotation.RootGraph
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Destination<RootGraph>
 @Composable
 fun AboutUsScreen() {
     val viewModel: AboutUsViewModel = koinViewModel()

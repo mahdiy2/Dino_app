@@ -57,12 +57,8 @@ import com.dino.message.chatfeature.domain.util.encodeMessageReactions
 import com.dino.message.chatfeature.domain.util.parseMessageReactionsFromPayload
 import com.dino.message.chatfeature.domain.repository.ChatRepository
 import com.dino.message.threadfeature.domain.usecase.IsTrackInPlaylistUseCase
-import com.ramcosta.composedestinations.generated.destinations.PrivateKeyResetDialogScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.PlaylistBottomSheetScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.ProfileScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.SharedPostDetailsScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.ThreadScreenDestination
 import java.security.PublicKey
+import com.dino.message.corefeature.presentation.navigation.AppRoute
 
 class ChatViewModel constructor(
     app: Context,
@@ -729,25 +725,25 @@ class ChatViewModel constructor(
     }
 
     fun openPrivateKeyResetDialog() {
-        navigateToDestination(PrivateKeyResetDialogScreenDestination, viewModelScope)
+        navigateToDestination(AppRoute.PrivateKeyResetDialog, viewModelScope)
     }
 
     fun openSharedPost(postId: Long) {
         navigateToDestination(
-            SharedPostDetailsScreenDestination(postId = postId),
+            AppRoute.SharedPostDetails(postId = postId),
             viewModelScope
         )
     }
 
     fun openPeerProfile() {
         navigateToDestination(
-            ProfileScreenDestination(username = chatId),
+            AppRoute.Profile(username = chatId),
             viewModelScope
         )
     }
 
     fun openPlaylistBottomSheet() {
-        navigateToDestination(PlaylistBottomSheetScreenDestination, viewModelScope)
+        navigateToDestination(AppRoute.PlaylistSheet, viewModelScope)
     }
 
     fun openStoryFromAttachment(message: MessageEntity): Boolean {
@@ -756,7 +752,7 @@ class ChatViewModel constructor(
 
         val storyId = extractStoryIdFromAttachment(message) ?: return false
         navigateToDestination(
-            ThreadScreenDestination(initialStoryId = storyId),
+            AppRoute.ThreadWithStory(initialStoryId = storyId),
             viewModelScope
         )
         return true

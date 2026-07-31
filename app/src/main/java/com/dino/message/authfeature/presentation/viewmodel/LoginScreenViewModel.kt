@@ -18,11 +18,10 @@ import com.dino.message.corefeature.presentation.util.RSAUtil
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
-import com.ramcosta.composedestinations.generated.destinations.RegisterScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.ThreadScreenDestination
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import com.dino.message.corefeature.presentation.navigation.AppRoute
 
 class LoginScreenViewModel constructor(
     app: Context,
@@ -162,12 +161,12 @@ class LoginScreenViewModel constructor(
     }
 
     fun navigateToRegisterScreen(){
-        navigateToDestination(RegisterScreenDestination, viewModelScope)
+        navigateToDestination(AppRoute.Register, viewModelScope)
     }
 
     fun navigateToMainScreen(){
         navigateWithPopBackStackToDestination(
-            ThreadScreenDestination(),
+            AppRoute.Thread,
             viewModelScope,
             PopBackStackLevel.ALL
         )

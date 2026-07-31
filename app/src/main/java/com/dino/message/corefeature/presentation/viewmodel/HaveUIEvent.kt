@@ -4,7 +4,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
-import com.ramcosta.composedestinations.spec.Direction
+import com.dino.message.corefeature.presentation.navigation.AppRoute
 import com.dino.message.corefeature.domain.model.CustomMessageDialogData
 import com.dino.message.corefeature.domain.model.ImageDialogData
 import com.dino.message.corefeature.presentation.util.PopBackStackLevel
@@ -31,12 +31,12 @@ interface HaveUIEvent {
      * Navigates to a destination specified by the given direction.
      * It creates a new navigation job within the provided [scope].
      *
-     * @param direction The direction specifying the destination to navigate to.
+     * @param route The route specifying the destination to navigate to.
      * @param scope The coroutine scope in which the navigation job is created.
      * @return A [Job] representing the navigation job.
      */
     fun navigateToDestination(
-        direction: Direction,
+        route: AppRoute,
         scope: CoroutineScope
     ): Job
 
@@ -44,13 +44,13 @@ interface HaveUIEvent {
      * Navigates to a destination specified by the given direction and pops back to a specified level in the back stack.
      * It creates a new navigation job within the provided [scope].
      *
-     * @param direction The direction specifying the destination to navigate to.
+     * @param route The route specifying the destination to navigate to.
      * @param scope The coroutine scope in which the navigation job is created.
      * @param level The level specifying the number of destinations to pop from the back stack.
      * @return A [Job] representing the navigation job.
      */
     fun navigateWithPopBackStackToDestination(
-        direction: Direction,
+        route: AppRoute,
         scope: CoroutineScope,
         level: PopBackStackLevel
     ): Job

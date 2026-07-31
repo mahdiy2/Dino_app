@@ -9,11 +9,11 @@ import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.dino.message.profilefeature.domain.model.AboutUs
 import com.dino.message.profilefeature.domain.usecase.GetAboutUsUseCase
-import com.ramcosta.composedestinations.generated.destinations.ProfileScreenDestination
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import com.dino.message.corefeature.presentation.navigation.AppRoute
 
 class AboutUsViewModel constructor(
     app: Context,
@@ -58,6 +58,6 @@ class AboutUsViewModel constructor(
 
     fun openUserProfile(username: String) {
         if (username.isBlank()) return
-        navigateToDestination(ProfileScreenDestination(username = username), viewModelScope)
+        navigateToDestination(AppRoute.Profile(username = username), viewModelScope)
     }
 }

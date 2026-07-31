@@ -1,6 +1,6 @@
 package com.dino.message.corefeature.presentation.util
 
-import com.ramcosta.composedestinations.spec.Direction
+import com.dino.message.corefeature.presentation.navigation.AppRoute
 import com.dino.message.corefeature.domain.model.CustomMessageDialogData
 import  com.dino.message.corefeature.domain.model.ImageDialogData
 import kotlinx.serialization.Serializable
@@ -15,37 +15,24 @@ sealed class UIEvent {
     /**
      * UI event for navigating to a destination with popping back stack.
      *
-     * @property route The route string to navigate to.
+     * @property route The destination route to navigate to.
      * @property level The level of back stack to pop.
      */
     @Serializable // Add if this specific event type needs to be serializable
     data class NavigateWithPopBackStack(
-        val route: String,
+        val route: AppRoute,
         val level: PopBackStackLevel
-    ) : UIEvent() {
-        /**
-         * Convenience constructor to create the event from a Direction object.
-         */
-        constructor(direction: Direction, level: PopBackStackLevel) : this(
-            route = direction.route,
-            level = level
-        )
-    }
+    ) : UIEvent()
 
     /**
      * UI event for navigating to a destination.
      *
-     * @property route The route string to navigate to.
+     * @property route The destination route to navigate to.
      */
     @Serializable // Add if this specific event type needs to be serializable
     data class Navigate(
-        val route: String
-    ) : UIEvent() {
-        /**
-         * Convenience constructor to create the event from a Direction object.
-         */
-        constructor(direction: Direction) : this(route = direction.route)
-    }
+        val route: AppRoute
+    ) : UIEvent()
 
     /**
      * UI event for navigating up.

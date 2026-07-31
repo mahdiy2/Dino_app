@@ -38,11 +38,8 @@ import com.dino.message.threadfeature.presentation.component.ThreadCommentsSecti
 import com.dino.message.threadfeature.presentation.component.ThreadPostCard
 import com.dino.message.threadfeature.presentation.viewmodel.SharedPostDetailsViewModel
 import com.dino.message.threadfeature.presentation.viewmodel.ThreadCommentsViewModel
-import com.ramcosta.composedestinations.annotation.Destination
-import com.ramcosta.composedestinations.annotation.RootGraph
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Destination<RootGraph>
 @Composable
 fun SharedPostDetailsScreen(
     postId: Long

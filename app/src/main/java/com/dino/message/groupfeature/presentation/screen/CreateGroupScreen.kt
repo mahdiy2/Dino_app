@@ -23,11 +23,8 @@ import com.dino.message.corefeature.presentation.ui.theme.DPSmall
 import com.dino.message.corefeature.presentation.util.backIconModifier
 import com.dino.message.groupfeature.presentation.viewmodel.CreateGroupViewModel
 import com.dino.message.profilefeature.presentation.component.ProfileAvatarMedia
-import com.ramcosta.composedestinations.annotation.Destination
-import com.ramcosta.composedestinations.annotation.RootGraph
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Destination<RootGraph>
 @Composable
 fun CreateGroupScreen() {
     val viewModel: CreateGroupViewModel = koinViewModel()

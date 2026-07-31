@@ -15,11 +15,11 @@ import com.dino.message.profilefeature.domain.usecase.GetFollowersUseCase
 import com.dino.message.profilefeature.domain.usecase.GetFollowingUseCase
 import com.dino.message.profilefeature.domain.usecase.RemoveFollowerUseCase
 import com.dino.message.profilefeature.domain.usecase.UnfollowUserUseCase
-import com.ramcosta.composedestinations.generated.destinations.ProfileScreenDestination
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import com.dino.message.corefeature.presentation.navigation.AppRoute
 
 class ProfileFollowListViewModel constructor(
     app: Context,
@@ -204,7 +204,7 @@ class ProfileFollowListViewModel constructor(
     }
 
     fun openUserProfile(username: String) {
-        navigateToDestination(ProfileScreenDestination(username = username), viewModelScope)
+        navigateToDestination(AppRoute.Profile(username = username), viewModelScope)
     }
 
     fun navigateUp() {

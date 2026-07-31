@@ -11,25 +11,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import coil.compose.rememberAsyncImagePainter
-import coil.request.ImageRequest
+import com.dino.message.corefeature.presentation.platform.isPlatformImageLoading
+import com.dino.message.corefeature.presentation.platform.rememberPlatformImagePainter
 
 
 @Composable
 fun LoadImageWithCoil(imageUrl: String, modifier: Modifier) {
-    val painter = rememberAsyncImagePainter(
-        model = ImageRequest.Builder(LocalContext.current)
-            .data(imageUrl)
-            .crossfade(true)
-            .build()
-    )
-
-    val state = painter.state
+    val painter = rememberPlatformImagePainter(model = imageUrl)
 
     Box(modifier = modifier) {
-        if (state is coil.compose.AsyncImagePainter.State.Loading) {
+        if (painter.isPlatformImageLoading) {
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomEnd),

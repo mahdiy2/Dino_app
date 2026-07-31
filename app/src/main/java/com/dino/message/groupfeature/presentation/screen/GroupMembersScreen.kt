@@ -61,11 +61,8 @@ import com.dino.message.corefeature.presentation.util.backIconModifier
 import com.dino.message.groupfeature.domain.model.GroupMember
 import com.dino.message.groupfeature.presentation.viewmodel.GroupMembersViewModel
 import com.dino.message.profilefeature.presentation.component.ProfileAvatarMedia
-import com.ramcosta.composedestinations.annotation.Destination
-import com.ramcosta.composedestinations.annotation.RootGraph
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Destination<RootGraph>
 @Composable
 fun GroupMembersScreen(
     groupId: Int,

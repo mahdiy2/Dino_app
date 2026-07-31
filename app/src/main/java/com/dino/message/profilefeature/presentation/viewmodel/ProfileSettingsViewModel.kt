@@ -12,14 +12,11 @@ import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.dino.message.profilefeature.domain.usecase.DeleteMyAccountUseCase
-import com.ramcosta.composedestinations.generated.destinations.BlockListScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.LoginScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.PrivateKeyResetDialogScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.AboutUsScreenDestination
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import com.dino.message.corefeature.presentation.navigation.AppRoute
 
 class ProfileSettingsViewModel constructor(
     app: Context,
@@ -43,15 +40,15 @@ class ProfileSettingsViewModel constructor(
     val currentLanguage: Flow<AppLanguage> = dataStoreUtil.getLanguage()
 
     fun openBlockList() {
-        navigateToDestination(BlockListScreenDestination, viewModelScope)
+        navigateToDestination(AppRoute.BlockList, viewModelScope)
     }
 
     fun openPrivateKeyResetDialog() {
-        navigateToDestination(PrivateKeyResetDialogScreenDestination, viewModelScope)
+        navigateToDestination(AppRoute.PrivateKeyResetDialog, viewModelScope)
     }
 
     fun openAboutUs() {
-        navigateToDestination(AboutUsScreenDestination, viewModelScope)
+        navigateToDestination(AppRoute.AboutUs, viewModelScope)
     }
 
     fun openDeleteAccountDialog() {
@@ -110,7 +107,7 @@ class ProfileSettingsViewModel constructor(
     private suspend fun logoutAndClearSession() {
         clearLocalSessionUseCase.execute()
         navigateWithPopBackStackToDestination(
-            LoginScreenDestination,
+            AppRoute.Login,
             viewModelScope,
             PopBackStackLevel.ALL
         )

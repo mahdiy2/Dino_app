@@ -44,11 +44,8 @@ import com.dino.message.corefeature.presentation.util.backIconModifier
 import com.dino.message.profilefeature.presentation.component.ProfileAvatarMedia
 import com.dino.message.profilefeature.presentation.viewmodel.BlockListViewModel
 import com.dino.message.threadfeature.presentation.component.PostContainer
-import com.ramcosta.composedestinations.annotation.Destination
-import com.ramcosta.composedestinations.annotation.RootGraph
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Destination<RootGraph>
 @Composable
 fun BlockListScreen() {
     val viewModel: BlockListViewModel = koinViewModel()

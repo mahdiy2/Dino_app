@@ -9,9 +9,7 @@ import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.presentation.util.PopBackStackLevel
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
-import com.ramcosta.composedestinations.generated.destinations.PrivateKeyAlertScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.RegisterScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.ThreadScreenDestination
+import com.dino.message.corefeature.presentation.navigation.AppRoute
 
 class AppUpdateViewModel constructor(
     app: Context,
@@ -24,19 +22,19 @@ class AppUpdateViewModel constructor(
 
         if (userLogIn) {
             navigateWithPopBackStackToDestination(
-                direction = ThreadScreenDestination(),
+                route = AppRoute.Thread,
                 scope = viewModelScope,
                 level = PopBackStackLevel.ALL,
             )
         } else if (sPrefManager.hasPendingRegistration()) {
             navigateWithPopBackStackToDestination(
-                direction = PrivateKeyAlertScreenDestination,
+                route = AppRoute.PrivateKeyAlert,
                 scope = viewModelScope,
                 level = PopBackStackLevel.ALL,
             )
         } else {
             navigateWithPopBackStackToDestination(
-                direction = RegisterScreenDestination,
+                route = AppRoute.Register,
                 scope = viewModelScope,
                 level = PopBackStackLevel.ALL,
             )

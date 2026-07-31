@@ -28,27 +28,13 @@ import com.dino.message.threadfeature.domain.model.VoteTargetType
 import com.dino.message.threadfeature.domain.usecase.AddTrackToPlaylistUseCase
 import com.dino.message.threadfeature.domain.usecase.GetStoryFeedUseCase
 import com.dino.message.threadfeature.domain.usecase.VoteUseCase
-import com.ramcosta.composedestinations.generated.destinations.CreatePostScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.CreatePostOptionsBottomSheetScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.DeletePostBottomSheetScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.EditProfileScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.LoginScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.ProfileFollowListScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.ReferralScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.PostMusicScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.ProfileSettingsScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.ReportPostBottomSheetScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.SharePostBottomSheetScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.SharedPostDetailsScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.TrackPlaylistAddersDialogScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.ThreadCommentsBottomSheetScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.ThreadScreenDestination
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import com.dino.message.corefeature.presentation.navigation.AppRoute
 
 class ProfileScreenViewModel constructor(
     app: Context,
@@ -308,23 +294,23 @@ class ProfileScreenViewModel constructor(
     fun openEditProfileScreen() {
         if (!_isOwnProfile.value || _isActionLoading.value) return
         shouldRefreshWhenScreenResumes = true
-        navigateToDestination(EditProfileScreenDestination, viewModelScope)
+        navigateToDestination(AppRoute.EditProfile, viewModelScope)
     }
 
     fun openReferralScreen() {
         if (!_isOwnProfile.value || _isActionLoading.value) return
-        navigateToDestination(ReferralScreenDestination, viewModelScope)
+        navigateToDestination(AppRoute.Referral, viewModelScope)
     }
 
     fun openProfileSettingsScreen() {
         if (!_isOwnProfile.value || _isActionLoading.value) return
-        navigateToDestination(ProfileSettingsScreenDestination, viewModelScope)
+        navigateToDestination(AppRoute.ProfileSettings, viewModelScope)
     }
 
     fun logout() = viewModelScope.launch {
         clearLocalSessionUseCase.execute()
         navigateWithPopBackStackToDestination(
-            LoginScreenDestination,
+            AppRoute.Login,
             viewModelScope,
             PopBackStackLevel.ALL
         )
@@ -338,7 +324,7 @@ class ProfileScreenViewModel constructor(
 
     fun openFollowersList() {
         navigateToDestination(
-            ProfileFollowListScreenDestination(
+            AppRoute.ProfileFollowList(
                 username = targetUsername(),
                 showFollowers = true
             ),
@@ -348,7 +334,7 @@ class ProfileScreenViewModel constructor(
 
     fun openFollowingList() {
         navigateToDestination(
-            ProfileFollowListScreenDestination(
+            AppRoute.ProfileFollowList(
                 username = targetUsername(),
                 showFollowers = false
             ),
@@ -389,21 +375,21 @@ class ProfileScreenViewModel constructor(
 
     fun openCommentsBottomSheet(postId: Long) {
         navigateToDestination(
-            ThreadCommentsBottomSheetScreenDestination(postId),
+            AppRoute.ThreadCommentsSheet(postId),
             viewModelScope
         )
     }
 
     fun openReportBottomSheet(postId: Long) {
         navigateToDestination(
-            ReportPostBottomSheetScreenDestination(postId),
+            AppRoute.ReportPostSheet(postId),
             viewModelScope
         )
     }
 
     fun openShareBottomSheet(post: Post) {
         navigateToDestination(
-            SharePostBottomSheetScreenDestination(
+            AppRoute.SharePostSheet(
                 postId = post.id,
                 authorUsername = post.author.username,
                 postText = post.text.take(240)
@@ -415,7 +401,7 @@ class ProfileScreenViewModel constructor(
     fun openQuotePostOptions(post: Post) {
         shouldRefreshWhenScreenResumes = true
         navigateToDestination(
-            CreatePostOptionsBottomSheetScreenDestination(
+            AppRoute.CreatePostOptionsSheet(
                 quotedPostId = post.id
             ),
             viewModelScope
@@ -425,7 +411,7 @@ class ProfileScreenViewModel constructor(
     fun openQuotedPost(postId: Long) {
         if (postId <= 0L) return
         navigateToDestination(
-            SharedPostDetailsScreenDestination(postId = postId),
+            AppRoute.SharedPostDetails(postId = postId),
             viewModelScope
         )
     }
@@ -454,7 +440,7 @@ class ProfileScreenViewModel constructor(
     fun openTrackPlaylistAddersDialog(media: PostMedia, trackTitle: String) {
         if (media.playlistAdders.isEmpty()) return
         navigateToDestination(
-            TrackPlaylistAddersDialogScreenDestination(
+            AppRoute.TrackPlaylistAddersDialog(
                 trackTitle = trackTitle,
                 playlistAddersJson = Json.encodeToString(media.playlistAdders)
             ),
@@ -465,7 +451,7 @@ class ProfileScreenViewModel constructor(
     fun openProfileStory(storyId: Long) {
         if (storyId <= 0L) return
         navigateToDestination(
-            ThreadScreenDestination(initialStoryId = storyId),
+            AppRoute.ThreadWithStory(initialStoryId = storyId),
             viewModelScope
         )
     }
@@ -474,7 +460,7 @@ class ProfileScreenViewModel constructor(
         if (!_isOwnProfile.value) return
         shouldRefreshWhenScreenResumes = true
         navigateToDestination(
-            DeletePostBottomSheetScreenDestination(postId),
+            AppRoute.DeletePostSheet(postId),
             viewModelScope
         )
     }
@@ -485,7 +471,7 @@ class ProfileScreenViewModel constructor(
         val isMusicPost = post.media.any { it.mime_type.startsWith("audio/", ignoreCase = true) }
         if (isMusicPost) {
             navigateToDestination(
-                PostMusicScreenDestination(
+                AppRoute.PostMusic(
                     editPostId = post.id
                 ),
                 viewModelScope
@@ -494,7 +480,7 @@ class ProfileScreenViewModel constructor(
         }
 
         navigateToDestination(
-            CreatePostScreenDestination(
+            AppRoute.CreatePost(
                 editPostId = post.id
             ),
             viewModelScope
@@ -504,7 +490,7 @@ class ProfileScreenViewModel constructor(
     fun showCreateOptionsSheet(){
         shouldRefreshWhenScreenResumes = true
         navigateToDestination(
-            CreatePostOptionsBottomSheetScreenDestination(),
+            AppRoute.CreatePostOptionsSheet(),
             viewModelScope
         )
     }

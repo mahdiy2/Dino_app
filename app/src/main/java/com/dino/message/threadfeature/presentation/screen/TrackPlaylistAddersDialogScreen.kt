@@ -28,12 +28,8 @@ import com.dino.message.corefeature.presentation.component.UserBadgeIcon
 import com.dino.message.profilefeature.presentation.component.ProfileAvatarMedia
 import com.dino.message.threadfeature.domain.model.Author
 import com.dino.message.threadfeature.presentation.viewmodel.TrackPlaylistAddersDialogViewModel
-import com.ramcosta.composedestinations.annotation.Destination
-import com.ramcosta.composedestinations.annotation.RootGraph
-import com.ramcosta.composedestinations.spec.DestinationStyle
 import kotlinx.serialization.json.Json
 
-@Destination<RootGraph>(style = DestinationStyle.Dialog::class)
 @Composable
 fun TrackPlaylistAddersDialogScreen(
     trackTitle: String,

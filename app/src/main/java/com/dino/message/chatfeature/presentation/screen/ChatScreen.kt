@@ -131,8 +131,6 @@ import com.dino.message.chatfeature.presentation.viewmodel.ChatViewModel
 import com.dino.message.profilefeature.presentation.component.ProfileAvatarMedia
 import com.dino.message.threadfeature.presentation.component.NowPlayingTopBarRow
 import com.dino.message.threadfeature.presentation.music.MusicPlaybackManager
-import com.ramcosta.composedestinations.annotation.Destination
-import com.ramcosta.composedestinations.annotation.RootGraph
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import java.time.Duration
@@ -142,7 +140,6 @@ import java.time.format.DateTimeFormatter
 import kotlin.math.min
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Destination<RootGraph>
 @Composable
 fun ChatScreen(
     chatId: String,

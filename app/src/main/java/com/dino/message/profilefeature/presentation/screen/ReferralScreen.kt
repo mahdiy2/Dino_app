@@ -69,12 +69,9 @@ import com.dino.message.corefeature.presentation.util.backIconModifier
 import com.dino.message.profilefeature.domain.model.ReferralSummary
 import com.dino.message.profilefeature.presentation.viewmodel.ReferralViewModel
 import com.dino.message.threadfeature.presentation.component.PostContainer
-import com.ramcosta.composedestinations.annotation.Destination
-import com.ramcosta.composedestinations.annotation.RootGraph
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Destination<RootGraph>
 @Composable
 fun ReferralScreen() {
     val viewModel: ReferralViewModel = koinViewModel()

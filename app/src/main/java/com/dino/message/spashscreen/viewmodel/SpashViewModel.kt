@@ -17,15 +17,12 @@ import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.dino.message.profilefeature.domain.usecase.GetMyProfileUseCase
 import com.dino.message.spashscreen.data.remote.SplashApiService
-import com.ramcosta.composedestinations.generated.destinations.AppUpdateScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.PrivateKeyAlertScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.RegisterScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.ThreadScreenDestination
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import com.dino.message.corefeature.presentation.navigation.AppRoute
 
 class SpashViewModel constructor(
     app: Context,
@@ -148,7 +145,7 @@ class SpashViewModel constructor(
         when (decision) {
             is RoutingDecision.AppUpdate -> {
                 navigateWithPopBackStackToDestination(
-                    direction = AppUpdateScreenDestination(
+                    route = AppRoute.AppUpdate(
                         isForceUpdate = decision.isForceUpdate,
                         title = decision.title,
                         message = decision.message,
@@ -245,19 +242,19 @@ class SpashViewModel constructor(
 
         if (userLogIn) {
             navigateWithPopBackStackToDestination(
-                direction = ThreadScreenDestination(),
+                route = AppRoute.Thread,
                 scope = viewModelScope,
                 level = PopBackStackLevel.ALL,
             )
         } else if (sPrefManager.hasPendingRegistration()) {
             navigateWithPopBackStackToDestination(
-                direction = PrivateKeyAlertScreenDestination,
+                route = AppRoute.PrivateKeyAlert,
                 scope = viewModelScope,
                 level = PopBackStackLevel.ALL,
             )
         } else {
             navigateWithPopBackStackToDestination(
-                direction = RegisterScreenDestination,
+                route = AppRoute.Register,
                 scope = viewModelScope,
                 level = PopBackStackLevel.ALL,
             )

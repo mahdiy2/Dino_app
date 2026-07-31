@@ -5,7 +5,6 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.dino.message.DinoOrderApplication
 import com.dino.message.corefeature.data.spref.SPrefManager
@@ -19,11 +18,11 @@ import com.dino.message.threadfeature.domain.usecase.DeleteCommentUseCase
 import com.dino.message.threadfeature.domain.usecase.GetCommentsUseCase
 import com.dino.message.threadfeature.domain.usecase.VoteUseCase
 import com.dino.message.threadfeature.presentation.util.orderCommentsByScoreAndRecency
-import com.ramcosta.composedestinations.generated.destinations.ProfileScreenDestination
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import com.dino.message.corefeature.presentation.navigation.AppRoute
 
 class ThreadCommentsViewModel constructor(
     app: Context,
@@ -32,11 +31,11 @@ class ThreadCommentsViewModel constructor(
     private val deleteCommentUseCase: DeleteCommentUseCase,
     private val voteUseCase: VoteUseCase,
     private val sPrefManager: SPrefManager,
-    savedStateHandle: SavedStateHandle
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
 
-    val postId: Long = savedStateHandle.get<Long>("postId")!!
+    var postId: Long = 0L
+        private set
 
     private val commentsPageSize = 10
     private var nextCommentsPage = 1
@@ -65,10 +64,6 @@ class ThreadCommentsViewModel constructor(
     private val commentVoteByComment = mutableStateMapOf<Long, Long>()
     private val currentUsername = sPrefManager.getUsername().orEmpty().trim()
 
-    init {
-        refreshComments()
-    }
-
     fun closeCommentsBottomSheet() {
         navigateUp(viewModelScope)
     }
@@ -78,12 +73,19 @@ class ThreadCommentsViewModel constructor(
         if (normalizedUsername.isEmpty()) return
 
         navigateToDestination(
-            ProfileScreenDestination(username = normalizedUsername),
+            AppRoute.Profile(username = normalizedUsername),
             viewModelScope
         )
     }
 
+    fun setPostId(postId: Long) {
+        if (this.postId == postId && comments.isNotEmpty()) return
+        this.postId = postId
+        refreshComments()
+    }
+
     fun refreshComments() {
+        if (postId <= 0L) return
         if (_isCommentsLoading.value) return
         _comments.clear()
         nextCommentsPage = 1
@@ -92,6 +94,7 @@ class ThreadCommentsViewModel constructor(
     }
 
     fun loadMoreComments() {
+        if (postId <= 0L) return
         if (_isCommentsLoading.value) return
         if (!_hasMoreComments.value) return
         loadComments(isRefresh = false)

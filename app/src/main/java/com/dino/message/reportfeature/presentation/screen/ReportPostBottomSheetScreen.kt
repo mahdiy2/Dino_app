@@ -47,12 +47,8 @@ import com.dino.message.R
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPSmall
 import com.dino.message.reportfeature.presentation.viewmodel.ReportPostBottomSheetViewModel
-import com.ramcosta.composedestinations.annotation.Destination
-import com.ramcosta.composedestinations.annotation.RootGraph
-import com.ramcosta.composedestinations.bottomsheet.spec.DestinationStyleBottomSheet
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Destination<RootGraph>(style = DestinationStyleBottomSheet::class)
 @Composable
 fun ReportPostBottomSheetScreen(
     postId: Long,
@@ -296,7 +292,7 @@ fun ReportPostBottomSheetScreen(
         }
 
         FilledTonalButton(
-            onClick = viewModel::submitReport,
+            onClick = { viewModel.submitReport(postId) },
             enabled = !isSubmitting && selectedType != null,
             modifier = Modifier
                 .fillMaxWidth()

@@ -55,11 +55,8 @@ import com.dino.message.threadfeature.presentation.component.PostContainer
 import com.dino.message.threadfeature.presentation.component.QuotedPostPreviewCard
 import com.dino.message.threadfeature.presentation.util.artistTextOrUnknown
 import com.dino.message.threadfeature.presentation.viewmodel.PostMusicViewModel
-import com.ramcosta.composedestinations.annotation.Destination
-import com.ramcosta.composedestinations.annotation.RootGraph
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Destination<RootGraph>
 @Composable
 fun PostMusicScreen(
     quotedPostId: Long = 0L,

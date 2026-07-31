@@ -40,11 +40,7 @@ import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPSmall
 import com.dino.message.profilefeature.presentation.component.ProfileAvatarMedia
 import com.dino.message.threadfeature.presentation.viewmodel.SharePostBottomSheetViewModel
-import com.ramcosta.composedestinations.annotation.Destination
-import com.ramcosta.composedestinations.annotation.RootGraph
-import com.ramcosta.composedestinations.bottomsheet.spec.DestinationStyleBottomSheet
 
-@Destination<RootGraph>(style = DestinationStyleBottomSheet::class)
 @Composable
 fun SharePostBottomSheetScreen(
     postId: Long,
@@ -240,7 +236,7 @@ fun SharePostBottomSheetScreen(
         }
 
         FilledTonalButton(
-            onClick = viewModel::sendPostToSelectedRecipients,
+            onClick = { viewModel.sendPostToSelectedRecipients(postId, authorUsername, postText) },
             enabled = !isSending && selectedCount > 0,
             modifier = Modifier
                 .fillMaxWidth()

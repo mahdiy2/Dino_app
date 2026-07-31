@@ -67,14 +67,10 @@ import com.dino.message.R
 import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.threadfeature.presentation.viewmodel.CreatePostOptionsBottomSheetScreenViewModel
-import com.ramcosta.composedestinations.annotation.Destination
-import com.ramcosta.composedestinations.annotation.RootGraph
-import com.ramcosta.composedestinations.bottomsheet.spec.DestinationStyleBottomSheet
 import kotlin.math.cos
 import kotlin.math.sin
 
 
-@Destination<RootGraph>(style = DestinationStyleBottomSheet::class)
 @Composable
 fun CreatePostOptionsBottomSheetScreen(
     quotedPostId: Long = 0L,
@@ -108,7 +104,7 @@ fun CreatePostOptionsBottomSheetScreen(
         )
 
         Text(
-            text = if (viewModel.isQuoteMode) {
+            text = if (quotedPostId > 0L) {
                 stringResource(R.string.create_post_options_quote_subtitle)
             } else {
                 stringResource(R.string.create_post_options_subtitle)
@@ -137,7 +133,7 @@ fun CreatePostOptionsBottomSheetScreen(
             title = stringResource(R.string.create_post_options_create_dino_title),
             description = stringResource(R.string.create_post_options_create_dino_description),
             icon = Icons.Rounded.Create,
-            onClick = viewModel::openCreatePostScreen
+            onClick = { viewModel.openCreatePostScreen(quotedPostId) }
         )
 
         Spacer(Modifier.height(8.dp))
@@ -146,7 +142,7 @@ fun CreatePostOptionsBottomSheetScreen(
             title = stringResource(R.string.create_post_options_music_title),
             description = stringResource(R.string.create_post_options_music_description),
             icon = Icons.Rounded.LibraryMusic,
-            onClick = viewModel::openPostMusicScreen
+            onClick = { viewModel.openPostMusicScreen(quotedPostId) }
         )
 
         Spacer(Modifier.height(8.dp))

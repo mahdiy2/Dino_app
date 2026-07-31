@@ -19,11 +19,11 @@ import com.dino.message.corefeature.presentation.util.RSAUtil
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
-import com.ramcosta.composedestinations.generated.destinations.LoginScreenDestination
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.util.UUID
+import com.dino.message.corefeature.presentation.navigation.AppRoute
 
 class RegisterScreenViewModel constructor(
     app: Context,
@@ -212,12 +212,12 @@ class RegisterScreenViewModel constructor(
     }
 
     fun navigateToLoginScreen() {
-        navigateToDestination(LoginScreenDestination, viewModelScope)
+        navigateToDestination(AppRoute.Login, viewModelScope)
     }
 
     private fun navigateToLoginAfterRegistration() {
         navigateWithPopBackStackToDestination(
-            direction = LoginScreenDestination,
+            route = AppRoute.Login,
             scope = viewModelScope,
             level = PopBackStackLevel.ALL
         )

@@ -15,13 +15,12 @@ import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.dino.message.profilefeature.domain.usecase.FollowUserUseCase
 import com.dino.message.profilefeature.domain.usecase.GetFollowStatusUseCase
 import com.dino.message.threadfeature.domain.usecase.CreateCommentUseCase
-import com.ramcosta.composedestinations.generated.destinations.ProfileScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.SharedPostDetailsScreenDestination
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
+import com.dino.message.corefeature.presentation.navigation.AppRoute
 
 class ActivityNotificationViewModel constructor(
     app: Context,
@@ -189,7 +188,7 @@ class ActivityNotificationViewModel constructor(
     }
 
     fun openUserProfile(username: String) {
-        navigateToDestination(ProfileScreenDestination(username = username), viewModelScope)
+        navigateToDestination(AppRoute.Profile(username = username), viewModelScope)
     }
 
     fun shouldOpenPostDetails(notification: ActivityNotification): Boolean {
@@ -204,7 +203,7 @@ class ActivityNotificationViewModel constructor(
         val postId = resolvePostId(notification)
         if (postId != null && shouldOpenPostDetails(notification)) {
             navigateToDestination(
-                SharedPostDetailsScreenDestination(postId = postId),
+                AppRoute.SharedPostDetails(postId = postId),
                 viewModelScope
             )
             return

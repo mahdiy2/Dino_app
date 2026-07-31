@@ -3,13 +3,13 @@ accompanistSystemuicontroller = "0.31.1-alpha"
 agp = "8.9.2"
 coilCompose = "2.2.2"
 constraintlayoutCompose = "1.0.1"
-core = "2.2.0" # Updated version
 datastorePreferences = "1.1.1"
 desugar_jdk_libs = "2.0.4"
 gson = "2.10.1"
 graphicsShapes = "1.0.0-beta01"
 kotlin = "2.1.20" # Updated Kotlin version
 composeCompiler = "2.1.20" # Updated Compose Compiler version to match Kotlin
+composeMultiplatform = "1.8.2"
 coreKtx = "1.13.1"
 junit = "4.13.2"
 junitVersion = "1.2.1"
@@ -36,7 +36,7 @@ securityCrypto = "1.1.0-alpha06"
 securityIdentityCredential = "1.0.0-alpha03"
 socketIoClient = "2.0.0"
 swiperefreshlayout = "1.1.0"
-navigationCompose = "2.7.7"
+navigationCompose = "2.9.0-rc01"
 room = "2.6.1"
 workRuntimeKtx = "2.10.1"
 # ksp = "1.9.23-1.0.20" # Removed this redundant and conflicting line
@@ -55,10 +55,8 @@ androidx-graphics-shapes = { module = "androidx.graphics:graphics-shapes", versi
 androidx-security-app-authenticator = { module = "androidx.security:security-app-authenticator", version.ref = "securityAppAuthenticator" }
 androidx-security-identity-credential = { module = "androidx.security:security-identity-credential", version.ref = "securityIdentityCredential" }
 androidx-security-crypto = { module = "androidx.security:security-crypto", version.ref = "securityCrypto" }
-bottom-sheet = { module = "io.github.raamcosta.compose-destinations:bottom-sheet", version.ref = "core" }
 coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coilCompose" }
 coil-video = { module = "io.coil-kt:coil-video", version.ref = "coilCompose" }
-core = { module = "io.github.raamcosta.compose-destinations:core", version.ref = "core" }
 desugar_jdk_libs = { module = "com.android.tools:desugar_jdk_libs", version.ref = "desugar_jdk_libs" }
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
@@ -77,7 +75,7 @@ androidx-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-man
 androidx-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
 androidx-material3 = { group = "androidx.compose.material3", name = "material3", version.ref = "material3" }
 androidx-swiperefreshlayout = { group = "androidx.swiperefreshlayout", name = "swiperefreshlayout", version.ref = "swiperefreshlayout" }
-androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
+androidx-navigation-compose = { group = "org.jetbrains.androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerializationJson" }
 koin-bom = { module = "io.insert-koin:koin-bom", version.ref = "koinBom" }
 koin-android = { module = "io.insert-koin:koin-android" }
@@ -86,7 +84,6 @@ koin-compose = { module = "io.insert-koin:koin-compose" }
 koin-compose-viewmodel = { module = "io.insert-koin:koin-compose-viewmodel" }
 koin-compose-viewmodel-navigation = { module = "io.insert-koin:koin-compose-viewmodel-navigation" }
 koin-test = { module = "io.insert-koin:koin-test" }
-ksp = { module = "io.github.raamcosta.compose-destinations:ksp", version.ref = "core" } # KSP now uses the same version ref as core
 ktor-client-cio = { module = "io.ktor:ktor-client-cio", version.ref = "ktorClientCio" }
 ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktorClientCore" }
 ktor-client-content-negotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktorClientContentNegotiation" }
@@ -109,3 +106,4 @@ kotlinx-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", vers
 jetbrains-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "kspVersion"} # Updated to use kspVersion from versions block
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "composeCompiler" } # Added Compose Compiler Plugin with version ref
+compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "composeMultiplatform" }

@@ -26,12 +26,7 @@ import org.koin.compose.viewmodel.koinViewModel
 import com.dino.message.R
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.profilefeature.presentation.viewmodel.DeletePostBottomSheetViewModel
-import com.ramcosta.composedestinations.annotation.Destination
-import com.ramcosta.composedestinations.annotation.RootGraph
-import com.ramcosta.composedestinations.bottomsheet.spec.DestinationStyleBottomSheet
-import com.ramcosta.composedestinations.spec.DestinationStyle
 
-@Destination<RootGraph>(style = DestinationStyle.Dialog::class)
 @Composable
 fun DeletePostBottomSheetScreen(
     postId: Long,
@@ -95,7 +90,7 @@ fun DeletePostBottomSheetScreen(
                 FilledTonalButton(
                     modifier = Modifier.padding(start = 8.dp),
                     enabled = !isDeleting,
-                    onClick = viewModel::confirmDelete
+                    onClick = { viewModel.confirmDelete(postId) }
                 ) {
                     if (isDeleting) {
                         CircularProgressIndicator(strokeWidth = 2.dp)

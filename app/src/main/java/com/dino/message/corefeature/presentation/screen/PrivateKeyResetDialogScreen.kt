@@ -30,12 +30,8 @@ import androidx.compose.ui.unit.dp
 import org.koin.compose.viewmodel.koinViewModel
 import com.dino.message.R
 import com.dino.message.corefeature.presentation.viewmodel.PrivateKeyResetDialogViewModel
-import com.ramcosta.composedestinations.annotation.Destination
-import com.ramcosta.composedestinations.annotation.RootGraph
-import com.ramcosta.composedestinations.spec.DestinationStyle
 import androidx.compose.material3.Icon
 
-@Destination<RootGraph>(style = DestinationStyle.Dialog::class)
 @Composable
 fun PrivateKeyResetDialogScreen() {
     val viewModel: PrivateKeyResetDialogViewModel = koinViewModel()

@@ -1,6 +1,6 @@
 package com.dino.message.corefeature.presentation.viewmodel
 
-import com.ramcosta.composedestinations.spec.Direction
+import com.dino.message.corefeature.presentation.navigation.AppRoute
 import com.dino.message.DinoOrderApplication
 import com.dino.message.corefeature.domain.model.CustomMessageDialogData
 import com.dino.message.corefeature.domain.model.ImageDialogData
@@ -23,23 +23,23 @@ class HaveUIEventImpl(
     override val uIEventFlow = app.uIEventFlow
 
     override fun navigateWithPopBackStackToDestination(
-        direction: Direction,
+        route: AppRoute,
         scope: CoroutineScope,
         level: PopBackStackLevel
     ) = scope.launch {
         mutableUIEventFlow.emit(
             // Uses the secondary constructor of UIEvent.NavigateWithPopBackStack
-            UIEvent.NavigateWithPopBackStack(direction = direction, level = level)
+            UIEvent.NavigateWithPopBackStack(route = route, level = level)
         )
     }
 
     override fun navigateToDestination(
-        direction: Direction,
+        route: AppRoute,
         scope: CoroutineScope
     ) = scope.launch {
         mutableUIEventFlow.emit(
             // Uses the secondary constructor of UIEvent.Navigate
-            UIEvent.Navigate(direction = direction)
+            UIEvent.Navigate(route = route)
         )
     }
 

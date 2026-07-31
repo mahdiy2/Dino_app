@@ -11,12 +11,11 @@ import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.dino.message.groupfeature.domain.model.GroupMember
 import com.dino.message.groupfeature.domain.usecase.GetGroupDetailUseCase
-import com.ramcosta.composedestinations.generated.destinations.AddGroupMembersScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.ProfileScreenDestination
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import com.dino.message.corefeature.presentation.navigation.AppRoute
 
 class GroupMembersViewModel constructor(
     app: Context,
@@ -74,7 +73,7 @@ class GroupMembersViewModel constructor(
 
     fun openAddMembersScreen() {
         navigateToDestination(
-            AddGroupMembersScreenDestination(
+            AppRoute.AddGroupMembers(
                 groupId = groupId,
                 groupName = _groupName.value.ifBlank { initialGroupName },
             ),
@@ -86,7 +85,7 @@ class GroupMembersViewModel constructor(
         val normalizedUsername = username.trim()
         if (normalizedUsername.isBlank()) return
         navigateToDestination(
-            ProfileScreenDestination(username = normalizedUsername),
+            AppRoute.Profile(username = normalizedUsername),
             viewModelScope,
         )
     }

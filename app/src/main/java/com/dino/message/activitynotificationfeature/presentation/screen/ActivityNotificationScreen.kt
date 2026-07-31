@@ -37,15 +37,12 @@ import com.dino.message.activitynotificationfeature.presentation.component.Activ
 import com.dino.message.activitynotificationfeature.presentation.viewmodel.ActivityNotificationViewModel
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.util.backIconModifier
-import com.ramcosta.composedestinations.annotation.Destination
-import com.ramcosta.composedestinations.annotation.RootGraph
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Destination<RootGraph>
 @Composable
 fun ActivityNotificationScreen() {
     val viewModel: ActivityNotificationViewModel = koinViewModel()

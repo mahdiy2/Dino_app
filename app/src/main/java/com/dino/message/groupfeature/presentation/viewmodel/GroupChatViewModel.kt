@@ -39,10 +39,6 @@ import com.dino.message.groupfeature.domain.usecase.UploadGroupAttachmentUseCase
 import com.dino.message.groupfeature.domain.usecase.SaveGroupMessageUseCase
 import com.dino.message.groupfeature.domain.usecase.GetGroupMessagesFromDbUseCase
 import com.dino.message.threadfeature.domain.usecase.IsTrackInPlaylistUseCase
-import com.ramcosta.composedestinations.generated.destinations.GroupMembersScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.PlaylistBottomSheetScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.PrivateKeyResetDialogScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.SharedPostDetailsScreenDestination
 import io.socket.client.Socket
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -59,6 +55,7 @@ import java.time.Instant
 import java.security.PublicKey
 import java.util.Collections
 import java.util.UUID
+import com.dino.message.corefeature.presentation.navigation.AppRoute
 
 class GroupChatViewModel constructor(
     app: Context,
@@ -1540,7 +1537,7 @@ class GroupChatViewModel constructor(
     }
 
     fun openPrivateKeyResetDialog() {
-        navigateToDestination(PrivateKeyResetDialogScreenDestination, viewModelScope)
+        navigateToDestination(AppRoute.PrivateKeyResetDialog, viewModelScope)
     }
 
     fun leaveGroup() = viewModelScope.launch {
@@ -1564,14 +1561,14 @@ class GroupChatViewModel constructor(
 
     fun openSharedPost(postId: Long) {
         navigateToDestination(
-            SharedPostDetailsScreenDestination(postId = postId),
+            AppRoute.SharedPostDetails(postId = postId),
             viewModelScope
         )
     }
 
     fun openGroupMembersScreen(currentGroupName: String) {
         navigateToDestination(
-            GroupMembersScreenDestination(
+            AppRoute.GroupMembers(
                 groupId = groupId,
                 groupName = currentGroupName.ifBlank { groupName },
             ),
@@ -1580,7 +1577,7 @@ class GroupChatViewModel constructor(
     }
 
     fun openPlaylistBottomSheet() {
-        navigateToDestination(PlaylistBottomSheetScreenDestination, viewModelScope)
+        navigateToDestination(AppRoute.PlaylistSheet, viewModelScope)
     }
 
     fun openPlaylistBottomSheetIfTrackExists(trackUrl: String) = viewModelScope.launch {

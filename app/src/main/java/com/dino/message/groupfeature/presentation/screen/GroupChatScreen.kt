@@ -77,9 +77,6 @@ import com.dino.message.groupfeature.presentation.component.OnlineAvatarBubbleCl
 import com.dino.message.groupfeature.presentation.viewmodel.GroupChatViewModel
 import com.dino.message.threadfeature.presentation.component.NowPlayingTopBarRow
 import com.dino.message.threadfeature.presentation.music.MusicPlaybackManager
-import com.ramcosta.composedestinations.annotation.Destination
-import com.ramcosta.composedestinations.annotation.RootGraph
-import com.ramcosta.composedestinations.annotation.parameters.DeepLink
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import java.time.Duration
@@ -89,11 +86,6 @@ import java.time.format.DateTimeFormatter
 import kotlin.math.min
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Destination<RootGraph>(
-    deepLinks = [
-        DeepLink(uriPattern = "secmessage://group/{groupId}")
-    ]
-)
 @Composable
 fun GroupChatScreen(
     groupId: Int,

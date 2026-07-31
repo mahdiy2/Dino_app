@@ -105,11 +105,8 @@ import com.dino.message.profilefeature.presentation.component.ProfileContainer
 import com.dino.message.profilefeature.presentation.component.ProfileFollowStatusContainer
 import com.dino.message.profilefeature.presentation.viewmodel.ProfileScreenViewModel
 import com.dino.message.threadfeature.presentation.component.ThreadPostCard
-import com.ramcosta.composedestinations.annotation.Destination
-import com.ramcosta.composedestinations.annotation.RootGraph
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Destination<RootGraph>
 @Composable
 fun ProfileScreen(username: String? = null) {
     val viewModel: ProfileScreenViewModel = koinViewModel()

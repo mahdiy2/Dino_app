@@ -63,11 +63,8 @@ import com.dino.message.threadfeature.presentation.component.Carousel
 import com.dino.message.threadfeature.presentation.component.PostContainer
 import com.dino.message.threadfeature.presentation.component.QuotedPostPreviewCard
 import com.dino.message.threadfeature.presentation.viewmodel.CreatePostViewModel
-import com.ramcosta.composedestinations.annotation.Destination
-import com.ramcosta.composedestinations.annotation.RootGraph
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Destination<RootGraph>
 @Composable
 fun CreatePostScreen(
     quotedPostId: Long = 0L,

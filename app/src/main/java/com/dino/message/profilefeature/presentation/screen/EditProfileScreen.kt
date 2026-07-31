@@ -103,12 +103,9 @@ import com.dino.message.corefeature.presentation.util.normalizeProfileImageShape
 import com.dino.message.corefeature.presentation.util.resolveProfileImageShape
 import com.dino.message.profilefeature.presentation.viewmodel.EditProfileViewModel
 import com.dino.message.threadfeature.presentation.component.PostContainer
-import com.ramcosta.composedestinations.annotation.Destination
-import com.ramcosta.composedestinations.annotation.RootGraph
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Destination<RootGraph>
 @Composable
 fun EditProfileScreen() {
     val viewModel: EditProfileViewModel = koinViewModel()

@@ -12,9 +12,8 @@ import com.dino.message.corefeature.presentation.util.PopBackStackLevel
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
-import com.ramcosta.composedestinations.generated.destinations.LoginScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.RegisterScreenDestination
 import kotlinx.coroutines.launch
+import com.dino.message.corefeature.presentation.navigation.AppRoute
 
 class PrivateKeyAlertScreenViewModel constructor(
     app: Context,
@@ -76,7 +75,7 @@ class PrivateKeyAlertScreenViewModel constructor(
     fun navigateToRegisterScreenAndResetPending() {
         sPrefManager.clearPendingRegistration()
         navigateWithPopBackStackToDestination(
-            direction = RegisterScreenDestination,
+            route = AppRoute.Register,
             scope = viewModelScope,
             level = PopBackStackLevel.ALL
         )
@@ -84,7 +83,7 @@ class PrivateKeyAlertScreenViewModel constructor(
 
     fun navigateToLoginScreen() {
         navigateWithPopBackStackToDestination(
-            direction = LoginScreenDestination,
+            route = AppRoute.Login,
             scope = viewModelScope,
             level = PopBackStackLevel.ALL
         )

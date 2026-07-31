@@ -42,10 +42,7 @@ import com.dino.message.R
 import com.dino.message.authfeature.presentation.viewmodel.PrivateKeyAlertScreenViewModel
 import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
-import com.ramcosta.composedestinations.annotation.Destination
-import com.ramcosta.composedestinations.annotation.RootGraph
 
-@Destination<RootGraph>
 @Composable
 fun PrivateKeyAlertScreen() {
     val viewModel: PrivateKeyAlertScreenViewModel = koinViewModel()

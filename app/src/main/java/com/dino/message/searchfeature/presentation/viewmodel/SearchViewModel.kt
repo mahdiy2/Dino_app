@@ -21,13 +21,6 @@ import com.dino.message.threadfeature.domain.model.PostMedia
 import com.dino.message.threadfeature.domain.model.VoteTargetType
 import com.dino.message.threadfeature.domain.usecase.AddTrackToPlaylistUseCase
 import com.dino.message.threadfeature.domain.usecase.VoteUseCase
-import com.ramcosta.composedestinations.generated.destinations.CreatePostOptionsBottomSheetScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.ProfileScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.ReportPostBottomSheetScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.SharePostBottomSheetScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.SharedPostDetailsScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.TrackPlaylistAddersDialogScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.ThreadCommentsBottomSheetScreenDestination
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,6 +29,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import com.dino.message.corefeature.presentation.navigation.AppRoute
 
 class SearchViewModel constructor(
     app: Context,
@@ -193,7 +187,7 @@ class SearchViewModel constructor(
 
     fun openUserProfile(username: String) {
         navigateToDestination(
-            ProfileScreenDestination(username = username),
+            AppRoute.Profile(username = username),
             viewModelScope
         )
     }
@@ -235,21 +229,21 @@ class SearchViewModel constructor(
 
     fun openCommentsBottomSheet(postId: Long) {
         navigateToDestination(
-            ThreadCommentsBottomSheetScreenDestination(postId),
+            AppRoute.ThreadCommentsSheet(postId),
             viewModelScope
         )
     }
 
     fun openReportBottomSheet(postId: Long) {
         navigateToDestination(
-            ReportPostBottomSheetScreenDestination(postId),
+            AppRoute.ReportPostSheet(postId),
             viewModelScope
         )
     }
 
     fun openShareBottomSheet(post: Post) {
         navigateToDestination(
-            SharePostBottomSheetScreenDestination(
+            AppRoute.SharePostSheet(
                 postId = post.id,
                 authorUsername = post.author.username,
                 postText = post.text.take(240)
@@ -260,7 +254,7 @@ class SearchViewModel constructor(
 
     fun openQuotePostOptions(post: Post) {
         navigateToDestination(
-            CreatePostOptionsBottomSheetScreenDestination(
+            AppRoute.CreatePostOptionsSheet(
                 quotedPostId = post.id
             ),
             viewModelScope
@@ -270,7 +264,7 @@ class SearchViewModel constructor(
     fun openQuotedPost(postId: Long) {
         if (postId <= 0L) return
         navigateToDestination(
-            SharedPostDetailsScreenDestination(postId = postId),
+            AppRoute.SharedPostDetails(postId = postId),
             viewModelScope
         )
     }
@@ -299,7 +293,7 @@ class SearchViewModel constructor(
     fun openTrackPlaylistAddersDialog(media: PostMedia, trackTitle: String) {
         if (media.playlistAdders.isEmpty()) return
         navigateToDestination(
-            TrackPlaylistAddersDialogScreenDestination(
+            AppRoute.TrackPlaylistAddersDialog(
                 trackTitle = trackTitle,
                 playlistAddersJson = Json.encodeToString(media.playlistAdders)
             ),

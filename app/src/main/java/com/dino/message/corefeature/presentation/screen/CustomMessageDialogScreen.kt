@@ -26,8 +26,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import org.koin.compose.viewmodel.koinViewModel
 import com.dino.message.R
-import com.ramcosta.composedestinations.annotation.Destination
-import com.ramcosta.composedestinations.spec.DestinationStyle
 import com.dino.message.corefeature.domain.model.CustomMessageDialogData
 import com.dino.message.corefeature.domain.model.CustomMessageDialogType
 import com.dino.message.corefeature.domain.model.asString
@@ -37,7 +35,6 @@ import com.dino.message.corefeature.presentation.ui.theme.DPLarge
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPSmall
 import com.dino.message.corefeature.presentation.viewmodel.CustomMessageDialogViewModel
-import com.ramcosta.composedestinations.annotation.RootGraph
 
 
 /**
@@ -49,7 +46,6 @@ import com.ramcosta.composedestinations.annotation.RootGraph
  *
  * @param customMessageDialogData The data for the custom message dialog.
  */
-@Destination<RootGraph>(style = DestinationStyle.Dialog::class)
 @Composable
 @Suppress("UNUSED_PARAMETER")
 fun CustomMessageDialogScreen(customMessageDialogData: CustomMessageDialogData) {

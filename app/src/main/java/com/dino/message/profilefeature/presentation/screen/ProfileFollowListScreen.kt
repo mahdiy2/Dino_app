@@ -73,14 +73,11 @@ import com.dino.message.profilefeature.domain.model.ProfileUserSummary
 import com.dino.message.profilefeature.presentation.component.ProfileAvatarMedia
 import com.dino.message.profilefeature.presentation.viewmodel.ProfileFollowListViewModel
 import com.dino.message.threadfeature.presentation.component.PostContainer
-import com.ramcosta.composedestinations.annotation.Destination
-import com.ramcosta.composedestinations.annotation.RootGraph
 import androidx.graphics.shapes.CornerRounding
 import androidx.graphics.shapes.RoundedPolygon
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Destination<RootGraph>
 @Composable
 fun ProfileFollowListScreen(
     username: String,

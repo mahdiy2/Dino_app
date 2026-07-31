@@ -44,11 +44,8 @@ import com.dino.message.corefeature.presentation.ui.theme.DPSmall
 import com.dino.message.corefeature.presentation.util.backIconModifier
 import com.dino.message.profilefeature.presentation.component.ProfileAvatarMedia
 import com.dino.message.groupfeature.presentation.viewmodel.AddGroupMembersViewModel
-import com.ramcosta.composedestinations.annotation.Destination
-import com.ramcosta.composedestinations.annotation.RootGraph
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Destination<RootGraph>
 @Composable
 fun AddGroupMembersScreen(
     groupId: Int,

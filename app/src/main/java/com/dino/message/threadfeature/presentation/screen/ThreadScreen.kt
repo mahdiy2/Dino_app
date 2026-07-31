@@ -119,8 +119,6 @@ import com.dino.message.threadfeature.presentation.music.MusicPlaybackManager
 import com.dino.message.threadfeature.presentation.viewmodel.FollowSuggestion
 import com.dino.message.threadfeature.presentation.viewmodel.ThreadViewModel
 import com.dino.message.profilefeature.presentation.component.ProfileAvatarMedia
-import com.ramcosta.composedestinations.annotation.Destination
-import com.ramcosta.composedestinations.annotation.RootGraph
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
@@ -128,7 +126,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
-@Destination<RootGraph>
 @Composable
 fun ThreadScreen(initialStoryId: Long? = null) {
     val viewModel: ThreadViewModel = koinViewModel()

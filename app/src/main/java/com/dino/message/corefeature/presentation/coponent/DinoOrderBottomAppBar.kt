@@ -31,10 +31,9 @@ import com.dino.message.corefeature.presentation.ui.theme.DPSmall
 import com.dino.message.corefeature.presentation.util.MenuItem
 import com.dino.message.corefeature.presentation.util.PopBackStackLevel
 import com.dino.message.corefeature.presentation.util.UIEvent
-import com.ramcosta.composedestinations.generated.destinations.MainScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.ProfileScreenDestination
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
+import com.dino.message.corefeature.presentation.navigation.AppRoute
 
 @Composable
 fun DinoOrderBottomAppBar(
@@ -53,7 +52,7 @@ fun DinoOrderBottomAppBar(
             ) {
                 mutableUIEvent.emit(
                     UIEvent.NavigateWithPopBackStack(
-                        direction = MainScreenDestination,
+                        route = AppRoute.Main,
                         level = PopBackStackLevel.ALL
                     )
                 )
@@ -63,7 +62,7 @@ fun DinoOrderBottomAppBar(
                 R.drawable.round_person_24,
                 R.string.profile
             ) {
-                mutableUIEvent.emit(UIEvent.Navigate(ProfileScreenDestination()))
+                mutableUIEvent.emit(UIEvent.Navigate(AppRoute.Profile()))
             },
         )
     }

@@ -15,18 +15,13 @@ import com.dino.message.threadfeature.domain.model.VoteTargetType
 import com.dino.message.threadfeature.domain.usecase.AddTrackToPlaylistUseCase
 import com.dino.message.threadfeature.domain.usecase.GetPostUseCase
 import com.dino.message.threadfeature.domain.usecase.VoteUseCase
-import com.ramcosta.composedestinations.generated.destinations.ProfileScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.CreatePostOptionsBottomSheetScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.SharePostBottomSheetScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.SharedPostDetailsScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.TrackPlaylistAddersDialogScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.ThreadCommentsBottomSheetScreenDestination
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import com.dino.message.corefeature.presentation.navigation.AppRoute
 
 class SharedPostDetailsViewModel constructor(
     app: Context,
@@ -119,7 +114,7 @@ class SharedPostDetailsViewModel constructor(
 
     fun openCommentsBottomSheet() {
         navigateToDestination(
-            ThreadCommentsBottomSheetScreenDestination(postId = postId),
+            AppRoute.ThreadCommentsSheet(postId = postId),
             viewModelScope
         )
     }
@@ -127,7 +122,7 @@ class SharedPostDetailsViewModel constructor(
     fun openShareBottomSheet() {
         val postData = _post.value ?: return
         navigateToDestination(
-            SharePostBottomSheetScreenDestination(
+            AppRoute.SharePostSheet(
                 postId = postData.id,
                 authorUsername = postData.author.username,
                 postText = postData.text.take(240)
@@ -139,7 +134,7 @@ class SharedPostDetailsViewModel constructor(
     fun openQuotePostOptions() {
         val postData = _post.value ?: return
         navigateToDestination(
-            CreatePostOptionsBottomSheetScreenDestination(
+            AppRoute.CreatePostOptionsSheet(
                 quotedPostId = postData.id
             ),
             viewModelScope
@@ -149,14 +144,14 @@ class SharedPostDetailsViewModel constructor(
     fun openQuotedPost(postId: Long) {
         if (postId <= 0L) return
         navigateToDestination(
-            SharedPostDetailsScreenDestination(postId = postId),
+            AppRoute.SharedPostDetails(postId = postId),
             viewModelScope
         )
     }
 
     fun openUserProfile(username: String) {
         if (username.isBlank()) return
-        navigateToDestination(ProfileScreenDestination(username = username), viewModelScope)
+        navigateToDestination(AppRoute.Profile(username = username), viewModelScope)
     }
 
     fun navigateBack() {
@@ -183,7 +178,7 @@ class SharedPostDetailsViewModel constructor(
     fun openTrackPlaylistAddersDialog(media: PostMedia, trackTitle: String) {
         if (media.playlistAdders.isEmpty()) return
         navigateToDestination(
-            TrackPlaylistAddersDialogScreenDestination(
+            AppRoute.TrackPlaylistAddersDialog(
                 trackTitle = trackTitle,
                 playlistAddersJson = Json.encodeToString(media.playlistAdders)
             ),

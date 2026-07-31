@@ -85,12 +85,9 @@ import com.dino.message.corefeature.presentation.ui.theme.DPSmall
 import com.dino.message.corefeature.presentation.util.backIconModifier
 import com.dino.message.profilefeature.presentation.viewmodel.ProfileSettingsViewModel
 import com.dino.message.threadfeature.presentation.component.PostContainer
-import com.ramcosta.composedestinations.annotation.Destination
-import com.ramcosta.composedestinations.annotation.RootGraph
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Destination<RootGraph>
 @Composable
 fun ProfileSettingsScreen() {
     val viewModel: ProfileSettingsViewModel = koinViewModel()

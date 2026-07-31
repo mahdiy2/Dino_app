@@ -34,11 +34,8 @@ import com.dino.message.corefeature.presentation.util.backIconModifier
 import com.dino.message.searchfeature.presentation.component.SearchResultsList
 import com.dino.message.searchfeature.presentation.component.SearchTabRow
 import com.dino.message.searchfeature.presentation.viewmodel.SearchViewModel
-import com.ramcosta.composedestinations.annotation.Destination
-import com.ramcosta.composedestinations.annotation.RootGraph
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Destination<RootGraph>
 @Composable
 fun SearchScreen() {
     val viewModel: SearchViewModel = koinViewModel()

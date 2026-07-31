@@ -41,19 +41,6 @@ import com.dino.message.threadfeature.domain.usecase.UploadStoryUseCase
 import com.dino.message.threadfeature.domain.usecase.VoteUseCase
 import com.dino.message.activitynotificationfeature.domain.usecase.GetUnreadCountUseCase
 import com.dino.message.threadfeature.presentation.screen.CreatePostOptionsBottomSheetScreen
-import com.ramcosta.composedestinations.generated.destinations.CreatePostScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.SearchScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.MainScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.ProfileScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.ActivityNotificationScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.ChatScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.CreatePostOptionsBottomSheetScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.ReportPostBottomSheetScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.SharePostBottomSheetScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.PostMusicScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.PlaylistBottomSheetScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.SharedPostDetailsScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.TrackPlaylistAddersDialogScreenDestination
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -63,7 +50,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import com.ramcosta.composedestinations.generated.destinations.ThreadCommentsBottomSheetScreenDestination
+import com.dino.message.corefeature.presentation.navigation.AppRoute
 
 data class FollowSuggestion(
     val userId: Long,
@@ -413,21 +400,21 @@ class ThreadViewModel constructor(
 
     fun openCommentsBottomSheet(postId: Long) {
         navigateToDestination(
-            ThreadCommentsBottomSheetScreenDestination(
+            AppRoute.ThreadCommentsSheet(
                 postId
             ), viewModelScope)
     }
 
     fun openReportBottomSheet(postId: Long) {
         navigateToDestination(
-            ReportPostBottomSheetScreenDestination(postId),
+            AppRoute.ReportPostSheet(postId),
             viewModelScope
         )
     }
 
     fun openShareBottomSheet(post: Post) {
         navigateToDestination(
-            SharePostBottomSheetScreenDestination(
+            AppRoute.SharePostSheet(
                 postId = post.id,
                 authorUsername = post.author.username,
                 postText = post.text.take(240)
@@ -438,7 +425,7 @@ class ThreadViewModel constructor(
 
     fun openQuotePostOptions(post: Post) {
         navigateToDestination(
-            CreatePostOptionsBottomSheetScreenDestination(
+            AppRoute.CreatePostOptionsSheet(
                 quotedPostId = post.id
             ),
             viewModelScope
@@ -448,42 +435,42 @@ class ThreadViewModel constructor(
     fun openQuotedPost(postId: Long) {
         if (postId <= 0L) return
         navigateToDestination(
-            SharedPostDetailsScreenDestination(postId = postId),
+            AppRoute.SharedPostDetails(postId = postId),
             viewModelScope
         )
     }
 
     fun openCreatePostScreen() {
         navigateToDestination(
-            CreatePostScreenDestination(),
+            AppRoute.CreatePost(),
             viewModelScope
         )
     }
 
     fun openPostMusicScreen() {
         navigateToDestination(
-            PostMusicScreenDestination(),
+            AppRoute.PostMusic(),
             viewModelScope
         )
     }
 
     fun showCreateOptionsSheet(){
         navigateToDestination(
-            CreatePostOptionsBottomSheetScreenDestination(),
+            AppRoute.CreatePostOptionsSheet(),
             viewModelScope
         )
     }
 
     fun openUserProfile(username: String) {
         navigateToDestination(
-            ProfileScreenDestination(username = username),
+            AppRoute.Profile(username = username),
             viewModelScope
         )
     }
 
     fun openUserProfile() {
         navigateToDestination(
-            ProfileScreenDestination(username = sPrefManager.getUsername()),
+            AppRoute.Profile(username = sPrefManager.getUsername()),
             viewModelScope
         )
     }
@@ -544,7 +531,7 @@ class ThreadViewModel constructor(
 
     fun openPlaylistBottomSheet() {
         navigateToDestination(
-            PlaylistBottomSheetScreenDestination,
+            AppRoute.PlaylistSheet,
             viewModelScope
         )
     }
@@ -587,7 +574,7 @@ class ThreadViewModel constructor(
     fun openTrackPlaylistAddersDialog(media: PostMedia, trackTitle: String) {
         if (media.playlistAdders.isEmpty()) return
         navigateToDestination(
-            TrackPlaylistAddersDialogScreenDestination(
+            AppRoute.TrackPlaylistAddersDialog(
                 trackTitle = trackTitle,
                 playlistAddersJson = Json.encodeToString(media.playlistAdders)
             ),
@@ -921,24 +908,24 @@ class ThreadViewModel constructor(
 
     fun navigateChat(){
         navigateToDestination(
-            direction = MainScreenDestination,
+            route = AppRoute.Main,
             scope = viewModelScope
         )
     }
 
     fun openSearchScreen() {
-        navigateToDestination(SearchScreenDestination, viewModelScope)
+        navigateToDestination(AppRoute.Search, viewModelScope)
     }
 
     fun openActivityNotifications() {
-        navigateToDestination(ActivityNotificationScreenDestination, viewModelScope)
+        navigateToDestination(AppRoute.ActivityNotification, viewModelScope)
     }
 
     fun openChatWithUser(username: String) {
         val normalized = username.trim()
         if (normalized.isBlank()) return
         navigateToDestination(
-            ChatScreenDestination(chatId = normalized),
+            AppRoute.Chat(chatId = normalized),
             viewModelScope
         )
     }

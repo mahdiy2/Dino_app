@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.dino.message.DinoOrderApplication
 import com.dino.message.R
@@ -22,11 +21,9 @@ class ReportPostBottomSheetViewModel constructor(
     app: Context,
     private val getReportTypesUseCase: GetReportTypesUseCase,
     private val createPostReportUseCase: CreatePostReportUseCase,
-    savedStateHandle: SavedStateHandle,
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
 
-    val postId: Long = savedStateHandle.get<Long>("postId") ?: 0L
 
     private val _reportTypes = mutableStateListOf<String>()
     val reportTypes: List<String> = _reportTypes
@@ -83,7 +80,7 @@ class ReportPostBottomSheetViewModel constructor(
         description.value = value.take(255)
     }
 
-    fun submitReport() {
+    fun submitReport(postId: Long) {
         if (_isSubmitting.value) return
 
         val type = selectedType.value

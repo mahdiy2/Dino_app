@@ -95,9 +95,6 @@ import com.dino.message.threadfeature.presentation.music.PlaybackQueueItem
 import com.dino.message.threadfeature.presentation.util.artistTextOrUnknown
 import com.dino.message.threadfeature.presentation.util.resolveMusicMetadata
 import com.dino.message.threadfeature.presentation.viewmodel.PlaylistBottomSheetViewModel
-import com.ramcosta.composedestinations.annotation.Destination
-import com.ramcosta.composedestinations.annotation.RootGraph
-import com.ramcosta.composedestinations.bottomsheet.spec.DestinationStyleBottomSheet
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
@@ -110,7 +107,6 @@ private const val FOOTER_REST_SCALE = 1f
 private const val FOOTER_POP_DURATION_MS = 220L
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Destination<RootGraph>(style = DestinationStyleBottomSheet::class)
 @Composable
 fun PlaylistBottomSheetScreen() {
     val lifecycleOwner = LocalLifecycleOwner.current

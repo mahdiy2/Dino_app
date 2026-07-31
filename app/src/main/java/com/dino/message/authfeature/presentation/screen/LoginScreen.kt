@@ -44,11 +44,8 @@ import com.dino.message.corefeature.domain.model.AppLanguage
 import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPTopAppBar
-import com.ramcosta.composedestinations.annotation.Destination
-import com.ramcosta.composedestinations.annotation.RootGraph
 
 
-@Destination<RootGraph>
 @Composable
 fun LoginScreen() {
 

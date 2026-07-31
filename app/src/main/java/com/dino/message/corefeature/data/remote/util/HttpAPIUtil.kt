@@ -13,7 +13,6 @@ import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.corefeature.util.RefreshTokenExpiredException
 import com.dino.message.corefeature.presentation.util.UIEvent
 import com.dino.message.corefeature.util.RetryableException
-import com.ramcosta.composedestinations.generated.destinations.LoginScreenDestination
 import io.ktor.client.call.body
 import io.ktor.client.plugins.HttpRequestTimeoutException
 import io.ktor.client.statement.HttpResponse
@@ -29,6 +28,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.net.SocketTimeoutException
 import java.nio.channels.UnresolvedAddressException
+import com.dino.message.corefeature.presentation.navigation.AppRoute
 
 class HttpAPIUtil constructor(
     val sPrefManager: SPrefManager,
@@ -268,7 +268,7 @@ class HttpAPIUtil constructor(
         val app = context.applicationContext as? DinoOrderApplication ?: return
         app.mutableUIEventFlow.emit(
             UIEvent.NavigateWithPopBackStack(
-                direction = LoginScreenDestination,
+                route = AppRoute.Login,
                 level = PopBackStackLevel.ALL
             )
         )

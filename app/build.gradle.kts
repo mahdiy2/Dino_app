@@ -3,6 +3,7 @@ import java.util.Properties
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.jetbrains.kotlin.android)
+    alias(libs.plugins.compose.multiplatform)
     alias(libs.plugins.kotlinx.serialization)
 //    alias(libs.plugins.ksp)
     id ("com.google.devtools.ksp") version libs.versions.kspVersion.get() // Updated KSP plugin version
@@ -92,11 +93,11 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
-    implementation(platform(libs.androidx.compose.bom))
-    implementation(libs.androidx.ui)
-    implementation(libs.androidx.ui.graphics)
-    implementation(libs.androidx.ui.tooling.preview)
-    implementation("androidx.compose.material:material")
+    implementation(compose.runtime)
+    implementation(compose.foundation)
+    implementation(compose.material)
+    implementation(compose.components.resources)
+    implementation(compose.components.uiToolingPreview)
     implementation(libs.androidx.material3)
     implementation(libs.androidx.swiperefreshlayout)
 
@@ -106,7 +107,6 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
-    androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
@@ -119,10 +119,7 @@ dependencies {
     implementation(libs.koin.compose.viewmodel.navigation)
     testImplementation(libs.koin.test)
 
-    // compose-destinations
-    implementation (libs.core)
-    implementation(libs.bottom.sheet)
-    ksp(libs.ksp)
+    implementation(libs.androidx.navigation.compose)
 
     implementation(libs.kotlinx.serialization.json)
 
@@ -169,8 +166,6 @@ dependencies {
     // material icons
     implementation(libs.androidx.material.icons.extended)
 
-    // foundation
-    implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.work.runtime.ktx)
 
     // room

@@ -25,17 +25,13 @@ import com.dino.message.mainpage.domain.usecase.GetContactsDeltaUseCase
 import com.dino.message.mainpage.domain.usecase.GetDetailedContactsUseCase
 import com.dino.message.mainpage.presentation.util.ContactsDeltaReducer
 import com.dino.message.threadfeature.domain.usecase.IsTrackInPlaylistUseCase
-import com.ramcosta.composedestinations.generated.destinations.ChatScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.CreateGroupScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.GroupChatScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.PlaylistBottomSheetScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.ProfileScreenDestination
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
+import com.dino.message.corefeature.presentation.navigation.AppRoute
 
 class MainScreenViewModel constructor(
     app: Context,
@@ -449,14 +445,14 @@ class MainScreenViewModel constructor(
     }
 
     fun navigateToProfileScreen() {
-        navigateToDestination(ProfileScreenDestination(), viewModelScope)
+        navigateToDestination(AppRoute.Profile(), viewModelScope)
     }
 
     fun navigateToChatScreen(username: String) {
         val contact = _contactList.firstOrNull { it?.username == username }
         clearLocalUnreadForContact(username)
         navigateToDestination(
-            ChatScreenDestination(
+            AppRoute.Chat(
                 chatId = username,
                 displayName = contact?.displayName,
                 badge = contact?.badge,
@@ -469,11 +465,11 @@ class MainScreenViewModel constructor(
     }
 
     fun navigateToCreateGroupScreen() {
-        navigateToDestination(CreateGroupScreenDestination, viewModelScope)
+        navigateToDestination(AppRoute.CreateGroup, viewModelScope)
     }
 
     fun openPlaylistBottomSheet() {
-        navigateToDestination(PlaylistBottomSheetScreenDestination, viewModelScope)
+        navigateToDestination(AppRoute.PlaylistSheet, viewModelScope)
     }
 
     fun openPlaylistBottomSheetIfTrackExists(trackUrl: String) = viewModelScope.launch {
@@ -492,7 +488,7 @@ class MainScreenViewModel constructor(
     fun navigateToGroupChatScreen(group: Group) {
         updateGroupUnreadIndicator(group.id, hasUnread = false)
         navigateToDestination(
-            GroupChatScreenDestination(
+            AppRoute.GroupChat(
                 groupId = group.id,
                 groupName = group.name,
                 isPublicRoom = group.isPublicRoom,

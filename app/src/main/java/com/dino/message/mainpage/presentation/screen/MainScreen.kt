@@ -80,8 +80,6 @@ import com.dino.message.mainpage.presentation.viewmodel.MainScreenViewModel
 import com.dino.message.nointernetfeature.presentation.screen.NoInternetScreen
 import com.dino.message.threadfeature.presentation.component.NowPlayingTopBarRow
 import com.dino.message.threadfeature.presentation.music.MusicPlaybackManager
-import com.ramcosta.composedestinations.annotation.Destination
-import com.ramcosta.composedestinations.annotation.RootGraph
 import kotlinx.coroutines.delay
 
 
@@ -89,7 +87,6 @@ import kotlinx.coroutines.delay
     ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class,
     ExperimentalMaterial3ExpressiveApi::class
 )
-@Destination<RootGraph>
 @Composable
 fun MainScreen() {
     val context = LocalContext.current

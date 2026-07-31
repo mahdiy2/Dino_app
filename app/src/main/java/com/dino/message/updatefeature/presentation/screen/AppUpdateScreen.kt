@@ -1,8 +1,5 @@
 package com.dino.message.updatefeature.presentation.screen
 
-import android.content.Context
-import android.content.Intent
-import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -24,11 +21,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import org.koin.compose.viewmodel.koinViewModel
 import com.dino.message.R
+import com.dino.message.corefeature.presentation.platform.LocalPlatformUiEffect
 import com.dino.message.updatefeature.presentation.viewmodel.AppUpdateViewModel
-import com.ramcosta.composedestinations.annotation.Destination
-import com.ramcosta.composedestinations.annotation.RootGraph
 
-@Destination<RootGraph>
 @Composable
 fun AppUpdateScreen(
     isForceUpdate: Boolean,
@@ -38,7 +33,9 @@ fun AppUpdateScreen(
     downloadUrl: String,
 ) {
     val viewModel: AppUpdateViewModel = koinViewModel()
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val platformUiEffect = LocalPlatformUiEffect.current
+    val openingWebsiteMessage = stringResource(R.string.update_opening_website)
+    val openBrowserFailedMessage = stringResource(R.string.update_open_browser_failed)
 
     val statusMessage = remember { mutableStateOf(message) }
 
@@ -47,11 +44,11 @@ fun AppUpdateScreen(
     }
 
     fun openUpdateWebsite() {
-        val opened = openUpdateInBrowser(context)
+        val opened = platformUiEffect.openUrl(UPDATE_WEBSITE_URL)
         statusMessage.value = if (opened) {
-            context.getString(R.string.update_opening_website)
+            openingWebsiteMessage
         } else {
-            context.getString(R.string.update_open_browser_failed)
+            openBrowserFailedMessage
         }
     }
 
@@ -91,18 +88,6 @@ fun AppUpdateScreen(
                 Text(stringResource(R.string.later))
             }
         }
-    }
-}
-
-private fun openUpdateInBrowser(context: Context): Boolean {
-    return try {
-        val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(UPDATE_WEBSITE_URL)).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-        context.startActivity(browserIntent)
-        true
-    } catch (_: Exception) {
-        false
     }
 }
 

@@ -13,24 +13,14 @@ import androidx.lifecycle.lifecycleScope
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.ModalBottomSheetValue
-import androidx.compose.material.rememberModalBottomSheetState
-import androidx.compose.material.navigation.BottomSheetNavigator
-import androidx.compose.material.navigation.ModalBottomSheetLayout
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.navigation.NavController
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
-import com.ramcosta.composedestinations.DestinationsNavHost
-import com.ramcosta.composedestinations.generated.destinations.ChatScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.ActivityNotificationScreenDestination
-import com.ramcosta.composedestinations.generated.destinations.GroupChatScreenDestination
 import com.dino.message.chatfeature.data.notification.NotificationHelper
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.DinoOrderApplication
@@ -38,14 +28,16 @@ import com.dino.message.corefeature.domain.model.AppLanguage
 import com.dino.message.corefeature.domain.model.toLayoutDirection
 import com.dino.message.corefeature.domain.model.toLocale
 import com.dino.message.corefeature.presentation.activity.theme.SecMessageTheme
-import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
+import com.dino.message.corefeature.presentation.platform.LocalPlatformUiEffect
+import com.dino.message.corefeature.presentation.platform.rememberAndroidPlatformUiEffect
+import com.dino.message.corefeature.presentation.navigation.AppNavGraph
+import com.dino.message.corefeature.presentation.navigation.AppRoute
 import com.dino.message.corefeature.presentation.util.HandleUIEvent
 import com.dino.message.corefeature.presentation.util.LocaleUtils
 import com.dino.message.corefeature.presentation.viewmodel.MainActivityViewModel
 import com.dino.message.threadfeature.presentation.music.MusicPlaybackManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import com.ramcosta.composedestinations.generated.NavGraphs
 import org.koin.android.ext.android.inject
 import org.koin.androidx.viewmodel.ext.android.viewModel
 
@@ -57,7 +49,7 @@ class MainActivity : ComponentActivity() {
 
     private val viewModel: MainActivityViewModel by viewModel()
 
-    private var navController: NavController? = null
+    private var navController: NavHostController? = null
 
     private lateinit var webView: WebView
 
@@ -87,45 +79,27 @@ class MainActivity : ComponentActivity() {
             val theme = viewModel.getSystemTheme(systemTheme).collectAsState(initial = systemTheme)
             val appLanguage = viewModel.appLanguage.collectAsState(initial = AppLanguage.Farsi)
 
-            val expandedSheetState = rememberModalBottomSheetState(
-                initialValue = ModalBottomSheetValue.Hidden,
-                skipHalfExpanded = true
-            )
-            val bottomSheetNavigator = remember(expandedSheetState) {
-                BottomSheetNavigator(expandedSheetState)
-            }
+            val platformUiEffect = rememberAndroidPlatformUiEffect()
+            val activeModalRoute = remember { mutableStateOf<AppRoute?>(null) }
 
             // Create a navigation controller
-            navController = rememberNavController(bottomSheetNavigator)
+            navController = rememberNavController()
 
             // Set the app's locale based on the selected language
             LocaleUtils.setLocale(LocalContext.current, appLanguage.value.toLocale())
 
             // Handle UI events and update the app's state
-            HandleUIEvent(app as DinoOrderApplication, navController!!)
+            HandleUIEvent(app as DinoOrderApplication, navController!!, activeModalRoute)
 
             SecMessageTheme(
                 darkTheme = theme.value,
                 appLanguage = appLanguage.value
             ) {
                 CompositionLocalProvider(
+                    LocalPlatformUiEffect provides platformUiEffect,
                     LocalLayoutDirection provides appLanguage.value.toLayoutDirection()
                 ) {
-                    ModalBottomSheetLayout(
-                        bottomSheetNavigator = bottomSheetNavigator,
-                        sheetShape = RoundedCornerShape(topEnd = DPExtraLarge, topStart = DPExtraLarge),
-                        sheetBackgroundColor = MaterialTheme.colorScheme.surface,
-                        sheetContentColor = MaterialTheme.colorScheme.onSurface,
-                    ){
-                        DestinationsNavHost(
-                            navGraph = NavGraphs.root,
-//                        startRoute = NavGraphs.root.startRoute, // Add this line
-                            navController = navController as NavHostController
-                        )
-                    }
-                    // Set the app's navigation graph and navigation controller
-
-
+                    AppNavGraph(navController = navController!!, activeModalRoute = activeModalRoute)
                 }
             }
         }
@@ -134,17 +108,11 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        handleNotificationDeepLink(intent)
-        handleGroupNotificationDeepLink(intent)
-        handleActivityNotificationDeepLink(intent)
     }
 
     override fun onResume() {
         super.onResume()
         connectNotificationSocket()
-        handleNotificationDeepLink(intent)
-        handleGroupNotificationDeepLink(intent)
-        handleActivityNotificationDeepLink(intent)
     }
 
     override fun onStop() {
@@ -183,11 +151,10 @@ class MainActivity : ComponentActivity() {
             val nav = navController
             if (nav != null) {
                 try {
-                    val direction = ChatScreenDestination(
+                    nav.navigate(AppRoute.Chat(
                         chatId = chatUsername,
                         displayName = chatUsername
-                    )
-                    nav.navigate(direction.route) {
+                    )) {
                         launchSingleTop = true
                     }
                 } catch (e: Exception) {
@@ -208,7 +175,7 @@ class MainActivity : ComponentActivity() {
             val nav = navController
             if (nav != null) {
                 try {
-                    nav.navigate(ActivityNotificationScreenDestination.route) {
+                    nav.navigate(AppRoute.ActivityNotification) {
                         launchSingleTop = true
                     }
                 } catch (e: Exception) {
@@ -236,24 +203,14 @@ class MainActivity : ComponentActivity() {
         safeIntent.removeExtra("open_group_name")
         NotificationHelper.clearNotificationForGroup(this, groupId)
 
-        val nav = navController
-        if (nav != null && safeIntent.data != null) {
-            val handledByDeepLink = nav.handleDeepLink(safeIntent)
-            if (handledByDeepLink) {
-                safeIntent.data = null
-                return
-            }
-        }
-
         lifecycleScope.launch {
             delay(300)
             val fallbackNav = navController ?: return@launch
             try {
-                val direction = GroupChatScreenDestination(
+                fallbackNav.navigate(AppRoute.GroupChat(
                     groupId = groupId,
                     groupName = groupName
-                )
-                fallbackNav.navigate(direction.route) {
+                )) {
                     launchSingleTop = true
                 }
             } catch (e: Exception) {

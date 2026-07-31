@@ -5,7 +5,6 @@ import androidx.annotation.StringRes
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.dino.message.DinoOrderApplication
 import com.dino.message.R
@@ -69,13 +68,8 @@ class SharePostBottomSheetViewModel constructor(
     private val saveGroupMessageUseCase: SaveGroupMessageUseCase,
     private val sPrefManager: SPrefManager,
     private val appSocketManager: AppSocketManager,
-    savedStateHandle: SavedStateHandle,
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
-
-    private val postId: Long = savedStateHandle.get<Long>("postId") ?: 0L
-    private val authorUsername: String = savedStateHandle.get<String>("authorUsername").orEmpty()
-    private val postText: String = savedStateHandle.get<String>("postText").orEmpty()
 
     private val _contacts = mutableStateListOf<ShareTargetContact>()
     val contacts: List<ShareTargetContact> = _contacts
@@ -117,7 +111,7 @@ class SharePostBottomSheetViewModel constructor(
         _error.value = null
     }
 
-    fun sendPostToSelectedRecipients() {
+    fun sendPostToSelectedRecipients(postId: Long, authorUsername: String, postText: String) {
         if (_isSending.value) return
 
         val targetsContacts = selectedContacts.filterValues { it }.keys.toList()
@@ -133,7 +127,7 @@ class SharePostBottomSheetViewModel constructor(
 
             connectSocketIfNeeded()
 
-            val message = buildSharedPostMessage()
+            val message = buildSharedPostMessage(postId, authorUsername, postText)
             var sentCount = 0
             var queuedCount = 0
             val failedTargets = mutableListOf<String>()
@@ -449,7 +443,11 @@ class SharePostBottomSheetViewModel constructor(
         return keys
     }
 
-    private fun buildSharedPostMessage(): String {
+    private fun buildSharedPostMessage(
+        postId: Long,
+        authorUsername: String,
+        postText: String,
+    ): String {
         return encodePostShareMessage(
             postId = postId,
             authorUsername = authorUsername,
