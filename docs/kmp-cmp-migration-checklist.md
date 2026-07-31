@@ -200,27 +200,40 @@ Bridge completion notes:
 - Full common source-set movement remains deferred until Room/domain JSON payload
   boundaries and the final cross-platform Socket.IO/WebSocket strategy are chosen.
 
-### Local Database
+### Local Database ✅ Done for bridge milestone
 
 Current dependencies:
 
 - `androidx.room:room-runtime`
 - `androidx.room:room-ktx`
 - `androidx.room:room-compiler`
+- `androidx.room:room-sqlite-wrapper`
+- `androidx.sqlite:sqlite-bundled`
 - Android SQLite APIs through Room migrations.
 
 Migration actions:
 
-- Choose one database strategy:
-  - Upgrade/refactor to Room KMP.
-  - Or migrate to SQLDelight.
-- Split database entities from domain models. Current Room annotations leak into
-  domain packages for messages and group messages.
-- Refactor `SupportSQLiteDatabase` migrations because that API is Android-only.
-- Preserve existing schema version and migration SQL when changing persistence
-  libraries.
-- Keep DAOs/database builders platform-specific until the KMP database strategy
-  is selected and validated.
+- [x] Choose Room KMP as the database strategy.
+- [x] Split database entities from domain models. Current Room annotations leak
+  into domain packages for messages and group messages.
+- [x] Refactor `SupportSQLiteDatabase` migrations because that API is Android-only.
+- [x] Preserve existing schema version and migration SQL when changing
+  persistence libraries.
+- [x] Keep DAOs/database builders platform-specific until the KMP database
+  strategy is selected and validated.
+
+Bridge completion notes:
+
+- Room is upgraded to a KMP-capable version and paired with the bundled SQLite
+  and Room SQLite wrapper artifacts recommended for incremental KMP migration.
+- Private and group message Room annotations now live in data-layer local
+  entities, with repositories mapping to the existing domain-facing models.
+- Migration SQL is centralized outside Android `Migration` subclasses so it can
+  be reused when migrations move to SQLite driver APIs in shared code.
+- Android still owns the Room builder and database path through a local factory,
+  preserving the existing `chat_db` name and schema version `13`; the generated
+  Room constructor seam is deferred until this database moves into a true KMP
+  source set.
 
 ### Preferences / Secure Storage
 

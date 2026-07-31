@@ -10,6 +10,7 @@ graphicsShapes = "1.0.0-beta01"
 kotlin = "2.1.20" # Updated Kotlin version
 composeCompiler = "2.1.20" # Updated Compose Compiler version to match Kotlin
 composeMultiplatform = "1.8.2"
+composeUiTest = "1.8.2"
 coreKtx = "1.13.1"
 junit = "4.13.2"
 junitVersion = "1.2.1"
@@ -36,7 +37,8 @@ securityIdentityCredential = "1.0.0-alpha03"
 socketIoClient = "2.0.0"
 swiperefreshlayout = "1.1.0"
 navigationCompose = "2.9.0-rc01"
-room = "2.6.1"
+room = "2.8.4"
+sqlite = "2.7.0"
 workRuntimeKtx = "2.10.1"
 # ksp = "1.9.23-1.0.20" # Removed this redundant and conflicting line
 material3 = "1.4.0-alpha16"
@@ -70,8 +72,8 @@ androidx-compose-foundation = { group = "androidx.compose.foundation", name = "f
 androidx-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }
 androidx-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
 androidx-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
-androidx-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
-androidx-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
+androidx-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest", version.ref = "composeUiTest" }
+androidx-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4", version.ref = "composeUiTest" }
 androidx-material3 = { group = "androidx.compose.material3", name = "material3", version.ref = "material3" }
 androidx-swiperefreshlayout = { group = "androidx.swiperefreshlayout", name = "swiperefreshlayout", version.ref = "swiperefreshlayout" }
 androidx-navigation-compose = { group = "org.jetbrains.androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
@@ -94,6 +96,8 @@ lottie-compose = { module = "com.airbnb.android:lottie-compose", version.ref = "
 room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
 room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
+room-sqlite-wrapper = { module = "androidx.room:room-sqlite-wrapper", version.ref = "room" }
+androidx-sqlite-bundled = { module = "androidx.sqlite:sqlite-bundled", version.ref = "sqlite" }
 socket-io-client = { module = "io.socket:socket.io-client", version.ref = "socketIoClient" }
 androidx-work-runtime-ktx = { module = "androidx.work:work-runtime-ktx", version.ref = "workRuntimeKtx" }
 # compose-compiler = { group = "org.jetbrains.kotlin.android", name = "compose-compiler", version.ref = "composeCompiler" } # Removed: Managed by Kotlin Gradle Plugin for Kotlin 2.x

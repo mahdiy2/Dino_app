@@ -1,10 +1,10 @@
 package com.dino.message.di
 
-import androidx.room.Room
 import com.dino.message.BuildConfig
 import com.dino.message.DinoOrderApplication
 import com.dino.message.chatfeature.data.notification.InAppNotificationManager
 import com.dino.message.corefeature.data.db.MessageDatabase
+import com.dino.message.corefeature.data.db.buildMessageDatabase
 import com.dino.message.corefeature.data.remote.NetworkExceptionClassifier
 import com.dino.message.corefeature.data.remote.JvmNetworkExceptionClassifier
 import com.dino.message.corefeature.data.remote.util.HttpAPIUtil
@@ -84,28 +84,7 @@ val coreModule = module {
 }
 
 val databaseModule = module {
-    single {
-        Room.databaseBuilder(
-            androidContext(),
-            MessageDatabase::class.java,
-            "chat_db"
-        )
-            .addMigrations(
-                MessageDatabase.MIGRATION_1_2,
-                MessageDatabase.MIGRATION_2_3,
-                MessageDatabase.MIGRATION_3_4,
-                MessageDatabase.MIGRATION_4_5,
-                MessageDatabase.MIGRATION_5_6,
-                MessageDatabase.MIGRATION_6_7,
-                MessageDatabase.MIGRATION_7_8,
-                MessageDatabase.MIGRATION_8_9,
-                MessageDatabase.MIGRATION_9_10,
-                MessageDatabase.MIGRATION_10_11,
-                MessageDatabase.MIGRATION_11_12,
-                MessageDatabase.MIGRATION_12_13,
-            )
-            .build()
-    }
+    single { buildMessageDatabase(androidContext()) }
     single { get<MessageDatabase>().messageDao() }
     single { get<MessageDatabase>().groupMessageDao() }
     single { get<MessageDatabase>().crashLogDao() }

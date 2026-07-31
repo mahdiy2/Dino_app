@@ -1,14 +1,14 @@
 package com.dino.message.chatfeature.data.db
 
 import androidx.room.*
-import com.dino.message.chatfeature.domain.model.MessageEntity
+import com.dino.message.chatfeature.data.local.MessageLocalEntity
 
 private const val SENT_MESSAGE_PLACEHOLDER = "Sent message"
 
 @Dao
 interface MessageDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
-    suspend fun insertMessage(message: MessageEntity)
+    suspend fun insertMessage(message: MessageLocalEntity)
 
     @Query(
         """
@@ -21,7 +21,7 @@ interface MessageDao {
         LIMIT :limit OFFSET :offset
         """
     )
-    suspend fun getMessagesByChatId(chatId: String, limit: Int, offset: Int): List<MessageEntity>
+    suspend fun getMessagesByChatId(chatId: String, limit: Int, offset: Int): List<MessageLocalEntity>
 
     @Query("SELECT COUNT(*) FROM messages WHERE chatId = :chatId")
     suspend fun getMessageCountByChatId(chatId: String): Int
@@ -42,19 +42,19 @@ interface MessageDao {
     suspend fun updateReactionsByMessageId(messageId: String, reactionsJson: String?)
 
     @Query("SELECT * FROM messages ORDER BY timestamp DESC")
-    suspend fun getAllMessages(): List<MessageEntity>
+    suspend fun getAllMessages(): List<MessageLocalEntity>
 
     @Query("DELETE FROM messages")
     suspend fun deleteAllMessages()
 
     @Query("SELECT * FROM messages WHERE messageId = :messageId LIMIT 1")
-    suspend fun getMessageByMessageId(messageId: String): MessageEntity?
+    suspend fun getMessageByMessageId(messageId: String): MessageLocalEntity?
 
     @Update
-    suspend fun updateMessage(message: MessageEntity)
+    suspend fun updateMessage(message: MessageLocalEntity)
 
     @Transaction
-    suspend fun upsertMessagesByMessageId(messages: List<MessageEntity>) {
+    suspend fun upsertMessagesByMessageId(messages: List<MessageLocalEntity>) {
         messages.forEach { message ->
             val messageId = message.messageId
             if (messageId.isNullOrBlank()) {

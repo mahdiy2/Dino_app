@@ -3,9 +3,10 @@ package com.dino.message.chatfeature.data.db
 import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.dino.message.chatfeature.data.local.MessageLocalEntity
 import com.dino.message.corefeature.data.db.MessageDatabase
 import com.dino.message.groupfeature.data.db.GroupMessageDao
-import com.dino.message.groupfeature.domain.model.GroupMessageEntity
+import com.dino.message.groupfeature.data.local.GroupMessageLocalEntity
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -41,7 +42,7 @@ class ChatStorageRegressionTest {
     fun privateMessageQuery_isPaginatedAndNewestFirst() = runBlocking {
         for (index in 0 until 160) {
             messageDao.insertMessage(
-                com.dino.message.chatfeature.domain.model.MessageEntity(
+                MessageLocalEntity(
                     messageId = "private-$index",
                     chatId = "chat-a",
                     senderOrReceiver = "user-a",
@@ -52,7 +53,7 @@ class ChatStorageRegressionTest {
         }
         for (index in 0 until 10) {
             messageDao.insertMessage(
-                com.dino.message.chatfeature.domain.model.MessageEntity(
+                MessageLocalEntity(
                     messageId = "other-$index",
                     chatId = "chat-b",
                     senderOrReceiver = "user-b",
@@ -79,7 +80,7 @@ class ChatStorageRegressionTest {
     fun groupMessageQuery_isPaginatedAndNewestFirst() = runBlocking {
         for (index in 0 until 140) {
             groupMessageDao.insertMessage(
-                GroupMessageEntity(
+                GroupMessageLocalEntity(
                     messageId = "group-$index",
                     groupId = 7,
                     sender = "sender-a",
@@ -90,7 +91,7 @@ class ChatStorageRegressionTest {
         }
         for (index in 0 until 8) {
             groupMessageDao.insertMessage(
-                GroupMessageEntity(
+                GroupMessageLocalEntity(
                     messageId = "group-other-$index",
                     groupId = 9,
                     sender = "sender-b",

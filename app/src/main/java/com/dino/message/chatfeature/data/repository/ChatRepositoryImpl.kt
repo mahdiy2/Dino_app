@@ -2,6 +2,8 @@ package com.dino.message.chatfeature.data.repository
 
 import android.net.Uri
 import com.dino.message.chatfeature.data.db.MessageDao
+import com.dino.message.chatfeature.data.local.toDomainEntity
+import com.dino.message.chatfeature.data.local.toLocalEntity
 import com.dino.message.chatfeature.data.remote.ChatApiService
 import com.dino.message.chatfeature.data.remote.dto.MessageAttachment
 import com.dino.message.chatfeature.data.remote.dto.MessageSent
@@ -46,12 +48,13 @@ class ChatRepositoryImpl(
     override suspend fun uploadAttachment(fileUri: Uri): Resource<MessageAttachment> =
         chatApiService.uploadAttachment(fileUri)
 
-    override suspend fun saveMessage(message: MessageEntity) = dao.insertMessage(message)
+    override suspend fun saveMessage(message: MessageEntity) = dao.insertMessage(message.toLocalEntity())
     override suspend fun getMessages(chatId: String, limit: Int, offset: Int) =
         dao.getMessagesByChatId(chatId = chatId, limit = limit, offset = offset)
+            .map { it.toDomainEntity() }
     override suspend fun getMessageCount(chatId: String) = dao.getMessageCountByChatId(chatId)
     override suspend fun upsertMessagesByMessageId(messages: List<MessageEntity>) =
-        dao.upsertMessagesByMessageId(messages)
+        dao.upsertMessagesByMessageId(messages.map { it.toLocalEntity() })
     override suspend fun clearMessages(chatId: String) = dao.deleteMessagesByChatId(chatId)
     override suspend fun deleteMessageByLocalId(localId: Int) = dao.deleteMessageByLocalId(localId)
     override suspend fun deleteMessageByMessageId(messageId: String) = dao.deleteMessageByMessageId(messageId)

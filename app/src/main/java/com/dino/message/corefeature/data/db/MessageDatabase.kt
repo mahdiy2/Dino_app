@@ -5,18 +5,18 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.dino.message.chatfeature.data.db.MessageDao
-import com.dino.message.chatfeature.domain.model.MessageEntity
+import com.dino.message.chatfeature.data.local.MessageLocalEntity
 import com.dino.message.corefeature.data.socket.SocketOutboundQueueDao
 import com.dino.message.corefeature.data.socket.SocketOutboundQueueEntity
 import com.dino.message.crashfeature.data.local.CrashLogDao
 import com.dino.message.crashfeature.data.local.CrashLogEntity
 import com.dino.message.groupfeature.data.db.GroupMessageDao
-import com.dino.message.groupfeature.domain.model.GroupMessageEntity
+import com.dino.message.groupfeature.data.local.GroupMessageLocalEntity
 
 @Database(
     entities = [
-        MessageEntity::class,
-        GroupMessageEntity::class,
+        MessageLocalEntity::class,
+        GroupMessageLocalEntity::class,
         CrashLogEntity::class,
         SocketOutboundQueueEntity::class,
     ],
@@ -29,189 +29,37 @@ abstract class MessageDatabase : RoomDatabase() {
     abstract fun socketOutboundQueueDao(): SocketOutboundQueueDao
 
     companion object {
-        val MIGRATION_1_2 = object : Migration(1, 2) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("ALTER TABLE messages ADD COLUMN chatId TEXT NOT NULL DEFAULT ''")
-            }
-        }
+        val MIGRATION_1_2 = roomMigration(MessageDatabaseMigrationSql.MIGRATION_1_2)
+        val MIGRATION_2_3 = roomMigration(MessageDatabaseMigrationSql.MIGRATION_2_3)
+        val MIGRATION_3_4 = roomMigration(MessageDatabaseMigrationSql.MIGRATION_3_4)
+        val MIGRATION_4_5 = roomMigration(MessageDatabaseMigrationSql.MIGRATION_4_5)
+        val MIGRATION_5_6 = roomMigration(MessageDatabaseMigrationSql.MIGRATION_5_6)
+        val MIGRATION_6_7 = roomMigration(MessageDatabaseMigrationSql.MIGRATION_6_7)
+        val MIGRATION_7_8 = roomMigration(MessageDatabaseMigrationSql.MIGRATION_7_8)
+        val MIGRATION_8_9 = roomMigration(MessageDatabaseMigrationSql.MIGRATION_8_9)
+        val MIGRATION_9_10 = roomMigration(MessageDatabaseMigrationSql.MIGRATION_9_10)
+        val MIGRATION_10_11 = roomMigration(MessageDatabaseMigrationSql.MIGRATION_10_11)
+        val MIGRATION_11_12 = roomMigration(MessageDatabaseMigrationSql.MIGRATION_11_12)
+        val MIGRATION_12_13 = roomMigration(MessageDatabaseMigrationSql.MIGRATION_12_13)
 
-        val MIGRATION_2_3 = object : Migration(2, 3) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("ALTER TABLE messages ADD COLUMN messageType TEXT NOT NULL DEFAULT 'text'")
-                db.execSQL("ALTER TABLE messages ADD COLUMN attachmentType TEXT")
-                db.execSQL("ALTER TABLE messages ADD COLUMN attachmentUrl TEXT")
-                db.execSQL("ALTER TABLE messages ADD COLUMN attachmentMimeType TEXT")
-                db.execSQL("ALTER TABLE messages ADD COLUMN attachmentFileName TEXT")
-                db.execSQL("ALTER TABLE messages ADD COLUMN attachmentSizeBytes INTEGER")
-            }
-        }
+        val ALL_MIGRATIONS = arrayOf(
+            MIGRATION_1_2,
+            MIGRATION_2_3,
+            MIGRATION_3_4,
+            MIGRATION_4_5,
+            MIGRATION_5_6,
+            MIGRATION_6_7,
+            MIGRATION_7_8,
+            MIGRATION_8_9,
+            MIGRATION_9_10,
+            MIGRATION_10_11,
+            MIGRATION_11_12,
+            MIGRATION_12_13,
+        )
 
-        val MIGRATION_3_4 = object : Migration(3, 4) {
+        private fun roomMigration(spec: SqlMigrationSpec) = object : Migration(spec.startVersion, spec.endVersion) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("ALTER TABLE messages ADD COLUMN messageId TEXT")
-            }
-        }
-
-        val MIGRATION_4_5 = object : Migration(4, 5) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_messages_messageId ON messages (messageId)")
-            }
-        }
-
-        val MIGRATION_5_6 = object : Migration(5, 6) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("ALTER TABLE messages ADD COLUMN replyToMessageId TEXT")
-                db.execSQL("ALTER TABLE messages ADD COLUMN replyToSender TEXT")
-                db.execSQL("ALTER TABLE messages ADD COLUMN replyPreview TEXT")
-            }
-        }
-
-        val MIGRATION_6_7 = object : Migration(6, 7) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL(
-                    """
-                    CREATE TABLE IF NOT EXISTS group_messages (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-                        messageId TEXT NOT NULL,
-                        groupId INTEGER NOT NULL,
-                        sender TEXT NOT NULL,
-                        content TEXT NOT NULL,
-                        timestamp TEXT NOT NULL,
-                        messageType TEXT NOT NULL DEFAULT 'text',
-                        attachmentType TEXT,
-                        attachmentUrl TEXT,
-                        attachmentMimeType TEXT,
-                        attachmentFileName TEXT,
-                        attachmentSizeBytes INTEGER,
-                        replyToMessageId TEXT,
-                        replyToSender TEXT,
-                        replyPreview TEXT
-                    )
-                    """.trimIndent()
-                )
-                db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_group_messages_messageId ON group_messages (messageId)")
-            }
-        }
-
-        val MIGRATION_7_8 = object : Migration(7, 8) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("ALTER TABLE messages ADD COLUMN isSeen INTEGER NOT NULL DEFAULT 0")
-                db.execSQL("ALTER TABLE group_messages ADD COLUMN isSeen INTEGER NOT NULL DEFAULT 0")
-            }
-        }
-
-        val MIGRATION_8_9 = object : Migration(8, 9) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL(
-                    """
-                    CREATE TABLE IF NOT EXISTS crash_logs_queue (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-                        eventId TEXT NOT NULL,
-                        appVersion TEXT NOT NULL,
-                        appVersionCode INTEGER NOT NULL,
-                        threadName TEXT NOT NULL,
-                        exceptionType TEXT NOT NULL,
-                        exceptionMessage TEXT,
-                        stackTrace TEXT NOT NULL,
-                        occurredAtEpochMillis INTEGER NOT NULL,
-                        createdAtEpochMillis INTEGER NOT NULL,
-                        deviceModel TEXT NOT NULL,
-                        deviceManufacturer TEXT NOT NULL,
-                        osVersion TEXT NOT NULL,
-                        sdkInt INTEGER NOT NULL,
-                        buildType TEXT NOT NULL,
-                        username TEXT,
-                        sendAttempts INTEGER NOT NULL DEFAULT 0,
-                        lastError TEXT
-                    )
-                    """.trimIndent()
-                )
-                db.execSQL(
-                    """
-                    CREATE UNIQUE INDEX IF NOT EXISTS index_crash_logs_queue_eventId
-                    ON crash_logs_queue (eventId)
-                    """.trimIndent()
-                )
-                db.execSQL(
-                    """
-                    CREATE INDEX IF NOT EXISTS index_crash_logs_queue_createdAtEpochMillis
-                    ON crash_logs_queue (createdAtEpochMillis)
-                    """.trimIndent()
-                )
-            }
-        }
-
-        val MIGRATION_9_10 = object : Migration(9, 10) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL(
-                    """
-                    CREATE INDEX IF NOT EXISTS index_messages_chatId
-                    ON messages (chatId)
-                    """.trimIndent()
-                )
-                db.execSQL(
-                    """
-                    CREATE INDEX IF NOT EXISTS index_group_messages_groupId
-                    ON group_messages (groupId)
-                    """.trimIndent()
-                )
-            }
-        }
-
-        val MIGRATION_10_11 = object : Migration(10, 11) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL(
-                    """
-                    CREATE INDEX IF NOT EXISTS index_messages_chatId_timestamp_id
-                    ON messages (chatId, timestamp, id)
-                    """.trimIndent()
-                )
-                db.execSQL(
-                    """
-                    CREATE INDEX IF NOT EXISTS index_group_messages_groupId_timestamp_id
-                    ON group_messages (groupId, timestamp, id)
-                    """.trimIndent()
-                )
-            }
-        }
-
-        val MIGRATION_11_12 = object : Migration(11, 12) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL(
-                    """
-                    CREATE TABLE IF NOT EXISTS socket_outbound_queue (
-                        queueId TEXT NOT NULL,
-                        event TEXT NOT NULL,
-                        ownerUsername TEXT NOT NULL,
-                        payloadType TEXT NOT NULL,
-                        payloadBody TEXT,
-                        dedupeKey TEXT,
-                        attempts INTEGER NOT NULL,
-                        nextAttemptAtMs INTEGER NOT NULL,
-                        createdAtMs INTEGER NOT NULL,
-                        PRIMARY KEY(queueId)
-                    )
-                    """.trimIndent()
-                )
-                db.execSQL(
-                    """
-                    CREATE INDEX IF NOT EXISTS index_socket_outbound_queue_nextAttemptAtMs
-                    ON socket_outbound_queue (nextAttemptAtMs)
-                    """.trimIndent()
-                )
-                db.execSQL(
-                    """
-                    CREATE UNIQUE INDEX IF NOT EXISTS index_socket_outbound_queue_dedupeKey
-                    ON socket_outbound_queue (dedupeKey)
-                    """.trimIndent()
-                )
-            }
-        }
-
-        val MIGRATION_12_13 = object : Migration(12, 13) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("ALTER TABLE messages ADD COLUMN reactionsJson TEXT")
-                db.execSQL("ALTER TABLE group_messages ADD COLUMN reactionsJson TEXT")
+                spec.statements.forEach(db::execSQL)
             }
         }
     }

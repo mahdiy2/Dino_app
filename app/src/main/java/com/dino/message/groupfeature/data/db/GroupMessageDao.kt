@@ -1,12 +1,12 @@
 package com.dino.message.groupfeature.data.db
 
 import androidx.room.*
-import com.dino.message.groupfeature.domain.model.GroupMessageEntity
+import com.dino.message.groupfeature.data.local.GroupMessageLocalEntity
 
 @Dao
 interface GroupMessageDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
-    suspend fun insertMessage(message: GroupMessageEntity)
+    suspend fun insertMessage(message: GroupMessageLocalEntity)
 
     @Query(
         """
@@ -19,7 +19,7 @@ interface GroupMessageDao {
         LIMIT :limit OFFSET :offset
         """
     )
-    suspend fun getMessagesByGroupId(groupId: Int, limit: Int, offset: Int): List<GroupMessageEntity>
+    suspend fun getMessagesByGroupId(groupId: Int, limit: Int, offset: Int): List<GroupMessageLocalEntity>
 
     @Query("SELECT COUNT(*) FROM group_messages WHERE groupId = :groupId")
     suspend fun getMessageCountByGroupId(groupId: Int): Int
@@ -37,13 +37,13 @@ interface GroupMessageDao {
     suspend fun updateReactionsByMessageId(messageId: String, reactionsJson: String?)
 
     @Query("SELECT * FROM group_messages WHERE messageId = :messageId LIMIT 1")
-    suspend fun getMessageByMessageId(messageId: String): GroupMessageEntity?
+    suspend fun getMessageByMessageId(messageId: String): GroupMessageLocalEntity?
 
     @Update
-    suspend fun updateMessage(message: GroupMessageEntity)
+    suspend fun updateMessage(message: GroupMessageLocalEntity)
 
     @Transaction
-    suspend fun upsertMessagesByMessageId(messages: List<GroupMessageEntity>) {
+    suspend fun upsertMessagesByMessageId(messages: List<GroupMessageLocalEntity>) {
         messages.forEach { message ->
             val existing = getMessageByMessageId(message.messageId)
             if (existing == null) {

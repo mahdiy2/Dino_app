@@ -6,6 +6,8 @@ import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.groupfeature.data.db.GroupMessageDao
 import com.dino.message.groupfeature.domain.model.AddGroupMembersResult
 import com.dino.message.groupfeature.data.remote.GroupApiService
+import com.dino.message.groupfeature.data.local.toDomainEntity
+import com.dino.message.groupfeature.data.local.toLocalEntity
 import com.dino.message.groupfeature.domain.model.Group
 import com.dino.message.groupfeature.domain.model.GroupHistoryPage
 import com.dino.message.groupfeature.domain.model.GroupMessageEntity
@@ -63,16 +65,17 @@ class GroupRepositoryImpl constructor(
          apiService.uploadGroupAttachment(groupId, fileUri)
 
     override suspend fun saveGroupMessage(message: GroupMessageEntity) =
-        groupMessageDao.insertMessage(message)
+        groupMessageDao.insertMessage(message.toLocalEntity())
 
     override suspend fun getGroupMessagesFromDb(groupId: Int, limit: Int, offset: Int): List<GroupMessageEntity> =
         groupMessageDao.getMessagesByGroupId(groupId = groupId, limit = limit, offset = offset)
+            .map { it.toDomainEntity() }
 
     override suspend fun getGroupMessageCount(groupId: Int): Int =
         groupMessageDao.getMessageCountByGroupId(groupId)
 
     override suspend fun upsertGroupMessagesByMessageId(messages: List<GroupMessageEntity>) =
-        groupMessageDao.upsertMessagesByMessageId(messages)
+        groupMessageDao.upsertMessagesByMessageId(messages.map { it.toLocalEntity() })
 
     override suspend fun clearGroupMessages(groupId: Int) =
         groupMessageDao.deleteMessagesByGroupId(groupId)

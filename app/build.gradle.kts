@@ -107,6 +107,7 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+    androidTestImplementation(platform("androidx.compose:compose-bom:2024.02.01"))
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
@@ -170,6 +171,8 @@ dependencies {
     // room
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
+    implementation(libs.room.sqlite.wrapper)
+    implementation(libs.androidx.sqlite.bundled)
     ksp(libs.room.compiler)
 
     coreLibraryDesugaring(libs.desugar.jdk.libs)
