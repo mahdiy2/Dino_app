@@ -171,7 +171,7 @@ Bridge completion notes:
 - Ktor logging now uses an app logger interface backed by Android `Log`, so the
   JVM-only `logback-classic` dependency was removed.
 
-### Realtime Socket
+### Realtime Socket ✅ Done for bridge milestone
 
 Current dependency:
 
@@ -179,14 +179,26 @@ Current dependency:
 
 Migration actions:
 
-- Replace Java Socket.IO client with a KMP-compatible transport.
-- Recommended path: abstract current socket manager behind a shared realtime
+- [x] Replace Java Socket.IO client with a KMP-compatible transport seam.
+- [x] Recommended path: abstract current socket manager behind a shared realtime
   gateway, then implement Android with the existing client initially.
 - Long-term options:
   - Ktor WebSockets if the server can support a compatible websocket protocol.
   - Platform-specific Socket.IO actuals if Socket.IO protocol compatibility must
     remain exact.
-- Socket queue persistence must be decoupled from Room before it can be shared.
+- [x] Socket queue persistence must be decoupled from Room before it can be shared.
+
+Bridge completion notes:
+
+- Realtime socket callers now depend on app-owned gateway/event abstractions
+  instead of direct Socket.IO event constants.
+- `AppSocketManager` owns connection, listener, emit, and retry behavior through
+  a transport interface; Android supplies a Socket.IO transport that preserves
+  current `/socket.io/` auth, websocket/polling, and reconnection behavior.
+- Outbound socket queue persistence is behind a store interface with the current
+  Room table kept as the Android-backed implementation.
+- Full common source-set movement remains deferred until Room/domain JSON payload
+  boundaries and the final cross-platform Socket.IO/WebSocket strategy are chosen.
 
 ### Local Database
 

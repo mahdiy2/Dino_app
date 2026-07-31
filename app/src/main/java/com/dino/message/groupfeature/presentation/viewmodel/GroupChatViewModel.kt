@@ -15,6 +15,7 @@ import com.dino.message.chatfeature.domain.model.MessageDeliveryStatus
 import com.dino.message.chatfeature.domain.util.encodeMessageReactions
 import com.dino.message.chatfeature.domain.util.parseMessageReactionsFromPayload
 import com.dino.message.corefeature.data.socket.AppSocketManager
+import com.dino.message.corefeature.data.socket.RealtimeSocketEvents
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.domain.util.LocalHistoryPaging
 import com.dino.message.corefeature.presentation.util.CryptoUtil
@@ -39,7 +40,6 @@ import com.dino.message.groupfeature.domain.usecase.UploadGroupAttachmentUseCase
 import com.dino.message.groupfeature.domain.usecase.SaveGroupMessageUseCase
 import com.dino.message.groupfeature.domain.usecase.GetGroupMessagesFromDbUseCase
 import com.dino.message.threadfeature.domain.usecase.IsTrackInPlaylistUseCase
-import io.socket.client.Socket
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -806,7 +806,7 @@ class GroupChatViewModel constructor(
     }
 
     private fun registerSocketListeners() {
-        appSocketManager.registerListener(socketOwner, Socket.EVENT_CONNECT) {
+        appSocketManager.registerListener(socketOwner, RealtimeSocketEvents.CONNECT) {
             Log.d(TAG, "Socket connected, joining group room")
             joinGroupAndRequestStatusSync()
         }
@@ -1209,7 +1209,7 @@ class GroupChatViewModel constructor(
             refreshMemberPublicKeysSilently()
         }
 
-        appSocketManager.registerListener(socketOwner, Socket.EVENT_DISCONNECT) {
+        appSocketManager.registerListener(socketOwner, RealtimeSocketEvents.DISCONNECT) {
             Log.d(TAG, "Socket disconnected")
             clearTypingUsers()
             typingHeartbeatJob?.cancel()

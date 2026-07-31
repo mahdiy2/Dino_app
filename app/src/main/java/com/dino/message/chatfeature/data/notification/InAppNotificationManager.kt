@@ -3,6 +3,7 @@ package com.dino.message.chatfeature.data.notification
 import android.content.Context
 import android.util.Log
 import com.dino.message.corefeature.data.socket.AppSocketManager
+import com.dino.message.corefeature.data.socket.RealtimeSocketEvents
 import org.json.JSONObject
 
 class InAppNotificationManager constructor(
@@ -45,15 +46,15 @@ class InAppNotificationManager constructor(
     }
 
     private fun registerListeners() {
-        appSocketManager.registerListener(LISTENER_OWNER, io.socket.client.Socket.EVENT_CONNECT) {
+        appSocketManager.registerListener(LISTENER_OWNER, RealtimeSocketEvents.CONNECT) {
             Log.d(TAG, "Socket connected for notifications")
         }
 
-        appSocketManager.registerListener(LISTENER_OWNER, io.socket.client.Socket.EVENT_DISCONNECT) {
+        appSocketManager.registerListener(LISTENER_OWNER, RealtimeSocketEvents.DISCONNECT) {
             Log.d(TAG, "Socket disconnected")
         }
 
-        appSocketManager.registerListener(LISTENER_OWNER, io.socket.client.Socket.EVENT_CONNECT_ERROR) { args ->
+        appSocketManager.registerListener(LISTENER_OWNER, RealtimeSocketEvents.CONNECT_ERROR) { args ->
             Log.w(TAG, "Socket connect error: ${args.firstOrNull()}")
         }
 

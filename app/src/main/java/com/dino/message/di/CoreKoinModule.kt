@@ -13,7 +13,12 @@ import com.dino.message.corefeature.data.remote.logging.AppLogger
 import com.dino.message.corefeature.data.remote.logging.AndroidAppLogger
 import com.dino.message.corefeature.data.upload.AndroidUploadContentProvider
 import com.dino.message.corefeature.data.session.SPrefSessionProvider
+import com.dino.message.corefeature.data.socket.AndroidSocketIoTransportFactory
 import com.dino.message.corefeature.data.socket.AppSocketManager
+import com.dino.message.corefeature.data.socket.RealtimeSocketGateway
+import com.dino.message.corefeature.data.socket.RealtimeSocketTransportFactory
+import com.dino.message.corefeature.data.socket.RoomSocketOutboundQueueStore
+import com.dino.message.corefeature.data.socket.SocketOutboundQueueStore
 import com.dino.message.corefeature.data.spref.DataStoreUtil
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.domain.session.SessionProvider
@@ -51,6 +56,8 @@ val coreModule = module {
     }
     single { DataStoreUtil(context = androidContext()) }
     single { CrashLogApiService(httpClient = get(), sPrefManager = get()) }
+    single<RealtimeSocketTransportFactory> { AndroidSocketIoTransportFactory(baseUrl = BuildConfig.BASE_URL) }
+    single<SocketOutboundQueueStore> { RoomSocketOutboundQueueStore(socketOutboundQueueDao = get()) }
     single {
         CrashReporter(
             context = androidContext(),
@@ -63,9 +70,11 @@ val coreModule = module {
         AppSocketManager(
             sprefManager = get(),
             crashReporter = get(),
-            socketOutboundQueueDao = get(),
+            socketOutboundQueueStore = get(),
+            transportFactory = get(),
         )
     }
+    single<RealtimeSocketGateway> { get<AppSocketManager>() }
     single {
         InAppNotificationManager(
             context = androidContext(),

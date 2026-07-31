@@ -12,6 +12,7 @@ import androidx.lifecycle.viewModelScope
 import com.dino.message.DinoOrderApplication
 import com.dino.message.R
 import com.dino.message.corefeature.data.socket.AppSocketManager
+import com.dino.message.corefeature.data.socket.RealtimeSocketEvents
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
@@ -279,14 +280,14 @@ class MainScreenViewModel constructor(
             }
         }
 
-        appSocketManager.registerListener(SOCKET_OWNER, io.socket.client.Socket.EVENT_CONNECT) {
+        appSocketManager.registerListener(SOCKET_OWNER, RealtimeSocketEvents.CONNECT) {
             Log.d(TAG, "Socket connected")
             viewModelScope.launch {
                 refreshFromServer(force = false)
             }
         }
 
-        appSocketManager.registerListener(SOCKET_OWNER, io.socket.client.Socket.EVENT_DISCONNECT) {
+        appSocketManager.registerListener(SOCKET_OWNER, RealtimeSocketEvents.DISCONNECT) {
             Log.d(TAG, "Socket disconnected")
             pendingReconnectRefresh = true
         }

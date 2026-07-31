@@ -1,12 +1,8 @@
 package com.dino.message.corefeature.data.socket
 
 import android.util.Log
-import com.dino.message.BuildConfig
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.crashfeature.data.service.CrashReporter
-import io.socket.client.IO
-import io.socket.client.Socket
-import io.socket.emitter.Emitter
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -19,13 +15,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
-import java.net.URISyntaxException
 
 class AppSocketManager constructor(
     private val sprefManager: SPrefManager,
     private val crashReporter: CrashReporter,
-    private val socketOutboundQueueDao: SocketOutboundQueueDao,
-) {
+    private val socketOutboundQueueStore: SocketOutboundQueueStore,
+    private val transportFactory: RealtimeSocketTransportFactory,
+) : RealtimeSocketGateway {
 
     enum class EmitWithRetryResult {
         EMITTED,
@@ -45,7 +41,7 @@ class AppSocketManager constructor(
     }
 
     private val lock = Any()
-    private val listenerBuckets = mutableMapOf<String, MutableMap<String, Emitter.Listener>>()
+    private val listenerBuckets = mutableMapOf<String, MutableMap<String, RealtimeSocketListener>>()
     private val connectWaiters = mutableListOf<CompletableDeferred<Boolean>>()
     private val outboundRetryQueue = SocketOutboundRetryQueue(
         maxRetries = MAX_OUTBOUND_RETRIES,
@@ -56,9 +52,9 @@ class AppSocketManager constructor(
     private val outboundScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var outboundQueueJob: Job? = null
     private val _queuedOutboundCount = MutableStateFlow(0)
-    val queuedOutboundCount: StateFlow<Int> = _queuedOutboundCount.asStateFlow()
+    override val queuedOutboundCount: StateFlow<Int> = _queuedOutboundCount.asStateFlow()
 
-    private var socket: Socket? = null
+    private var socket: RealtimeSocketTransport? = null
     private var authToken: String? = null
     private var isConnecting = false
 
@@ -66,7 +62,7 @@ class AppSocketManager constructor(
         restorePersistedOutboundQueue()
     }
 
-    fun connect(forceReconnect: Boolean = false): Boolean {
+    override fun connect(forceReconnect: Boolean): Boolean {
         val token = sprefManager.getToken()
             .removePrefix("Bearer ")
             .removePrefix("bearer ")
@@ -85,7 +81,7 @@ class AppSocketManager constructor(
             val canReuseExisting = !forceReconnect && activeSocket != null && authToken == token
 
             if (canReuseExisting) {
-                if (activeSocket?.connected() == true) {
+                if (activeSocket?.isConnected() == true) {
                     return true
                 }
                 if (!isConnecting) {
@@ -95,10 +91,10 @@ class AppSocketManager constructor(
                 return true
             }
 
-            socket?.off()
+            socket?.offAll()
             socket?.disconnect()
 
-            val createdSocket = createSocket(token) ?: run {
+            val createdSocket = transportFactory.create(token) ?: run {
                 completeConnectionWaitersLocked(success = false)
                 isConnecting = false
                 return false
@@ -108,7 +104,7 @@ class AppSocketManager constructor(
             authToken = token
             isConnecting = true
 
-            createdSocket.on(Socket.EVENT_CONNECT) {
+            createdSocket.on(RealtimeSocketEvents.CONNECT, RealtimeSocketListener {
                 crashReporter.addBreadcrumb(
                     category = "socket",
                     message = "Socket connected"
@@ -121,9 +117,9 @@ class AppSocketManager constructor(
                 waiters.forEach { waiter ->
                     if (!waiter.isCompleted) waiter.complete(true)
                 }
-            }
+            })
 
-            createdSocket.on(Socket.EVENT_DISCONNECT) {
+            createdSocket.on(RealtimeSocketEvents.DISCONNECT, RealtimeSocketListener {
                 crashReporter.addBreadcrumb(
                     category = "socket",
                     message = "Socket disconnected"
@@ -132,9 +128,9 @@ class AppSocketManager constructor(
                     isConnecting = false
                     completeConnectionWaitersLocked(success = false)
                 }
-            }
+            })
 
-            createdSocket.on(Socket.EVENT_CONNECT_ERROR) { args ->
+            createdSocket.on(RealtimeSocketEvents.CONNECT_ERROR, RealtimeSocketListener { args ->
                 val error = args.firstOrNull()?.toString()?.take(160) ?: "unknown"
                 crashReporter.addBreadcrumb(
                     category = "socket",
@@ -144,7 +140,7 @@ class AppSocketManager constructor(
                     isConnecting = false
                     completeConnectionWaitersLocked(success = false)
                 }
-            }
+            })
 
             attachListenersLocked(createdSocket)
             createdSocket.connect()
@@ -152,13 +148,13 @@ class AppSocketManager constructor(
         }
     }
 
-    suspend fun awaitConnected(timeoutMs: Long = DEFAULT_CONNECT_TIMEOUT_MS): Boolean {
+    override suspend fun awaitConnected(timeoutMs: Long): Boolean {
         if (isConnected()) return true
         if (!connect()) return false
 
         val waiter = CompletableDeferred<Boolean>()
         synchronized(lock) {
-            if (socket?.connected() == true) {
+            if (socket?.isConnected() == true) {
                 return true
             }
             connectWaiters.add(waiter)
@@ -169,9 +165,9 @@ class AppSocketManager constructor(
         } ?: false
     }
 
-    fun disconnect(clearListeners: Boolean = false) {
+    override fun disconnect(clearListeners: Boolean) {
         synchronized(lock) {
-            socket?.off()
+            socket?.offAll()
             socket?.disconnect()
             socket = null
             authToken = null
@@ -188,16 +184,16 @@ class AppSocketManager constructor(
         }
     }
 
-    fun isConnected(): Boolean = synchronized(lock) {
-        socket?.connected() == true
+    override fun isConnected(): Boolean = synchronized(lock) {
+        socket?.isConnected() == true
     }
 
-    fun registerListener(
+    override fun registerListener(
         owner: String,
         event: String,
         listener: (Array<out Any>) -> Unit,
     ) {
-        val wrappedListener = Emitter.Listener { args -> listener(args) }
+        val wrappedListener = RealtimeSocketListener { args -> listener(args) }
 
         synchronized(lock) {
             val ownerListeners = listenerBuckets.getOrPut(owner) { mutableMapOf() }
@@ -209,7 +205,7 @@ class AppSocketManager constructor(
         }
     }
 
-    fun unregisterOwner(owner: String) {
+    override fun unregisterOwner(owner: String) {
         synchronized(lock) {
             val listeners = listenerBuckets.remove(owner) ?: return
             listeners.forEach { (event, listener) ->
@@ -218,7 +214,7 @@ class AppSocketManager constructor(
         }
     }
 
-    fun emit(event: String, payload: Any? = null): Boolean {
+    override fun emit(event: String, payload: Any?): Boolean {
         if (SocketRetryPolicy.requiresRetry(event)) {
             val dedupeKey = SocketRetryPolicy.autoDedupeKey(event, payload)
             crashReporter.addBreadcrumb(
@@ -235,9 +231,9 @@ class AppSocketManager constructor(
         return emitImmediate(event, payload)
     }
 
-    fun emitNonRetryable(
+    override fun emitNonRetryable(
         event: String,
-        payload: Any? = null,
+        payload: Any?,
         reason: String,
     ): Boolean {
         val normalizedReason = reason.trim().ifBlank { "unspecified" }
@@ -250,21 +246,17 @@ class AppSocketManager constructor(
 
     private fun emitImmediate(event: String, payload: Any? = null): Boolean {
         val activeSocket = synchronized(lock) { socket }
-        if (activeSocket == null || !activeSocket.connected()) {
+        if (activeSocket == null || !activeSocket.isConnected()) {
             return false
         }
-        if (payload == null) {
-            activeSocket.emit(event)
-        } else {
-            activeSocket.emit(event, payload)
-        }
+        activeSocket.emit(event, payload)
         return true
     }
 
-    fun emitWithRetry(
+    override fun emitWithRetry(
         event: String,
-        payload: Any? = null,
-        dedupeKey: String? = null,
+        payload: Any?,
+        dedupeKey: String?,
     ): EmitWithRetryResult {
         if (emitImmediate(event, payload)) {
             return EmitWithRetryResult.EMITTED
@@ -332,33 +324,7 @@ class AppSocketManager constructor(
         return finalResult
     }
 
-    private fun createSocket(token: String): Socket? {
-        val baseUrl = BuildConfig.BASE_URL.trimEnd('/')
-        val opts = IO.Options.builder()
-            .setForceNew(false)
-            .setMultiplex(true)
-            .setReconnection(true)
-            .setReconnectionAttempts(Int.MAX_VALUE)
-            .setReconnectionDelay(1_000)
-            .setReconnectionDelayMax(10_000)
-            .setTimeout(20_000)
-            .setPath("/socket.io/")
-            .setTransports(arrayOf("websocket", "polling"))
-            .setAuth(mapOf("token" to token))
-            .build()
-
-        return try {
-            IO.socket(baseUrl, opts)
-        } catch (e: URISyntaxException) {
-            Log.e(TAG, "Invalid socket URL: $baseUrl", e)
-            null
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to create socket", e)
-            null
-        }
-    }
-
-    private fun attachListenersLocked(targetSocket: Socket) {
+    private fun attachListenersLocked(targetSocket: RealtimeSocketTransport) {
         listenerBuckets.values.forEach { listenerMap ->
             listenerMap.forEach { (event, listener) ->
                 targetSocket.on(event, listener)
@@ -484,7 +450,7 @@ class AppSocketManager constructor(
         val currentOwner = currentQueueOwner()
         val restoredItems = runCatching {
             runBlocking(Dispatchers.IO) {
-                socketOutboundQueueDao.getAll()
+                socketOutboundQueueStore.getAll()
             }
         }.getOrElse { error ->
             Log.e(TAG, "Failed to restore outbound queue from DB", error)
@@ -550,8 +516,8 @@ class AppSocketManager constructor(
 
         return runCatching {
             runBlocking(Dispatchers.IO) {
-                socketOutboundQueueDao.insert(
-                    SocketOutboundQueueEntity(
+                socketOutboundQueueStore.insert(
+                    SocketOutboundQueueRecord(
                         queueId = item.queueId,
                         event = item.event,
                         ownerUsername = currentQueueOwner(),
@@ -565,8 +531,8 @@ class AppSocketManager constructor(
                 )
             }
         }.fold(
-            onSuccess = { rowId ->
-                if (rowId >= 0) PersistQueueResult.PERSISTED else PersistQueueResult.DUPLICATE
+            onSuccess = { inserted ->
+                if (inserted) PersistQueueResult.PERSISTED else PersistQueueResult.DUPLICATE
             },
             onFailure = { error ->
                 Log.e(TAG, "Failed to persist outbound queue item queueId=${item.queueId}", error)
@@ -578,7 +544,7 @@ class AppSocketManager constructor(
     private fun updatePersistedQueueItem(item: SocketOutboundRetryQueue.QueueItem) {
         runCatching {
             runBlocking(Dispatchers.IO) {
-                socketOutboundQueueDao.updateRetryState(
+                socketOutboundQueueStore.updateRetryState(
                     queueId = item.queueId,
                     attempts = item.attempts,
                     nextAttemptAtMs = item.nextAttemptAtMs,
@@ -592,7 +558,7 @@ class AppSocketManager constructor(
     private fun deletePersistedQueueItem(queueId: String) {
         runCatching {
             runBlocking(Dispatchers.IO) {
-                socketOutboundQueueDao.deleteByQueueId(queueId)
+                socketOutboundQueueStore.deleteByQueueId(queueId)
             }
         }.onFailure { error ->
             Log.e(TAG, "Failed to delete outbound queue item queueId=$queueId", error)
@@ -602,7 +568,7 @@ class AppSocketManager constructor(
     private fun clearPersistedOutboundQueue() {
         runCatching {
             runBlocking(Dispatchers.IO) {
-                socketOutboundQueueDao.clearAll()
+                socketOutboundQueueStore.clearAll()
             }
         }.onFailure { error ->
             Log.e(TAG, "Failed to clear persisted outbound queue", error)

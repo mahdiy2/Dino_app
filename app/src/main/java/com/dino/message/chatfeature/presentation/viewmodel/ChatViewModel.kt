@@ -18,6 +18,7 @@ import com.dino.message.chatfeature.domain.usecase.GetReceiverPublicKeyUseCase
 import com.dino.message.chatfeature.domain.usecase.SaveMessageInDbUseCase
 import com.dino.message.chatfeature.domain.usecase.UploadAttachmentUseCase
 import com.dino.message.corefeature.data.socket.AppSocketManager
+import com.dino.message.corefeature.data.socket.RealtimeSocketEvents
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.profilefeature.domain.usecase.FollowUserUseCase
 import com.dino.message.corefeature.presentation.util.CryptoUtil
@@ -30,7 +31,6 @@ import com.dino.message.corefeature.presentation.util.formatPublicKeyForLog
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.dino.message.corefeature.domain.util.LocalHistoryPaging
-import io.socket.client.Socket
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -1320,7 +1320,7 @@ class ChatViewModel constructor(
     }
 
     private fun registerSocketListeners() {
-        appSocketManager.registerListener(socketOwner, Socket.EVENT_CONNECT) {
+        appSocketManager.registerListener(socketOwner, RealtimeSocketEvents.CONNECT) {
             viewModelScope.launch {
                 isSocketConnecting = false
                 _socketError.value = null
@@ -1334,7 +1334,7 @@ class ChatViewModel constructor(
             }
         }
 
-        appSocketManager.registerListener(socketOwner, Socket.EVENT_CONNECT_ERROR) { args ->
+        appSocketManager.registerListener(socketOwner, RealtimeSocketEvents.CONNECT_ERROR) { args ->
             viewModelScope.launch {
                 isSocketConnecting = false
                 showRefreshing()
@@ -1344,7 +1344,7 @@ class ChatViewModel constructor(
             }
         }
 
-        appSocketManager.registerListener(socketOwner, Socket.EVENT_DISCONNECT) { args ->
+        appSocketManager.registerListener(socketOwner, RealtimeSocketEvents.DISCONNECT) { args ->
             viewModelScope.launch {
                 isSocketConnecting = false
                 showRefreshing()
