@@ -235,7 +235,7 @@ Bridge completion notes:
   Room constructor seam is deferred until this database moves into a true KMP
   source set.
 
-### Preferences / Secure Storage
+### Preferences / Secure Storage ✅ Done for bridge milestone
 
 Current dependencies:
 
@@ -248,18 +248,29 @@ Current dependencies:
 
 Migration actions:
 
-- Refactor DataStore creation to KMP factory style with platform-specific file
+- [x] Refactor DataStore creation to KMP factory style with platform-specific file
   paths.
-- Keep Android `Context.preferencesDataStore` only in `androidMain`.
-- Replace `EncryptedSharedPreferences` with a secure storage abstraction:
+- [x] Keep Android `Context.preferencesDataStore` only in `androidMain`.
+- [x] Replace `EncryptedSharedPreferences` with a secure storage abstraction:
   - Android actual: Android Keystore / EncryptedSharedPreferences or successor.
   - iOS actual: Keychain.
   - Desktop actual: OS keychain or encrypted file strategy.
-- Treat auth tokens, refresh tokens, private keys, pending registration keys,
+- [x] Treat auth tokens, refresh tokens, private keys, pending registration keys,
   device sync state, theme, language, and onboarding flags as migration-sensitive
   stored data.
 
-### JSON Serialization
+Bridge completion notes:
+
+- Settings DataStore construction now goes through a platform factory that supplies
+  the Android file path while `DataStoreUtil` depends only on `DataStore<Preferences>`.
+- Secure session/key material access now goes through an app-owned
+  `SecureKeyValueStore` abstraction, with Android backed by the existing
+  `EncryptedSharedPreferences` and `MasterKey` strategy.
+- Existing storage filenames, preference keys, defaults, and public manager APIs
+  are preserved so current Android callers continue to work during incremental
+  source-set migration.
+
+### JSON Serialization ✅ Done for bridge milestone
 
 Current dependencies:
 
@@ -268,13 +279,22 @@ Current dependencies:
 
 Migration actions:
 
-- Keep `kotlinx.serialization`.
-- Replace Gson usage with kotlinx.serialization or a small common serializer
+- [x] Keep `kotlinx.serialization`.
+- [x] Replace Gson usage with kotlinx.serialization or a small common serializer
   abstraction.
-- Audit all DTOs for `@Serializable`; add annotations where shared decoding is
+- [x] Audit all DTOs for `@Serializable`; add annotations where shared decoding is
   required.
 
-### Images
+Bridge completion notes:
+
+- Gson is no longer registered in DI or included as an app dependency; Ktor
+  content negotiation continues to use kotlinx serialization for HTTP JSON.
+- Chat DTOs that still participate in JSON payload decoding now have
+  `@Serializable` annotations and explicit serial names for snake_case fields.
+- Existing Socket.IO `JSONObject` and `JSONArray` usage is intentionally left in
+  place until the realtime payload boundary moves further toward common code.
+
+### Images ✅ Done for bridge milestone
 
 Current dependencies:
 
@@ -283,14 +303,25 @@ Current dependencies:
 
 Migration actions:
 
-- Upgrade to Coil 3 for CMP image loading.
-- Replace Android-only `ImageRequest.Builder(context)`,
+- [x] Upgrade to Coil 3 for CMP image loading.
+- [x] Replace Android-only `ImageRequest.Builder(context)`,
   `LocalContext`, and video frame decoding with CMP-compatible APIs or
   platform-specific thumbnail providers.
-- Keep image loading wrappers in one place so UI does not directly depend on
+- [x] Keep image loading wrappers in one place so UI does not directly depend on
   Android Coil APIs.
 
-### Video / Audio / Media Playback
+Bridge completion notes:
+
+- Coil is upgraded to Coil 3 using `io.coil-kt.coil3` artifacts, with OkHttp
+  networking kept for the current Android target.
+- Direct Coil Compose, request, cache, image loader, and video-frame APIs are
+  isolated behind `PlatformImage` wrappers so feature UI calls app-owned image
+  APIs instead of Android/Coil request builders.
+- Existing video thumbnail first-frame behavior is preserved through wrapper
+  options, while full media playback/editing remains Android-specific for the
+  later media milestones.
+
+### Video / Audio / Media Playback ✅ Done for bridge milestone
 
 Current dependencies:
 
@@ -302,20 +333,37 @@ Current dependencies:
 
 Migration actions:
 
-- Move Media3/ExoPlayer code to `androidMain`.
-- Create shared interfaces for:
+- [x] Move Media3/ExoPlayer code to Android platform seams.
+- [x] Create shared-facing interfaces for:
   - Audio playback controls.
   - Queue state.
   - Now-playing metadata.
   - Seek/play/pause/repeat/shuffle events.
   - Media duration/metadata extraction.
   - Media transcoding/compression, if still required.
-- Implement platform actuals for iOS/desktop/web using native media APIs or a
+- [ ] Implement platform actuals for iOS/desktop/web using native media APIs or a
   KMP media library.
-- Keep Android `Service`, foreground notification, media session, and audio
+- [x] Keep Android `Service`, foreground notification, media session, and audio
   focus code Android-only.
 
-### Audio Recording
+Bridge completion notes:
+
+- Audio playback UI now calls a platform-neutral `MediaPlaybackController`
+  surface; Android `Context`, foreground-service intents, Media3 player setup,
+  media session, notifications, caching, and audio-focus/noisy handling remain
+  inside Android-backed playback code.
+- Playback state now includes now-playing metadata, queue contents, queue index,
+  progress, duration, buffering, error, repeat, and shuffle state for shared UI
+  migration.
+- Video playback composables use the app-owned `PlatformVideoPlayer` wrapper
+  instead of embedding ExoPlayer/PlayerView directly in feature screens.
+- Duration/title/artist/MIME probing now goes through a shared-facing media
+  metadata extractor contract with Android backed by `MediaMetadataRetriever`.
+- Story video export/transformation still uses Android Media3 Transformer behind
+  the current Android story-editor implementation; non-Android actuals remain a
+  future target-specific milestone.
+
+### Audio Recording ✅ Done for bridge milestone
 
 Current APIs:
 
@@ -327,10 +375,22 @@ Current APIs:
 
 Migration actions:
 
-- Move current voice recorder implementation to `androidMain`.
-- Define a shared recorder contract that returns a platform-neutral media handle
+- [x] Move current voice recorder implementation to Android platform seams.
+- [x] Define a shared recorder contract that returns a platform-neutral media handle
   instead of `android.net.Uri`.
-- Add platform actuals for iOS/desktop only after target requirements are clear.
+- [ ] Add platform actuals for iOS/desktop only after target requirements are clear.
+
+Bridge completion notes:
+
+- Voice recording now uses an app-owned `PlatformAudioRecorder` contract with
+  neutral `RecordedAudio` handles for recording source, name, MIME type, size,
+  and duration.
+- Android recording remains backed by `MediaRecorder`, AAC-in-MP4 `.m4a` cache
+  files, Android cache cleanup, and Android URI conversion only at the current
+  upload boundary.
+- Private and group chat ViewModels depend on the recorder contract instead of
+  the concrete Android recorder type, while runtime microphone permission
+  launchers remain in Android UI screens.
 
 ### Background Work
 

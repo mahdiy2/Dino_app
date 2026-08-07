@@ -1,11 +1,9 @@
 package com.dino.message.threadfeature.presentation.music
 
-import android.os.Parcelable
-import kotlinx.parcelize.Parcelize
-
-@Parcelize
-data class PlaybackQueueItem(
+data class MediaQueueItem(
     val trackUrl: String,
     val title: String?,
     val artist: String?
-) : Parcelable
+)
+
+typealias PlaybackQueueItem = MediaQueueItem

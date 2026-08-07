@@ -44,7 +44,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -67,23 +66,16 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
-import coil.compose.AsyncImage
+import com.dino.message.corefeature.presentation.platform.PlatformAsyncImage
+import com.dino.message.corefeature.presentation.platform.PlatformVideoPlayer
+import com.dino.message.corefeature.presentation.platform.PlatformVideoResizeMode
 import com.dino.message.profilefeature.presentation.component.ProfileAvatarMedia
 import com.dino.message.threadfeature.domain.model.StoryBundle
 import com.dino.message.threadfeature.domain.model.StoryViewer
-import androidx.media3.common.MediaItem
-import androidx.media3.common.PlaybackException
-import androidx.media3.common.Player
-import androidx.media3.common.util.UnstableApi
-import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.ui.AspectRatioFrameLayout
-import androidx.media3.ui.PlayerView
 import kotlinx.coroutines.delay
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
-@androidx.annotation.OptIn(UnstableApi::class)
 fun StoryViewerOverlay(
     bundle: StoryBundle,
     viewerUsername: String,
@@ -202,7 +194,7 @@ fun StoryViewerOverlay(
                 .padding(top = 24.dp)
         ) {
             if (!isVideoStory) {
-                AsyncImage(
+                PlatformAsyncImage(
                     model = current.media_url,
                     contentDescription = "Story",
                     modifier = Modifier
@@ -582,7 +574,6 @@ fun StoryViewerOverlay(
     }
 }
 
-@androidx.annotation.OptIn(UnstableApi::class)
 @Composable
 private fun StoryVideoPlayer(
     mediaUrl: String,
@@ -595,79 +586,20 @@ private fun StoryVideoPlayer(
     onPlaybackError: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
-    val exoPlayer = remember(mediaUrl) {
-        ExoPlayer.Builder(context).build().apply {
-            setMediaItem(MediaItem.fromUri(mediaUrl))
-            repeatMode = Player.REPEAT_MODE_OFF
-            playWhenReady = !isPaused
-            prepare()
-        }
-    }
-
-    LaunchedEffect(exoPlayer, isPaused) {
-        if (isPaused) {
-            exoPlayer.pause()
-        } else {
-            exoPlayer.play()
-        }
-    }
-
-    LaunchedEffect(exoPlayer) {
-        while (true) {
-            val duration = exoPlayer.duration
-            if (duration > 0L) {
-                onDurationKnown(duration)
-            }
-            onProgress(exoPlayer.currentPosition.coerceAtLeast(0L))
-            delay(50L)
-        }
-    }
-
-    DisposableEffect(exoPlayer) {
-        val listener = object : Player.Listener {
-            override fun onPlaybackStateChanged(playbackState: Int) {
-                onBufferingChanged(
-                    playbackState == Player.STATE_BUFFERING || playbackState == Player.STATE_IDLE
-                )
-                if (playbackState == Player.STATE_ENDED) {
-                    onCompleted()
-                }
-            }
-
-            override fun onIsPlayingChanged(isPlaying: Boolean) {
-                if (isPlaying) {
-                    onStarted()
-                }
-            }
-
-            override fun onPlayerError(error: PlaybackException) {
-                onPlaybackError(
-                    error.localizedMessage?.takeIf { it.isNotBlank() }
-                        ?: "Video playback failed."
-                )
-            }
-        }
-        exoPlayer.addListener(listener)
-        onDispose {
-            exoPlayer.removeListener(listener)
-            exoPlayer.release()
-        }
-    }
-
-    AndroidView(
+    PlatformVideoPlayer(
+        url = mediaUrl,
         modifier = modifier,
-        factory = { viewContext ->
-            PlayerView(viewContext).apply {
-                useController = false
-                resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
-                setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
-                player = exoPlayer
-            }
-        },
-        update = { playerView ->
-            playerView.player = exoPlayer
-            playerView.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
-        }
+        useController = false,
+        resizeMode = PlatformVideoResizeMode.Fit,
+        isPaused = isPaused,
+        playWhenReady = !isPaused,
+        pauseCompetingAudio = false,
+        transparentShutter = true,
+        onBufferingChanged = onBufferingChanged,
+        onDurationKnown = onDurationKnown,
+        onStarted = onStarted,
+        onProgress = onProgress,
+        onCompleted = onCompleted,
+        onPlaybackError = onPlaybackError
     )
 }

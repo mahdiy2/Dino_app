@@ -19,12 +19,14 @@ import com.dino.message.corefeature.data.socket.RealtimeSocketGateway
 import com.dino.message.corefeature.data.socket.RealtimeSocketTransportFactory
 import com.dino.message.corefeature.data.socket.RoomSocketOutboundQueueStore
 import com.dino.message.corefeature.data.socket.SocketOutboundQueueStore
+import com.dino.message.corefeature.data.spref.AndroidEncryptedSecureKeyValueStore
 import com.dino.message.corefeature.data.spref.DataStoreUtil
 import com.dino.message.corefeature.data.spref.SPrefManager
+import com.dino.message.corefeature.data.spref.SecureKeyValueStore
+import com.dino.message.corefeature.data.spref.createSettingsDataStore
 import com.dino.message.corefeature.domain.session.SessionProvider
 import com.dino.message.crashfeature.data.remote.CrashLogApiService
 import com.dino.message.crashfeature.data.service.CrashReporter
-import com.google.gson.Gson
 import io.ktor.client.engine.okhttp.OkHttp
 import org.koin.android.ext.koin.androidApplication
 import org.koin.android.ext.koin.androidContext
@@ -32,8 +34,8 @@ import org.koin.dsl.module
 
 val coreModule = module {
     single<DinoOrderApplication> { androidApplication() as DinoOrderApplication }
-    single { Gson() }
-    single { SPrefManager(gson = get(), context = androidContext()) }
+    single<SecureKeyValueStore> { AndroidEncryptedSecureKeyValueStore(context = androidContext()) }
+    single { SPrefManager(secureStore = get()) }
     single<SessionProvider> { SPrefSessionProvider(sPrefManager = get()) }
     single<AppLogger> { AndroidAppLogger }
     single<NetworkExceptionClassifier> { JvmNetworkExceptionClassifier }
@@ -54,7 +56,8 @@ val coreModule = module {
             appLogger = get(),
         )
     }
-    single { DataStoreUtil(context = androidContext()) }
+    single { createSettingsDataStore(context = androidContext()) }
+    single { DataStoreUtil(dataStore = get()) }
     single { CrashLogApiService(httpClient = get(), sPrefManager = get()) }
     single<RealtimeSocketTransportFactory> { AndroidSocketIoTransportFactory(baseUrl = BuildConfig.BASE_URL) }
     single<SocketOutboundQueueStore> { RoomSocketOutboundQueueStore(socketOutboundQueueDao = get()) }

@@ -75,15 +75,15 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.dino.message.R
+import com.dino.message.corefeature.presentation.platform.PlatformImageRequestOptions
+import com.dino.message.corefeature.presentation.platform.PlatformSubcomposeAsyncImage
+import com.dino.message.corefeature.presentation.platform.rememberPlatformImageRequest
 import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
 import com.dino.message.corefeature.presentation.ui.theme.DPLarge
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.util.resolveProfileImageShape
 import com.dino.message.threadfeature.domain.model.Author
 import com.dino.message.threadfeature.presentation.music.MusicPlaybackManager
-import coil.compose.SubcomposeAsyncImage
-import coil.request.CachePolicy
-import coil.request.ImageRequest
 import kotlinx.coroutines.delay
 import kotlin.math.PI
 import kotlin.math.abs
@@ -320,7 +320,7 @@ fun MusicTrackPlayerCard(
                     FilledTonalButton(
                         onClick = {
                             activeButton = 0
-                            MusicPlaybackManager.seekBy(context, -10_000L)
+                            MusicPlaybackManager.seekBy(-10_000L)
                         },
                         enabled = enabled && isCurrentTrack,
                         shapes = sideButtonShapes,
@@ -342,9 +342,7 @@ fun MusicTrackPlayerCard(
                         onClick = {
                             activeButton = 1
                             if (!enabled) return@Button
-                            MusicPlaybackManager.toggleTrack(
-                                context = context,
-                                trackUrl = trackUrl,
+                            MusicPlaybackManager.toggleTrack(trackUrl,
                                 title = trackTitle,
                                 artist = trackSubtitle
                             )
@@ -380,7 +378,7 @@ fun MusicTrackPlayerCard(
                     FilledTonalButton(
                         onClick = {
                             activeButton = 2
-                            MusicPlaybackManager.seekBy(context, 10_000L)
+                            MusicPlaybackManager.seekBy(10_000L)
                         },
                         enabled = enabled && isCurrentTrack,
                         shapes = sideButtonShapes,
@@ -411,7 +409,7 @@ fun MusicTrackPlayerCard(
                     },
                     onValueChangeFinished = {
                         if (enabled && isCurrentTrack) {
-                            MusicPlaybackManager.seekTo(context, sliderValue.roundToLong())
+                            MusicPlaybackManager.seekTo(sliderValue.roundToLong())
                         }
                         isSliderDragging = false
                     },
@@ -543,16 +541,16 @@ private fun PlaylistAdderAvatar(
             return@Surface
         }
 
-        SubcomposeAsyncImage(
-            model = remember(normalizedImageUrl) {
-                ImageRequest.Builder(context)
-                    .data(normalizedImageUrl)
-                    .crossfade(true)
-                    .memoryCacheKey(normalizedImageUrl)
-                    .diskCachePolicy(CachePolicy.ENABLED)
-                    .memoryCachePolicy(CachePolicy.ENABLED)
-                    .build()
-            },
+        PlatformSubcomposeAsyncImage(
+            model = rememberPlatformImageRequest(
+                data = normalizedImageUrl,
+                options = PlatformImageRequestOptions(
+                    crossfade = true,
+                    memoryCacheKey = normalizedImageUrl,
+                    enableDiskCache = true,
+                    enableMemoryCache = true
+                )
+            ),
             contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = Modifier

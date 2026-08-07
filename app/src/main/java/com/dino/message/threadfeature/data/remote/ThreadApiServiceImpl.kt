@@ -1,7 +1,6 @@
 package com.dino.message.threadfeature.data.remote
 
 import android.content.Context
-import android.media.MediaMetadataRetriever
 import android.provider.OpenableColumns
 import com.dino.message.corefeature.data.remote.HaveRefreshTokenAPI
 import com.dino.message.corefeature.data.remote.HaveRefreshTokenAPIImpl
@@ -13,6 +12,7 @@ import com.dino.message.corefeature.data.upload.AndroidUploadContentProvider
 import com.dino.message.corefeature.data.upload.MediaFileResolver
 import com.dino.message.corefeature.data.upload.appendUploadFile
 import com.dino.message.corefeature.domain.model.asStringResourceContent
+import com.dino.message.corefeature.presentation.platform.AndroidMediaMetadataExtractor
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.crashfeature.data.service.CrashReporter
 import com.dino.message.threadfeature.data.remote.dto.CreateCommentRequest
@@ -84,6 +84,8 @@ class ThreadApiServiceImpl constructor(
     private val uploadContentProvider: AndroidUploadContentProvider,
     private val appContext: Context,
 ) : ThreadApiService, HaveRefreshTokenAPI by HaveRefreshTokenAPIImpl(httpClient, sPrefManager) {
+    private val mediaMetadataExtractor = AndroidMediaMetadataExtractor(appContext)
+
     companion object {
         private const val MAX_MEDIA_FILES_PER_POST = 8
         private const val MAX_STORY_VIDEO_DURATION_SECONDS = 30.0
@@ -693,29 +695,8 @@ class ThreadApiServiceImpl constructor(
         )
 
     private fun resolveVideoDurationSeconds(mediaFile: CreatePostMedia): Double? {
-        val retriever = MediaMetadataRetriever()
-        return try {
-            val uri = mediaFile.uri
-            if (uri.scheme == "file") {
-                val path = uri.path ?: return null
-                retriever.setDataSource(path)
-            } else {
-                retriever.setDataSource(appContext, uri)
-            }
-            val durationMillis = retriever
-                .extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
-                ?.toLongOrNull()
-                ?: return null
-            durationMillis / 1000.0
-        } catch (_: Exception) {
-            null
-        } finally {
-            try {
-                retriever.release()
-            } catch (_: Exception) {
-                Unit
-            }
-        }
+        val durationMillis = mediaMetadataExtractor.extract(mediaFile.uri).durationMs ?: return null
+        return durationMillis / 1000.0
     }
 
     private fun createMultipartBoundary(): String {

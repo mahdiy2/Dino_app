@@ -11,6 +11,7 @@ import com.dino.message.chatfeature.data.notification.ActiveGroupTracker
 import com.dino.message.crashfeature.data.service.CrashReporter
 import com.dino.message.corefeature.presentation.util.UIEvent
 import com.dino.message.di.appModules
+import com.dino.message.threadfeature.presentation.music.MusicPlaybackManager
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import com.dino.message.chatfeature.data.notification.InAppNotificationManager
@@ -53,6 +54,7 @@ class DinoOrderApplication: Application() {
         crashReporter.installGlobalExceptionHandler()
         crashReporter.flushPendingLogsAsync()
         createNotificationChannel()
+        MusicPlaybackManager.initialize(this)
         registerAppBackgroundTracker()
     }
 

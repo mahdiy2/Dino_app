@@ -30,6 +30,9 @@ import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.dino.message.chatfeature.data.notification.ActiveGroupTracker
 import com.dino.message.chatfeature.data.notification.ChatMessageSoundPlayer
 import com.dino.message.chatfeature.data.notification.NotificationHelper
+import com.dino.message.chatfeature.presentation.component.PlatformAudioRecorder
+import com.dino.message.chatfeature.presentation.component.VoiceRecorderManager
+import com.dino.message.chatfeature.presentation.component.toAndroidUri
 import com.dino.message.groupfeature.domain.model.GroupMessageEntity
 import com.dino.message.groupfeature.domain.model.GroupHistoryMessage
 import com.dino.message.groupfeature.domain.model.Group
@@ -156,7 +159,7 @@ class GroupChatViewModel constructor(
     private val _typingGroupUsers = MutableStateFlow<List<GroupOnlineUser>>(emptyList())
     val typingGroupUsers: StateFlow<List<GroupOnlineUser>> = _typingGroupUsers.asStateFlow()
 
-    private var voiceRecorder: com.dino.message.chatfeature.presentation.component.VoiceRecorderManager? = null
+    private var voiceRecorder: PlatformAudioRecorder? = null
     private var recordingTimerJob: kotlinx.coroutines.Job? = null
     private var composerTypingStopJob: kotlinx.coroutines.Job? = null
     private var typingHeartbeatJob: kotlinx.coroutines.Job? = null
@@ -1407,7 +1410,7 @@ class GroupChatViewModel constructor(
 
     fun startRecording(context: Context) {
         if (_isRecording.value) return
-        val recorder = com.dino.message.chatfeature.presentation.component.VoiceRecorderManager(context)
+        val recorder = VoiceRecorderManager(context)
         if (recorder.startRecording()) {
             voiceRecorder = recorder
             _isRecording.value = true
@@ -1425,10 +1428,10 @@ class GroupChatViewModel constructor(
         val recorder = voiceRecorder ?: return
         recordingTimerJob?.cancel()
         _isRecording.value = false
-        val uri = recorder.stopRecording()
+        val recording = recorder.stopRecording()
         voiceRecorder = null
-        if (uri != null) {
-            sendAttachment(uri, "voice")
+        if (recording != null) {
+            sendAttachment(recording.toAndroidUri(), "voice")
         }
     }
 

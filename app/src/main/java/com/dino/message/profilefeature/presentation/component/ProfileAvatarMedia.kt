@@ -11,12 +11,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -24,19 +21,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
-import androidx.media3.common.MediaItem
-import androidx.media3.common.PlaybackException
-import androidx.media3.common.Player
-import androidx.media3.common.util.UnstableApi
-import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.ui.AspectRatioFrameLayout
-import androidx.media3.ui.PlayerView
-import coil.compose.AsyncImage
-import coil.compose.AsyncImagePainter
-import coil.imageLoader
-import coil.request.ImageRequest
-import coil.request.CachePolicy
+import com.dino.message.corefeature.presentation.platform.PlatformAsyncImage
+import com.dino.message.corefeature.presentation.platform.PlatformImageRequestOptions
+import com.dino.message.corefeature.presentation.platform.PreloadPlatformImage
+import com.dino.message.corefeature.presentation.platform.PlatformVideoPlayer
+import com.dino.message.corefeature.presentation.platform.PlatformVideoResizeMode
+import com.dino.message.corefeature.presentation.platform.isPlatformImageError
+import com.dino.message.corefeature.presentation.platform.isPlatformImageLoading
+import com.dino.message.corefeature.presentation.platform.rememberPlatformImageRequest
 import com.dino.message.corefeature.presentation.util.resolveProfileImageShape
 
 @Composable
@@ -98,14 +90,7 @@ private fun PreloadProfileImage(
     enabled: Boolean
 ) {
     if (!enabled || imageUrl == null) return
-    val context = LocalContext.current
-    LaunchedEffect(imageUrl) {
-        context.imageLoader.enqueue(
-            ImageRequest.Builder(context)
-                .data(imageUrl)
-                .build()
-        )
-    }
+    PreloadPlatformImage(model = imageUrl)
 }
 
 @Composable
@@ -127,29 +112,26 @@ private fun ProfileImageAvatar(
         return
     }
 
-    val context = LocalContext.current
-    val imageRequest = remember(imageUrl) {
-        ImageRequest.Builder(context)
-            .data(imageUrl)
-            .memoryCacheKey(imageUrl)
-            .diskCachePolicy(CachePolicy.ENABLED)
-            .memoryCachePolicy(CachePolicy.ENABLED)
-            .placeholderMemoryCacheKey(imageUrl)
-            .build()
-    }
-
     var isLoading by remember(imageUrl) { mutableStateOf(true) }
     var isError by remember(imageUrl) { mutableStateOf(false) }
 
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
-        AsyncImage(
-            model = imageRequest,
+        PlatformAsyncImage(
+            model = rememberPlatformImageRequest(
+                data = imageUrl,
+                options = PlatformImageRequestOptions(
+                    memoryCacheKey = imageUrl,
+                    placeholderMemoryCacheKey = imageUrl,
+                    enableDiskCache = true,
+                    enableMemoryCache = true
+                )
+            ),
             contentDescription = "Profile image",
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize(),
             onState = { state ->
-                isLoading = state is AsyncImagePainter.State.Loading
-                isError = state is AsyncImagePainter.State.Error
+                isLoading = state.isPlatformImageLoading
+                isError = state.isPlatformImageError
             }
         )
 
@@ -168,63 +150,23 @@ private fun ProfileImageAvatar(
     }
 }
 
-@androidx.annotation.OptIn(UnstableApi::class)
 @Composable
 private fun ProfileVideoAutoPlayer(
     url: String,
     modifier: Modifier = Modifier,
     onFinished: () -> Unit
 ) {
-    val context = LocalContext.current
-    val latestOnFinished by rememberUpdatedState(onFinished)
-    val exoPlayer = remember(url) {
-        ExoPlayer.Builder(context).build().apply {
-            setMediaItem(MediaItem.fromUri(url))
-            repeatMode = Player.REPEAT_MODE_OFF
-            playWhenReady = true
-            prepare()
-        }
-    }
     var isBuffering by remember(url) { mutableStateOf(true) }
 
-    DisposableEffect(exoPlayer) {
-        var hasFinished = false
-        val listener = object : Player.Listener {
-            override fun onPlaybackStateChanged(playbackState: Int) {
-                isBuffering =
-                    playbackState == Player.STATE_BUFFERING || playbackState == Player.STATE_IDLE
-                if (playbackState == Player.STATE_ENDED && !hasFinished) {
-                    hasFinished = true
-                    latestOnFinished()
-                }
-            }
-
-            override fun onPlayerError(error: PlaybackException) {
-                if (!hasFinished) {
-                    hasFinished = true
-                    latestOnFinished()
-                }
-            }
-        }
-
-        exoPlayer.addListener(listener)
-        onDispose {
-            exoPlayer.removeListener(listener)
-            exoPlayer.stop()
-            exoPlayer.release()
-        }
-    }
-
     Box(modifier = modifier) {
-        AndroidView(
+        PlatformVideoPlayer(
+            url = url,
             modifier = Modifier.fillMaxSize(),
-            factory = { viewContext ->
-                PlayerView(viewContext).apply {
-                    useController = false
-                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-                    player = exoPlayer
-                }
-            },
+            useController = false,
+            resizeMode = PlatformVideoResizeMode.Zoom,
+            onBufferingChanged = { isBuffering = it },
+            onCompleted = onFinished,
+            onPlaybackError = { onFinished() }
         )
 
         if (isBuffering) {

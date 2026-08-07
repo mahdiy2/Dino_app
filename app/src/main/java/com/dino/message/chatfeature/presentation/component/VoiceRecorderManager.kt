@@ -4,27 +4,44 @@ import android.content.Context
 import android.media.MediaRecorder
 import android.net.Uri
 import android.os.Build
-import androidx.core.content.FileProvider
 import java.io.File
 
-class VoiceRecorderManager(private val context: Context) {
+data class RecordedAudio(
+    val source: String,
+    val fileName: String,
+    val mimeType: String,
+    val sizeBytes: Long,
+    val durationMs: Long,
+)
+
+interface PlatformAudioRecorder {
+    val isRecording: Boolean
+    val currentDurationMs: Long
+
+    fun startRecording(): Boolean
+    fun stopRecording(): RecordedAudio?
+    fun cancelRecording()
+    fun release()
+}
+
+class AndroidVoiceRecorder(private val context: Context) : PlatformAudioRecorder {
 
     private var recorder: MediaRecorder? = null
     private var outputFile: File? = null
     private var startTimeMs: Long = 0L
 
-    val isRecording: Boolean get() = recorder != null
+    override val isRecording: Boolean get() = recorder != null
 
-    val currentDurationMs: Long
+    override val currentDurationMs: Long
         get() = if (isRecording) System.currentTimeMillis() - startTimeMs else 0L
 
-    fun startRecording(): Boolean {
+    override fun startRecording(): Boolean {
         if (recorder != null) return false
 
         val file = File(context.cacheDir, "voice_${System.currentTimeMillis()}.m4a")
         outputFile = file
 
-        val mr = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        val mediaRecorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             MediaRecorder(context)
         } else {
             @Suppress("DEPRECATION")
@@ -32,59 +49,80 @@ class VoiceRecorderManager(private val context: Context) {
         }
 
         return try {
-            mr.setAudioSource(MediaRecorder.AudioSource.MIC)
-            mr.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-            mr.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-            mr.setAudioSamplingRate(44100)
-            mr.setAudioEncodingBitRate(96000)
-            mr.setOutputFile(file.absolutePath)
-            mr.prepare()
-            mr.start()
+            mediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC)
+            mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+            mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+            mediaRecorder.setAudioSamplingRate(44100)
+            mediaRecorder.setAudioEncodingBitRate(96000)
+            mediaRecorder.setOutputFile(file.absolutePath)
+            mediaRecorder.prepare()
+            mediaRecorder.start()
             startTimeMs = System.currentTimeMillis()
-            recorder = mr
+            recorder = mediaRecorder
             true
-        } catch (e: Exception) {
-            mr.release()
-            outputFile?.delete()
-            outputFile = null
+        } catch (_: Exception) {
+            mediaRecorder.release()
+            deleteOutputFile()
             false
         }
     }
 
-    fun stopRecording(): Uri? {
-        val mr = recorder ?: return null
+    override fun stopRecording(): RecordedAudio? {
+        val mediaRecorder = recorder ?: return null
         return try {
-            mr.stop()
-            mr.release()
+            mediaRecorder.stop()
+            mediaRecorder.release()
             recorder = null
             val file = outputFile ?: return null
+            val durationMs = (System.currentTimeMillis() - startTimeMs).coerceAtLeast(0L)
+            outputFile = null
+            startTimeMs = 0L
             if (!file.exists() || file.length() == 0L) {
                 file.delete()
-                outputFile = null
                 return null
             }
-            Uri.fromFile(file)
-        } catch (e: Exception) {
-            mr.release()
+            RecordedAudio(
+                source = file.absolutePath,
+                fileName = file.name,
+                mimeType = VOICE_RECORDING_MIME_TYPE,
+                sizeBytes = file.length(),
+                durationMs = durationMs,
+            )
+        } catch (_: Exception) {
+            mediaRecorder.release()
             recorder = null
-            outputFile?.delete()
-            outputFile = null
+            deleteOutputFile()
             null
         }
     }
 
-    fun cancelRecording() {
-        val mr = recorder ?: return
+    override fun cancelRecording() {
+        val mediaRecorder = recorder ?: return
         try {
-            mr.stop()
-        } catch (_: Exception) { }
-        mr.release()
+            mediaRecorder.stop()
+        } catch (_: Exception) {
+            Unit
+        }
+        mediaRecorder.release()
         recorder = null
-        outputFile?.delete()
-        outputFile = null
+        deleteOutputFile()
     }
 
-    fun release() {
+    override fun release() {
         cancelRecording()
     }
+
+    private fun deleteOutputFile() {
+        outputFile?.delete()
+        outputFile = null
+        startTimeMs = 0L
+    }
+
+    companion object {
+        const val VOICE_RECORDING_MIME_TYPE = "audio/mp4"
+    }
 }
+
+fun RecordedAudio.toAndroidUri(): Uri = Uri.fromFile(File(source))
+
+typealias VoiceRecorderManager = AndroidVoiceRecorder

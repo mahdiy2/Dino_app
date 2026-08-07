@@ -153,10 +153,8 @@ dependencies {
 
     // Coil
     implementation(libs.coil.compose)
+    implementation(libs.coil.network.okhttp)
     implementation(libs.coil.video)
-
-    // Gson
-    implementation(libs.gson)
 
     // androidx.security for EncryptedSharedPreferences
     implementation(libs.androidx.security.crypto)

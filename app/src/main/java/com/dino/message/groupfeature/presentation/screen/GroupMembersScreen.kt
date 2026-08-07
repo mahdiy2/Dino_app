@@ -47,12 +47,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.dino.message.corefeature.presentation.platform.PlatformImageRequestOptions
+import com.dino.message.corefeature.presentation.platform.PlatformSubcomposeAsyncImage
+import com.dino.message.corefeature.presentation.platform.rememberPlatformImageRequest
 import org.koin.compose.viewmodel.koinViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import coil.compose.SubcomposeAsyncImage
-import coil.request.ImageRequest
 import com.dino.message.R
 import com.dino.message.corefeature.presentation.component.UserBadgeIcon
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
@@ -282,11 +283,11 @@ private fun GroupMemberProfileImageDialog(
                 .fillMaxSize()
                 .background(Color.Black),
         ) {
-            SubcomposeAsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(imageUrl)
-                    .crossfade(true)
-                    .build(),
+            PlatformSubcomposeAsyncImage(
+                model = rememberPlatformImageRequest(
+                    data = imageUrl,
+                    options = PlatformImageRequestOptions(crossfade = true)
+                ),
                 contentDescription = stringResource(R.string.group_member_profile_image),
                 contentScale = ContentScale.Fit,
                 modifier = Modifier.fillMaxSize(),

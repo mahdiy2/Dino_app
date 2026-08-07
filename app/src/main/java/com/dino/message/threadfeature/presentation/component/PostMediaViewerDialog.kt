@@ -36,10 +36,8 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,21 +47,14 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.media3.common.MediaItem
-import androidx.media3.common.Player
-import androidx.media3.common.util.UnstableApi
-import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.ui.PlayerView
-import coil.compose.SubcomposeAsyncImage
-import coil.decode.VideoFrameDecoder
-import coil.request.ImageRequest
-import coil.request.videoFrameMillis
 import com.dino.message.R
+import com.dino.message.corefeature.presentation.platform.PlatformImageRequestOptions
+import com.dino.message.corefeature.presentation.platform.PlatformSubcomposeAsyncImage
+import com.dino.message.corefeature.presentation.platform.PlatformVideoPlayer
+import com.dino.message.corefeature.presentation.platform.rememberPlatformImageRequest
 import com.dino.message.threadfeature.domain.model.PostMedia
-import com.dino.message.threadfeature.presentation.music.MusicPlaybackManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -233,18 +224,15 @@ private fun ThumbnailItem(
         item.url.startsWith("file://", ignoreCase = true)
     ) Uri.parse(item.url) else item.url
 
-    SubcomposeAsyncImage(
-        model = ImageRequest.Builder(LocalContext.current)
-            .data(modelData)
-            .apply {
-                if (isVideo) {
-                    decoderFactory(VideoFrameDecoder.Factory())
-                    videoFrameMillis(0)
-                }
-            }
-            .crossfade(true)
-            .size(120)
-            .build(),
+    PlatformSubcomposeAsyncImage(
+        model = rememberPlatformImageRequest(
+            data = modelData,
+            options = PlatformImageRequestOptions(
+                crossfade = true,
+                videoFrameMillis = if (isVideo) 0L else null,
+                sizePx = 120,
+            )
+        ),
         contentDescription = null,
         contentScale = ContentScale.Crop,
         modifier = Modifier
@@ -273,61 +261,30 @@ private fun FullScreenImage(
         url.startsWith("file://", ignoreCase = true)
     ) Uri.parse(url) else url
 
-    SubcomposeAsyncImage(
-        model = ImageRequest.Builder(LocalContext.current)
-            .data(modelData)
-            .crossfade(true)
-            .build(),
+    PlatformSubcomposeAsyncImage(
+        model = rememberPlatformImageRequest(
+            data = modelData,
+            options = PlatformImageRequestOptions(crossfade = true)
+        ),
         contentDescription = "Full-screen image",
         contentScale = ContentScale.Fit,
         modifier = modifier
     )
 }
 
-@androidx.annotation.OptIn(UnstableApi::class)
 @Composable
 private fun FullScreenVideoPlayer(
     url: String,
     isCurrentPage: Boolean,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
-    val exoPlayer = remember(url) {
-        ExoPlayer.Builder(context).build().apply {
-            setMediaItem(MediaItem.fromUri(url))
-            repeatMode = Player.REPEAT_MODE_OFF
-            playWhenReady = true
-            prepare()
-        }
-    }
-
-    LaunchedEffect(isCurrentPage) {
-        if (!isCurrentPage) {
-            exoPlayer.pause()
-        } else {
-            MusicPlaybackManager.pauseForCompetingAudio(context)
-            exoPlayer.play()
-        }
-    }
-
-    DisposableEffect(exoPlayer) {
-        onDispose {
-            exoPlayer.stop()
-            exoPlayer.release()
-        }
-    }
-
-    AndroidView(
+    PlatformVideoPlayer(
+        url = url,
         modifier = modifier,
-        factory = { ctx ->
-            PlayerView(ctx).apply {
-                player = exoPlayer
-                useController = true
-            }
-        },
-        update = { playerView ->
-            playerView.player = exoPlayer
-        }
+        useController = true,
+        playWhenReady = isCurrentPage,
+        isPaused = !isCurrentPage,
+        pauseCompetingAudio = isCurrentPage
     )
 }
 

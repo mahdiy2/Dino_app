@@ -120,7 +120,7 @@ class MainActivity : ComponentActivity() {
         val dinoApp = applicationContext as? DinoOrderApplication
         dinoApp?.inAppNotificationManager?.disconnect()
         if (isFinishing) {
-            MusicPlaybackManager.stop(applicationContext)
+            MusicPlaybackManager.stop()
         }
     }
 

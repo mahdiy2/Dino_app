@@ -6,17 +6,21 @@ import android.os.Bundle
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.flow.StateFlow
 
-object MusicPlaybackManager {
-    val playbackState: StateFlow<MusicPlaybackUiState> = MusicPlaybackService.playbackState
+object MusicPlaybackManager : MediaPlaybackController {
+    override val playbackState: StateFlow<MediaPlaybackState> = MusicPlaybackService.playbackState
 
-    fun toggleTrack(
-        context: Context,
+    private var appContext: Context? = null
+
+    fun initialize(context: Context) {
+        appContext = context.applicationContext
+    }
+
+    override fun toggleTrack(
         trackUrl: String,
         title: String?,
         artist: String?,
     ) {
         dispatch(
-            context = context,
             action = MusicPlaybackService.ACTION_TOGGLE,
             trackUrl = trackUrl,
             title = title,
@@ -24,14 +28,12 @@ object MusicPlaybackManager {
         )
     }
 
-    fun playTrack(
-        context: Context,
+    override fun playTrack(
         trackUrl: String,
         title: String?,
         artist: String?,
     ) {
         dispatch(
-            context = context,
             action = MusicPlaybackService.ACTION_PLAY,
             trackUrl = trackUrl,
             title = title,
@@ -39,12 +41,12 @@ object MusicPlaybackManager {
         )
     }
 
-    fun playPlaylist(
-        context: Context,
-        tracks: List<PlaybackQueueItem>,
+    override fun playPlaylist(
+        tracks: List<MediaQueueItem>,
         startIndex: Int
     ) {
         if (tracks.isEmpty()) return
+        val context = requireAppContext() ?: return
         val normalizedIndex = startIndex.coerceIn(0, tracks.lastIndex)
         val queueBundles = ArrayList<Bundle>(tracks.size).apply {
             tracks.forEach { track ->
@@ -57,7 +59,7 @@ object MusicPlaybackManager {
                 )
             }
         }
-        val intent = Intent(context.applicationContext, MusicPlaybackService::class.java).apply {
+        val intent = Intent(context, MusicPlaybackService::class.java).apply {
             action = MusicPlaybackService.ACTION_PLAY_PLAYLIST
             putParcelableArrayListExtra(
                 MusicPlaybackService.EXTRA_QUEUE_TRACK_BUNDLES,
@@ -65,61 +67,55 @@ object MusicPlaybackManager {
             )
             putExtra(MusicPlaybackService.EXTRA_QUEUE_START_INDEX, normalizedIndex)
         }
-        ContextCompat.startForegroundService(context.applicationContext, intent)
+        ContextCompat.startForegroundService(context, intent)
     }
 
-    fun pause(context: Context) {
-        dispatch(context = context, action = MusicPlaybackService.ACTION_PAUSE)
+    override fun pause() {
+        dispatch(action = MusicPlaybackService.ACTION_PAUSE)
     }
 
-    fun pauseForCompetingAudio(context: Context) {
-        // Avoid starting the service just to pause when nothing is currently playing.
+    override fun pauseForCompetingAudio() {
         if (!playbackState.value.isPlaying) return
-        pause(context)
+        pause()
     }
 
-    fun resume(context: Context) {
-        dispatch(context = context, action = MusicPlaybackService.ACTION_RESUME)
+    override fun resume() {
+        dispatch(action = MusicPlaybackService.ACTION_RESUME)
     }
 
-    fun seekTo(context: Context, positionMs: Long) {
+    override fun seekTo(positionMs: Long) {
         dispatch(
-            context = context,
             action = MusicPlaybackService.ACTION_SEEK_TO,
             positionMs = positionMs
         )
     }
 
-    fun seekBy(context: Context, deltaMs: Long) {
+    override fun seekBy(deltaMs: Long) {
         dispatch(
-            context = context,
             action = MusicPlaybackService.ACTION_SEEK_BY,
             deltaMs = deltaMs
         )
     }
 
-    fun stop(context: Context) {
-        dispatch(context = context, action = MusicPlaybackService.ACTION_STOP)
+    override fun stop() {
+        dispatch(action = MusicPlaybackService.ACTION_STOP)
     }
 
-    fun setShuffleEnabled(context: Context, enabled: Boolean) {
+    override fun setShuffleEnabled(enabled: Boolean) {
         dispatch(
-            context = context,
             action = MusicPlaybackService.ACTION_SET_SHUFFLE,
             flagEnabled = enabled
         )
     }
 
-    fun setRepeatEnabled(context: Context, enabled: Boolean) {
+    override fun setRepeatEnabled(enabled: Boolean) {
         dispatch(
-            context = context,
             action = MusicPlaybackService.ACTION_SET_REPEAT,
             flagEnabled = enabled
         )
     }
 
     private fun dispatch(
-        context: Context,
         action: String,
         trackUrl: String? = null,
         title: String? = null,
@@ -128,6 +124,7 @@ object MusicPlaybackManager {
         deltaMs: Long? = null,
         flagEnabled: Boolean? = null
     ) {
+        val context = requireAppContext() ?: return
         val activeTrackUrl = playbackState.value.currentTrackUrl
         val hasActiveTrack = !activeTrackUrl.isNullOrBlank()
 
@@ -149,7 +146,7 @@ object MusicPlaybackManager {
             }
         }
 
-        val intent = Intent(context.applicationContext, MusicPlaybackService::class.java).apply {
+        val intent = Intent(context, MusicPlaybackService::class.java).apply {
             this.action = action
             if (!trackUrl.isNullOrBlank()) {
                 putExtra(MusicPlaybackService.EXTRA_TRACK_URL, trackUrl)
@@ -170,7 +167,6 @@ object MusicPlaybackManager {
                 putExtra(MusicPlaybackService.EXTRA_ENABLED, flagEnabled)
             }
         }
-        val appContext = context.applicationContext
         val isTogglePauseForCurrentTrack = action == MusicPlaybackService.ACTION_TOGGLE &&
             !trackUrl.isNullOrBlank() &&
             trackUrl == activeTrackUrl &&
@@ -180,9 +176,11 @@ object MusicPlaybackManager {
             (action == MusicPlaybackService.ACTION_TOGGLE && !isTogglePauseForCurrentTrack)
 
         if (requiresForegroundStart) {
-            ContextCompat.startForegroundService(appContext, intent)
+            ContextCompat.startForegroundService(context, intent)
         } else {
-            appContext.startService(intent)
+            context.startService(intent)
         }
     }
+
+    private fun requireAppContext(): Context? = appContext
 }

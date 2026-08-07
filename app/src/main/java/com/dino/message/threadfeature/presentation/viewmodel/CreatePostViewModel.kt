@@ -1,7 +1,6 @@
 package com.dino.message.threadfeature.presentation.viewmodel
 
 import android.content.Context
-import android.media.MediaMetadataRetriever
 import android.net.Uri
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -12,6 +11,7 @@ import com.dino.message.DinoOrderApplication
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.data.upload.MediaFileResolver
 import com.dino.message.corefeature.data.upload.MediaMimePolicy
+import com.dino.message.corefeature.presentation.platform.AndroidMediaMetadataExtractor
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
@@ -45,6 +45,8 @@ class CreatePostViewModel constructor(
     savedStateHandle: SavedStateHandle
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
+    private val mediaMetadataExtractor = AndroidMediaMetadataExtractor(app)
+
     companion object {
         const val MAX_MEDIA_FILES_PER_POST = 8
         private const val MAX_VIDEO_DURATION_MS = 30_000L
@@ -333,18 +335,7 @@ class CreatePostViewModel constructor(
     }
 
     private fun getVideoDurationMs(uri: Uri): Long? {
-        val retriever = MediaMetadataRetriever()
-        return try {
-            retriever.setDataSource(getApplication<DinoOrderApplication>(), uri)
-            retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()
-        } catch (_: Exception) {
-            null
-        } finally {
-            try {
-                retriever.release()
-            } catch (_: Exception) {
-            }
-        }
+        return mediaMetadataExtractor.extract(uri).durationMs
     }
 
     private fun Post.toQuotedPostPreview(): QuotedPostPreview = QuotedPostPreview(

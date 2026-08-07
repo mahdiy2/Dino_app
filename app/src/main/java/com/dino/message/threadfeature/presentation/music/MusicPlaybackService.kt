@@ -80,8 +80,8 @@ class MusicPlaybackService : Service() {
         private const val IDLE_SERVICE_STOP_DELAY_MS = 90_000L
         private const val TAG = "MusicPlaybackService"
 
-        private val _playbackState = MutableStateFlow(MusicPlaybackUiState())
-        val playbackState: StateFlow<MusicPlaybackUiState> = _playbackState.asStateFlow()
+        private val _playbackState = MutableStateFlow(MediaPlaybackState())
+        val playbackState: StateFlow<MediaPlaybackState> = _playbackState.asStateFlow()
     }
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -93,7 +93,7 @@ class MusicPlaybackService : Service() {
     private lateinit var notificationManager: NotificationManagerCompat
     private lateinit var simpleCache: SimpleCache
 
-    private var playbackQueue: List<PlaybackQueueItem> = emptyList()
+    private var playbackQueue: List<MediaQueueItem> = emptyList()
     private var currentQueueIndex: Int = -1
     private var playbackOrder: List<Int> = emptyList()
     private var currentPlaybackOrderPosition: Int = -1
@@ -205,7 +205,9 @@ class MusicPlaybackService : Service() {
         runCatching { simpleCache.release() }
         mediaSession.release()
         val current = _playbackState.value
-        _playbackState.value = MusicPlaybackUiState(
+        _playbackState.value = MediaPlaybackState(
+            queue = current.queue,
+            queueIndex = current.queueIndex,
             isShuffleEnabled = current.isShuffleEnabled,
             isRepeatEnabled = current.isRepeatEnabled
         )
@@ -287,9 +289,7 @@ class MusicPlaybackService : Service() {
         playQueueIndex(playbackOrder.firstOrNull() ?: startIndex)
     }
 
-    private fun readQueueFromIntent(intent: Intent): List<PlaybackQueueItem> {
-        intent.setExtrasClassLoader(PlaybackQueueItem::class.java.classLoader)
-
+    private fun readQueueFromIntent(intent: Intent): List<MediaQueueItem> {
         val queueFromBundles = runCatching {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 intent.getParcelableArrayListExtra(EXTRA_QUEUE_TRACK_BUNDLES, Bundle::class.java)
@@ -308,7 +308,7 @@ class MusicPlaybackService : Service() {
                 if (trackUrl.isBlank()) {
                     null
                 } else {
-                    PlaybackQueueItem(
+                    MediaQueueItem(
                         trackUrl = trackUrl,
                         title = itemBundle.getString(EXTRA_QUEUE_ITEM_TITLE),
                         artist = itemBundle.getString(EXTRA_QUEUE_ITEM_ARTIST)
@@ -316,18 +316,7 @@ class MusicPlaybackService : Service() {
                 }
             }
         }
-
-        return runCatching {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                intent.getParcelableArrayListExtra(EXTRA_QUEUE_TRACKS, PlaybackQueueItem::class.java)
-            } else {
-                @Suppress("DEPRECATION")
-                intent.getParcelableArrayListExtra<PlaybackQueueItem>(EXTRA_QUEUE_TRACKS)
-            }.orEmpty()
-        }.getOrElse { throwable ->
-            Log.w(TAG, "Ignoring malformed playlist payload", throwable)
-            emptyList()
-        }
+        return emptyList()
     }
 
     private fun handleToggleIntent(intent: Intent) {
@@ -375,6 +364,8 @@ class MusicPlaybackService : Service() {
             currentTrackUrl = trackUrl,
             title = title ?: "Music track",
             artist = artist,
+            queue = playbackQueue,
+            queueIndex = currentQueueIndex,
             errorMessage = null,
             isBuffering = true
         )
@@ -519,7 +510,7 @@ class MusicPlaybackService : Service() {
         currentQueueIndex = -1
         playbackOrder = emptyList()
         currentPlaybackOrderPosition = -1
-        _playbackState.value = MusicPlaybackUiState(
+        _playbackState.value = MediaPlaybackState(
             isShuffleEnabled = current.isShuffleEnabled,
             isRepeatEnabled = current.isRepeatEnabled
         )

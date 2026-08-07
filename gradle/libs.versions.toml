@@ -1,11 +1,10 @@
 [versions]
 accompanistSystemuicontroller = "0.31.1-alpha"
 agp = "8.9.2"
-coilCompose = "2.2.2"
+coil = "3.0.4"
 constraintlayoutCompose = "1.0.1"
 datastorePreferences = "1.1.1"
 desugar_jdk_libs = "2.0.4"
-gson = "2.10.1"
 graphicsShapes = "1.0.0-beta01"
 kotlin = "2.1.20" # Updated Kotlin version
 composeCompiler = "2.1.20" # Updated Compose Compiler version to match Kotlin
@@ -56,10 +55,10 @@ androidx-graphics-shapes = { module = "androidx.graphics:graphics-shapes", versi
 androidx-security-app-authenticator = { module = "androidx.security:security-app-authenticator", version.ref = "securityAppAuthenticator" }
 androidx-security-identity-credential = { module = "androidx.security:security-identity-credential", version.ref = "securityIdentityCredential" }
 androidx-security-crypto = { module = "androidx.security:security-crypto", version.ref = "securityCrypto" }
-coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coilCompose" }
-coil-video = { module = "io.coil-kt:coil-video", version.ref = "coilCompose" }
+coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
+coil-network-okhttp = { module = "io.coil-kt.coil3:coil-network-okhttp", version.ref = "coil" }
+coil-video = { module = "io.coil-kt.coil3:coil-video", version.ref = "coil" }
 desugar_jdk_libs = { module = "com.android.tools:desugar_jdk_libs", version.ref = "desugar_jdk_libs" }
-gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }

@@ -60,10 +60,11 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
 import com.dino.message.chatfeature.domain.model.MessageDeliveryStatus
 import com.dino.message.chatfeature.domain.model.MessageReaction
+import com.dino.message.corefeature.presentation.platform.PlatformAsyncImage
+import com.dino.message.corefeature.presentation.platform.PlatformImageRequestOptions
+import com.dino.message.corefeature.presentation.platform.rememberPlatformImageRequest
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPSmall
 import com.dino.message.corefeature.presentation.util.decodePostShareMessage
@@ -361,11 +362,11 @@ private fun StoryReferencePreviewCard(
                 .fillMaxWidth()
                 .height(148.dp)
         ) {
-            AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(mediaUrl)
-                    .crossfade(true)
-                    .build(),
+            PlatformAsyncImage(
+                model = rememberPlatformImageRequest(
+                    data = mediaUrl,
+                    options = PlatformImageRequestOptions(crossfade = true)
+                ),
                 contentDescription = "Story preview",
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
@@ -575,11 +576,11 @@ private fun ImageBubble(
                 )
                 .clickable { onClick?.invoke() }
         ) {
-            AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(attachmentUrl)
-                    .crossfade(true)
-                    .build(),
+            PlatformAsyncImage(
+                model = rememberPlatformImageRequest(
+                    data = attachmentUrl,
+                    options = PlatformImageRequestOptions(crossfade = true)
+                ),
                 contentDescription = attachmentFileName ?: "Image",
                 modifier = Modifier
                     .fillMaxWidth()
@@ -766,7 +767,7 @@ private fun VoiceBubble(
                     mediaPlayer.pause()
                     isPlaying = false
                 } else {
-                    MusicPlaybackManager.pauseForCompetingAudio(context)
+                    MusicPlaybackManager.pauseForCompetingAudio()
                     mediaPlayer.start()
                     isPlaying = true
                 }

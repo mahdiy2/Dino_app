@@ -141,9 +141,7 @@ fun PlaylistBottomSheetScreen() {
 
     fun playFromIndex(index: Int) {
         if (playbackQueue.isEmpty()) return
-        MusicPlaybackManager.playPlaylist(
-            context = context,
-            tracks = playbackQueue,
+        MusicPlaybackManager.playPlaylist(tracks = playbackQueue,
             startIndex = index
         )
     }
@@ -269,9 +267,7 @@ fun PlaylistBottomSheetScreen() {
                                     onRowClick = { playFromIndex(index) },
                                     onPlayPauseClick = {
                                         if (isCurrentTrack) {
-                                            MusicPlaybackManager.toggleTrack(
-                                                context = context,
-                                                trackUrl = track.trackUrl,
+                                            MusicPlaybackManager.toggleTrack(track.trackUrl,
                                                 title = track.title,
                                                 artist = track.artist
                                             )
@@ -321,15 +317,11 @@ fun PlaylistBottomSheetScreen() {
                         isShuffleEnabled = playbackState.isShuffleEnabled,
                         isRepeatEnabled = playbackState.isRepeatEnabled,
                         onShuffleToggle = {
-                            MusicPlaybackManager.setShuffleEnabled(
-                                context = context,
-                                enabled = !playbackState.isShuffleEnabled
+                            MusicPlaybackManager.setShuffleEnabled(!playbackState.isShuffleEnabled
                             )
                         },
                         onRepeatToggle = {
-                            MusicPlaybackManager.setRepeatEnabled(
-                                context = context,
-                                enabled = !playbackState.isRepeatEnabled
+                            MusicPlaybackManager.setRepeatEnabled(!playbackState.isRepeatEnabled
                             )
                         }
                     )

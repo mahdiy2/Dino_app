@@ -77,8 +77,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.dino.message.corefeature.presentation.platform.PlatformSubcomposeAsyncImage
 import org.koin.compose.viewmodel.koinViewModel
-import coil.compose.SubcomposeAsyncImage
 import com.dino.message.R
 import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
 import com.dino.message.corefeature.presentation.ui.theme.DPLarge
@@ -664,7 +664,7 @@ private fun TeamMemberColumnItem(
                         contentDescription = stringResource(R.string.about_us_member_avatar),
                     )
                 } else {
-                    SubcomposeAsyncImage(
+                    PlatformSubcomposeAsyncImage(
                         model = member.profileImageUrl,
                         contentDescription = stringResource(R.string.about_us_member_avatar),
                         modifier = Modifier.fillMaxSize(),

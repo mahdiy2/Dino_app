@@ -75,9 +75,7 @@ fun NowPlayingTopBarRow(
             ) {
                 IconButton(
                     onClick = {
-                        MusicPlaybackManager.toggleTrack(
-                            context = context,
-                            trackUrl = currentTrackUrl.orEmpty(),
+                        MusicPlaybackManager.toggleTrack(currentTrackUrl.orEmpty(),
                             title = playbackState.title,
                             artist = playbackState.artist
                         )
@@ -105,7 +103,7 @@ fun NowPlayingTopBarRow(
 
                 IconButton(
                     onClick = {
-                        MusicPlaybackManager.stop(context)
+                        MusicPlaybackManager.stop()
                     }
                 ) {
                     Icon(

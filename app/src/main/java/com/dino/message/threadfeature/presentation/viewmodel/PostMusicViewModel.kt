@@ -1,7 +1,6 @@
 package com.dino.message.threadfeature.presentation.viewmodel
 
 import android.content.Context
-import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.webkit.MimeTypeMap
 import androidx.compose.runtime.mutableStateOf
@@ -12,6 +11,7 @@ import com.dino.message.DinoOrderApplication
 import com.dino.message.corefeature.data.upload.MediaFileResolver
 import com.dino.message.corefeature.data.upload.MediaMimePolicy
 import com.dino.message.corefeature.data.spref.SPrefManager
+import com.dino.message.corefeature.presentation.platform.AndroidMediaMetadataExtractor
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
@@ -47,6 +47,7 @@ class PostMusicViewModel constructor(
     savedStateHandle: SavedStateHandle
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
+    private val mediaMetadataExtractor = AndroidMediaMetadataExtractor(app)
 
     private val quotedPostIdArg: Long = savedStateHandle.get<Long>("quotedPostId") ?: 0L
     private val editPostIdArg: Long = savedStateHandle.get<Long>("editPostId") ?: 0L
@@ -281,20 +282,8 @@ class PostMusicViewModel constructor(
     }
 
     private fun extractMetadata(uri: Uri): Pair<String?, String?> {
-        val retriever = MediaMetadataRetriever()
-        return try {
-            retriever.setDataSource(getApplication<DinoOrderApplication>(), uri)
-            val title = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)
-            val artist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)
-            title to artist
-        } catch (_: Exception) {
-            null to null
-        } finally {
-            try {
-                retriever.release()
-            } catch (_: Exception) {
-            }
-        }
+        val metadata = mediaMetadataExtractor.extract(uri)
+        return metadata.title to metadata.artist
     }
 
     private fun resolveMusicMimeType(uri: Uri, displayName: String): String? {
@@ -334,21 +323,7 @@ class PostMusicViewModel constructor(
     }
 
     private fun extractRetrieverMimeType(uri: Uri): String {
-        val retriever = MediaMetadataRetriever()
-        return try {
-            retriever.setDataSource(getApplication<DinoOrderApplication>(), uri)
-            MediaMetadataRetriever.METADATA_KEY_MIMETYPE
-                .let(retriever::extractMetadata)
-                .orEmpty()
-                .lowercase()
-        } catch (_: Exception) {
-            ""
-        } finally {
-            try {
-                retriever.release()
-            } catch (_: Exception) {
-            }
-        }
+        return mediaMetadataExtractor.extract(uri).mimeType.orEmpty()
     }
 
     private fun Post.toQuotedPostPreview(): QuotedPostPreview = QuotedPostPreview(

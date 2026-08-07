@@ -44,7 +44,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
+import com.dino.message.corefeature.presentation.platform.PlatformAsyncImage
 import com.dino.message.groupfeature.domain.model.GroupOnlineUser
 import kotlin.math.PI
 import kotlin.math.cos
@@ -344,7 +344,7 @@ private fun AvatarBubble(
     ) {
         val imageUrl = user.profileImageUrl?.takeIf { it.isNotBlank() }
         if (imageUrl != null) {
-            AsyncImage(
+            PlatformAsyncImage(
                 model = imageUrl,
                 contentDescription = user.username,
                 modifier = Modifier.fillMaxSize(),

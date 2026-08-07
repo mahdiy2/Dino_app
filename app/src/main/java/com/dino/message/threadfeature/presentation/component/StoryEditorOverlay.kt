@@ -134,24 +134,20 @@ import androidx.core.content.res.ResourcesCompat
 import androidx.media3.common.Effect
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
-import androidx.media3.common.PlaybackException
-import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.effect.BitmapOverlay
 import androidx.media3.effect.Crop
 import androidx.media3.effect.OverlayEffect
 import androidx.media3.effect.Presentation
-import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.transformer.Effects
 import androidx.media3.transformer.EditedMediaItem
 import androidx.media3.transformer.ExportException
 import androidx.media3.transformer.ExportResult
 import androidx.media3.transformer.Transformer
-import androidx.media3.ui.AspectRatioFrameLayout
-import androidx.media3.ui.PlayerView
-import androidx.compose.ui.viewinterop.AndroidView
-import coil.compose.AsyncImage
 import com.dino.message.R
+import com.dino.message.corefeature.presentation.platform.PlatformAsyncImage
+import com.dino.message.corefeature.presentation.platform.PlatformVideoPlayer
+import com.dino.message.corefeature.presentation.platform.PlatformVideoResizeMode
 import com.dino.message.threadfeature.domain.model.CreatePostMedia
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -886,7 +882,7 @@ private fun StoryCanvas(
                 }
         ) {
         if (isImage) {
-            AsyncImage(
+            PlatformAsyncImage(
                 model = media.uri,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
@@ -904,7 +900,7 @@ private fun StoryCanvas(
                     .fillMaxSize()
                     .background(Color.Black.copy(alpha = 0.18f))
             )
-            AsyncImage(
+            PlatformAsyncImage(
                 model = media.uri,
                 contentDescription = "Story media",
                 contentScale = ContentScale.Fit,
@@ -1224,7 +1220,6 @@ private fun StoryCanvas(
     }
 }
 
-@androidx.annotation.OptIn(UnstableApi::class)
 @Composable
 private fun StoryEditorVideoPlayer(
     mediaUri: Uri,
@@ -1233,55 +1228,23 @@ private fun StoryEditorVideoPlayer(
     onPlaybackError: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
-    val exoPlayer = remember(mediaUri) {
-        ExoPlayer.Builder(context).build().apply {
-            setMediaItem(MediaItem.fromUri(mediaUri))
-            repeatMode = Player.REPEAT_MODE_ONE
-            playWhenReady = true
-            prepare()
-        }
-    }
-
-    LaunchedEffect(isPlaying, exoPlayer) {
-        if (isPlaying) {
-            exoPlayer.play()
-        } else {
-            exoPlayer.pause()
-        }
-    }
-
-    DisposableEffect(exoPlayer) {
-        val listener = object : Player.Listener {
-            override fun onPlayerError(error: PlaybackException) {
-                onPlayingChanged(false)
-                onPlaybackError(
-                    error.localizedMessage?.takeIf { it.isNotBlank() }
-                        ?: "Video preview failed. You can still post this story."
-                )
-            }
-        }
-        exoPlayer.addListener(listener)
-        onDispose {
-            exoPlayer.removeListener(listener)
-            exoPlayer.release()
-        }
-    }
-
-    AndroidView(
+    PlatformVideoPlayer(
+        url = mediaUri.toString(),
         modifier = modifier,
-        factory = { viewContext ->
-            PlayerView(viewContext).apply {
-                useController = false
-                resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-                setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
-                player = exoPlayer
-            }
+        useController = false,
+        repeat = true,
+        resizeMode = PlatformVideoResizeMode.Zoom,
+        playWhenReady = true,
+        isPaused = !isPlaying,
+        transparentShutter = true,
+        onStarted = { onPlayingChanged(true) },
+        onPlaybackError = { errorMessage ->
+            onPlayingChanged(false)
+            onPlaybackError(
+                errorMessage.takeIf { it.isNotBlank() }
+                    ?: "Video preview failed. You can still post this story."
+            )
         },
-        update = { playerView ->
-            playerView.player = exoPlayer
-            playerView.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-        }
     )
 }
 

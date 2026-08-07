@@ -25,10 +25,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
 import com.dino.message.R
 import com.dino.message.corefeature.presentation.component.UserBadgeIcon
+import com.dino.message.corefeature.presentation.platform.PlatformAsyncImage
+import com.dino.message.corefeature.presentation.platform.PlatformImageRequestOptions
+import com.dino.message.corefeature.presentation.platform.rememberPlatformImageRequest
 import com.dino.message.threadfeature.domain.model.QuotedPostPreview
 
 @Composable
@@ -182,11 +183,11 @@ private fun CompactQuotedVisualMediaRow(
                     .clip(RoundedCornerShape(12.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
             ) {
-                AsyncImage(
-                    model = ImageRequest.Builder(context)
-                        .data(url)
-                        .crossfade(true)
-                        .build(),
+                PlatformAsyncImage(
+                    model = rememberPlatformImageRequest(
+                        data = url,
+                        options = PlatformImageRequestOptions(crossfade = true)
+                    ),
                     contentDescription = stringResource(R.string.quoted_post_media_preview),
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop

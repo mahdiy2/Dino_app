@@ -1,7 +1,6 @@
 package com.dino.message.profilefeature.presentation.viewmodel
 
 import android.content.Context
-import android.media.MediaMetadataRetriever
 import android.net.Uri
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
@@ -10,6 +9,7 @@ import com.dino.message.DinoOrderApplication
 import com.dino.message.corefeature.data.spref.DataStoreUtil
 import com.dino.message.corefeature.data.upload.MediaFileResolver
 import com.dino.message.corefeature.data.upload.MediaMimePolicy
+import com.dino.message.corefeature.presentation.platform.AndroidMediaMetadataExtractor
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.corefeature.presentation.util.PROFILE_IMAGE_SHAPE_CIRCLE
 import com.dino.message.corefeature.presentation.util.hasBadgeAccess
@@ -39,6 +39,8 @@ class EditProfileViewModel constructor(
     private val updateMyProfileUseCase: UpdateMyProfileUseCase
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
+    private val mediaMetadataExtractor = AndroidMediaMetadataExtractor(app)
+
     companion object {
         private const val MAX_PROFILE_VIDEO_DURATION_MS = 5_000L
         private const val MAX_PROFILE_VIDEO_SIZE_BYTES = 15L * 1024L * 1024L
@@ -292,17 +294,6 @@ class EditProfileViewModel constructor(
     }
 
     private fun getVideoDurationMs(uri: Uri): Long? {
-        val retriever = MediaMetadataRetriever()
-        return try {
-            retriever.setDataSource(getApplication<DinoOrderApplication>(), uri)
-            retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()
-        } catch (_: Exception) {
-            null
-        } finally {
-            try {
-                retriever.release()
-            } catch (_: Exception) {
-            }
-        }
+        return mediaMetadataExtractor.extract(uri).durationMs
     }
 }

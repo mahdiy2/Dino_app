@@ -50,17 +50,11 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
-import androidx.media3.common.MediaItem
-import androidx.media3.common.Player
-import androidx.media3.common.util.UnstableApi
-import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.ui.AspectRatioFrameLayout
-import androidx.media3.ui.PlayerView
-import coil.compose.SubcomposeAsyncImage
-import coil.decode.VideoFrameDecoder
-import coil.request.ImageRequest
-import coil.request.videoFrameMillis
+import com.dino.message.corefeature.presentation.platform.PlatformImageRequestOptions
+import com.dino.message.corefeature.presentation.platform.PlatformSubcomposeAsyncImage
+import com.dino.message.corefeature.presentation.platform.PlatformVideoPlayer
+import com.dino.message.corefeature.presentation.platform.PlatformVideoResizeMode
+import com.dino.message.corefeature.presentation.platform.rememberPlatformImageRequest
 import com.dino.message.threadfeature.domain.model.PostMedia
 import com.dino.message.threadfeature.presentation.music.MusicPlaybackManager
 
@@ -107,7 +101,7 @@ fun Carousel(
                 activeVideoId = if (activeVideoId == item.id) {
                     null
                 } else {
-                    MusicPlaybackManager.pauseForCompetingAudio(context)
+                    MusicPlaybackManager.pauseForCompetingAudio()
                     item.id
                 }
             },
@@ -218,25 +212,22 @@ private fun MediaImage(
         url
     }
 
-    SubcomposeAsyncImage(
-        model = ImageRequest.Builder(LocalContext.current)
-            .data(modelData)
-            .apply {
-                if (isVideo) {
-                    decoderFactory(VideoFrameDecoder.Factory())
-                    videoFrameMillis(0)
-                }
-            }
-            .crossfade(true)
-            .build(),
+    PlatformSubcomposeAsyncImage(
+        model = rememberPlatformImageRequest(
+            data = modelData,
+            options = PlatformImageRequestOptions(
+                crossfade = true,
+                videoFrameMillis = if (isVideo) 0L else null,
+            )
+        ),
         contentDescription = contentDescription,
         contentScale = ContentScale.Crop,
         modifier = modifier,
-        onError = { error ->
+        onError = { throwable ->
             Log.e(
                 "Carousel",
                 "Video/image preview failed for: $url",
-                error.result.throwable
+                throwable
             )
         },
         loading = {
@@ -248,55 +239,21 @@ private fun MediaImage(
     )
 }
 
-@androidx.annotation.OptIn(UnstableApi::class)
 @Composable
 private fun VideoPlayer(
     url: String,
     modifier: Modifier
 ) {
-    val context = LocalContext.current
-    val exoPlayer = remember(url) {
-        ExoPlayer.Builder(context).build().apply {
-            setMediaItem(MediaItem.fromUri(url))
-            repeatMode = Player.REPEAT_MODE_ONE
-            playWhenReady = true
-            prepare()
-        }
-    }
     var isBuffering by remember { mutableStateOf(true) }
 
-    LaunchedEffect(url) {
-        MusicPlaybackManager.pauseForCompetingAudio(context)
-    }
-
-    DisposableEffect(exoPlayer) {
-        val listener = object : Player.Listener {
-            override fun onPlaybackStateChanged(playbackState: Int) {
-                isBuffering = playbackState == Player.STATE_BUFFERING || playbackState == Player.STATE_IDLE
-            }
-        }
-        exoPlayer.addListener(listener)
-        onDispose {
-            exoPlayer.removeListener(listener)
-            exoPlayer.stop()
-            exoPlayer.release()
-        }
-    }
-
     Box(modifier = modifier) {
-        AndroidView(
+        PlatformVideoPlayer(
+            url = url,
             modifier = Modifier.fillMaxSize(),
-            factory = { viewContext ->
-                PlayerView(viewContext).apply {
-                    useController = false
-                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-                    player = exoPlayer
-                }
-            },
-            update = { playerView ->
-                playerView.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-                playerView.player = exoPlayer
-            }
+            useController = false,
+            repeat = true,
+            resizeMode = PlatformVideoResizeMode.Zoom,
+            onBufferingChanged = { isBuffering = it }
         )
 
         if (isBuffering) {

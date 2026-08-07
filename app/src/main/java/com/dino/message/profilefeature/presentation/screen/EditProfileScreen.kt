@@ -83,11 +83,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.statusBarsPadding
 import org.koin.compose.viewmodel.koinViewModel
-import coil.compose.SubcomposeAsyncImage
-import coil.decode.VideoFrameDecoder
-import coil.request.ImageRequest
-import coil.request.videoFrameMillis
 import com.dino.message.R
+import com.dino.message.corefeature.presentation.platform.PlatformImageRequestOptions
+import com.dino.message.corefeature.presentation.platform.PlatformSubcomposeAsyncImage
+import com.dino.message.corefeature.presentation.platform.rememberPlatformImageRequest
 import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
 import com.dino.message.corefeature.presentation.ui.theme.DPLarge
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
@@ -889,19 +888,15 @@ private fun ProfileMediaPreview(
             return@Surface
         }
 
-        val context = LocalContext.current
         Box {
-            SubcomposeAsyncImage(
-                model = ImageRequest.Builder(context)
-                    .data(previewModel)
-                    .apply {
-                        if (isVideoPreview) {
-                            decoderFactory(VideoFrameDecoder.Factory())
-                            videoFrameMillis(0)
-                        }
-                    }
-                    .crossfade(true)
-                    .build(),
+            PlatformSubcomposeAsyncImage(
+                model = rememberPlatformImageRequest(
+                    data = previewModel,
+                    options = PlatformImageRequestOptions(
+                        crossfade = true,
+                        videoFrameMillis = if (isVideoPreview) 0L else null,
+                    )
+                ),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
