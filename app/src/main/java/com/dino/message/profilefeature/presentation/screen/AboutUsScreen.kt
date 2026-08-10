@@ -34,14 +34,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowBackIosNew
-import androidx.compose.material.icons.rounded.Forum
-import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material.icons.rounded.Language
-import androidx.compose.material.icons.rounded.Link
-import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -91,6 +83,7 @@ import com.dino.message.profilefeature.presentation.viewmodel.AboutUsViewModel
 import com.dino.message.threadfeature.presentation.component.PostContainer
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import com.dino.message.corefeature.presentation.icons.AppIcons
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -115,7 +108,7 @@ fun AboutUsScreen() {
                 navigationIcon = {
                     IconButton(onClick = viewModel::navigateUp) {
                         Icon(
-                            imageVector = Icons.Rounded.ArrowBackIosNew,
+                            imageVector = AppIcons.ArrowBackIosNew,
                             contentDescription = stringResource(R.string.back),
                             modifier = backIconModifier(),
                         )
@@ -199,7 +192,7 @@ fun AboutUsScreen() {
                             AnimatedSection(delayMillis = 130) {
                                 SectionHeader(
                                     title = stringResource(R.string.about_us_links),
-                                    icon = Icons.Rounded.Link,
+                                    icon = AppIcons.Link,
                                 )
                             }
                         }
@@ -247,7 +240,7 @@ fun AboutUsScreen() {
                             AnimatedSection(delayMillis = 220) {
                                 SectionHeader(
                                     title = stringResource(R.string.about_us_team_members),
-                                    icon = Icons.Rounded.Person,
+                                    icon = AppIcons.Person,
                                 )
                             }
                         }
@@ -422,7 +415,7 @@ private fun AboutUsHeroCard(
                     ) {
                         Icon(
                             modifier = Modifier.padding(DPMedium),
-                            imageVector = Icons.Rounded.Info,
+                            imageVector = AppIcons.Info,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurface,
                         )
@@ -446,13 +439,13 @@ private fun AboutUsHeroCard(
                 ) {
                     HeroStatChip(
                         modifier = Modifier.weight(1f),
-                        icon = Icons.Rounded.Link,
+                        icon = AppIcons.Link,
                         label = stringResource(R.string.about_us_links),
                         value = linksCount,
                     )
                     HeroStatChip(
                         modifier = Modifier.weight(1f),
-                        icon = Icons.Rounded.Person,
+                        icon = AppIcons.Person,
                         label = stringResource(R.string.about_us_team_members),
                         value = teamCount,
                     )
@@ -660,7 +653,7 @@ private fun TeamMemberColumnItem(
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(DPMedium),
-                        imageVector = Icons.Rounded.Person,
+                        imageVector = AppIcons.Person,
                         contentDescription = stringResource(R.string.about_us_member_avatar),
                     )
                 } else {
@@ -674,7 +667,7 @@ private fun TeamMemberColumnItem(
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .padding(DPMedium),
-                                imageVector = Icons.Rounded.Person,
+                                imageVector = AppIcons.Person,
                                 contentDescription = null,
                             )
                         },
@@ -683,7 +676,7 @@ private fun TeamMemberColumnItem(
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .padding(DPMedium),
-                                imageVector = Icons.Rounded.Person,
+                                imageVector = AppIcons.Person,
                                 contentDescription = null,
                             )
                         },
@@ -720,10 +713,10 @@ private fun linkSubtitle(link: AboutUsLink): String {
 }
 
 private fun iconForLinkType(type: String) = when (type.lowercase()) {
-    "website" -> Icons.Rounded.Language
-    "source_code" -> Icons.Rounded.Settings
-    "email" -> Icons.Rounded.Forum
-    else -> Icons.Rounded.Link
+    "website" -> AppIcons.Language
+    "source_code" -> AppIcons.Settings
+    "email" -> AppIcons.Forum
+    else -> AppIcons.Link
 }
 
 private fun openAboutUsLink(context: Context, link: AboutUsLink): Boolean {

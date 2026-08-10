@@ -14,11 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowBackIosNew
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -62,6 +57,7 @@ import com.dino.message.corefeature.presentation.util.backIconModifier
 import com.dino.message.groupfeature.domain.model.GroupMember
 import com.dino.message.groupfeature.presentation.viewmodel.GroupMembersViewModel
 import com.dino.message.profilefeature.presentation.component.ProfileAvatarMedia
+import com.dino.message.corefeature.presentation.icons.AppIcons
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -109,7 +105,7 @@ fun GroupMembersScreen(
                 navigationIcon = {
                     IconButton(onClick = { viewModel.navigateUp() }) {
                         Icon(
-                            imageVector = Icons.Rounded.ArrowBackIosNew,
+                            imageVector = AppIcons.ArrowBackIosNew,
                             contentDescription = stringResource(R.string.back),
                             modifier = backIconModifier()
                         )
@@ -124,7 +120,7 @@ fun GroupMembersScreen(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                 ) {
-                    Icon(Icons.Rounded.Add, contentDescription = stringResource(R.string.group_add_members_title))
+                    Icon(AppIcons.Add, contentDescription = stringResource(R.string.group_add_members_title))
                 }
             }
         },
@@ -260,7 +256,7 @@ private fun GroupMemberItem(
                 label = { Text(stringResource(R.string.creator)) },
                 leadingIcon = {
                     Icon(
-                        imageVector = Icons.Rounded.Star,
+                        imageVector = AppIcons.Star,
                         contentDescription = null,
                     )
                 },
@@ -300,7 +296,7 @@ private fun GroupMemberProfileImageDialog(
                     .padding(16.dp),
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.Close,
+                    imageVector = AppIcons.Close,
                     contentDescription = stringResource(R.string.close),
                     tint = Color.White,
                 )

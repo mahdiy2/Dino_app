@@ -20,10 +20,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.BrokenImage
-import androidx.compose.material.icons.rounded.Pause
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -57,6 +53,7 @@ import com.dino.message.corefeature.presentation.platform.PlatformVideoResizeMod
 import com.dino.message.corefeature.presentation.platform.rememberPlatformImageRequest
 import com.dino.message.threadfeature.domain.model.PostMedia
 import com.dino.message.threadfeature.presentation.music.MusicPlaybackManager
+import com.dino.message.corefeature.presentation.icons.AppIcons
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -277,7 +274,7 @@ private fun PlayPauseButton(
         )
     ) {
         Icon(
-            imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+            imageVector = if (isPlaying) AppIcons.Pause else AppIcons.PlayArrow,
             contentDescription = if (isPlaying) "Pause" else "Play",
             modifier = Modifier.size(20.dp)
         )
@@ -325,7 +322,7 @@ private fun MediaError(modifier: Modifier = Modifier) {
         contentAlignment = Alignment.Center
     ) {
         Icon(
-            imageVector = Icons.Rounded.BrokenImage,
+            imageVector = AppIcons.BrokenImage,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant
         )

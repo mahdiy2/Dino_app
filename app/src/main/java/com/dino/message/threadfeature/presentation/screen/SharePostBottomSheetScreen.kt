@@ -15,9 +15,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.Group
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -40,6 +37,7 @@ import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPSmall
 import com.dino.message.profilefeature.presentation.component.ProfileAvatarMedia
 import com.dino.message.threadfeature.presentation.viewmodel.SharePostBottomSheetViewModel
+import com.dino.message.corefeature.presentation.icons.AppIcons
 
 @Composable
 fun SharePostBottomSheetScreen(
@@ -172,7 +170,7 @@ fun SharePostBottomSheetScreen(
                                 onClick = { viewModel.toggleGroup(group.id) },
                                 leading = {
                                     Icon(
-                                        imageVector = Icons.Rounded.Group,
+                                        imageVector = AppIcons.Group,
                                         contentDescription = null,
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -307,7 +305,7 @@ private fun SelectableRecipientRow(
             }
             if (selected) {
                 Icon(
-                    imageVector = Icons.Rounded.CheckCircle,
+                    imageVector = AppIcons.CheckCircle,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary
                 )

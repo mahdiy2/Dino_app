@@ -11,9 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.KeyboardArrowRight
-import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -44,6 +41,7 @@ import com.dino.message.corefeature.domain.model.AppLanguage
 import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPTopAppBar
+import com.dino.message.corefeature.presentation.icons.AppIcons
 
 
 @Composable
@@ -74,7 +72,7 @@ fun RegisterScreen() {
                 onClick = viewModel::toggleLanguage
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.Language,
+                    imageVector = AppIcons.Language,
                     contentDescription = if (currentLanguage == AppLanguage.Farsi) {
                         stringResource(R.string.switch_to_english)
                     } else {
@@ -233,7 +231,7 @@ fun RegisterScreen() {
                                     CircularProgressIndicator(modifier = Modifier.size(24.dp))
                                 } else {
                                     Icon(
-                                        imageVector = Icons.Default.KeyboardArrowRight,
+                                        imageVector = AppIcons.KeyboardArrowRight,
                                         contentDescription = stringResource(R.string.register),
                                     )
                                 }

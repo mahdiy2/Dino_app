@@ -11,8 +11,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FloatingActionButton
@@ -42,6 +40,7 @@ import com.dino.message.R
 import com.dino.message.authfeature.presentation.viewmodel.PrivateKeyAlertScreenViewModel
 import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
+import com.dino.message.corefeature.presentation.icons.AppIcons
 
 @Composable
 fun PrivateKeyAlertScreen() {
@@ -196,7 +195,7 @@ fun PrivateKeyAlertScreen() {
                         CircularProgressIndicator(modifier = Modifier.size(24.dp))
                     } else {
                         Icon(
-                            imageVector = Icons.Default.KeyboardArrowRight,
+                            imageVector = AppIcons.KeyboardArrowRight,
                             contentDescription = stringResource(R.string.confirm_registration),
                         )
                     }

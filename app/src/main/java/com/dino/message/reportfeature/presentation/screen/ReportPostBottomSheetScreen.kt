@@ -19,8 +19,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -47,6 +45,7 @@ import com.dino.message.R
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPSmall
 import com.dino.message.reportfeature.presentation.viewmodel.ReportPostBottomSheetViewModel
+import com.dino.message.corefeature.presentation.icons.AppIcons
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -195,7 +194,7 @@ fun ReportPostBottomSheetScreen(
                                 leadingIcon = if (isSelected) {
                                     {
                                         Icon(
-                                            imageVector = Icons.Rounded.CheckCircle,
+                                            imageVector = AppIcons.CheckCircle,
                                             contentDescription = null,
                                             tint = MaterialTheme.colorScheme.primary
                                         )

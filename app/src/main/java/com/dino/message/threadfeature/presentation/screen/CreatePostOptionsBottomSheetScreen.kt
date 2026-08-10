@@ -30,9 +30,6 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Icon
 import androidx.compose.material.Text
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Create
-import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
@@ -58,17 +55,13 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import org.koin.compose.viewmodel.koinViewModel
-import com.airbnb.lottie.compose.LottieAnimation
-import com.airbnb.lottie.compose.LottieCompositionSpec
-import com.airbnb.lottie.compose.LottieConstants
-import com.airbnb.lottie.compose.animateLottieCompositionAsState
-import com.airbnb.lottie.compose.rememberLottieComposition
 import com.dino.message.R
 import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.threadfeature.presentation.viewmodel.CreatePostOptionsBottomSheetScreenViewModel
 import kotlin.math.cos
 import kotlin.math.sin
+import com.dino.message.corefeature.presentation.icons.AppIcons
 
 
 @Composable
@@ -132,7 +125,7 @@ fun CreatePostOptionsBottomSheetScreen(
         PostOptionItem(
             title = stringResource(R.string.create_post_options_create_dino_title),
             description = stringResource(R.string.create_post_options_create_dino_description),
-            icon = Icons.Rounded.Create,
+            icon = AppIcons.Create,
             onClick = { viewModel.openCreatePostScreen(quotedPostId) }
         )
 
@@ -141,7 +134,7 @@ fun CreatePostOptionsBottomSheetScreen(
         PostOptionItem(
             title = stringResource(R.string.create_post_options_music_title),
             description = stringResource(R.string.create_post_options_music_description),
-            icon = Icons.Rounded.LibraryMusic,
+            icon = AppIcons.LibraryMusic,
             onClick = { viewModel.openPostMusicScreen(quotedPostId) }
         )
 

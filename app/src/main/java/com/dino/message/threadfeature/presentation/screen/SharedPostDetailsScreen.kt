@@ -7,8 +7,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowBackIosNew
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -38,6 +36,7 @@ import com.dino.message.threadfeature.presentation.component.ThreadCommentsSecti
 import com.dino.message.threadfeature.presentation.component.ThreadPostCard
 import com.dino.message.threadfeature.presentation.viewmodel.SharedPostDetailsViewModel
 import com.dino.message.threadfeature.presentation.viewmodel.ThreadCommentsViewModel
+import com.dino.message.corefeature.presentation.icons.AppIcons
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -69,7 +68,7 @@ fun SharedPostDetailsScreen(
                 navigationIcon = {
                     IconButton(onClick = viewModel::navigateBack) {
                         Icon(
-                            imageVector = Icons.Rounded.ArrowBackIosNew,
+                            imageVector = AppIcons.ArrowBackIosNew,
                             contentDescription = stringResource(R.string.back),
                             modifier = backIconModifier()
                         )

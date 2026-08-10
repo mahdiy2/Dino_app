@@ -1,7 +1,6 @@
 package com.dino.message.profilefeature.data.remote
 
 import android.content.Context
-import android.provider.OpenableColumns
 import com.dino.message.corefeature.data.remote.HaveRefreshTokenAPI
 import com.dino.message.corefeature.data.remote.HaveRefreshTokenAPIImpl
 import com.dino.message.corefeature.data.remote.util.HttpAPIUtil
@@ -9,8 +8,8 @@ import com.dino.message.corefeature.data.remote.util.appendTokenToHeader
 import com.dino.message.corefeature.data.remote.util.ensureFreshAccessTokenIfNearExpiry
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.data.upload.AndroidUploadContentProvider
-import com.dino.message.corefeature.data.upload.MediaFileResolver
 import com.dino.message.corefeature.data.upload.appendUploadFile
+import com.dino.message.corefeature.data.upload.toUploadFilePart
 import com.dino.message.corefeature.domain.model.asStringResourceContent
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.profilefeature.data.remote.dto.AboutUsResponse
@@ -159,24 +158,12 @@ class ProfileApiServiceImpl constructor(
                                     }
                                     profileImage?.let {
                                         appendUploadFile(
-                                            uploadContentProvider.filePart(
-                                                uri = it.uri,
-                                                formName = "profile_image",
-                                                fileName = it.fileName,
-                                                mimeType = it.mimeType,
-                                                size = resolveFileSize(it),
-                                            )
+                                            it.file.toUploadFilePart(formName = "profile_image")
                                         )
                                     }
                                     profileVideo?.let {
                                         appendUploadFile(
-                                            uploadContentProvider.filePart(
-                                                uri = it.uri,
-                                                formName = "profile_video",
-                                                fileName = it.fileName,
-                                                mimeType = it.mimeType,
-                                                size = resolveFileSize(it),
-                                            )
+                                            it.file.toUploadFilePart(formName = "profile_video")
                                         )
                                     }
                                 }
@@ -187,11 +174,6 @@ class ProfileApiServiceImpl constructor(
             },
             callRefreshTokenAPI = this::getToken
         )
-    }
-
-    private fun resolveFileSize(media: ProfileUpdateImage): Long? {
-        media.sizeBytes?.let { if (it >= 0) return it }
-        return MediaFileResolver.resolveFileSize(appContext.contentResolver, media.uri)
     }
 
     override suspend fun deleteMyAccount(): Resource<ProfileFollowResult> =

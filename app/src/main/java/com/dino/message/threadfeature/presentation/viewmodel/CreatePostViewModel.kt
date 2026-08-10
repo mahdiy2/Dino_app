@@ -9,6 +9,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.dino.message.DinoOrderApplication
 import com.dino.message.corefeature.data.spref.SPrefManager
+import com.dino.message.corefeature.data.upload.AndroidUploadContentProvider
 import com.dino.message.corefeature.data.upload.MediaFileResolver
 import com.dino.message.corefeature.data.upload.MediaMimePolicy
 import com.dino.message.corefeature.presentation.platform.AndroidMediaMetadataExtractor
@@ -42,6 +43,7 @@ class CreatePostViewModel constructor(
     private val createPostUseCase: CreatePostUseCase,
     private val editPostUseCase: EditPostUseCase,
     private val getPostUseCase: GetPostUseCase,
+    private val uploadContentProvider: AndroidUploadContentProvider,
     savedStateHandle: SavedStateHandle
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
@@ -313,10 +315,12 @@ class CreatePostViewModel constructor(
 
             result.add(
                 CreatePostMedia(
-                    uri = media.uri,
-                    fileName = media.displayName,
-                    mimeType = media.mimeType,
-                    sizeBytes = queryFileSize(media.uri),
+                    file = uploadContentProvider.readableMediaFile(
+                        uri = media.uri,
+                        displayName = media.displayName,
+                        mimeType = media.mimeType,
+                        sizeBytes = queryFileSize(media.uri),
+                    ),
                 )
             )
         }

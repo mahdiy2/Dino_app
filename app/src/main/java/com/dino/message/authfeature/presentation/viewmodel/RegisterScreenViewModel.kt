@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.dino.message.BuildConfig
 import com.dino.message.R
 import com.dino.message.DinoOrderApplication
 import com.dino.message.authfeature.domain.util.RegisterConfirmErrorPolicy
@@ -12,8 +11,10 @@ import com.dino.message.authfeature.domain.usecase.ConfirmRegistrationUseCase
 import com.dino.message.authfeature.domain.usecase.RegisterUseCase
 import com.dino.message.corefeature.data.spref.DataStoreUtil
 import com.dino.message.corefeature.data.spref.SPrefManager
-import com.dino.message.corefeature.data.util.DeviceIdProvider
+import com.dino.message.corefeature.domain.config.AppConfig
+import com.dino.message.corefeature.domain.device.DeviceInfoProvider
 import com.dino.message.corefeature.domain.model.AppLanguage
+import com.dino.message.corefeature.domain.resource.StringResolver
 import com.dino.message.corefeature.presentation.util.PopBackStackLevel
 import com.dino.message.corefeature.presentation.util.RSAUtil
 import com.dino.message.corefeature.presentation.util.Resource
@@ -31,7 +32,9 @@ class RegisterScreenViewModel constructor(
     private val confirmRegistrationUseCase: ConfirmRegistrationUseCase,
     private val sPrefManager: SPrefManager,
     private val dataStoreUtil: DataStoreUtil,
-    private val deviceIdProvider: DeviceIdProvider,
+    private val deviceIdProvider: DeviceInfoProvider,
+    private val appConfig: AppConfig,
+    private val stringResolver: StringResolver,
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
 
@@ -89,8 +92,7 @@ class RegisterScreenViewModel constructor(
                 }
                 is Resource.Error -> {
                     registerLoadingState.value = false
-                    registerErrorMessage.value =
-                        res.message.asString(getApplication<DinoOrderApplication>())
+                    registerErrorMessage.value = res.message.resolveWith(stringResolver)
                 }
             }
         }
@@ -110,8 +112,7 @@ class RegisterScreenViewModel constructor(
                 }
                 is Resource.Error -> {
                     registerLoadingState.value = false
-                    val errorMessage =
-                        res.message.asString(getApplication<DinoOrderApplication>())
+                    val errorMessage = res.message.resolveWith(stringResolver)
                     registerErrorMessage.value = errorMessage
                     if (RegisterConfirmErrorPolicy.shouldClearPendingSession(errorMessage)) {
                         sPrefManager.clearPendingRegistration()
@@ -129,33 +130,27 @@ class RegisterScreenViewModel constructor(
         val trimmedUsername = userName.value.trim()
         val rawPassword = password.value
         if (trimmedUsername.length < 7) {
-            registerErrorMessage.value =
-                getApplication<DinoOrderApplication>().getString(R.string.error_username_min_length)
+            registerErrorMessage.value = stringResolver.resolveStringId(R.string.error_username_min_length)
             return
         }
         if (!isUsernameFormatValid(trimmedUsername)) {
-            registerErrorMessage.value =
-                getApplication<DinoOrderApplication>().getString(R.string.error_username_allowed_chars)
+            registerErrorMessage.value = stringResolver.resolveStringId(R.string.error_username_allowed_chars)
             return
         }
         if (rawPassword.length < 10) {
-            registerErrorMessage.value =
-                getApplication<DinoOrderApplication>().getString(R.string.error_password_min_length)
+            registerErrorMessage.value = stringResolver.resolveStringId(R.string.error_password_min_length)
             return
         }
         if (!passwordLetterPattern.containsMatchIn(rawPassword)) {
-            registerErrorMessage.value =
-                getApplication<DinoOrderApplication>().getString(R.string.error_password_require_letter)
+            registerErrorMessage.value = stringResolver.resolveStringId(R.string.error_password_require_letter)
             return
         }
         if (!passwordDigitPattern.containsMatchIn(rawPassword)) {
-            registerErrorMessage.value =
-                getApplication<DinoOrderApplication>().getString(R.string.error_password_require_number)
+            registerErrorMessage.value = stringResolver.resolveStringId(R.string.error_password_require_number)
             return
         }
-        if (BuildConfig.AUTH_PASSWORD_REQUIRE_SYMBOL && !passwordSymbolPattern.containsMatchIn(rawPassword)) {
-            registerErrorMessage.value =
-                getApplication<DinoOrderApplication>().getString(R.string.error_password_require_symbol)
+        if (appConfig.authPasswordRequireSymbol && !passwordSymbolPattern.containsMatchIn(rawPassword)) {
+            registerErrorMessage.value = stringResolver.resolveStringId(R.string.error_password_require_symbol)
             return
         }
 

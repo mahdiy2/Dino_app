@@ -13,10 +13,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Pause
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -33,6 +29,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.dino.message.threadfeature.presentation.music.MusicPlaybackManager
+import com.dino.message.corefeature.presentation.icons.AppIcons
 
 @Composable
 fun NowPlayingTopBarRow(
@@ -83,9 +80,9 @@ fun NowPlayingTopBarRow(
                 ) {
                     Icon(
                         imageVector = if (playbackState.isPlaying) {
-                            Icons.Rounded.Pause
+                            AppIcons.Pause
                         } else {
-                            Icons.Rounded.PlayArrow
+                            AppIcons.PlayArrow
                         },
                         contentDescription = if (playbackState.isPlaying) "Pause music" else "Play music",
                         tint = contentColor
@@ -107,7 +104,7 @@ fun NowPlayingTopBarRow(
                     }
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.Close,
+                        imageVector = AppIcons.Close,
                         contentDescription = "Close music player",
                         modifier = Modifier.size(20.dp),
                         tint = contentColor

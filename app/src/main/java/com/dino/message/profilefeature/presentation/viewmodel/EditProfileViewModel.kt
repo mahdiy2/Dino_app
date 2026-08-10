@@ -7,6 +7,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.dino.message.DinoOrderApplication
 import com.dino.message.corefeature.data.spref.DataStoreUtil
+import com.dino.message.corefeature.data.upload.AndroidUploadContentProvider
 import com.dino.message.corefeature.data.upload.MediaFileResolver
 import com.dino.message.corefeature.data.upload.MediaMimePolicy
 import com.dino.message.corefeature.presentation.platform.AndroidMediaMetadataExtractor
@@ -36,7 +37,8 @@ class EditProfileViewModel constructor(
     app: Context,
     private val dataStoreUtil: DataStoreUtil,
     private val getMyProfileUseCase: GetMyProfileUseCase,
-    private val updateMyProfileUseCase: UpdateMyProfileUseCase
+    private val updateMyProfileUseCase: UpdateMyProfileUseCase,
+    private val uploadContentProvider: AndroidUploadContentProvider
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
     private val mediaMetadataExtractor = AndroidMediaMetadataExtractor(app)
@@ -198,7 +200,8 @@ class EditProfileViewModel constructor(
                 _isSaving.value = false
                 return@launch
             }
-            if (videoPayload?.sizeBytes != null && videoPayload.sizeBytes > MAX_PROFILE_VIDEO_SIZE_BYTES) {
+            val videoSizeBytes = videoPayload?.sizeBytes
+            if (videoSizeBytes != null && videoSizeBytes > MAX_PROFILE_VIDEO_SIZE_BYTES) {
                 _error.value = "Profile video is too large. Maximum allowed size is 15.0MB."
                 _isSaving.value = false
                 return@launch
@@ -276,10 +279,12 @@ class EditProfileViewModel constructor(
         if (!canRead) return null
 
         return ProfileUpdateImage(
-            uri = media.uri,
-            fileName = media.displayName,
-            mimeType = media.mimeType,
-            sizeBytes = queryFileSize(media.uri),
+            file = uploadContentProvider.readableMediaFile(
+                uri = media.uri,
+                displayName = media.displayName,
+                mimeType = media.mimeType,
+                sizeBytes = queryFileSize(media.uri),
+            ),
         )
     }
 

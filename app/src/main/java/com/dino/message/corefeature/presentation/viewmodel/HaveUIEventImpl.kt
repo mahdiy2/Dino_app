@@ -1,11 +1,12 @@
 package com.dino.message.corefeature.presentation.viewmodel
 
-import com.dino.message.corefeature.presentation.navigation.AppRoute
 import com.dino.message.DinoOrderApplication
+import com.dino.message.corefeature.presentation.navigation.AppRoute
 import com.dino.message.corefeature.domain.model.CustomMessageDialogData
 import com.dino.message.corefeature.domain.model.ImageDialogData
 import com.dino.message.corefeature.presentation.util.PopBackStackLevel
 import com.dino.message.corefeature.presentation.util.UIEvent
+import com.dino.message.corefeature.presentation.util.UiEventBus
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
@@ -17,10 +18,12 @@ import kotlinx.coroutines.launch
  * @param app The [AniBaranKSHDriverApplication] instance used to access the shared UI event flows.
  */
 class HaveUIEventImpl(
-    app: DinoOrderApplication
+    uiEventBus: UiEventBus
 ) : HaveUIEvent {
-    override val mutableUIEventFlow: MutableSharedFlow<UIEvent> = app.mutableUIEventFlow
-    override val uIEventFlow = app.uIEventFlow
+    constructor(app: DinoOrderApplication) : this(app.uiEventBus)
+
+    override val mutableUIEventFlow: MutableSharedFlow<UIEvent> = uiEventBus.mutableUIEventFlow
+    override val uIEventFlow = uiEventBus.uIEventFlow
 
     override fun navigateWithPopBackStackToDestination(
         route: AppRoute,

@@ -10,8 +10,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -31,6 +29,7 @@ import org.koin.compose.viewmodel.koinViewModel
 import com.dino.message.R
 import com.dino.message.corefeature.presentation.viewmodel.PrivateKeyResetDialogViewModel
 import androidx.compose.material3.Icon
+import com.dino.message.corefeature.presentation.icons.AppIcons
 
 @Composable
 fun PrivateKeyResetDialogScreen() {
@@ -58,7 +57,7 @@ fun PrivateKeyResetDialogScreen() {
                 horizontalArrangement = Arrangement.Center
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.WarningAmber,
+                    imageVector = AppIcons.WarningAmber,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onErrorContainer
                 )

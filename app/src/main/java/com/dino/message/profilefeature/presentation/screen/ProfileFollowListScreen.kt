@@ -28,9 +28,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowBackIosNew
-import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
@@ -72,9 +69,8 @@ import com.dino.message.profilefeature.domain.model.ProfileUserSummary
 import com.dino.message.profilefeature.presentation.component.ProfileAvatarMedia
 import com.dino.message.profilefeature.presentation.viewmodel.ProfileFollowListViewModel
 import com.dino.message.threadfeature.presentation.component.PostContainer
-import androidx.graphics.shapes.CornerRounding
-import androidx.graphics.shapes.RoundedPolygon
 import kotlinx.coroutines.delay
+import com.dino.message.corefeature.presentation.icons.AppIcons
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -117,7 +113,7 @@ fun ProfileFollowListScreen(
                 navigationIcon = {
                     IconButton(onClick = viewModel::navigateUp) {
                         Icon(
-                            imageVector = Icons.Rounded.ArrowBackIosNew,
+                            imageVector = AppIcons.ArrowBackIosNew,
                             contentDescription = stringResource(R.string.back),
                             modifier = backIconModifier(),
                         )
@@ -330,26 +326,20 @@ private fun FollowListAnimatedBackdrop(modifier: Modifier = Modifier) {
 
     val hexShape = remember {
         RoundedPolygonShape(
-            RoundedPolygon(
-                numVertices = 6,
-                rounding = CornerRounding(0.22f),
-            ),
+            vertices = 6,
+            cornerSmoothing = 0.22f,
         )
     }
     val pentShape = remember {
         RoundedPolygonShape(
-            RoundedPolygon(
-                numVertices = 5,
-                rounding = CornerRounding(0.24f),
-            ),
+            vertices = 5,
+            cornerSmoothing = 0.24f,
         )
     }
     val octShape = remember {
         RoundedPolygonShape(
-            RoundedPolygon(
-                numVertices = 8,
-                rounding = CornerRounding(0.18f),
-            ),
+            vertices = 8,
+            cornerSmoothing = 0.18f,
         )
     }
 
@@ -487,7 +477,7 @@ private fun FollowListHeroCard(
                     ) {
                         Icon(
                             modifier = Modifier.padding(DPMedium),
-                            imageVector = Icons.Rounded.Person,
+                            imageVector = AppIcons.Person,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurface,
                         )
@@ -520,7 +510,7 @@ private fun FollowListHeroCard(
                     ) {
                         Icon(
                             modifier = Modifier.size(18.dp),
-                            imageVector = Icons.Rounded.Person,
+                            imageVector = AppIcons.Person,
                             contentDescription = null,
                         )
                         Text(
@@ -550,7 +540,7 @@ private fun FollowListSectionHeader(title: String) {
         ) {
             Icon(
                 modifier = Modifier.padding(7.dp),
-                imageVector = Icons.Rounded.Person,
+                imageVector = AppIcons.Person,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
             )

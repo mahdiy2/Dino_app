@@ -6,6 +6,7 @@ import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import com.dino.message.R
+import com.dino.message.corefeature.domain.resource.StringResolver
 import kotlinx.parcelize.Parcelize
 import kotlinx.serialization.Serializable
 
@@ -20,6 +21,13 @@ sealed class StringResourceContent : Parcelable {
         return when (this) {
             is Str -> this.data
             is StringResId -> context.getString(this.data)
+        }
+    }
+
+    fun resolveWith(stringResolver: StringResolver): String {
+        return when (this) {
+            is Str -> stringResolver.resolve(this.data)
+            is StringResId -> stringResolver.resolveStringId(this.data)
         }
     }
 

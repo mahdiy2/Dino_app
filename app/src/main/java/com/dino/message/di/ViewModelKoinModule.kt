@@ -21,6 +21,7 @@ import com.dino.message.chatfeature.domain.usecase.SaveMessageInDbUseCase
 import com.dino.message.chatfeature.domain.usecase.UploadAttachmentUseCase
 import com.dino.message.chatfeature.presentation.viewmodel.ChatViewModel
 import com.dino.message.corefeature.data.util.DeviceIdProvider
+import com.dino.message.corefeature.domain.device.DeviceInfoProvider
 import com.dino.message.corefeature.domain.usecase.ClearLocalSessionUseCase
 import com.dino.message.corefeature.presentation.viewmodel.CustomMessageDialogViewModel
 import com.dino.message.corefeature.presentation.viewmodel.MainActivityViewModel
@@ -112,8 +113,15 @@ import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
 
 val viewModelModule = module {
-    factory { DeviceIdProvider(context = androidContext()) }
-    factory { ClearLocalSessionUseCase(appContext = androidContext(), sPrefManager = get(), messageDatabase = get()) }
+    factory<DeviceInfoProvider> { DeviceIdProvider(context = androidContext()) }
+    factory {
+        ClearLocalSessionUseCase(
+            sPrefManager = get(),
+            messageDatabase = get(),
+            appNotificationController = get(),
+            fileSystemProvider = get(),
+        )
+    }
 
     factoryOf(::GetActivityNotificationsUseCase)
     factoryOf(::GetUnreadCountUseCase)

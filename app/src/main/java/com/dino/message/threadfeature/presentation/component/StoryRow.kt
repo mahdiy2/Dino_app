@@ -13,8 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -35,6 +33,7 @@ import com.dino.message.corefeature.presentation.util.resolveProfileImageShape
 import com.dino.message.profilefeature.domain.model.Profile
 import com.dino.message.profilefeature.presentation.component.ProfileAvatarMedia
 import com.dino.message.threadfeature.domain.model.StoryUserFeedItem
+import com.dino.message.corefeature.presentation.icons.AppIcons
 
 @Composable
 fun StoryRow(
@@ -156,7 +155,7 @@ private fun StoryCircleItem(
                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.Add,
+                        imageVector = AppIcons.Add,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onPrimaryContainer,
                         modifier = Modifier.size(12.dp)

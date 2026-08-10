@@ -14,9 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowBackIosNew
-import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -44,6 +41,7 @@ import com.dino.message.corefeature.presentation.ui.theme.DPSmall
 import com.dino.message.corefeature.presentation.util.backIconModifier
 import com.dino.message.profilefeature.presentation.component.ProfileAvatarMedia
 import com.dino.message.groupfeature.presentation.viewmodel.AddGroupMembersViewModel
+import com.dino.message.corefeature.presentation.icons.AppIcons
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -83,7 +81,7 @@ fun AddGroupMembersScreen(
                 navigationIcon = {
                     IconButton(onClick = { viewModel.navigateUp() }) {
                         Icon(
-                            imageVector = Icons.Rounded.ArrowBackIosNew,
+                            imageVector = AppIcons.ArrowBackIosNew,
                             contentDescription = stringResource(R.string.back),
                             modifier = backIconModifier()
                         )
@@ -205,7 +203,7 @@ fun AddGroupMembersScreen(
                                 }
                                 if (isSelected) {
                                     Icon(
-                                        imageVector = Icons.Rounded.Check,
+                                        imageVector = AppIcons.Check,
                                         contentDescription = stringResource(R.string.selected),
                                         tint = MaterialTheme.colorScheme.primary,
                                     )

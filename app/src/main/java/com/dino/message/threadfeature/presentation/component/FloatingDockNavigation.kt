@@ -18,9 +18,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Card
@@ -44,6 +41,7 @@ import androidx.compose.ui.unit.sp
 import com.dino.message.R
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.profilefeature.presentation.component.ProfileAvatarMedia
+import com.dino.message.corefeature.presentation.icons.AppIcons
 
 private val PILL_HEIGHT = 56.dp
 private val CENTER_BUTTON_SIZE = 44.dp
@@ -123,7 +121,7 @@ fun FloatingDockNavigation(
                 CenterCreateButton(onClick = onFabClick)
 
                 DockItem(
-                    imageVector = Icons.Rounded.LibraryMusic,
+                    imageVector = AppIcons.LibraryMusic,
                     contentDescription = "Playlist",
                     selected = selectedIndex == 2,
                     onClick = onPlaylistClick
@@ -232,7 +230,7 @@ private fun CenterCreateButton(
         contentAlignment = Alignment.Center
     ) {
         Icon(
-            imageVector = Icons.Rounded.Add,
+            imageVector = AppIcons.Add,
             contentDescription = "Create post",
             tint = MaterialTheme.colorScheme.onPrimary,
             modifier = Modifier

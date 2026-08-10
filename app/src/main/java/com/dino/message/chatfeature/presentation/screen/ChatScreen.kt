@@ -2,10 +2,8 @@ package com.dino.message.chatfeature.presentation.screen
 
 import android.Manifest
 import android.app.Activity
-import android.content.ClipData
 import android.os.Build
 import android.net.Uri
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -46,15 +44,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.DropdownMenuItem
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowBackIosNew
-import androidx.compose.material.icons.rounded.AccessTime
-import androidx.compose.material.icons.rounded.BugReport
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.ContentCopy
-import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material.icons.rounded.VpnKey
 import androidx.compose.material3.Badge
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedButton
@@ -109,6 +98,7 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import com.dino.message.R
 import com.dino.message.corefeature.presentation.component.UserBadgeIcon
+import com.dino.message.corefeature.presentation.platform.LocalPlatformUiEffect
 import com.dino.message.corefeature.presentation.util.backIconModifier
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -138,6 +128,7 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlin.math.min
+import com.dino.message.corefeature.presentation.icons.AppIcons
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -175,6 +166,7 @@ fun ChatScreen(
     val recordingDurationMs by viewModel.recordingDurationMs.collectAsState()
     val replyingTo by viewModel.replyingTo.collectAsState()
     val context = LocalContext.current
+    val platformUiEffect = LocalPlatformUiEffect.current
     val activity = context as? Activity
     val lifecycleOwner = LocalLifecycleOwner.current
     val isAndroid12Plus = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
@@ -190,9 +182,6 @@ fun ChatScreen(
 
     var pendingVoiceAction by remember { mutableStateOf<(() -> Unit)?>(null) }
     var mediaViewerUrl by remember { mutableStateOf<String?>(null) }
-    val clipboardManager =
-        remember { context.getSystemService(android.content.ClipboardManager::class.java) }
-
     var mediaViewerIsVideo by remember { mutableStateOf(false) }
     var pendingMediaType by remember { mutableStateOf<String?>(null) }
     var selectedMessage by remember { mutableStateOf<MessageEntity?>(null) }
@@ -287,11 +276,7 @@ fun ChatScreen(
     ) { permissions ->
         val accessLevel = MediaPermissionHandler.resolveAccessLevel(permissions)
         if (accessLevel == MediaAccessLevel.DENIED) {
-            Toast.makeText(
-                context,
-                context.getString(R.string.chat_media_permission_required),
-                Toast.LENGTH_SHORT
-            ).show()
+            platformUiEffect.showToast(context.getString(R.string.chat_media_permission_required))
         } else {
             when (pendingMediaType) {
                 "image" -> imagePickerLauncher.launch(
@@ -312,11 +297,7 @@ fun ChatScreen(
         if (granted) {
             pendingVoiceAction?.invoke()
         } else {
-            Toast.makeText(
-                context,
-                context.getString(R.string.microphone_permission_required),
-                Toast.LENGTH_SHORT
-            ).show()
+            platformUiEffect.showToast(context.getString(R.string.microphone_permission_required))
         }
         pendingVoiceAction = null
     }
@@ -651,40 +632,31 @@ fun ChatScreen(
                             }
                         ) {
                             MessageMenuRow(
-                                icon = Icons.Rounded.AccessTime,
+                                icon = AppIcons.AccessTime,
                                 title = formatMessageSentAt(message.timestamp),
                                 onClick = {},
                                 enabled = false
                             )
 
                             MessageMenuRow(
-                                icon = Icons.Rounded.ContentCopy,
+                                icon = AppIcons.ContentCopy,
                                 title = stringResource(R.string.copy),
                                 onClick = {
                                     if (message.content.isNotBlank()) {
-                                        val clip = ClipData.newPlainText(
-                                            context.getString(R.string.message),
-                                            message.content
+                                        platformUiEffect.copyPlainText(
+                                            label = context.getString(R.string.message),
+                                            text = message.content,
                                         )
-                                        clipboardManager?.setPrimaryClip(clip)
-                                        Toast.makeText(
-                                            context,
-                                            context.getString(R.string.copied_to_clipboard),
-                                            Toast.LENGTH_SHORT
-                                        ).show()
+                                        platformUiEffect.showToast(context.getString(R.string.copied_to_clipboard))
                                     } else {
-                                        Toast.makeText(
-                                            context,
-                                            context.getString(R.string.nothing_to_copy),
-                                            Toast.LENGTH_SHORT
-                                        ).show()
+                                        platformUiEffect.showToast(context.getString(R.string.nothing_to_copy))
                                     }
                                     dismissPopup()
                                 }
                             )
 
                             MessageMenuRow(
-                                icon = Icons.Rounded.Delete,
+                                icon = AppIcons.Delete,
                                 title = stringResource(R.string.delete),
                                 onClick = {
                                     deleteCandidate = message
@@ -803,7 +775,7 @@ fun ChatScreen(
                                 onClick = { showMenu = true }
                             ) {
                                 Icon(
-                                    imageVector = Icons.Rounded.MoreVert,
+                                    imageVector = AppIcons.MoreVert,
                                     contentDescription = null
                                 )
                             }
@@ -823,7 +795,7 @@ fun ChatScreen(
                                     },
                                     leadingIcon = {
                                         Icon(
-                                            imageVector = Icons.Rounded.VpnKey,
+                                            imageVector = AppIcons.VpnKey,
                                             contentDescription = null
                                         )
                                     }
@@ -839,7 +811,7 @@ fun ChatScreen(
                                     },
                                     leadingIcon = {
                                         Icon(
-                                            imageVector = Icons.Rounded.Delete,
+                                            imageVector = AppIcons.Delete,
                                             contentDescription = null
                                         )
                                     }
@@ -850,7 +822,7 @@ fun ChatScreen(
                     navigationIcon = {
                         IconButton(onClick = { viewModel.navigateUp() }) {
                             Icon(
-                                imageVector = Icons.Rounded.ArrowBackIosNew,
+                                imageVector = AppIcons.ArrowBackIosNew,
                                 contentDescription = stringResource(R.string.back),
                                 modifier = backIconModifier()
                             )
@@ -1054,25 +1026,20 @@ fun ChatScreen(
                             Row {
                                 IconButton(onClick = {
                                     val allLogs = socketDebugEvents.joinToString("\n")
-                                    val clip = ClipData.newPlainText(
-                                        context.getString(R.string.socket_debug_log),
-                                        allLogs
+                                    platformUiEffect.copyPlainText(
+                                        label = context.getString(R.string.socket_debug_log),
+                                        text = allLogs,
                                     )
-                                    clipboardManager?.setPrimaryClip(clip)
-                                    Toast.makeText(
-                                        context,
-                                        context.getString(R.string.copied_to_clipboard),
-                                        Toast.LENGTH_SHORT
-                                    ).show()
+                                    platformUiEffect.showToast(context.getString(R.string.copied_to_clipboard))
                                 }) {
                                     Icon(
-                                        imageVector = Icons.Rounded.ContentCopy,
+                                        imageVector = AppIcons.ContentCopy,
                                         contentDescription = stringResource(R.string.copy_all)
                                     )
                                 }
                                 IconButton(onClick = { showDebugLog = false }) {
                                     Icon(
-                                        imageVector = Icons.Rounded.Close,
+                                        imageVector = AppIcons.Close,
                                         contentDescription = stringResource(R.string.close)
                                     )
                                 }

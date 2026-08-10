@@ -7,17 +7,16 @@ import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import com.dino.message.corefeature.presentation.navigation.AppRoute
 import com.dino.message.corefeature.presentation.navigation.isModalRoute
-import com.dino.message.DinoOrderApplication
 import kotlinx.coroutines.flow.collectLatest
 
 @Composable
 fun HandleUIEvent(
-    app: DinoOrderApplication,
+    uiEventBus: UiEventBus,
     navController: NavHostController,
     activeModalRoute: MutableState<AppRoute?>,
 ) {
     LaunchedEffect(key1 = true) {
-        app.uIEventFlow.collectLatest { event ->
+        uiEventBus.uIEventFlow.collectLatest { event ->
             when (event) {
                 is UIEvent.NavigateWithPopBackStack -> {
                     when (event.level) {

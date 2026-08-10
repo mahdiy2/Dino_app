@@ -1,7 +1,7 @@
 package com.dino.message.authfeature.domain.usecase
 
 import com.dino.message.corefeature.data.spref.SPrefManager
-import com.dino.message.corefeature.data.util.DeviceIdProvider
+import com.dino.message.corefeature.domain.device.DeviceInfoProvider
 import com.dino.message.corefeature.presentation.util.Resource
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.flow.first
@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.flow
 
 class SyncDeviceIdUseCase constructor(
     private val sPrefManager: SPrefManager,
-    private val deviceIdProvider: DeviceIdProvider,
+    private val deviceIdProvider: DeviceInfoProvider,
     private val updateDeviceIdUseCase: UpdateDeviceIdUseCase,
 ) {
     private val isSendingDeviceId = AtomicBoolean(false)

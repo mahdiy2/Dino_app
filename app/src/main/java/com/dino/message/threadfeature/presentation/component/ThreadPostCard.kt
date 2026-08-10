@@ -25,8 +25,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -65,6 +63,7 @@ import com.dino.message.threadfeature.domain.model.Post
 import com.dino.message.threadfeature.domain.model.PostMedia
 import com.dino.message.threadfeature.presentation.util.artistTextOrUnknown
 import com.dino.message.threadfeature.presentation.util.resolveMusicMetadata
+import com.dino.message.corefeature.presentation.icons.AppIcons
 
 @Composable
 fun ThreadPostCard(
@@ -234,7 +233,7 @@ fun ThreadPostCard(
                                 modifier = Modifier.size(24.dp)
                             ) {
                                 Icon(
-                                    imageVector = Icons.Rounded.MoreVert,
+                                    imageVector = AppIcons.MoreVert,
                                     contentDescription = stringResource(R.string.post_actions),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )

@@ -1,7 +1,7 @@
 package com.dino.message.groupfeature.data.remote
 
-import android.net.Uri
 import com.dino.message.chatfeature.data.remote.dto.MessageAttachment
+import com.dino.message.corefeature.data.upload.ReadableMediaFile
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.groupfeature.domain.model.AddGroupMembersResult
 import com.dino.message.groupfeature.domain.model.Group
@@ -22,6 +22,6 @@ interface GroupApiService {
     suspend fun getMutualFollowers(page: Int, limit: Int): Resource<MutualFollowersPage>
     suspend fun getPublicRoomStatus(): Resource<PublicRoomStatus>
     suspend fun joinPublicRoom(): Resource<JoinPublicRoomResult>
-    suspend fun uploadGroupAttachment(groupId: Int, fileUri: Uri): Resource<MessageAttachment>
+    suspend fun uploadGroupAttachment(groupId: Int, file: ReadableMediaFile): Resource<MessageAttachment>
     suspend fun reactToMessage(messageId: String, emoji: String?): Resource<Unit>
 }

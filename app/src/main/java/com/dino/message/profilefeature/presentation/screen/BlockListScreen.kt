@@ -9,9 +9,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowBackIosNew
-import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -44,6 +41,7 @@ import com.dino.message.corefeature.presentation.util.backIconModifier
 import com.dino.message.profilefeature.presentation.component.ProfileAvatarMedia
 import com.dino.message.profilefeature.presentation.viewmodel.BlockListViewModel
 import com.dino.message.threadfeature.presentation.component.PostContainer
+import com.dino.message.corefeature.presentation.icons.AppIcons
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -74,7 +72,7 @@ fun BlockListScreen() {
                 navigationIcon = {
                     IconButton(onClick = viewModel::navigateUp) {
                         Icon(
-                            imageVector = Icons.Rounded.ArrowBackIosNew,
+                            imageVector = AppIcons.ArrowBackIosNew,
                             contentDescription = stringResource(R.string.back),
                             modifier = backIconModifier()
                         )
@@ -83,7 +81,7 @@ fun BlockListScreen() {
                 actions = {
                     IconButton(onClick = viewModel::refresh) {
                         Icon(
-                            imageVector = Icons.Rounded.Refresh,
+                            imageVector = AppIcons.Refresh,
                             contentDescription = stringResource(R.string.refresh)
                         )
                     }

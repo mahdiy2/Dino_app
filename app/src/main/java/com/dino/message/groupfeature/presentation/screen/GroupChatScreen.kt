@@ -2,9 +2,7 @@ package com.dino.message.groupfeature.presentation.screen
 
 import android.Manifest
 import android.app.Activity
-import android.content.ClipData
 import android.os.Build
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -22,15 +20,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ExitToApp
-import androidx.compose.material.icons.rounded.ArrowBackIosNew
-import androidx.compose.material.icons.rounded.AccessTime
-import androidx.compose.material.icons.rounded.ContentCopy
-import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material.icons.rounded.VpnKey
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.getValue
@@ -70,6 +59,7 @@ import com.dino.message.chatfeature.domain.model.MessageDeliveryStatus
 import com.dino.message.chatfeature.domain.util.decodeMessageReactions
 import com.dino.message.chatfeature.presentation.screen.WindowKeyboardController
 import com.dino.message.R
+import com.dino.message.corefeature.presentation.platform.LocalPlatformUiEffect
 import com.dino.message.corefeature.presentation.util.backIconModifier
 import com.dino.message.groupfeature.domain.model.GroupMessageEntity
 import com.dino.message.groupfeature.presentation.component.GroupChatSurface
@@ -84,6 +74,7 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlin.math.min
+import com.dino.message.corefeature.presentation.icons.AppIcons
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -112,6 +103,7 @@ fun GroupChatScreen(
     val typingGroupUsers by viewModel.typingGroupUsers.collectAsState()
     val isLeavingGroup by viewModel.isLeavingGroup.collectAsState()
     val context = LocalContext.current
+    val platformUiEffect = LocalPlatformUiEffect.current
     val activity = context as? Activity
     val lifecycleOwner = LocalLifecycleOwner.current
     val isAndroid12Plus = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
@@ -178,7 +170,7 @@ fun GroupChatScreen(
     }
     LaunchedEffect(exitChatReason) {
         exitChatReason?.let {
-            Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+            platformUiEffect.showToast(it)
             viewModel.consumeExitChatReason()
             viewModel.navigateUp()
         }
@@ -226,11 +218,7 @@ fun GroupChatScreen(
     ) { permissions ->
         val accessLevel = MediaPermissionHandler.resolveAccessLevel(permissions)
         if (accessLevel == MediaAccessLevel.DENIED) {
-            Toast.makeText(
-                context,
-                context.getString(R.string.group_media_permission_required),
-                Toast.LENGTH_SHORT
-            ).show()
+            platformUiEffect.showToast(context.getString(R.string.group_media_permission_required))
         } else {
             when (pendingMediaType) {
                 "image" -> imagePickerLauncher.launch(
@@ -248,7 +236,7 @@ fun GroupChatScreen(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         if (granted) pendingVoiceAction?.invoke()
-        else Toast.makeText(context, context.getString(R.string.microphone_permission_denied), Toast.LENGTH_SHORT).show()
+        else platformUiEffect.showToast(context.getString(R.string.microphone_permission_denied))
     }
 
     if (mediaViewerUrl != null) {
@@ -470,28 +458,29 @@ fun GroupChatScreen(
                             }
                         ) {
                             GroupMessageMenuRow(
-                                icon = Icons.Rounded.AccessTime,
+                                icon = AppIcons.AccessTime,
                                 title = formatMessageSentAt(message.timestamp),
                                 onClick = {},
                                 enabled = false
                             )
                             GroupMessageMenuRow(
-                                icon = Icons.Rounded.ContentCopy,
+                                icon = AppIcons.ContentCopy,
                                 title = stringResource(R.string.copy),
                                 onClick = {
                                     if (message.content.isNotBlank()) {
-                                        val clip = ClipData.newPlainText(context.getString(R.string.message), message.content)
-                                        context.getSystemService(android.content.ClipboardManager::class.java)
-                                            ?.setPrimaryClip(clip)
-                                        Toast.makeText(context, context.getString(R.string.copied_to_clipboard), Toast.LENGTH_SHORT).show()
+                                        platformUiEffect.copyPlainText(
+                                            label = context.getString(R.string.message),
+                                            text = message.content,
+                                        )
+                                        platformUiEffect.showToast(context.getString(R.string.copied_to_clipboard))
                                     } else {
-                                        Toast.makeText(context, context.getString(R.string.nothing_to_copy), Toast.LENGTH_SHORT).show()
+                                        platformUiEffect.showToast(context.getString(R.string.nothing_to_copy))
                                     }
                                     dismissPopup()
                                 }
                             )
                             GroupMessageMenuRow(
-                                icon = Icons.Rounded.Delete,
+                                icon = AppIcons.Delete,
                                 title = stringResource(R.string.delete),
                                 onClick = {
                                     deleteCandidate = message
@@ -631,7 +620,7 @@ fun GroupChatScreen(
                 navigationIcon = {
                     IconButton(onClick = { viewModel.navigateUp() }) {
                         Icon(
-                            imageVector = Icons.Rounded.ArrowBackIosNew,
+                            imageVector = AppIcons.ArrowBackIosNew,
                             contentDescription = stringResource(R.string.back),
                             modifier = backIconModifier()
                         )
@@ -645,7 +634,7 @@ fun GroupChatScreen(
                                 enabled = !isLeavingGroup
                             ) {
                                 Icon(
-                                    imageVector = Icons.Rounded.MoreVert,
+                                    imageVector = AppIcons.MoreVert,
                                     contentDescription = null
                                 )
                             }
@@ -664,7 +653,7 @@ fun GroupChatScreen(
                                     },
                                     leadingIcon = {
                                         Icon(
-                                            imageVector = Icons.Rounded.VpnKey,
+                                            imageVector = AppIcons.VpnKey,
                                             contentDescription = null
                                         )
                                     }
@@ -680,7 +669,7 @@ fun GroupChatScreen(
                                     enabled = !isLeavingGroup,
                                     leadingIcon = {
                                         Icon(
-                                            imageVector = Icons.AutoMirrored.Rounded.ExitToApp,
+                                            imageVector = AppIcons.ExitToApp,
                                             contentDescription = null
                                         )
                                     }
@@ -690,7 +679,7 @@ fun GroupChatScreen(
                     } else {
                         IconButton(onClick = { showMessageSecurityDialog = true }) {
                             Icon(
-                                imageVector = Icons.Rounded.Info,
+                                imageVector = AppIcons.Info,
                                 contentDescription = stringResource(R.string.message_security_info)
                             )
                         }

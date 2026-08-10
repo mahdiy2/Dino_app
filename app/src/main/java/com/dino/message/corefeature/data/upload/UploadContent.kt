@@ -10,6 +10,18 @@ fun interface UploadInputProvider {
     fun open(): Input
 }
 
+data class MediaFileHandle(
+    val id: String,
+    val displayName: String,
+    val mimeType: String,
+    val sizeBytes: Long? = null,
+)
+
+data class ReadableMediaFile(
+    val handle: MediaFileHandle,
+    val openInput: UploadInputProvider,
+)
+
 data class UploadFilePart(
     val formName: String,
     val fileName: String,
@@ -31,5 +43,15 @@ fun FormBuilder.appendUploadFile(part: UploadFilePart) {
                 "form-data; name=\"${part.formName}\"; filename=\"${part.fileName}\""
             )
         },
+    )
+}
+
+fun ReadableMediaFile.toUploadFilePart(formName: String): UploadFilePart {
+    return UploadFilePart(
+        formName = formName,
+        fileName = handle.displayName,
+        mimeType = handle.mimeType,
+        size = handle.sizeBytes,
+        openInput = openInput,
     )
 }

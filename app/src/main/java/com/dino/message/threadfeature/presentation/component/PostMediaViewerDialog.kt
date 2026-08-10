@@ -27,9 +27,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -59,6 +56,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.net.URL
+import com.dino.message.corefeature.presentation.icons.AppIcons
 
 @Composable
 fun PostMediaViewerDialog(
@@ -138,7 +136,7 @@ fun PostMediaViewerDialog(
                         )
                     ) {
                         Icon(
-                            imageVector = Icons.Rounded.Download,
+                            imageVector = AppIcons.Download,
                             contentDescription = stringResource(R.string.download_media),
                             tint = Color.White
                         )
@@ -152,7 +150,7 @@ fun PostMediaViewerDialog(
                     )
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.Close,
+                        imageVector = AppIcons.Close,
                         contentDescription = stringResource(R.string.close),
                         tint = Color.White
                     )

@@ -1,6 +1,5 @@
 package com.dino.message.chatfeature.domain.repository
 
-import android.net.Uri
 import com.dino.message.chatfeature.data.remote.dto.MessageAttachment
 import com.dino.message.chatfeature.data.remote.dto.MessageSent
 import com.dino.message.chatfeature.data.remote.dto.NewMessage
@@ -11,6 +10,7 @@ import com.dino.message.chatfeature.domain.model.MessageEntity
 import com.dino.message.chatfeature.domain.model.PrivateHistoryPage
 import com.dino.message.chatfeature.domain.model.ReceiverPublicKey
 import com.dino.message.chatfeature.domain.model.SendMessage
+import com.dino.message.corefeature.data.upload.ReadableMediaFile
 import com.dino.message.corefeature.presentation.util.Resource
 
 interface ChatRepository {
@@ -25,7 +25,7 @@ interface ChatRepository {
 
     suspend fun sendMessage(to: String, message: String, encryptedKey: String): Resource<SendMessage>
 
-    suspend fun uploadAttachment(fileUri: Uri): Resource<MessageAttachment>
+    suspend fun uploadAttachment(file: ReadableMediaFile): Resource<MessageAttachment>
 
     suspend fun saveMessage(message: MessageEntity)
     suspend fun getMessages(chatId: String, limit: Int, offset: Int = 0): List<MessageEntity>

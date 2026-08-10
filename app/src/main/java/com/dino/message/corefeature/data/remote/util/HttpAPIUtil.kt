@@ -1,16 +1,17 @@
 package com.dino.message.corefeature.data.remote.util
 
 import android.content.Context
-import com.dino.message.BuildConfig
-import com.dino.message.DinoOrderApplication
 import com.dino.message.R
 import com.dino.message.corefeature.data.remote.NetworkExceptionClassifier
 import com.dino.message.corefeature.data.remote.ResponseToResultMapper
 import com.dino.message.corefeature.data.remote.logging.AppLogger
 import com.dino.message.corefeature.data.spref.SPrefManager
+import com.dino.message.corefeature.domain.config.AppConfig
 import com.dino.message.corefeature.domain.model.asStringResourceContent
+import com.dino.message.corefeature.domain.resource.StringResolver
 import com.dino.message.corefeature.presentation.util.PopBackStackLevel
 import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.corefeature.presentation.util.UiEventBus
 import com.dino.message.corefeature.util.RefreshTokenExpiredException
 import com.dino.message.corefeature.presentation.util.UIEvent
 import com.dino.message.corefeature.util.RetryableException
@@ -36,6 +37,11 @@ class HttpAPIUtil constructor(
     internal val networkExceptionClassifier: NetworkExceptionClassifier,
     @PublishedApi
     internal val appLogger: AppLogger,
+    private val uiEventBus: UiEventBus,
+    @PublishedApi
+    internal val stringResolver: StringResolver,
+    @PublishedApi
+    internal val appConfig: AppConfig,
 ) {
 
 
@@ -75,7 +81,7 @@ class HttpAPIUtil constructor(
                     status == HttpStatusCode.BadRequest -> Resource.Error(
                         message = (
                             extractServerErrorMessage(rawErrorBody)
-                                ?: context.getString(R.string.error_bad_request)
+                                ?: stringResolver.resolveStringId(R.string.error_bad_request)
                             ).asStringResourceContent()
                     )
 
@@ -105,7 +111,7 @@ class HttpAPIUtil constructor(
                             Resource.Error(
                                 message = (
                                     extractServerErrorMessage(rawErrorBody)
-                                        ?: context.getString(
+                                        ?: stringResolver.resolveStringId(
                                             R.string.error_with_http_status_code,
                                             status.value
                                         )
@@ -117,7 +123,7 @@ class HttpAPIUtil constructor(
                     status == HttpStatusCode.Forbidden -> {
                         val serverError = extractServerErrorMessage(rawErrorBody)
                         Resource.Error(
-                            message = (serverError ?: context.getString(R.string.error_forbidden))
+                            message = (serverError ?: stringResolver.resolveStringId(R.string.error_forbidden))
                                 .asStringResourceContent()
                         )
                     }
@@ -125,28 +131,28 @@ class HttpAPIUtil constructor(
                     status == HttpStatusCode.NotFound -> Resource.Error(
                         message = (
                             extractServerErrorMessage(rawErrorBody)
-                                ?: context.getString(R.string.error_not_found)
+                                ?: stringResolver.resolveStringId(R.string.error_not_found)
                             ).asStringResourceContent()
                     )
 
                     status == HttpStatusCode.Conflict -> Resource.Error(
                         message = (
                             extractServerErrorMessage(rawErrorBody)
-                                ?: context.getString(R.string.error_conflict)
+                                ?: stringResolver.resolveStringId(R.string.error_conflict)
                             ).asStringResourceContent()
                     )
 
                     status == HttpStatusCode.TooManyRequests -> Resource.Error(
                         message = (
                             extractServerErrorMessage(rawErrorBody)
-                                ?: context.getString(R.string.error_too_many_login_attempts)
+                                ?: stringResolver.resolveStringId(R.string.error_too_many_login_attempts)
                             ).asStringResourceContent()
                     )
 
                     status == HttpStatusCode.Gone -> Resource.Error(
                         message = (
                             extractServerErrorMessage(rawErrorBody)
-                                ?: context.getString(
+                                ?: stringResolver.resolveStringId(
                                     R.string.error_with_http_status_code,
                                     status.value
                                 )
@@ -160,14 +166,14 @@ class HttpAPIUtil constructor(
                     status == HttpStatusCode.InternalServerError -> Resource.Error(
                         message = (
                             extractServerErrorMessage(rawErrorBody)
-                                ?: context.getString(R.string.internal_server_error)
+                                ?: stringResolver.resolveStringId(R.string.internal_server_error)
                             ).asStringResourceContent()
                     )
 
                     else -> Resource.Error(
                         message = (
                             extractServerErrorMessage(rawErrorBody)
-                                ?: context.getString(
+                                ?: stringResolver.resolveStringId(
                                     R.string.error_with_http_status_code,
                                     status.value
                                 )
@@ -186,7 +192,7 @@ class HttpAPIUtil constructor(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: JsonConvertException) {
-                if (BuildConfig.DEBUG) throw e
+                if (appConfig.isDebug) throw e
                 Resource.Error(
                     message = R.string.error_convert_json_response.asStringResourceContent()
                 )
@@ -270,8 +276,7 @@ class HttpAPIUtil constructor(
 
     private suspend fun clearAuthSessionAndRedirectToLogin() {
         sPrefManager.clearAuthSession()
-        val app = context.applicationContext as? DinoOrderApplication ?: return
-        app.mutableUIEventFlow.emit(
+        uiEventBus.mutableUIEventFlow.emit(
             UIEvent.NavigateWithPopBackStack(
                 route = AppRoute.Login,
                 level = PopBackStackLevel.ALL

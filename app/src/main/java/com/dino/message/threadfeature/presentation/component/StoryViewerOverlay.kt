@@ -24,14 +24,6 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.Send
-import androidx.compose.material.icons.rounded.BarChart
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material.icons.rounded.FavoriteBorder
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -73,6 +65,7 @@ import com.dino.message.profilefeature.presentation.component.ProfileAvatarMedia
 import com.dino.message.threadfeature.domain.model.StoryBundle
 import com.dino.message.threadfeature.domain.model.StoryViewer
 import kotlinx.coroutines.delay
+import com.dino.message.corefeature.presentation.icons.AppIcons
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
@@ -266,7 +259,7 @@ fun StoryViewerOverlay(
                             .size(48.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Rounded.PlayArrow,
+                            imageVector = AppIcons.PlayArrow,
                             contentDescription = null,
                             tint = Color.White,
                             modifier = Modifier.padding(10.dp)
@@ -413,7 +406,7 @@ fun StoryViewerOverlay(
                 Spacer(modifier = Modifier.weight(1f))
                 IconButton(onClick = onDismiss) {
                     Icon(
-                        imageVector = Icons.Rounded.Close,
+                        imageVector = AppIcons.Close,
                         contentDescription = "Close",
                         tint = Color.White
                     )
@@ -439,7 +432,7 @@ fun StoryViewerOverlay(
                         enabled = !isActionInFlight
                     ) {
                         Icon(
-                            imageVector = if (isLiked) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                            imageVector = if (isLiked) AppIcons.Favorite else AppIcons.FavoriteBorder,
                             contentDescription = "Like",
                             tint = if (isLiked) Color(0xFFFF6B7A) else Color.White
                         )
@@ -482,7 +475,7 @@ fun StoryViewerOverlay(
                             )
                         } else {
                             Icon(
-                                imageVector = Icons.AutoMirrored.Rounded.Send,
+                                imageVector = AppIcons.Send,
                                 contentDescription = "Send reply",
                                 tint = Color.White
                             )
@@ -503,14 +496,14 @@ fun StoryViewerOverlay(
                         enabled = !isActionInFlight
                     ) {
                         Icon(
-                            imageVector = Icons.Rounded.Delete,
+                            imageVector = AppIcons.Delete,
                             contentDescription = "Delete story",
                             tint = Color.White
                         )
                     }
                     IconButton(onClick = { onLoadInsights(current.story_id) }) {
                         Icon(
-                            imageVector = Icons.Rounded.BarChart,
+                            imageVector = AppIcons.BarChart,
                             contentDescription = "Viewers",
                             tint = Color.White
                         )

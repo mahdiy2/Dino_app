@@ -25,11 +25,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowBackIosNew
-import androidx.compose.material.icons.rounded.Group
-import androidx.compose.material.icons.rounded.Share
-import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
@@ -70,6 +65,7 @@ import com.dino.message.profilefeature.domain.model.ReferralSummary
 import com.dino.message.profilefeature.presentation.viewmodel.ReferralViewModel
 import com.dino.message.threadfeature.presentation.component.PostContainer
 import kotlinx.coroutines.delay
+import com.dino.message.corefeature.presentation.icons.AppIcons
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -90,7 +86,7 @@ fun ReferralScreen() {
                 navigationIcon = {
                     IconButton(onClick = viewModel::navigateUp) {
                         Icon(
-                            imageVector = Icons.Rounded.ArrowBackIosNew,
+                            imageVector = AppIcons.ArrowBackIosNew,
                             contentDescription = stringResource(R.string.back),
                             modifier = backIconModifier(),
                         )
@@ -235,7 +231,7 @@ private fun ReferralHeroCard(
                     ) {
                         Icon(
                             modifier = Modifier.padding(DPMedium),
-                            imageVector = Icons.Rounded.Share,
+                            imageVector = AppIcons.Share,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurface,
                         )
@@ -322,7 +318,7 @@ private fun ReferralProgressCard(
                 horizontalArrangement = Arrangement.spacedBy(DPSmall),
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.Group,
+                    imageVector = AppIcons.Group,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
                 )
@@ -354,7 +350,7 @@ private fun ReferralProgressCard(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.Star,
+                        imageVector = AppIcons.Star,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
                     )
@@ -474,7 +470,7 @@ private fun ReferralBadgeCard(
                         )
                         if (hasVerifiedReferralBadge) {
                             Icon(
-                                imageVector = Icons.Rounded.Star,
+                                imageVector = AppIcons.Star,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.primary,
                             )

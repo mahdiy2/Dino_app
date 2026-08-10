@@ -4,8 +4,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -30,6 +28,7 @@ import com.dino.message.corefeature.presentation.platform.isPlatformImageError
 import com.dino.message.corefeature.presentation.platform.isPlatformImageLoading
 import com.dino.message.corefeature.presentation.platform.rememberPlatformImageRequest
 import com.dino.message.corefeature.presentation.util.resolveProfileImageShape
+import com.dino.message.corefeature.presentation.icons.AppIcons
 
 @Composable
 fun ProfileAvatarMedia(
@@ -104,7 +103,7 @@ private fun ProfileImageAvatar(
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = Icons.Rounded.Person,
+                imageVector = AppIcons.Person,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -137,7 +136,7 @@ private fun ProfileImageAvatar(
 
         if (isError) {
             Icon(
-                imageVector = Icons.Rounded.Person,
+                imageVector = AppIcons.Person,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )

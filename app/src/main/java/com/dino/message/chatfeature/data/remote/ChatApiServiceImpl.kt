@@ -1,8 +1,6 @@
 package com.dino.message.chatfeature.data.remote
 
 import android.content.Context
-import android.net.Uri
-import android.provider.OpenableColumns
 import android.util.Log
 import com.dino.message.chatfeature.data.remote.dto.InboxResponse
 import com.dino.message.chatfeature.data.remote.dto.MessageAttachment
@@ -29,8 +27,9 @@ import com.dino.message.corefeature.data.remote.util.ensureFreshAccessTokenIfNea
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.data.upload.AndroidUploadContentProvider
 import com.dino.message.corefeature.data.upload.AttachmentUploadPolicy
-import com.dino.message.corefeature.data.upload.MediaFileResolver
+import com.dino.message.corefeature.data.upload.ReadableMediaFile
 import com.dino.message.corefeature.data.upload.appendUploadFile
+import com.dino.message.corefeature.data.upload.toUploadFilePart
 import com.dino.message.corefeature.domain.model.asStringResourceContent
 import com.dino.message.corefeature.presentation.util.Resource
 import io.ktor.client.HttpClient
@@ -119,10 +118,10 @@ class ChatApiServiceImpl constructor(
             callRefreshTokenAPI = this::getToken
         )
 
-    override suspend fun uploadAttachment(fileUri: Uri): Resource<MessageAttachment> {
-        val mimeType = AttachmentUploadPolicy.normalizeMimeType(resolveMimeType(fileUri))
-        val fileName = resolveFileName(fileUri)
-        val fileSize = resolveFileSize(fileUri)
+    override suspend fun uploadAttachment(file: ReadableMediaFile): Resource<MessageAttachment> {
+        val mimeType = AttachmentUploadPolicy.normalizeMimeType(file.handle.mimeType)
+        val fileName = file.handle.displayName
+        val fileSize = file.handle.sizeBytes
         val validationError = AttachmentUploadPolicy.validate(
             mimeType = mimeType,
             fileSizeBytes = fileSize,
@@ -130,7 +129,7 @@ class ChatApiServiceImpl constructor(
         if (validationError != null) {
             return Resource.Error(message = validationError.asStringResourceContent())
         }
-        if (!uploadContentProvider.canRead(fileUri)) {
+        if (!uploadContentProvider.canRead(file)) {
             return Resource.Error(message = "Cannot read file".asStringResourceContent())
         }
         val startedAt = System.currentTimeMillis()
@@ -156,13 +155,9 @@ class ChatApiServiceImpl constructor(
                         MultiPartFormDataContent(
                             formData {
                                 appendUploadFile(
-                                    uploadContentProvider.filePart(
-                                        uri = fileUri,
-                                        formName = "file",
-                                        fileName = fileName,
-                                        mimeType = mimeType,
-                                        size = fileSize,
-                                    )
+                                    file.copy(
+                                        handle = file.handle.copy(mimeType = mimeType)
+                                    ).toUploadFilePart(formName = "file")
                                 )
                             }
                         )
@@ -197,32 +192,6 @@ class ChatApiServiceImpl constructor(
             }
             is Resource.Loading -> result
         }
-    }
-
-    private fun resolveFileName(uri: Uri): String {
-        if (uri.scheme == "file") {
-            return uri.lastPathSegment ?: "file"
-        }
-        val cursor = appContext.contentResolver.query(uri, null, null, null, null)
-            ?: return uri.lastPathSegment ?: "file"
-        return cursor.use {
-            if (it.moveToFirst()) {
-                val index = it.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-                if (index >= 0) it.getString(index) else uri.lastPathSegment ?: "file"
-            } else uri.lastPathSegment ?: "file"
-        }
-    }
-
-    private fun resolveMimeType(uri: Uri): String {
-        return MediaFileResolver.resolveMimeType(
-            contentResolver = appContext.contentResolver,
-            uri = uri,
-            displayNameHint = resolveFileName(uri),
-        )
-    }
-
-    private fun resolveFileSize(uri: Uri): Long? {
-        return MediaFileResolver.resolveFileSize(appContext.contentResolver, uri)
     }
 
     private fun isLikelyWeakNetworkError(message: String): Boolean {

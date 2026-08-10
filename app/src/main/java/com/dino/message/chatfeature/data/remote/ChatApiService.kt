@@ -1,8 +1,8 @@
 package com.dino.message.chatfeature.data.remote
 
-import android.net.Uri
 import com.dino.message.chatfeature.data.remote.dto.MessageAttachment
 import com.dino.message.chatfeature.data.remote.dto.UnreadResponse
+import com.dino.message.corefeature.data.upload.ReadableMediaFile
 import com.dino.message.chatfeature.domain.model.Inbox
 import com.dino.message.chatfeature.domain.model.PrivateHistoryPage
 import com.dino.message.chatfeature.domain.model.ReceiverPublicKey
@@ -26,7 +26,7 @@ interface ChatApiService {
         encryptedKey: String
     ): Resource<SendMessage>
 
-    suspend fun uploadAttachment(fileUri: Uri): Resource<MessageAttachment>
+    suspend fun uploadAttachment(file: ReadableMediaFile): Resource<MessageAttachment>
     suspend fun reactToMessage(messageId: String, emoji: String?): Resource<Unit>
 
     suspend fun getUnread(): Resource<UnreadResponse>

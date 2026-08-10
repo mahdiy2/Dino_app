@@ -8,6 +8,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.dino.message.DinoOrderApplication
+import com.dino.message.corefeature.data.upload.AndroidUploadContentProvider
 import com.dino.message.corefeature.data.upload.MediaFileResolver
 import com.dino.message.corefeature.data.upload.MediaMimePolicy
 import com.dino.message.corefeature.data.spref.SPrefManager
@@ -44,6 +45,7 @@ class PostMusicViewModel constructor(
     private val createPostUseCase: CreatePostUseCase,
     private val editPostUseCase: EditPostUseCase,
     private val getPostUseCase: GetPostUseCase,
+    private val uploadContentProvider: AndroidUploadContentProvider,
     savedStateHandle: SavedStateHandle
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
@@ -262,10 +264,12 @@ class PostMusicViewModel constructor(
         if (!canRead) return null
 
         return CreatePostMedia(
-            uri = track.uri,
-            fileName = track.displayName,
-            mimeType = track.mimeType,
-            sizeBytes = queryFileSize(track.uri),
+            file = uploadContentProvider.readableMediaFile(
+                uri = track.uri,
+                displayName = track.displayName,
+                mimeType = track.mimeType,
+                sizeBytes = queryFileSize(track.uri),
+            ),
             trackTitle = track.title,
             trackArtist = track.artist
         )

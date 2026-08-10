@@ -1,10 +1,11 @@
 package com.dino.message.profilefeature.domain.model
 
-import android.net.Uri
+import com.dino.message.corefeature.data.upload.ReadableMediaFile
 
 data class ProfileUpdateImage(
-    val uri: Uri,
-    val fileName: String,
-    val mimeType: String,
-    val sizeBytes: Long? = null,
-)
+    val file: ReadableMediaFile,
+) {
+    val fileName: String get() = file.handle.displayName
+    val mimeType: String get() = file.handle.mimeType
+    val sizeBytes: Long? get() = file.handle.sizeBytes
+}

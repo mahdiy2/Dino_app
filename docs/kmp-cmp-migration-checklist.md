@@ -392,7 +392,7 @@ Bridge completion notes:
   the concrete Android recorder type, while runtime microphone permission
   launchers remain in Android UI screens.
 
-### Background Work
+### Background Work ✅ Done for bridge milestone
 
 Current dependency:
 
@@ -400,16 +400,28 @@ Current dependency:
 
 Migration actions:
 
-- Keep WorkManager only in Android source set.
-- Abstract background tasks:
+- [x] Keep WorkManager only in Android source set.
+- [x] Abstract background tasks:
   - Pending private chat upload retry.
   - Pending group upload retry.
   - Socket outbound retry.
   - Crash log retry.
-- For non-Android targets, choose platform-specific scheduling or run retries
+- [x] For non-Android targets, choose platform-specific scheduling or run retries
   in app lifecycle scope.
 
-### Android UI Utility Libraries
+Bridge completion notes:
+
+- Background retry requests now go through an app-owned `BackgroundTaskScheduler`
+  and task registry instead of feature code directly owning scheduling details.
+- Socket outbound retry and crash log retry are registered task handlers that
+  preserve the current in-process coroutine behavior for the Android app.
+- Private and group upload retry task IDs exist as no-op bridge hooks; persistent
+  attachment upload retry is deferred until cross-platform file-handle retention
+  and retry UX are specified.
+- WorkManager remains an Android dependency and can be introduced behind the
+  Android scheduler implementation without changing shared-facing task callers.
+
+### Android UI Utility Libraries ✅ Done for bridge milestone
 
 Current dependencies:
 
@@ -422,18 +434,32 @@ Current dependencies:
 
 Migration actions:
 
-- Replace `SwipeRefreshLayout` and custom View subclassing with CMP pull refresh
+- [x] Replace `SwipeRefreshLayout` and custom View subclassing with CMP pull refresh
   or pure Compose gesture logic.
-- Replace Accompanist system UI controller with platform-specific system bar
+- [x] Replace Accompanist system UI controller with platform-specific system bar
   handling.
-- Verify `constraintlayout-compose` availability for CMP targets; otherwise
+- [x] Verify `constraintlayout-compose` availability for CMP targets; otherwise
   rewrite layouts with `Box`, `Row`, `Column`, `Lazy*`, and custom layouts.
-- Verify `graphics-shapes` target support before moving shape utilities to
+- [x] Verify `graphics-shapes` target support before moving shape utilities to
   common code.
-- Keep material icons if the selected CMP dependency provides them for all
+- [x] Keep material icons if the selected CMP dependency provides them for all
   targets; otherwise replace with shared vector resources.
-- Replace Android Lottie with a CMP-compatible alternative such as Compottie, or
+- [x] Replace Android Lottie with a CMP-compatible alternative such as Compottie, or
   keep animations platform-specific.
+
+Bridge completion notes:
+
+- `SwipeRefreshLayout`, Accompanist system UI controller, ConstraintLayout
+  Compose, AndroidX graphics-shapes, Material Icons Extended, and Lottie Compose
+  dependencies were removed from the app module.
+- The remaining active playlist ConstraintLayout usage was rewritten with pure
+  Compose layout primitives, and the profile decorative polygon shape now uses
+  an app-owned Compose `Shape` implementation.
+- Direct Material icon imports were replaced by an app-owned `AppIcons` vector
+  boundary, so future CMP resource migration can move icons without touching
+  feature screens.
+- The create-post options animation uses the existing custom Canvas animation;
+  stale Lottie imports and dependency wiring were removed.
 
 ### Testing
 
@@ -454,7 +480,7 @@ Migration actions:
 
 ## Android-Specific APIs To Abstract Or Move
 
-### Application / Activity / Manifest
+### Application / Activity / Manifest ✅ Done for bridge milestone
 
 Current Android-only areas:
 
@@ -469,10 +495,27 @@ Current Android-only areas:
 
 Migration action:
 
-- Keep app lifecycle shells in `androidMain`.
-- Expose only platform-neutral app lifecycle events to shared code.
+- [x] Keep app lifecycle shells in `androidMain`.
+- [x] Expose only platform-neutral app lifecycle events to shared code.
 
-### Context And Resources
+Bridge completion notes:
+
+- Android application and activity classes remain the app-shell owners for Koin
+  startup, manifest entrypoints, runtime permissions, locale resource mutation,
+  crash UI restart intents, foreground services, and provider declarations.
+- App foreground/background and visible-screen callbacks now flow through
+  platform-neutral lifecycle event and observer abstractions instead of placing
+  all background cleanup directly in `DinoOrderApplication`.
+- Navigation events now use an injectable UI event bus, so shared-facing callers
+  no longer need to depend on app-shell global flows.
+- Notification channel setup and notification clearing now go through an
+  app-owned notification controller backed by the current Android notification
+  helper.
+- Notification deep links are parsed into typed app routes behind an Android
+  intent handler, keeping `Intent` and notification extras at the Android shell
+  boundary.
+
+### Context And Resources ✅ Done for bridge milestone
 
 Current Android-only patterns:
 
@@ -485,7 +528,7 @@ Current Android-only patterns:
 
 Migration action:
 
-- Replace direct `Context` dependencies with focused interfaces:
+- [x] Replace direct `Context` dependencies with focused interfaces:
   - `StringResolver`.
   - `AppConfig`.
   - `DeviceInfoProvider`.
@@ -493,10 +536,27 @@ Migration action:
   - `ClipboardManager`.
   - `Toast/Snackbar/EventNotifier`.
   - `FileSystemProvider`.
-- Move resources to Compose Multiplatform resources where shared UI needs them.
-- Keep Android resource IDs only in Android-specific code.
+- [ ] Move resources to Compose Multiplatform resources where shared UI needs them.
+- [x] Keep Android resource IDs only in Android-specific code for this bridge
+  milestone.
 
-### Files, URIs, And Uploads
+Bridge completion notes:
+
+- Non-composable string resolution now has a `StringResolver` seam, with Android
+  backed by existing string resources.
+- Runtime app constants now flow through `AppConfig`, keeping `BuildConfig`
+  reads at the Android DI boundary.
+- Device ID, network status, and app cache cleanup are behind app-owned provider
+  interfaces with Android implementations.
+- Chat, group chat, and main-screen user feedback now use the existing
+  platform UI effect boundary for toast and clipboard actions instead of direct
+  `Toast`/clipboard calls in shared-facing UI paths.
+- Full resource migration remains deferred: composable `stringResource`,
+  `painterResource`, Android drawable IDs, media `Uri`/`ContentResolver`, and
+  platform media save flows stay Android-specific until the resource and file
+  milestones.
+
+### Files, URIs, And Uploads ✅ Done for bridge milestone
 
 Current Android-only patterns:
 
@@ -512,14 +572,25 @@ Current Android-only patterns:
 
 Migration action:
 
-- Introduce a platform-neutral media/file handle, for example:
+- [x] Introduce a platform-neutral media/file handle:
   - ID or URI string.
   - Display name.
   - MIME type.
   - Size.
   - Open-read-byte-channel callback.
-- Keep Android URI resolution in `androidMain`.
-- Keep common validation in shared code.
+- [x] Keep Android URI resolution in `androidMain`.
+- [x] Keep common validation in shared code.
+
+Bridge completion notes:
+
+- Upload-facing domain contracts now use `ReadableMediaFile`/`MediaFileHandle`
+  instead of exposing `android.net.Uri`.ik
+- Android picker, recorder, and story editor boundaries convert `Uri` values into
+  readable media files before invoking domain use cases.
+- Private chat, group chat, post/story, and profile multipart uploads now reuse
+  neutral file metadata/input providers; `ContentResolver`, `OpenableColumns`,
+  `MimeTypeMap`, `File`, and stream conversion remain Android implementation
+  details.
 
 ### Media And Graphics
 

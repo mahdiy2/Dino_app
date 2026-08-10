@@ -15,6 +15,13 @@ class AndroidUploadContentProvider(
         }.getOrDefault(false)
     }
 
+    fun canRead(file: ReadableMediaFile): Boolean {
+        return runCatching {
+            file.openInput.open().close()
+            true
+        }.getOrDefault(false)
+    }
+
     fun filePart(
         uri: Uri,
         formName: String,
@@ -27,6 +34,38 @@ class AndroidUploadContentProvider(
             fileName = fileName,
             mimeType = mimeType,
             size = size,
+            openInput = UploadInputProvider {
+                openInputStream(uri).asInput()
+            },
+        )
+    }
+
+    fun readableMediaFile(
+        uri: Uri,
+        displayName: String? = null,
+        mimeType: String? = null,
+        sizeBytes: Long? = null,
+    ): ReadableMediaFile {
+        val resolvedDisplayName = displayName
+            ?: MediaFileResolver.queryDisplayName(contentResolver, uri)
+            ?: uri.lastPathSegment
+                ?.substringAfterLast('/')
+                ?.ifBlank { null }
+            ?: "file"
+        val resolvedMimeType = mimeType
+            ?: MediaFileResolver.resolveMimeType(
+                contentResolver = contentResolver,
+                uri = uri,
+                displayNameHint = resolvedDisplayName,
+            )
+        val resolvedSize = sizeBytes ?: MediaFileResolver.resolveFileSize(contentResolver, uri)
+        return ReadableMediaFile(
+            handle = MediaFileHandle(
+                id = uri.toString(),
+                displayName = resolvedDisplayName,
+                mimeType = resolvedMimeType,
+                sizeBytes = resolvedSize,
+            ),
             openInput = UploadInputProvider {
                 openInputStream(uri).asInput()
             },

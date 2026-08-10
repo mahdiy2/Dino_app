@@ -34,12 +34,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Image
-import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.Videocam
-import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -72,6 +66,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.ImeAction
+import com.dino.message.corefeature.presentation.icons.AppIcons
 
 @Composable
 fun ChatScreenBottomAppBar(
@@ -202,7 +197,7 @@ private fun InputBar(
                 enabled = enabled
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.Add,
+                    imageVector = AppIcons.Add,
                     contentDescription = stringResource(R.string.attach),
                     modifier = Modifier
                         .rotate(rotation)
@@ -222,14 +217,14 @@ private fun InputBar(
                     text = { Text(stringResource(R.string.photo)) },
                     onClick = onPickImage,
                     leadingIcon = {
-                        Icon(Icons.Default.Image, contentDescription = null)
+                        Icon(AppIcons.Image, contentDescription = null)
                     }
                 )
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.video)) },
                     onClick = onPickVideo,
                     leadingIcon = {
-                        Icon(Icons.Default.Videocam, contentDescription = null)
+                        Icon(AppIcons.Videocam, contentDescription = null)
                     }
                 )
             }
@@ -309,7 +304,7 @@ private fun InputBar(
                     onClick = onMicClick
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Mic,
+                        imageVector = AppIcons.Mic,
                         contentDescription = stringResource(R.string.record_voice),
                         tint = if (enabled)
                             MaterialTheme.colorScheme.onSurfaceVariant
@@ -362,7 +357,7 @@ private fun RecordingBar(
             )
         ) {
             Icon(
-                imageVector = Icons.Default.Close,
+                imageVector = AppIcons.Close,
                 contentDescription = stringResource(R.string.cancel_recording),
                 tint = MaterialTheme.colorScheme.error
             )

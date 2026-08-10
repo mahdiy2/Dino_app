@@ -22,8 +22,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.Reply
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
@@ -50,6 +48,7 @@ import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
 import com.dino.message.corefeature.presentation.ui.theme.DPLarge
 import com.dino.message.corefeature.presentation.util.getRelativeTimeLabel
 import com.dino.message.profilefeature.presentation.component.ProfileAvatarMedia
+import com.dino.message.corefeature.presentation.icons.AppIcons
 
 @Composable
 fun ActivityNotificationItem(
@@ -157,7 +156,7 @@ fun ActivityNotificationItem(
             if (showReplyButton) {
                 TextButton(onClick = onToggleReplyComposer) {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.Reply,
+                        imageVector = AppIcons.Reply,
                         contentDescription = null
                     )
                     Spacer(modifier = Modifier.width(2.dp))

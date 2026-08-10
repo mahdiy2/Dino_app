@@ -20,6 +20,9 @@ import com.dino.message.chatfeature.domain.usecase.UploadAttachmentUseCase
 import com.dino.message.corefeature.data.socket.AppSocketManager
 import com.dino.message.corefeature.data.socket.RealtimeSocketEvents
 import com.dino.message.corefeature.data.spref.SPrefManager
+import com.dino.message.corefeature.data.upload.AndroidUploadContentProvider
+import com.dino.message.corefeature.domain.notification.AppNotificationController
+import com.dino.message.corefeature.domain.resource.StringResolver
 import com.dino.message.profilefeature.domain.usecase.FollowUserUseCase
 import com.dino.message.corefeature.presentation.util.CryptoUtil
 import com.dino.message.corefeature.presentation.util.Resource
@@ -43,7 +46,6 @@ import org.json.JSONArray
 import org.json.JSONObject
 import com.dino.message.chatfeature.data.notification.ActiveChatTracker
 import com.dino.message.chatfeature.data.notification.ChatMessageSoundPlayer
-import com.dino.message.chatfeature.data.notification.NotificationHelper
 import com.dino.message.chatfeature.domain.model.PrivateHistoryMessage
 import com.dino.message.chatfeature.presentation.component.PlatformAudioRecorder
 import com.dino.message.chatfeature.presentation.component.VoiceRecorderManager
@@ -75,6 +77,9 @@ class ChatViewModel constructor(
     private val chatRepository: ChatRepository,
     private val isTrackInPlaylistUseCase: IsTrackInPlaylistUseCase,
     private val appSocketManager: AppSocketManager,
+    private val appNotificationController: AppNotificationController,
+    private val stringResolver: StringResolver,
+    private val uploadContentProvider: AndroidUploadContentProvider,
     savedStateHandle: SavedStateHandle
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
@@ -194,7 +199,7 @@ class ChatViewModel constructor(
         }
         prepareEncryptionSession()
         ActiveChatTracker.setActiveChat(chatId)
-        NotificationHelper.clearNotificationForUser(app, chatId)
+        appNotificationController.clearPrivateChat(chatId)
     }
 
     private fun pushSocketDebugLog(message: String) {
@@ -263,7 +268,7 @@ class ChatViewModel constructor(
                 }
 
                 is Resource.Error -> {
-                    val errorMessage = res.message.asString(getApplication())
+                    val errorMessage = res.message.resolveWith(stringResolver)
                     if (errorMessage.contains("Not in your contacts", ignoreCase = true)) {
                         _showFollowRequired.value = true
                         _publicKeyError.value = null
@@ -397,7 +402,7 @@ class ChatViewModel constructor(
                 loadMessages()
             }
             is Resource.Error -> {
-                pushSocketDebugLog("History fetch failed: ${result.message.asString(getApplication())}")
+                pushSocketDebugLog("History fetch failed: ${result.message.resolveWith(stringResolver)}")
             }
             is Resource.Loading -> Unit
         }
@@ -797,7 +802,7 @@ class ChatViewModel constructor(
                     is Resource.Error -> {
                         _isFollowLoading.value = false
                         _showFollowRequired.value = false
-                        _publicKeyError.value = res.message.asString(getApplication())
+                        _publicKeyError.value = res.message.resolveWith(stringResolver)
                     }
                 }
             }
@@ -992,8 +997,9 @@ class ChatViewModel constructor(
             _isUploading.value = true
             _uploadError.value = null
             pushSocketDebugLog("Uploading attachment...")
+            val uploadFile = uploadContentProvider.readableMediaFile(fileUri)
 
-            uploadAttachmentUseCase.execute(fileUri).collect { result ->
+            uploadAttachmentUseCase.execute(uploadFile).collect { result ->
                 when (result) {
                     is Resource.Loading -> {
                         _isUploading.value = true
@@ -1012,7 +1018,7 @@ class ChatViewModel constructor(
 
                     is Resource.Error -> {
                         _isUploading.value = false
-                        val errorMsg = result.message.asString(getApplication())
+                        val errorMsg = result.message.resolveWith(stringResolver)
                         _uploadError.value = errorMsg
                         pushSocketDebugLog("Upload failed: $errorMsg")
                     }

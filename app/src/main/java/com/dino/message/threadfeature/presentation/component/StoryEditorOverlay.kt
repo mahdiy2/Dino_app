@@ -58,20 +58,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Brush
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Crop
-import androidx.compose.material.icons.rounded.Done
-import androidx.compose.material.icons.rounded.FormatColorFill
-import androidx.compose.material.icons.rounded.FormatColorText
-import androidx.compose.material.icons.rounded.Pause
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Redo
-import androidx.compose.material.icons.rounded.Send
-import androidx.compose.material.icons.rounded.TextFields
-import androidx.compose.material.icons.rounded.Undo
-import androidx.compose.material.icons.rounded.AlternateEmail
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -145,6 +131,7 @@ import androidx.media3.transformer.ExportException
 import androidx.media3.transformer.ExportResult
 import androidx.media3.transformer.Transformer
 import com.dino.message.R
+import com.dino.message.corefeature.data.upload.AndroidUploadContentProvider
 import com.dino.message.corefeature.presentation.platform.PlatformAsyncImage
 import com.dino.message.corefeature.presentation.platform.PlatformVideoPlayer
 import com.dino.message.corefeature.presentation.platform.PlatformVideoResizeMode
@@ -164,6 +151,7 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
+import com.dino.message.corefeature.presentation.icons.AppIcons
 
 private const val TARGET_ASPECT = 9f / 16f
 private const val MIN_ZOOM = 1f
@@ -236,13 +224,14 @@ fun StoryEditorOverlay(
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
     val context = LocalContext.current
     val isImage = media.mimeType.lowercase(Locale.US).startsWith("image/")
+    val mediaKey = media.file.handle.id
 
-    var isPreviewMode by rememberSaveable(media.uri.toString()) { mutableStateOf(false) }
-    var isExporting by rememberSaveable(media.uri.toString()) { mutableStateOf(false) }
-    var exportProgressPercent by rememberSaveable(media.uri.toString()) { mutableStateOf<Int?>(null) }
-    var zoom by rememberSaveable(media.uri.toString()) { mutableFloatStateOf(1f) }
-    var panX by rememberSaveable(media.uri.toString()) { mutableFloatStateOf(0f) }
-    var panY by rememberSaveable(media.uri.toString()) { mutableFloatStateOf(0f) }
+    var isPreviewMode by rememberSaveable(mediaKey) { mutableStateOf(false) }
+    var isExporting by rememberSaveable(mediaKey) { mutableStateOf(false) }
+    var exportProgressPercent by rememberSaveable(mediaKey) { mutableStateOf<Int?>(null) }
+    var zoom by rememberSaveable(mediaKey) { mutableFloatStateOf(1f) }
+    var panX by rememberSaveable(mediaKey) { mutableFloatStateOf(0f) }
+    var panY by rememberSaveable(mediaKey) { mutableFloatStateOf(0f) }
     var viewportSize by remember { mutableStateOf(IntSize.Zero) }
 
     var drawingColor by remember { mutableStateOf(Color.White) }
@@ -771,12 +760,12 @@ private fun StoryEditorTopBar(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             ExpressiveIconButton(onClick = onClose, contentDescription = "Close") {
-                Icon(imageVector = Icons.Rounded.Close, contentDescription = null, tint = Color.White)
+                Icon(imageVector = AppIcons.Close, contentDescription = null, tint = Color.White)
             }
             if (showColorPicker) {
                 ExpressiveIconButton(onClick = onColorPickerClick, contentDescription = "Draw color") {
                     Icon(
-                        imageVector = Icons.Rounded.FormatColorFill,
+                        imageVector = AppIcons.FormatColorFill,
                         contentDescription = null,
                         tint = Color.White
                     )
@@ -794,7 +783,7 @@ private fun StoryEditorTopBar(
         Row(verticalAlignment = Alignment.CenterVertically) {
             ExpressiveIconButton(onClick = onUndo, enabled = canUndo, contentDescription = "Undo") {
                 Icon(
-                    imageVector = Icons.Rounded.Undo,
+                    imageVector = AppIcons.Undo,
                     contentDescription = null,
                     tint = Color.White,
                     modifier = Modifier.alpha(if (canUndo) 1f else 0.4f)
@@ -802,7 +791,7 @@ private fun StoryEditorTopBar(
             }
             ExpressiveIconButton(onClick = onRedo, enabled = canRedo, contentDescription = "Redo") {
                 Icon(
-                    imageVector = Icons.Rounded.Redo,
+                    imageVector = AppIcons.Redo,
                     contentDescription = null,
                     tint = Color.White,
                     modifier = Modifier.alpha(if (canRedo) 1f else 0.4f)
@@ -811,7 +800,7 @@ private fun StoryEditorTopBar(
             Button(onClick = onPost, enabled = !isExporting) {
                 Text(text = "Post")
                 Spacer(modifier = Modifier.width(6.dp))
-                Icon(imageVector = Icons.Rounded.Send, contentDescription = null)
+                Icon(imageVector = AppIcons.Send, contentDescription = null)
             }
         }
     }
@@ -847,8 +836,9 @@ private fun StoryCanvas(
 ) {
     val density = LocalDensity.current
     val context = LocalContext.current
-    var isVideoPlaying by remember(media.uri) { mutableStateOf(true) }
-    var videoPlaybackError by remember(media.uri) { mutableStateOf<String?>(null) }
+    val mediaUri = media.androidUri()
+    var isVideoPlaying by remember(media.file.handle.id) { mutableStateOf(true) }
+    var videoPlaybackError by remember(media.file.handle.id) { mutableStateOf<String?>(null) }
     val composedStrokes = remember(drawStrokes, activeStroke) {
         if (activeStroke.isEmpty()) drawStrokes else {
             val result = drawStrokes.toMutableList()
@@ -883,7 +873,7 @@ private fun StoryCanvas(
         ) {
         if (isImage) {
             PlatformAsyncImage(
-                model = media.uri,
+                model = mediaUri,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
@@ -901,7 +891,7 @@ private fun StoryCanvas(
                     .background(Color.Black.copy(alpha = 0.18f))
             )
             PlatformAsyncImage(
-                model = media.uri,
+                model = mediaUri,
                 contentDescription = "Story media",
                 contentScale = ContentScale.Fit,
                 modifier = Modifier
@@ -915,7 +905,7 @@ private fun StoryCanvas(
             )
         } else {
             StoryEditorVideoPlayer(
-                mediaUri = media.uri,
+                mediaUri = mediaUri,
                 isPlaying = isVideoPlaying,
                 onPlayingChanged = { isVideoPlaying = it },
                 onPlaybackError = { videoPlaybackError = it },
@@ -947,7 +937,7 @@ private fun StoryCanvas(
                     modifier = Modifier.size(44.dp)
                 ) {
                     Icon(
-                        imageVector = if (isVideoPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                        imageVector = if (isVideoPlaying) AppIcons.Pause else AppIcons.PlayArrow,
                         contentDescription = if (isVideoPlaying) "Pause preview" else "Play preview",
                         tint = Color.White
                     )
@@ -1265,25 +1255,25 @@ private fun StoryEditorToolbar(
         verticalAlignment = Alignment.CenterVertically
     ) {
         ToolbarIconButton(
-            icon = Icons.Rounded.Crop,
+            icon = AppIcons.Crop,
             label = "Crop",
             selected = selectedTool == EditorTool.Crop,
             onClick = onCropClick
         )
         ToolbarIconButton(
-            icon = Icons.Rounded.Brush,
+            icon = AppIcons.Brush,
             label = "Draw",
             selected = selectedTool == EditorTool.Draw,
             onClick = onDrawClick
         )
         ToolbarIconButton(
-            icon = Icons.Rounded.TextFields,
+            icon = AppIcons.TextFields,
             label = "Text",
             selected = false,
             onClick = onTextClick
         )
         ToolbarIconButton(
-            icon = Icons.Rounded.AlternateEmail,
+            icon = AppIcons.AlternateEmail,
             label = "Mention",
             selected = false,
             onClick = onMentionClick
@@ -1394,10 +1384,10 @@ private fun InlineTextToolbar(
         ) {
             ColorSwatch(color = textBackgroundColor, onClick = onBackgroundClick)
             IconButton(onClick = onColorClick) {
-                Icon(imageVector = Icons.Rounded.FormatColorText, contentDescription = "Text color")
+                Icon(imageVector = AppIcons.FormatColorText, contentDescription = "Text color")
             }
             ExpressiveIconButton(onClick = onDone, contentDescription = "Done editing text") {
-                Icon(imageVector = Icons.Rounded.Done, contentDescription = null)
+                Icon(imageVector = AppIcons.Done, contentDescription = null)
             }
         }
     }
@@ -1535,7 +1525,7 @@ private fun ColorSwatch(
     ) {
         if (color.alpha == 0f) {
             Icon(
-                imageVector = Icons.Rounded.Close,
+                imageVector = AppIcons.Close,
                 contentDescription = "Transparent",
                 tint = Color.White,
                 modifier = Modifier
@@ -1556,7 +1546,7 @@ private suspend fun exportEditedStoryImage(
     textOverlays: List<TextOverlay>,
     mentionOverlays: List<MentionOverlay>,
 ): CreatePostMedia? = withContext(Dispatchers.Default) {
-    val bitmap = decodeBitmap(context, source.uri)?.let(::ensureSoftwareBitmap) ?: return@withContext null
+    val bitmap = decodeBitmap(context, source.androidUri())?.let(::ensureSoftwareBitmap) ?: return@withContext null
     val targetWidth = DEFAULT_EXPORT_WIDTH
     val targetHeight = DEFAULT_EXPORT_HEIGHT
     val previewWidthPx = viewportSize.width.takeIf { it > 0 } ?: targetWidth
@@ -1688,10 +1678,12 @@ private suspend fun exportEditedStoryImage(
     export.recycle()
 
     CreatePostMedia(
-        uri = Uri.fromFile(outFile),
-        fileName = outFile.name,
-        mimeType = "image/jpeg",
-        sizeBytes = outFile.length(),
+        file = AndroidUploadContentProvider(context.contentResolver).readableMediaFile(
+            uri = Uri.fromFile(outFile),
+            displayName = outFile.name,
+            mimeType = "image/jpeg",
+            sizeBytes = outFile.length(),
+        ),
     )
 }
 
@@ -1747,7 +1739,7 @@ private suspend fun exportEditedStoryVideo(
     )
 
     val editedItem = EditedMediaItem.Builder(
-        MediaItem.fromUri(source.uri)
+        MediaItem.fromUri(source.androidUri())
     ).setEffects(
         Effects(
             emptyList(),
@@ -1818,12 +1810,16 @@ private suspend fun exportEditedStoryVideo(
     }
 
     return CreatePostMedia(
-        uri = Uri.fromFile(outFile),
-        fileName = outFile.name,
-        mimeType = MimeTypes.VIDEO_MP4,
-        sizeBytes = outFile.length(),
+        file = AndroidUploadContentProvider(context.contentResolver).readableMediaFile(
+            uri = Uri.fromFile(outFile),
+            displayName = outFile.name,
+            mimeType = MimeTypes.VIDEO_MP4,
+            sizeBytes = outFile.length(),
+        ),
     )
 }
+
+private fun CreatePostMedia.androidUri(): Uri = Uri.parse(file.handle.id)
 
 private fun buildCropEffect(
     viewportSize: IntSize,

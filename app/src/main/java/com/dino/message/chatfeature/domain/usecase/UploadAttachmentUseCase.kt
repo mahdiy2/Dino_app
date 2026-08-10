@@ -1,15 +1,15 @@
 package com.dino.message.chatfeature.domain.usecase
 
-import android.net.Uri
 import com.dino.message.chatfeature.domain.repository.ChatRepository
+import com.dino.message.corefeature.data.upload.ReadableMediaFile
 import com.dino.message.corefeature.presentation.util.Resource
 import kotlinx.coroutines.flow.flow
 
 class UploadAttachmentUseCase constructor(
     private val chatRepository: ChatRepository
 ) {
-    fun execute(fileUri: Uri) = flow {
+    fun execute(file: ReadableMediaFile) = flow {
         emit(Resource.Loading())
-        emit(chatRepository.uploadAttachment(fileUri))
+        emit(chatRepository.uploadAttachment(file))
     }
 }

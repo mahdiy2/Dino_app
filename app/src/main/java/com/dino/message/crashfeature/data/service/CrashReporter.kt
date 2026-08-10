@@ -7,6 +7,9 @@ import android.os.Process
 import android.util.Log
 import com.dino.message.BuildConfig
 import com.dino.message.corefeature.data.spref.SPrefManager
+import com.dino.message.corefeature.domain.background.BackgroundTask
+import com.dino.message.corefeature.domain.background.BackgroundTaskRegistry
+import com.dino.message.corefeature.domain.background.BackgroundTaskScheduler
 import com.dino.message.crashfeature.data.local.CrashLogDao
 import com.dino.message.crashfeature.data.local.CrashLogEntity
 import com.dino.message.crashfeature.data.remote.CrashLogApiService
@@ -31,6 +34,8 @@ class CrashReporter constructor(
     private val crashLogDao: CrashLogDao,
     private val crashLogApiService: CrashLogApiService,
     private val sPrefManager: SPrefManager,
+    private val backgroundTaskScheduler: BackgroundTaskScheduler,
+    backgroundTaskRegistry: BackgroundTaskRegistry,
 ) {
     private data class CrashBreadcrumb(
         val timestampEpochMillis: Long,
@@ -44,6 +49,12 @@ class CrashReporter constructor(
     private val breadcrumbLock = Any()
     private val breadcrumbs = ArrayDeque<CrashBreadcrumb>()
 
+    init {
+        backgroundTaskRegistry.register(BackgroundTask.CRASH_LOG_RETRY) {
+            flushPendingLogsInternal()
+        }
+    }
+
     fun installGlobalExceptionHandler() {
         if (!isHandlerInstalled.compareAndSet(false, true)) return
 
@@ -53,9 +64,7 @@ class CrashReporter constructor(
     }
 
     fun flushPendingLogsAsync() {
-        scope.launch {
-            flushPendingLogsInternal()
-        }
+        backgroundTaskScheduler.schedule(BackgroundTask.CRASH_LOG_RETRY)
     }
 
     fun addBreadcrumb(

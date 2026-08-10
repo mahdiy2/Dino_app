@@ -30,11 +30,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -95,6 +90,7 @@ import com.dino.message.profilefeature.presentation.component.ProfileContainer
 import com.dino.message.profilefeature.presentation.component.ProfileFollowStatusContainer
 import com.dino.message.profilefeature.presentation.viewmodel.ProfileScreenViewModel
 import com.dino.message.threadfeature.presentation.component.ThreadPostCard
+import com.dino.message.corefeature.presentation.icons.AppIcons
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -512,7 +508,7 @@ fun ProfileScreen(username: String? = null) {
                             ) {
 
                                 Icon(
-                                    imageVector = Icons.Default.Add,
+                                    imageVector = AppIcons.Add,
                                     contentDescription = null
                                 )
 
@@ -599,7 +595,7 @@ fun ProfileScreen(username: String? = null) {
                     .windowInsetsPadding(WindowInsets.navigationBars)
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.Settings,
+                    imageVector = AppIcons.Settings,
                     contentDescription = stringResource(R.string.settings)
                 )
             }
@@ -653,7 +649,7 @@ private fun ProfileImageFullScreenDialog(
                     .padding(16.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.Close,
+                    imageVector = AppIcons.Close,
                     contentDescription = stringResource(R.string.close),
                     tint = Color.White
                 )

@@ -33,18 +33,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.ArrowBackIosNew
-import androidx.compose.material.icons.rounded.CameraAlt
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Edit
-import androidx.compose.material.icons.rounded.Image
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Movie
-import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -103,6 +91,7 @@ import com.dino.message.corefeature.presentation.util.resolveProfileImageShape
 import com.dino.message.profilefeature.presentation.viewmodel.EditProfileViewModel
 import com.dino.message.threadfeature.presentation.component.PostContainer
 import kotlinx.coroutines.delay
+import com.dino.message.corefeature.presentation.icons.AppIcons
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -209,7 +198,7 @@ fun EditProfileScreen() {
                                     ) {
                                         Icon(
                                             modifier = Modifier.padding(8.dp),
-                                            imageVector = Icons.Rounded.CameraAlt,
+                                            imageVector = AppIcons.CameraAlt,
                                             contentDescription = null,
                                             tint = MaterialTheme.colorScheme.onPrimaryContainer
                                         )
@@ -243,7 +232,7 @@ fun EditProfileScreen() {
                                         previewShape = resolvedAvatarShape,
                                         isVideoPreview = false,
                                         enabled = isFormEnabled,
-                                        icon = Icons.Rounded.Image,
+                                        icon = AppIcons.Image,
                                         onClick = { imagePickerLauncher.launch(arrayOf("image/*")) },
                                         onRemove = if (imagePreviewModel != null) viewModel::removeProfileImage else null
                                     )
@@ -260,7 +249,7 @@ fun EditProfileScreen() {
                                         previewShape = resolvedAvatarShape,
                                         isVideoPreview = true,
                                         enabled = isFormEnabled,
-                                        icon = Icons.Rounded.Movie,
+                                        icon = AppIcons.Movie,
                                         onClick = { videoPickerLauncher.launch(arrayOf("video/*")) },
                                         onRemove = if (videoPreviewModel != null) viewModel::removeProfileVideo else null
                                     )
@@ -299,7 +288,7 @@ fun EditProfileScreen() {
                                     label = { Text(stringResource(R.string.name)) },
                                     leadingIcon = {
                                         Icon(
-                                            imageVector = Icons.Rounded.Edit,
+                                            imageVector = AppIcons.Edit,
                                             contentDescription = null
                                         )
                                     },
@@ -364,7 +353,7 @@ fun EditProfileScreen() {
                                         ) {
                                             Icon(
                                                 modifier = Modifier.padding(8.dp),
-                                                imageVector = Icons.Rounded.Star,
+                                                imageVector = AppIcons.Star,
                                                 contentDescription = null,
                                                 tint = MaterialTheme.colorScheme.onTertiaryContainer
                                             )
@@ -566,7 +555,7 @@ private fun EditProfileCollapsingTopBar(
                     enabled = navigationEnabled
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.ArrowBackIosNew,
+                        imageVector = AppIcons.ArrowBackIosNew,
                         contentDescription = stringResource(R.string.back),
                         modifier = backIconModifier()
                     )
@@ -591,7 +580,7 @@ private fun EditProfileCollapsingTopBar(
                         )
                     } else {
                         Icon(
-                            imageVector = Icons.Rounded.Check,
+                            imageVector = AppIcons.Check,
                             contentDescription = stringResource(R.string.save)
                         )
                     }
@@ -694,7 +683,7 @@ private fun EditProfileHeroCard(
                 previewModel = previewModel,
                 isVideoPreview = false,
                 shape = shape,
-                emptyIcon = Icons.Rounded.Person
+                emptyIcon = AppIcons.Person
             )
         }
 
@@ -803,7 +792,7 @@ private fun ProfileMediaPickerCard(
                     shape = CircleShape
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.Close,
+                        imageVector = AppIcons.Close,
                         contentDescription = if (isVideoPreview) {
                             stringResource(R.string.remove_profile_video)
                         } else {
@@ -870,7 +859,7 @@ private fun ProfileMediaPreview(
     isVideoPreview: Boolean,
     shape: Shape,
     modifier: Modifier = Modifier,
-    emptyIcon: androidx.compose.ui.graphics.vector.ImageVector = Icons.Rounded.Add,
+    emptyIcon: androidx.compose.ui.graphics.vector.ImageVector = AppIcons.Add,
 ) {
     Surface(
         modifier = modifier,
@@ -937,7 +926,7 @@ private fun ProfileMediaPreview(
                         modifier = Modifier
                             .padding(4.dp)
                             .size(14.dp),
-                        imageVector = Icons.Rounded.PlayArrow,
+                        imageVector = AppIcons.PlayArrow,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurface
                     )

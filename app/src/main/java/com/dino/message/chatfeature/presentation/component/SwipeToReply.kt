@@ -6,8 +6,6 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Reply
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -23,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import com.dino.message.corefeature.presentation.icons.AppIcons
 
 @Composable
 fun SwipeToReply(
@@ -47,7 +46,7 @@ fun SwipeToReply(
                 contentAlignment = if (offsetX.value > 0) Alignment.CenterStart else Alignment.CenterEnd
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.Reply,
+                    imageVector = AppIcons.Reply,
                     contentDescription = "Reply",
                     tint = MaterialTheme.colorScheme.primary.copy(alpha = progress),
                     modifier = Modifier.alpha(progress)

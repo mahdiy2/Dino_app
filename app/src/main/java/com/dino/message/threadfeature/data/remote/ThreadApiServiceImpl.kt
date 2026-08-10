@@ -1,7 +1,7 @@
 package com.dino.message.threadfeature.data.remote
 
 import android.content.Context
-import android.provider.OpenableColumns
+import android.net.Uri
 import com.dino.message.corefeature.data.remote.HaveRefreshTokenAPI
 import com.dino.message.corefeature.data.remote.HaveRefreshTokenAPIImpl
 import com.dino.message.corefeature.data.remote.util.HttpAPIUtil
@@ -9,8 +9,8 @@ import com.dino.message.corefeature.data.remote.util.appendTokenToHeader
 import com.dino.message.corefeature.data.remote.util.ensureFreshAccessTokenIfNearExpiry
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.data.upload.AndroidUploadContentProvider
-import com.dino.message.corefeature.data.upload.MediaFileResolver
 import com.dino.message.corefeature.data.upload.appendUploadFile
+import com.dino.message.corefeature.data.upload.toUploadFilePart
 import com.dino.message.corefeature.domain.model.asStringResourceContent
 import com.dino.message.corefeature.presentation.platform.AndroidMediaMetadataExtractor
 import com.dino.message.corefeature.presentation.util.Resource
@@ -154,13 +154,9 @@ class ThreadApiServiceImpl constructor(
                                     mediaFiles.forEach { mediaFile ->
                                         val fileName = mediaFile.fileName.ifBlank { "media_file" }
                                         appendUploadFile(
-                                            uploadContentProvider.filePart(
-                                                uri = mediaFile.uri,
-                                                formName = "media[]",
-                                                fileName = fileName,
-                                                mimeType = mediaFile.mimeType,
-                                                size = resolveFileSize(mediaFile),
-                                            )
+                                            mediaFile.file.copy(
+                                                handle = mediaFile.file.handle.copy(displayName = fileName)
+                                            ).toUploadFilePart(formName = "media[]")
                                         )
                                     }
                                 }
@@ -270,13 +266,9 @@ class ThreadApiServiceImpl constructor(
                                     mediaFiles.forEach { mediaFile ->
                                         val fileName = mediaFile.fileName.ifBlank { "media_file" }
                                         appendUploadFile(
-                                            uploadContentProvider.filePart(
-                                                uri = mediaFile.uri,
-                                                formName = "media[]",
-                                                fileName = fileName,
-                                                mimeType = mediaFile.mimeType,
-                                                size = resolveFileSize(mediaFile),
-                                            )
+                                            mediaFile.file.copy(
+                                                handle = mediaFile.file.handle.copy(displayName = fileName)
+                                            ).toUploadFilePart(formName = "media[]")
                                         )
                                     }
                                 }
@@ -317,11 +309,6 @@ class ThreadApiServiceImpl constructor(
         }
 
         return result
-    }
-
-    private fun resolveFileSize(mediaFile: CreatePostMedia): Long? {
-        mediaFile.sizeBytes?.let { if (it >= 0) return it }
-        return MediaFileResolver.resolveFileSize(appContext.contentResolver, mediaFile.uri)
     }
 
     override suspend fun getFeed(
@@ -526,13 +513,9 @@ class ThreadApiServiceImpl constructor(
                             formData {
                                 val fileName = mediaFile.fileName.ifBlank { "story_media" }
                                 appendUploadFile(
-                                    uploadContentProvider.filePart(
-                                        uri = mediaFile.uri,
-                                        formName = "file",
-                                        fileName = fileName,
-                                        mimeType = mediaFile.mimeType,
-                                        size = resolveFileSize(mediaFile),
-                                    )
+                                    mediaFile.file.copy(
+                                        handle = mediaFile.file.handle.copy(displayName = fileName)
+                                    ).toUploadFilePart(formName = "file")
                                 )
                                 mentionUsernames
                                     .asSequence()
@@ -695,9 +678,11 @@ class ThreadApiServiceImpl constructor(
         )
 
     private fun resolveVideoDurationSeconds(mediaFile: CreatePostMedia): Double? {
-        val durationMillis = mediaMetadataExtractor.extract(mediaFile.uri).durationMs ?: return null
+        val durationMillis = mediaMetadataExtractor.extract(mediaFile.androidUri()).durationMs ?: return null
         return durationMillis / 1000.0
     }
+
+    private fun CreatePostMedia.androidUri(): Uri = Uri.parse(file.handle.id)
 
     private fun createMultipartBoundary(): String {
         val randomToken = UUID.randomUUID().toString().replace("-", "")

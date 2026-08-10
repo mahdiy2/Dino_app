@@ -26,13 +26,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.MusicNote
-import androidx.compose.material.icons.rounded.Pause
-import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.SkipNext
-import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ButtonShapes
@@ -89,6 +82,7 @@ import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.roundToLong
 import kotlin.math.sin
+import com.dino.message.corefeature.presentation.icons.AppIcons
 
 private const val PRESSED_SCALE = 1.15f
 private const val NEIGHBOR_SCALE = 0.92f
@@ -264,7 +258,7 @@ fun MusicTrackPlayerCard(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(imageVector = Icons.Rounded.MusicNote, contentDescription = null)
+                        Icon(imageVector = AppIcons.MusicNote, contentDescription = null)
                         Card(
                             onClick = onAddToPlaylistClick,
                             enabled = enabled,
@@ -333,7 +327,7 @@ fun MusicTrackPlayerCard(
                             },
                     ) {
                         Icon(
-                            imageVector = Icons.Rounded.SkipPrevious,
+                            imageVector = AppIcons.SkipPrevious,
                             contentDescription = stringResource(R.string.music_seek_backward_10),
                             modifier = Modifier.size(24.dp)
                         )
@@ -363,9 +357,9 @@ fun MusicTrackPlayerCard(
                     ) {
                         Icon(
                             imageVector = if (isPlaying) {
-                                Icons.Rounded.Pause
+                                AppIcons.Pause
                             } else {
-                                Icons.Rounded.PlayArrow
+                                AppIcons.PlayArrow
                             },
                             contentDescription = if (isPlaying) {
                                 stringResource(R.string.pause)
@@ -391,7 +385,7 @@ fun MusicTrackPlayerCard(
                             }
                     ) {
                         Icon(
-                            imageVector = Icons.Rounded.SkipNext,
+                            imageVector = AppIcons.SkipNext,
                             contentDescription = stringResource(R.string.music_seek_forward_10),
                             modifier = Modifier.size(24.dp)
                         )
@@ -490,7 +484,7 @@ private fun PlaylistAddersButtonContent(
             }
             if (previewAdders.isEmpty()) {
                 Icon(
-                    imageVector = Icons.Rounded.Person,
+                    imageVector = AppIcons.Person,
                     contentDescription = null,
                     modifier = Modifier
                         .align(Alignment.CenterStart)
@@ -532,7 +526,7 @@ private fun PlaylistAdderAvatar(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.Person,
+                    imageVector = AppIcons.Person,
                     contentDescription = null,
                     modifier = Modifier.size(14.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
@@ -567,7 +561,7 @@ private fun PlaylistAdderAvatar(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.Person,
+                        imageVector = AppIcons.Person,
                         contentDescription = null,
                         modifier = Modifier.size(14.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant

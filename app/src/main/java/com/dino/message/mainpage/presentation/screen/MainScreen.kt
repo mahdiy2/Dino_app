@@ -18,12 +18,6 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowBackIosNew
-import androidx.compose.material.icons.filled.KeyboardArrowRight
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Group
-import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -59,7 +53,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -73,6 +66,7 @@ import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPSmall
 import com.dino.message.corefeature.presentation.util.backIconModifier
+import com.dino.message.corefeature.presentation.platform.LocalPlatformUiEffect
 import com.dino.message.errorfeature.presentation.screen.ErrorScreen
 import com.dino.message.mainpage.presentation.component.GroupListItem
 import com.dino.message.mainpage.presentation.component.MessageListItems
@@ -81,6 +75,7 @@ import com.dino.message.nointernetfeature.presentation.screen.NoInternetScreen
 import com.dino.message.threadfeature.presentation.component.NowPlayingTopBarRow
 import com.dino.message.threadfeature.presentation.music.MusicPlaybackManager
 import kotlinx.coroutines.delay
+import com.dino.message.corefeature.presentation.icons.AppIcons
 
 
 @OptIn(
@@ -89,9 +84,9 @@ import kotlinx.coroutines.delay
 )
 @Composable
 fun MainScreen() {
-    val context = LocalContext.current
     val viewModel: MainScreenViewModel = koinViewModel()
-    var isNoInternet by remember { mutableStateOf(!viewModel.isConnected(context)) }
+    val platformUiEffect = LocalPlatformUiEffect.current
+    var isNoInternet by remember { mutableStateOf(!viewModel.isConnected()) }
 
     val listState = remember { LazyListState() }
 
@@ -123,7 +118,7 @@ fun MainScreen() {
 
     LaunchedEffect(Unit) {
         while (true) {
-            isNoInternet = !viewModel.isConnected(context)
+            isNoInternet = !viewModel.isConnected()
             delay(2000)
         }
     }
@@ -139,7 +134,7 @@ fun MainScreen() {
         if (shouldLoadMore) viewModel.loadNextPage()
     }
 
-    isNoInternet = !viewModel.isConnected(context)
+    isNoInternet = !viewModel.isConnected()
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
@@ -149,7 +144,7 @@ fun MainScreen() {
                 navigationIcon = {
                     IconButton(onClick = { viewModel.navigateUp() }) {
                         Icon(
-                            imageVector = Icons.Rounded.ArrowBackIosNew,
+                            imageVector = AppIcons.ArrowBackIosNew,
                             contentDescription = stringResource(R.string.back),
                             modifier = backIconModifier()
                         )
@@ -158,7 +153,7 @@ fun MainScreen() {
                 actions = {
                     IconButton(onClick = { showMessageSecurityDialog = true }) {
                         Icon(
-                            imageVector = Icons.Rounded.Info,
+                            imageVector = AppIcons.Info,
                             contentDescription = stringResource(R.string.message_security_info)
                         )
                     }
@@ -173,7 +168,7 @@ fun MainScreen() {
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.Group,
+                    imageVector = AppIcons.Group,
                     contentDescription = stringResource(R.string.group_create_title)
                 )
             }
@@ -221,7 +216,7 @@ fun MainScreen() {
                     ) {
                         when {
                             isNoInternet -> NoInternetScreen {
-                                if (viewModel.isConnected(context)) {
+                                if (viewModel.isConnected()) {
                                     isNoInternet = false
                                 }
                             }
@@ -407,11 +402,11 @@ fun MainScreen() {
                                     else Color.Black,
                                     contentColor = Color.White,
                                     onClick = {
-                                        viewModel.onAddNewUserBtnClicked()
+                                        viewModel.onAddNewUserBtnClicked(platformUiEffect)
                                     }
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Default.KeyboardArrowRight,
+                                        imageVector = AppIcons.KeyboardArrowRight,
                                         contentDescription = null,
                                     )
                                 }

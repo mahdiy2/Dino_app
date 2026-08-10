@@ -1,6 +1,5 @@
 package com.dino.message.chatfeature.data.repository
 
-import android.net.Uri
 import com.dino.message.chatfeature.data.db.MessageDao
 import com.dino.message.chatfeature.data.local.toDomainEntity
 import com.dino.message.chatfeature.data.local.toLocalEntity
@@ -16,6 +15,7 @@ import com.dino.message.chatfeature.domain.model.PrivateHistoryPage
 import com.dino.message.chatfeature.domain.model.ReceiverPublicKey
 import com.dino.message.chatfeature.domain.model.SendMessage
 import com.dino.message.chatfeature.domain.repository.ChatRepository
+import com.dino.message.corefeature.data.upload.ReadableMediaFile
 import com.dino.message.corefeature.presentation.util.Resource
 
 class ChatRepositoryImpl(
@@ -45,8 +45,8 @@ class ChatRepositoryImpl(
          encryptedKey: String
      ): Resource<SendMessage> = chatApiService.sendMessage(to, message, encryptedKey)
 
-    override suspend fun uploadAttachment(fileUri: Uri): Resource<MessageAttachment> =
-        chatApiService.uploadAttachment(fileUri)
+    override suspend fun uploadAttachment(file: ReadableMediaFile): Resource<MessageAttachment> =
+        chatApiService.uploadAttachment(file)
 
     override suspend fun saveMessage(message: MessageEntity) = dao.insertMessage(message.toLocalEntity())
     override suspend fun getMessages(chatId: String, limit: Int, offset: Int) =

@@ -22,14 +22,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Done
-import androidx.compose.material.icons.rounded.DoneAll
-import androidx.compose.material.icons.rounded.ErrorOutline
-import androidx.compose.material.icons.rounded.Forum
-import androidx.compose.material.icons.rounded.Pause
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -73,6 +65,7 @@ import com.dino.message.threadfeature.presentation.music.MusicPlaybackManager
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalLayoutDirection
 import kotlinx.coroutines.delay
+import com.dino.message.corefeature.presentation.icons.AppIcons
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -390,7 +383,7 @@ private fun StoryReferencePreviewCard(
                         .size(36.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.PlayArrow,
+                        imageVector = AppIcons.PlayArrow,
                         contentDescription = null,
                         modifier = Modifier.padding(8.dp),
                         tint = MaterialTheme.colorScheme.onPrimary
@@ -487,7 +480,7 @@ private fun PostShareBubble(
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.Forum,
+                    imageVector = AppIcons.Forum,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(16.dp)
@@ -529,11 +522,11 @@ private fun DeliveryStatusIcon(
     val isFailed = deliveryStatus == MessageDeliveryStatus.FAILED
     Icon(
         imageVector = if (isFailed) {
-            Icons.Rounded.ErrorOutline
+            AppIcons.ErrorOutline
         } else if (isDelivered || isSeen) {
-            Icons.Rounded.DoneAll
+            AppIcons.DoneAll
         } else {
-            Icons.Rounded.Done
+            AppIcons.Done
         },
         contentDescription = if (isFailed) {
             "Failed"
@@ -646,7 +639,7 @@ private fun VideoBubble(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.PlayArrow,
+                    imageVector = AppIcons.PlayArrow,
                     contentDescription = "Play video",
                     tint = MaterialTheme.colorScheme.onPrimary,
                     modifier = Modifier.size(28.dp)
@@ -658,7 +651,7 @@ private fun VideoBubble(
                 horizontalArrangement = Arrangement.Center
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.Videocam,
+                    imageVector = AppIcons.Videocam,
                     contentDescription = null,
                     modifier = Modifier.size(16.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
@@ -778,7 +771,7 @@ private fun VoiceBubble(
             )
         ) {
             Icon(
-                imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                imageVector = if (isPlaying) AppIcons.Pause else AppIcons.PlayArrow,
                 contentDescription = if (isPlaying) "Pause" else "Play",
                 tint = MaterialTheme.colorScheme.onPrimary,
                 modifier = Modifier.size(22.dp)

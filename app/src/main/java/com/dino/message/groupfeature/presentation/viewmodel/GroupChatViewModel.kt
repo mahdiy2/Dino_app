@@ -9,7 +9,6 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
-import com.dino.message.BuildConfig
 import com.dino.message.DinoOrderApplication
 import com.dino.message.chatfeature.domain.model.MessageDeliveryStatus
 import com.dino.message.chatfeature.domain.util.encodeMessageReactions
@@ -17,6 +16,10 @@ import com.dino.message.chatfeature.domain.util.parseMessageReactionsFromPayload
 import com.dino.message.corefeature.data.socket.AppSocketManager
 import com.dino.message.corefeature.data.socket.RealtimeSocketEvents
 import com.dino.message.corefeature.data.spref.SPrefManager
+import com.dino.message.corefeature.data.upload.AndroidUploadContentProvider
+import com.dino.message.corefeature.domain.config.AppConfig
+import com.dino.message.corefeature.domain.notification.AppNotificationController
+import com.dino.message.corefeature.domain.resource.StringResolver
 import com.dino.message.corefeature.domain.util.LocalHistoryPaging
 import com.dino.message.corefeature.presentation.util.CryptoUtil
 import com.dino.message.corefeature.presentation.util.Resource
@@ -29,7 +32,6 @@ import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.dino.message.chatfeature.data.notification.ActiveGroupTracker
 import com.dino.message.chatfeature.data.notification.ChatMessageSoundPlayer
-import com.dino.message.chatfeature.data.notification.NotificationHelper
 import com.dino.message.chatfeature.presentation.component.PlatformAudioRecorder
 import com.dino.message.chatfeature.presentation.component.VoiceRecorderManager
 import com.dino.message.chatfeature.presentation.component.toAndroidUri
@@ -70,6 +72,10 @@ class GroupChatViewModel constructor(
     private val isTrackInPlaylistUseCase: IsTrackInPlaylistUseCase,
     private val groupRepository: GroupRepository,
     private val appSocketManager: AppSocketManager,
+    private val appNotificationController: AppNotificationController,
+    private val stringResolver: StringResolver,
+    private val appConfig: AppConfig,
+    private val uploadContentProvider: AndroidUploadContentProvider,
     savedStateHandle: SavedStateHandle,
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
@@ -197,7 +203,7 @@ class GroupChatViewModel constructor(
 
     init {
         ActiveGroupTracker.setActiveGroup(groupId)
-        NotificationHelper.clearNotificationForGroup(app, groupId)
+        appNotificationController.clearGroupChat(groupId)
         startMainThreadWatchdogIfDebug()
         loadMessagesFromDb(resetPaging = true)
         viewModelScope.launch {
@@ -281,7 +287,7 @@ class GroupChatViewModel constructor(
                 loadMessagesFromDb()
             }
             is Resource.Error -> {
-                val errorText = result.message.asString(getApplication<DinoOrderApplication>())
+                val errorText = result.message.resolveWith(stringResolver)
                 Log.w(TAG, "History fetch failed for group $groupId: $errorText")
             }
             is Resource.Loading -> Unit
@@ -548,7 +554,7 @@ class GroupChatViewModel constructor(
                 }
                 is Resource.Error -> {
                     _isLoading.value = false
-                    _socketError.value = res.message.asString(getApplication<DinoOrderApplication>())
+                    _socketError.value = res.message.resolveWith(stringResolver)
                 }
             }
         }
@@ -569,7 +575,7 @@ class GroupChatViewModel constructor(
                 memberIds[member.username] = member.id
 
                 val pk = member.publicKey
-                if (BuildConfig.DEBUG) {
+                if (appConfig.isDebug) {
                     Log.d(TAG, "Group member key ${member.username}: ${formatPublicKeyForLog(pk)}")
                 }
                 if (!pk.isNullOrBlank()) {
@@ -689,7 +695,7 @@ class GroupChatViewModel constructor(
                     applyMemberPublicKeys(res.data)
                 }
                 is Resource.Error -> {
-                    Log.w(TAG, "Failed to refresh member keys: ${res.message.asString(getApplication<DinoOrderApplication>())}")
+                    Log.w(TAG, "Failed to refresh member keys: ${res.message.resolveWith(stringResolver)}")
                 }
                 is Resource.Loading -> Unit
             }
@@ -1303,7 +1309,8 @@ class GroupChatViewModel constructor(
     fun sendAttachment(fileUri: Uri, mediaType: String) {
         viewModelScope.launch {
             stopTypingNow()
-            uploadGroupAttachmentUseCase.execute(groupId, fileUri).collect { res ->
+            val uploadFile = uploadContentProvider.readableMediaFile(fileUri)
+            uploadGroupAttachmentUseCase.execute(groupId, uploadFile).collect { res ->
                 when (res) {
                     is Resource.Loading -> _isUploading.value = true
                     is Resource.Success -> {
@@ -1379,7 +1386,7 @@ class GroupChatViewModel constructor(
                     }
                     is Resource.Error -> {
                         _isUploading.value = false
-                        _uploadError.value = res.message.asString(getApplication<DinoOrderApplication>())
+                        _uploadError.value = res.message.resolveWith(stringResolver)
                     }
                 }
             }
@@ -1553,7 +1560,7 @@ class GroupChatViewModel constructor(
                     revokeMembershipAndExit("You left the group.")
                 }
                 is Resource.Error -> {
-                    _socketError.value = result.message.asString(getApplication<DinoOrderApplication>())
+                    _socketError.value = result.message.resolveWith(stringResolver)
                 }
                 is Resource.Loading -> Unit
             }
@@ -1632,7 +1639,7 @@ class GroupChatViewModel constructor(
             is Resource.Error -> {
                 Log.w(
                     TAG,
-                    "Failed to fetch online group users from API: ${result.message.asString(getApplication<DinoOrderApplication>())}"
+                    "Failed to fetch online group users from API: ${result.message.resolveWith(stringResolver)}"
                 )
             }
             is Resource.Loading -> Unit
@@ -1814,7 +1821,7 @@ class GroupChatViewModel constructor(
     }
 
     private fun startMainThreadWatchdogIfDebug() {
-        if (!BuildConfig.DEBUG) return
+        if (!appConfig.isDebug) return
         lastMainThreadHeartbeatMs = SystemClock.uptimeMillis()
         mainHandler.post(mainThreadHeartbeatRunnable)
         mainThreadWatchdogJob = viewModelScope.launch(Dispatchers.Default) {

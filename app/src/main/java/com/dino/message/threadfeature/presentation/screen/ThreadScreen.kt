@@ -92,16 +92,11 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Create
-import androidx.compose.material.icons.rounded.Download
-import androidx.compose.material.icons.rounded.LibraryMusic
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.ListItemDefaults
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.dino.message.R
+import com.dino.message.corefeature.data.upload.AndroidUploadContentProvider
 import com.dino.message.corefeature.data.upload.MediaFileResolver
 import com.dino.message.corefeature.presentation.util.UserBadgeRole
 import com.dino.message.corefeature.presentation.util.parseUserBadgeRole
@@ -114,6 +109,7 @@ import com.dino.message.threadfeature.presentation.component.StoryRow
 import com.dino.message.threadfeature.presentation.component.StoryViewerOverlay
 import com.dino.message.threadfeature.presentation.component.ThreadPostCard
 import com.dino.message.threadfeature.domain.model.CreatePostMedia
+import org.koin.compose.koinInject
 import com.dino.message.threadfeature.domain.model.FeedMode
 import com.dino.message.threadfeature.presentation.music.MusicPlaybackManager
 import com.dino.message.threadfeature.presentation.viewmodel.FollowSuggestion
@@ -124,6 +120,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import com.dino.message.corefeature.presentation.icons.AppIcons
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -161,6 +158,7 @@ fun ThreadScreen(initialStoryId: Long? = null) {
     val storyViewersLoading by viewModel.storyViewersLoading.collectAsState()
     val storyMentionCandidates by viewModel.storyMentionCandidates.collectAsState()
     val context = LocalContext.current
+    val uploadContentProvider: AndroidUploadContentProvider = koinInject()
     var hasOpenedInitialStory by rememberSaveable(initialStoryId) { mutableStateOf(false) }
     var pendingStoryEditorMedia by remember { mutableStateOf<CreatePostMedia?>(null) }
 
@@ -282,9 +280,11 @@ fun ThreadScreen(initialStoryId: Long? = null) {
                 displayNameHint = guessedFileName,
             )
             pendingStoryEditorMedia = CreatePostMedia(
-                uri = uri,
-                fileName = guessedFileName,
-                mimeType = normalizedMimeType
+                file = uploadContentProvider.readableMediaFile(
+                    uri = uri,
+                    displayName = guessedFileName,
+                    mimeType = normalizedMimeType,
+                )
             )
         }
     }
@@ -515,7 +515,7 @@ fun ThreadScreen(initialStoryId: Long? = null) {
                     actions = {
                         IconButton(onClick = viewModel::openSearchScreen) {
                             Icon(
-                                imageVector = Icons.Rounded.Search,
+                                imageVector = AppIcons.Search,
                                 contentDescription = "Search",
                                 modifier = Modifier.size(24.dp),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
@@ -873,7 +873,7 @@ private fun BadgeFeaturesActivatedDialog(
                 ) {
                     IconButton(onClick = onDismiss) {
                         Icon(
-                            imageVector = Icons.Rounded.Close,
+                            imageVector = AppIcons.Close,
                             contentDescription = stringResource(R.string.close)
                         )
                     }
@@ -913,11 +913,11 @@ private fun BadgeFeaturesActivatedDialog(
                 )
 
                 FeaturePill(
-                    icon = Icons.Rounded.Download,
+                    icon = AppIcons.Download,
                     text = stringResource(R.string.badge_features_dialog_item_post_download)
                 )
                 FeaturePill(
-                    icon = Icons.Rounded.LibraryMusic,
+                    icon = AppIcons.LibraryMusic,
                     text = stringResource(R.string.badge_features_dialog_item_playlist_download)
                 )
 

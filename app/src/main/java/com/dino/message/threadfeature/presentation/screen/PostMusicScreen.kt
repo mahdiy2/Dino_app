@@ -16,11 +16,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowBackIosNew
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.LibraryMusic
-import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -55,6 +50,7 @@ import com.dino.message.threadfeature.presentation.component.PostContainer
 import com.dino.message.threadfeature.presentation.component.QuotedPostPreviewCard
 import com.dino.message.threadfeature.presentation.util.artistTextOrUnknown
 import com.dino.message.threadfeature.presentation.viewmodel.PostMusicViewModel
+import com.dino.message.corefeature.presentation.icons.AppIcons
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -108,7 +104,7 @@ fun PostMusicScreen(
                         enabled = !isSubmitting && !isInitialPostLoading
                     ) {
                         Icon(
-                            imageVector = Icons.Rounded.ArrowBackIosNew,
+                            imageVector = AppIcons.ArrowBackIosNew,
                             contentDescription = stringResource(R.string.back),
                             modifier = backIconModifier()
                         )
@@ -179,7 +175,7 @@ fun PostMusicScreen(
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Icon(
-                                        imageVector = Icons.Rounded.Person,
+                                        imageVector = AppIcons.Person,
                                         contentDescription = null
                                     )
                                 }
@@ -335,7 +331,7 @@ fun PostMusicScreen(
                     enabled = !isSubmitting && !isInitialPostLoading
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.LibraryMusic,
+                        imageVector = AppIcons.LibraryMusic,
                         contentDescription = null
                     )
                     Spacer(modifier = Modifier.size(DPSmall))
@@ -354,7 +350,7 @@ fun PostMusicScreen(
                         enabled = !isSubmitting && !isInitialPostLoading
                     ) {
                         Icon(
-                            imageVector = Icons.Rounded.Close,
+                            imageVector = AppIcons.Close,
                             contentDescription = stringResource(R.string.post_music_remove_selected)
                         )
                     }

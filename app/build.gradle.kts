@@ -99,10 +99,6 @@ dependencies {
     implementation(compose.components.resources)
     implementation(compose.components.uiToolingPreview)
     implementation(libs.androidx.material3)
-    implementation(libs.androidx.swiperefreshlayout)
-
-    implementation(libs.androidx.graphics.shapes)
-
 //    implementation(libs.androidx.navigation.compose)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
@@ -138,8 +134,6 @@ dependencies {
 
     implementation (libs.androidx.datastore.preferences)
 
-    implementation(libs.accompanist.systemuicontroller)
-
     // Core ExoPlayer
     implementation(libs.androidx.media3.exoplayer)
 
@@ -161,9 +155,6 @@ dependencies {
     implementation(libs.androidx.security.identity.credential)
     implementation(libs.androidx.security.app.authenticator)
 
-    // material icons
-    implementation(libs.androidx.material.icons.extended)
-
     implementation(libs.androidx.work.runtime.ktx)
 
     // room
@@ -174,9 +165,5 @@ dependencies {
     ksp(libs.room.compiler)
 
     coreLibraryDesugaring(libs.desugar.jdk.libs)
-
-    implementation(libs.lottie.compose)
-
-    implementation(libs.androidx.constraintlayout.compose)
 
 }

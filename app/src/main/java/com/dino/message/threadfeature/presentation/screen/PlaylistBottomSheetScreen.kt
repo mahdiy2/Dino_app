@@ -33,14 +33,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Pause
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Repeat
-import androidx.compose.material.icons.rounded.Shuffle
-import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ButtonShapes
 import androidx.compose.material3.CircularProgressIndicator
@@ -80,7 +72,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.constraintlayout.compose.ConstraintLayout
 import org.koin.compose.viewmodel.koinViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -100,6 +91,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.net.URL
+import com.dino.message.corefeature.presentation.icons.AppIcons
 
 private const val FOOTER_PRESSED_SCALE = 1.15f
 private const val FOOTER_NEIGHBOR_SCALE = 0.92f
@@ -162,23 +154,15 @@ fun PlaylistBottomSheetScreen() {
     }
 
 
-    ConstraintLayout(
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .padding(DPMedium)
             .windowInsetsPadding(WindowInsets.systemBars)
     ) {
-        val (title, button, items) = createRefs()
-
-
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-//                .height(DPTopAppBar)
-                .constrainAs(title) {
-                top.linkTo(parent.top)
-                start.linkTo(parent.start)
-            }
         ) {
             Text(
                 text = stringResource(R.string.playlist_title),
@@ -200,15 +184,7 @@ fun PlaylistBottomSheetScreen() {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-
-                .constrainAs(items) {
-                    top.linkTo(title.bottom, margin = 50.dp)
-                    start.linkTo(parent.start)
-                    bottom.linkTo(parent.bottom)
-                    end.linkTo(parent.end)
-                }
-
-//                    .weight(1f, fill = true)
+                .padding(top = 50.dp)
         ) {
             when {
                 isLoading -> {
@@ -294,12 +270,7 @@ fun PlaylistBottomSheetScreen() {
 
         Box(
             modifier = Modifier
-                .constrainAs(button) {
-//                        top.linkTo(title.bottom)
-                    start.linkTo(parent.start)
-                    bottom.linkTo(parent.bottom)
-                    end.linkTo(parent.end)
-                }
+                .align(Alignment.BottomCenter)
         ) {
             MusicTrackPlayerCard(
                 modifier = Modifier.onGloballyPositioned {
@@ -419,7 +390,7 @@ private fun SwipeToDeletePlaylistTrackRow(
                             }
                         ) {
                             Icon(
-                                imageVector = Icons.Rounded.Close,
+                                imageVector = AppIcons.Close,
                                 contentDescription = stringResource(R.string.playlist_cancel_remove_track),
                                 tint = MaterialTheme.colorScheme.onErrorContainer
                             )
@@ -442,7 +413,7 @@ private fun SwipeToDeletePlaylistTrackRow(
                                     )
                                 } else {
                                     Icon(
-                                        imageVector = Icons.Rounded.Download,
+                                        imageVector = AppIcons.Download,
                                         contentDescription = stringResource(R.string.playlist_download_track),
                                         tint = MaterialTheme.colorScheme.onErrorContainer
                                     )
@@ -453,7 +424,7 @@ private fun SwipeToDeletePlaylistTrackRow(
                             onClick = onDelete
                         ) {
                             Icon(
-                                imageVector = Icons.Rounded.Delete,
+                                imageVector = AppIcons.Delete,
                                 contentDescription = stringResource(R.string.playlist_confirm_remove_track),
                                 tint = MaterialTheme.colorScheme.onErrorContainer
                             )
@@ -629,7 +600,7 @@ private fun PlaylistTrackRow(
                 modifier = Modifier.size(48.dp)
             ) {
                 Icon(
-                    imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                    imageVector = if (isPlaying) AppIcons.Pause else AppIcons.PlayArrow,
                     contentDescription = if (isPlaying) {
                         stringResource(R.string.playlist_pause_track)
                     } else {
@@ -744,7 +715,7 @@ private fun PlaylistPlaybackFooter(
                 }
         ) {
             Icon(
-                imageVector = Icons.Rounded.Shuffle,
+                imageVector = AppIcons.Shuffle,
                 contentDescription = stringResource(R.string.playlist_toggle_shuffle)
             )
             Spacer(modifier = Modifier.size(6.dp))
@@ -778,7 +749,7 @@ private fun PlaylistPlaybackFooter(
                 }
         ) {
             Icon(
-                imageVector = Icons.Rounded.Repeat,
+                imageVector = AppIcons.Repeat,
                 contentDescription = stringResource(R.string.playlist_toggle_repeat)
             )
             Spacer(modifier = Modifier.size(6.dp))

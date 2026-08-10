@@ -24,8 +24,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.Reply
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
@@ -67,6 +65,7 @@ import com.dino.message.corefeature.presentation.util.rememberTextAlign
 import com.dino.message.profilefeature.presentation.component.ProfileAvatarMedia
 import com.dino.message.threadfeature.domain.model.Comment
 import com.dino.message.threadfeature.presentation.viewmodel.ThreadCommentsViewModel
+import com.dino.message.corefeature.presentation.icons.AppIcons
 
 enum class ThreadCommentsSectionStyle {
     Embedded,
@@ -506,7 +505,7 @@ private fun CommentItem(
                     )
                     TextButton(onClick = { viewModel.toggleReplyComposer(comment.id) }) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.Reply,
+                            imageVector = AppIcons.Reply,
                             contentDescription = null
                         )
                         Spacer(modifier = Modifier.width(2.dp))

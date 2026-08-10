@@ -2,12 +2,10 @@ package com.dino.message.corefeature.presentation.activity
 
 import android.Manifest
 import android.content.Intent
-import android.content.Context
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
-import android.webkit.WebView
 import android.util.Log
 import androidx.lifecycle.lifecycleScope
 import androidx.activity.ComponentActivity
@@ -21,19 +19,22 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
-import com.dino.message.chatfeature.data.notification.NotificationHelper
+import com.dino.message.chatfeature.data.notification.InAppNotificationManager
 import com.dino.message.corefeature.data.spref.SPrefManager
-import com.dino.message.DinoOrderApplication
 import com.dino.message.corefeature.domain.model.AppLanguage
 import com.dino.message.corefeature.domain.model.toLayoutDirection
 import com.dino.message.corefeature.domain.model.toLocale
+import com.dino.message.corefeature.domain.notification.AppNotificationController
 import com.dino.message.corefeature.presentation.activity.theme.SecMessageTheme
 import com.dino.message.corefeature.presentation.platform.LocalPlatformUiEffect
 import com.dino.message.corefeature.presentation.platform.rememberAndroidPlatformUiEffect
+import com.dino.message.corefeature.presentation.navigation.AndroidIntentDeepLinkHandler
 import com.dino.message.corefeature.presentation.navigation.AppNavGraph
 import com.dino.message.corefeature.presentation.navigation.AppRoute
+import com.dino.message.corefeature.presentation.navigation.NotificationClearTarget
 import com.dino.message.corefeature.presentation.util.HandleUIEvent
 import com.dino.message.corefeature.presentation.util.LocaleUtils
+import com.dino.message.corefeature.presentation.util.UiEventBus
 import com.dino.message.corefeature.presentation.viewmodel.MainActivityViewModel
 import com.dino.message.threadfeature.presentation.music.MusicPlaybackManager
 import kotlinx.coroutines.delay
@@ -43,26 +44,26 @@ import org.koin.androidx.viewmodel.ext.android.viewModel
 
 class MainActivity : ComponentActivity() {
 
-    private val app: Context by inject()
-
     private val sPrefManager: SPrefManager by inject()
+
+    private val inAppNotificationManager: InAppNotificationManager by inject()
+
+    private val appNotificationController: AppNotificationController by inject()
+
+    private val androidIntentDeepLinkHandler: AndroidIntentDeepLinkHandler by inject()
+
+    private val uiEventBus: UiEventBus by inject()
 
     private val viewModel: MainActivityViewModel by viewModel()
 
     private var navController: NavHostController? = null
-
-    private lateinit var webView: WebView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         connectNotificationSocket()
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1001)
-            }
-        }
+        requestPostNotificationsPermissionIfNeeded()
 
         // Determine the system theme based on the current configuration
         val systemTheme =
@@ -89,7 +90,7 @@ class MainActivity : ComponentActivity() {
             LocaleUtils.setLocale(LocalContext.current, appLanguage.value.toLocale())
 
             // Handle UI events and update the app's state
-            HandleUIEvent(app as DinoOrderApplication, navController!!, activeModalRoute)
+            HandleUIEvent(uiEventBus, navController!!, activeModalRoute)
 
             SecMessageTheme(
                 darkTheme = theme.value,
@@ -103,11 +104,13 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+        handleDeepLink(intent)
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        handleDeepLink(intent)
     }
 
     override fun onResume() {
@@ -117,106 +120,54 @@ class MainActivity : ComponentActivity() {
 
     override fun onStop() {
         super.onStop()
-        val dinoApp = applicationContext as? DinoOrderApplication
-        dinoApp?.inAppNotificationManager?.disconnect()
+        inAppNotificationManager.disconnect()
         if (isFinishing) {
             MusicPlaybackManager.stop()
         }
     }
 
     override fun onDestroy() {
-        val dinoApp = applicationContext as? DinoOrderApplication
-        dinoApp?.inAppNotificationManager?.disconnect()
+        inAppNotificationManager.disconnect()
         super.onDestroy()
     }
 
     private fun connectNotificationSocket() {
         val token = sPrefManager.getToken()
         if (token.isNotBlank()) {
-            val dinoApp = applicationContext as DinoOrderApplication
-            dinoApp.inAppNotificationManager.connect(token)
+            inAppNotificationManager.connect(token)
         }
     }
 
-    private fun handleNotificationDeepLink(intent: Intent?) {
-        val chatUsername = intent?.getStringExtra("open_chat")
-        if (chatUsername.isNullOrBlank()) return
+    private fun requestPostNotificationsPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) return
 
-        intent.removeExtra("open_chat")
-
-        NotificationHelper.clearNotificationForUser(this, chatUsername)
-
-        lifecycleScope.launch {
-            delay(300)
-            val nav = navController
-            if (nav != null) {
-                try {
-                    nav.navigate(AppRoute.Chat(
-                        chatId = chatUsername,
-                        displayName = chatUsername
-                    )) {
-                        launchSingleTop = true
-                    }
-                } catch (e: Exception) {
-                    Log.e("MainActivity", "Failed to navigate to chat: $chatUsername", e)
-                }
-            }
-        }
+        requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), POST_NOTIFICATIONS_REQUEST_CODE)
     }
 
-    private fun handleActivityNotificationDeepLink(intent: Intent?) {
-        val openActivity = intent?.getBooleanExtra("open_activity_notifications", false) ?: false
-        if (!openActivity) return
-
-        intent?.removeExtra("open_activity_notifications")
+    private fun handleDeepLink(intent: Intent?) {
+        val command = androidIntentDeepLinkHandler.consume(intent) ?: return
+        when (val target = command.notificationClearTarget) {
+            is NotificationClearTarget.PrivateChat -> appNotificationController.clearPrivateChat(target.username)
+            is NotificationClearTarget.GroupChat -> appNotificationController.clearGroupChat(target.groupId)
+            null -> Unit
+        }
 
         lifecycleScope.launch {
             delay(300)
-            val nav = navController
-            if (nav != null) {
-                try {
-                    nav.navigate(AppRoute.ActivityNotification) {
-                        launchSingleTop = true
-                    }
-                } catch (e: Exception) {
-                    Log.e("MainActivity", "Failed to navigate to activity notifications", e)
-                }
-            }
-        }
-    }
-
-    private fun handleGroupNotificationDeepLink(intent: Intent?) {
-        val safeIntent = intent ?: return
-        val data = safeIntent.data
-        val deepLinkGroupId = data?.lastPathSegment?.toIntOrNull() ?: -1
-        val deepLinkGroupName = data?.getQueryParameter("name")
-
-        val groupId = if (deepLinkGroupId > 0) {
-            deepLinkGroupId
-        } else {
-            safeIntent.getIntExtra("open_group_id", -1)
-        }
-        if (groupId <= 0) return
-
-        val groupName = deepLinkGroupName ?: safeIntent.getStringExtra("open_group_name")
-        safeIntent.removeExtra("open_group_id")
-        safeIntent.removeExtra("open_group_name")
-        NotificationHelper.clearNotificationForGroup(this, groupId)
-
-        lifecycleScope.launch {
-            delay(300)
-            val fallbackNav = navController ?: return@launch
+            val nav = navController ?: return@launch
             try {
-                fallbackNav.navigate(AppRoute.GroupChat(
-                    groupId = groupId,
-                    groupName = groupName
-                )) {
+                nav.navigate(command.route) {
                     launchSingleTop = true
                 }
             } catch (e: Exception) {
-                Log.e("MainActivity", "Failed to navigate to group: $groupId", e)
+                Log.e("MainActivity", "Failed to navigate deep link: ${command.route}", e)
             }
         }
+    }
+
+    companion object {
+        private const val POST_NOTIFICATIONS_REQUEST_CODE = 1001
     }
 }
 //@Composable

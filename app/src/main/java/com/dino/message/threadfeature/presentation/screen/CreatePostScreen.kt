@@ -20,11 +20,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowBackIosNew
-import androidx.compose.material.icons.rounded.AttachFile
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -63,6 +58,7 @@ import com.dino.message.threadfeature.presentation.component.Carousel
 import com.dino.message.threadfeature.presentation.component.PostContainer
 import com.dino.message.threadfeature.presentation.component.QuotedPostPreviewCard
 import com.dino.message.threadfeature.presentation.viewmodel.CreatePostViewModel
+import com.dino.message.corefeature.presentation.icons.AppIcons
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -141,7 +137,7 @@ fun CreatePostScreen(
                         enabled = !isSubmitting && !isInitialPostLoading
                     ) {
                         Icon(
-                            imageVector = Icons.Rounded.ArrowBackIosNew,
+                            imageVector = AppIcons.ArrowBackIosNew,
                             contentDescription = stringResource(R.string.back),
                             modifier = backIconModifier()
                         )
@@ -213,7 +209,7 @@ fun CreatePostScreen(
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Icon(
-                                        imageVector = Icons.Rounded.Person,
+                                        imageVector = AppIcons.Person,
                                         contentDescription = null
                                     )
                                 }
@@ -264,7 +260,7 @@ fun CreatePostScreen(
                                         label = { Text(media.displayName, maxLines = 1) },
                                         trailingIcon = {
                                             Icon(
-                                                imageVector = Icons.Rounded.Close,
+                                                imageVector = AppIcons.Close,
                                                 contentDescription = stringResource(R.string.remove_media)
                                             )
                                         },
@@ -288,7 +284,7 @@ fun CreatePostScreen(
                                         },
                                         trailingIcon = {
                                             Icon(
-                                                imageVector = Icons.Rounded.Close,
+                                                imageVector = AppIcons.Close,
                                                 contentDescription = stringResource(R.string.remove_media)
                                             )
                                         },
@@ -406,7 +402,7 @@ fun CreatePostScreen(
                         previewMedia.size < CreatePostViewModel.MAX_MEDIA_FILES_PER_POST
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.AttachFile,
+                        imageVector = AppIcons.AttachFile,
                         contentDescription = null
                     )
                     Spacer(modifier = Modifier.size(DPSmall))

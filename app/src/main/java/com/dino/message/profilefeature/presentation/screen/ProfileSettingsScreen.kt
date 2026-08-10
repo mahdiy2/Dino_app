@@ -28,15 +28,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowBackIosNew
-import androidx.compose.material.icons.rounded.Block
-import androidx.compose.material.icons.rounded.DeleteForever
-import androidx.compose.material.icons.rounded.Forum
-import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material.icons.rounded.Language
-import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -86,6 +77,7 @@ import com.dino.message.corefeature.presentation.util.backIconModifier
 import com.dino.message.profilefeature.presentation.viewmodel.ProfileSettingsViewModel
 import com.dino.message.threadfeature.presentation.component.PostContainer
 import kotlinx.coroutines.delay
+import com.dino.message.corefeature.presentation.icons.AppIcons
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -169,7 +161,7 @@ fun ProfileSettingsScreen() {
                 navigationIcon = {
                     IconButton(onClick = viewModel::navigateUp) {
                         Icon(
-                            imageVector = Icons.Rounded.ArrowBackIosNew,
+                            imageVector = AppIcons.ArrowBackIosNew,
                             contentDescription = stringResource(R.string.back),
                             modifier = backIconModifier(),
                         )
@@ -213,7 +205,7 @@ fun ProfileSettingsScreen() {
                     AnimatedSection(delayMillis = 80) {
                         SettingsSectionHeader(
                             title = stringResource(R.string.privacy),
-                            icon = Icons.Rounded.Block,
+                            icon = AppIcons.Block,
                         )
                     }
                 }
@@ -226,7 +218,7 @@ fun ProfileSettingsScreen() {
                             onClick = viewModel::openBlockList,
                             icon = { tint ->
                                 Icon(
-                                    imageVector = Icons.Rounded.Block,
+                                    imageVector = AppIcons.Block,
                                     contentDescription = null,
                                     tint = tint,
                                 )
@@ -256,7 +248,7 @@ fun ProfileSettingsScreen() {
                     AnimatedSection(delayMillis = 190) {
                         SettingsSectionHeader(
                             title = stringResource(R.string.legal),
-                            icon = Icons.Rounded.Forum,
+                            icon = AppIcons.Forum,
                         )
                     }
                 }
@@ -269,7 +261,7 @@ fun ProfileSettingsScreen() {
                             onClick = { showTermsDialog = true },
                             icon = { tint ->
                                 Icon(
-                                    imageVector = Icons.Rounded.Forum,
+                                    imageVector = AppIcons.Forum,
                                     contentDescription = null,
                                     tint = tint,
                                 )
@@ -286,7 +278,7 @@ fun ProfileSettingsScreen() {
                             onClick = { showPrivacyDialog = true },
                             icon = { tint ->
                                 Icon(
-                                    imageVector = Icons.Rounded.Settings,
+                                    imageVector = AppIcons.Settings,
                                     contentDescription = null,
                                     tint = tint,
                                 )
@@ -299,7 +291,7 @@ fun ProfileSettingsScreen() {
                     AnimatedSection(delayMillis = 300) {
                         SettingsSectionHeader(
                             title = stringResource(R.string.about),
-                            icon = Icons.Rounded.Info,
+                            icon = AppIcons.Info,
                         )
                     }
                 }
@@ -312,7 +304,7 @@ fun ProfileSettingsScreen() {
                             onClick = viewModel::openAboutUs,
                             icon = { tint ->
                                 Icon(
-                                    imageVector = Icons.Rounded.Info,
+                                    imageVector = AppIcons.Info,
                                     contentDescription = null,
                                     tint = tint,
                                 )
@@ -325,7 +317,7 @@ fun ProfileSettingsScreen() {
                     AnimatedSection(delayMillis = 375) {
                         SettingsSectionHeader(
                             title = stringResource(R.string.account),
-                            icon = Icons.Rounded.Person,
+                            icon = AppIcons.Person,
                         )
                     }
                 }
@@ -359,7 +351,7 @@ fun ProfileSettingsScreen() {
                             isDestructive = true,
                             icon = { tint ->
                                 Icon(
-                                    imageVector = Icons.Rounded.DeleteForever,
+                                    imageVector = AppIcons.DeleteForever,
                                     contentDescription = null,
                                     tint = tint,
                                 )
@@ -490,7 +482,7 @@ private fun SettingsHeroCard(
                     ) {
                         Icon(
                             modifier = Modifier.padding(DPMedium),
-                            imageVector = Icons.Rounded.Settings,
+                            imageVector = AppIcons.Settings,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurface,
                         )
@@ -550,7 +542,7 @@ private fun SettingsInfoPill(
         ) {
             Icon(
                 modifier = Modifier.size(16.dp),
-                imageVector = Icons.Rounded.Language,
+                imageVector = AppIcons.Language,
                 contentDescription = null,
             )
             Text(

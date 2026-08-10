@@ -1,10 +1,7 @@
 package com.dino.message.mainpage.presentation.viewmodel
 
 import android.content.Context
-import android.net.ConnectivityManager
-import android.net.NetworkCapabilities
 import android.util.Log
-import android.widget.Toast
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
@@ -13,6 +10,9 @@ import com.dino.message.DinoOrderApplication
 import com.dino.message.R
 import com.dino.message.corefeature.data.socket.AppSocketManager
 import com.dino.message.corefeature.data.socket.RealtimeSocketEvents
+import com.dino.message.corefeature.domain.network.NetworkStatusProvider
+import com.dino.message.corefeature.domain.resource.StringResolver
+import com.dino.message.corefeature.presentation.platform.PlatformUiEffect
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
@@ -43,6 +43,8 @@ class MainScreenViewModel constructor(
     private val listGroupsUseCase: ListGroupsUseCase,
     private val isTrackInPlaylistUseCase: IsTrackInPlaylistUseCase,
     private val appSocketManager: AppSocketManager,
+    private val networkStatusProvider: NetworkStatusProvider,
+    private val stringResolver: StringResolver,
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
 
@@ -86,8 +88,6 @@ class MainScreenViewModel constructor(
     private var pendingDeltaEvents = 0
     private val pendingDeltaContactFetches = mutableSetOf<String>()
 
-    private val context: Context = app.applicationContext
-
     init {
         refreshFromServer(force = true)
         connectSocket()
@@ -115,11 +115,11 @@ class MainScreenViewModel constructor(
         }
     }
 
-    private fun addContact(contact: String) = viewModelScope.launch {
+    private fun addContact(contact: String, platformUiEffect: PlatformUiEffect) = viewModelScope.launch {
         addContactUseCase.execute(contact).collect { res ->
             when (res) {
                 is Resource.Success -> {
-                    Toast.makeText(context, context.getString(R.string.success), Toast.LENGTH_SHORT).show()
+                    platformUiEffect.showToast(stringResolver.resolveStringId(R.string.success))
                     hideBottomSheet()
                     getDetailedContacts(page = 1, isRefresh = true)
                     isAddingContacts = false
@@ -130,7 +130,7 @@ class MainScreenViewModel constructor(
                 }
 
                 is Resource.Error -> {
-                    Toast.makeText(context, context.getString(R.string.not_found_short), Toast.LENGTH_SHORT).show()
+                    platformUiEffect.showToast(res.message.resolveWith(stringResolver))
                     isAddingContacts = false
                 }
             }
@@ -437,13 +437,7 @@ class MainScreenViewModel constructor(
         return args.firstOrNull()
     }
 
-    fun isConnected(context: Context): Boolean {
-        val connectivityManager =
-            context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        val network = connectivityManager.activeNetwork ?: return false
-        val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
-        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-    }
+    fun isConnected(): Boolean = networkStatusProvider.isConnected()
 
     fun navigateToProfileScreen() {
         navigateToDestination(AppRoute.Profile(), viewModelScope)
@@ -507,9 +501,10 @@ class MainScreenViewModel constructor(
         _addUserTextField.value = ""
     }
 
-    fun onAddNewUserBtnClicked() {
+    fun onAddNewUserBtnClicked(platformUiEffect: PlatformUiEffect) {
         addContact(
-            _addUserTextField.value
+            contact = _addUserTextField.value,
+            platformUiEffect = platformUiEffect,
         )
     }
 

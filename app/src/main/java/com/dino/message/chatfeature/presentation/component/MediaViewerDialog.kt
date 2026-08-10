@@ -12,9 +12,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -37,6 +34,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.net.URL
+import com.dino.message.corefeature.presentation.icons.AppIcons
 
 @Composable
 fun MediaViewerDialog(
@@ -90,7 +88,7 @@ fun MediaViewerDialog(
                     )
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.Download,
+                        imageVector = AppIcons.Download,
                         contentDescription = "Save to gallery",
                         tint = Color.White,
                         modifier = Modifier.size(24.dp)
@@ -103,7 +101,7 @@ fun MediaViewerDialog(
                     )
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.Close,
+                        imageVector = AppIcons.Close,
                         contentDescription = "Close",
                         tint = Color.White,
                         modifier = Modifier.size(24.dp)

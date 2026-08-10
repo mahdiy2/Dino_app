@@ -2,6 +2,9 @@ package com.dino.message.corefeature.data.socket
 
 import android.util.Log
 import com.dino.message.corefeature.data.spref.SPrefManager
+import com.dino.message.corefeature.domain.background.BackgroundTask
+import com.dino.message.corefeature.domain.background.BackgroundTaskRegistry
+import com.dino.message.corefeature.domain.background.BackgroundTaskScheduler
 import com.dino.message.crashfeature.data.service.CrashReporter
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -21,6 +24,8 @@ class AppSocketManager constructor(
     private val crashReporter: CrashReporter,
     private val socketOutboundQueueStore: SocketOutboundQueueStore,
     private val transportFactory: RealtimeSocketTransportFactory,
+    private val backgroundTaskScheduler: BackgroundTaskScheduler,
+    backgroundTaskRegistry: BackgroundTaskRegistry,
 ) : RealtimeSocketGateway {
 
     enum class EmitWithRetryResult {
@@ -59,6 +64,11 @@ class AppSocketManager constructor(
     private var isConnecting = false
 
     init {
+        backgroundTaskRegistry.register(BackgroundTask.SOCKET_OUTBOUND_RETRY) {
+            synchronized(lock) {
+                restartOutboundQueueWorkerLocked()
+            }
+        }
         restorePersistedOutboundQueue()
     }
 
@@ -111,7 +121,7 @@ class AppSocketManager constructor(
                 )
                 val waiters = synchronized(lock) {
                     isConnecting = false
-                    ensureOutboundQueueWorkerLocked(restart = true)
+                    scheduleOutboundQueueWorker()
                     drainConnectionWaitersLocked()
                 }
                 waiters.forEach { waiter ->
@@ -271,7 +281,7 @@ class AppSocketManager constructor(
             when (result) {
                 is SocketOutboundRetryQueue.EnqueueResult.Queued -> {
                     syncOutboundQueueCountLocked()
-                    ensureOutboundQueueWorkerLocked(restart = true)
+                    scheduleOutboundQueueWorker()
                 }
                 SocketOutboundRetryQueue.EnqueueResult.AlreadyQueued,
                 SocketOutboundRetryQueue.EnqueueResult.QueueFull -> Unit
@@ -346,11 +356,17 @@ class AppSocketManager constructor(
         return pending
     }
 
-    private fun ensureOutboundQueueWorkerLocked(restart: Boolean) {
-        if (restart) {
-            outboundQueueJob?.cancel()
-            outboundQueueJob = null
-        }
+    private fun scheduleOutboundQueueWorker() {
+        backgroundTaskScheduler.schedule(BackgroundTask.SOCKET_OUTBOUND_RETRY)
+    }
+
+    private fun restartOutboundQueueWorkerLocked() {
+        outboundQueueJob?.cancel()
+        outboundQueueJob = null
+        ensureOutboundQueueWorkerLocked()
+    }
+
+    private fun ensureOutboundQueueWorkerLocked() {
         if (outboundQueueJob?.isActive == true) {
             return
         }
