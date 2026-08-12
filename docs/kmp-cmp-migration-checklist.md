@@ -74,14 +74,16 @@ All migration work must preserve MVVM with Clean Architecture.
 
 ### 1. Establish And Commit The Baseline
 
-- [ ] Commit this checklist rewrite.
+- [x] Commit this checklist rewrite.
   - Use a documentation commit message, for example:
     `docs(kmp): refresh migration checklist`.
-- [ ] Record the current baseline build status in the commit or PR notes.
+- [x] Record the current baseline build status in the commit or PR notes.
   - Required command: `./gradlew :app:compileDebugKotlin`.
-  - Current known result: successful.
-- [ ] Before every later migration step, confirm whether the working tree already
+  - Current verified result: successful on 2026-08-12.
+  - Baseline checklist commit: `486e648 docs(kmp): refresh migration checklist`.
+- [x] Before every later migration step, confirm whether the working tree already
   contains unrelated changes and avoid reverting user work.
+  - Confirmed clean working tree before this baseline update.
 
 ### 2. Create The Real KMP/CMP Module Structure
 
