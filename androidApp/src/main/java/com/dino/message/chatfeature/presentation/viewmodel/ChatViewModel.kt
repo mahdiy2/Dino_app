@@ -26,7 +26,7 @@ import com.dino.message.corefeature.domain.crypto.RsaPublicKey
 import com.dino.message.corefeature.domain.notification.AppNotificationController
 import com.dino.message.corefeature.domain.resource.StringResolver
 import com.dino.message.profilefeature.domain.usecase.FollowUserUseCase
-import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.corefeature.domain.result.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.dino.message.corefeature.domain.util.LocalHistoryPaging
@@ -586,7 +586,7 @@ class ChatViewModel constructor(
     )
 
     private fun resolveAttachmentMetadata(
-        attachment: com.dino.message.chatfeature.data.remote.dto.MessageAttachment?
+        attachment: com.dino.message.chatfeature.domain.model.MessageAttachment?
     ): AttachmentMetadata {
         if (attachment == null) return AttachmentMetadata()
         val normalizedType = attachment.type.trim().lowercase()
@@ -1025,7 +1025,7 @@ class ChatViewModel constructor(
     }
 
     private fun emitAttachmentMessage(
-        attachment: com.dino.message.chatfeature.data.remote.dto.MessageAttachment,
+        attachment: com.dino.message.chatfeature.domain.model.MessageAttachment,
         caption: String?,
         replyTo: MessageEntity? = _replyingTo.value,
         clientMessageId: String = generateClientMessageId(),

@@ -1,6 +1,6 @@
 package com.dino.message.profilefeature.data.remote
 
-import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.corefeature.domain.result.Resource
 import com.dino.message.profilefeature.domain.model.AboutUs
 import com.dino.message.profilefeature.domain.model.Profile
 import com.dino.message.profilefeature.domain.model.ProfileFollowResult

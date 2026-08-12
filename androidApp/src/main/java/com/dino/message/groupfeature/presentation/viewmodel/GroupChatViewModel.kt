@@ -22,7 +22,7 @@ import com.dino.message.corefeature.domain.notification.AppNotificationControlle
 import com.dino.message.corefeature.domain.resource.StringResolver
 import com.dino.message.corefeature.domain.system.AppClock
 import com.dino.message.corefeature.domain.util.LocalHistoryPaging
-import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.corefeature.domain.result.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.dino.message.chatfeature.data.notification.ActiveGroupTracker

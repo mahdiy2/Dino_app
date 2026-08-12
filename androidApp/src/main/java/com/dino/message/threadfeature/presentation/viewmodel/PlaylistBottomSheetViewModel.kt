@@ -1,12 +1,13 @@
 package com.dino.message.threadfeature.presentation.viewmodel
 
+import com.dino.message.corefeature.presentation.util.asString
 import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.dino.message.DinoOrderApplication
 import com.dino.message.R
 import com.dino.message.corefeature.data.spref.DataStoreUtil
-import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.corefeature.domain.result.Resource
 import com.dino.message.threadfeature.domain.model.PlaylistTrack
 import com.dino.message.threadfeature.domain.usecase.AddTrackToPlaylistUseCase
 import com.dino.message.threadfeature.domain.usecase.GetPlaylistTracksUseCase

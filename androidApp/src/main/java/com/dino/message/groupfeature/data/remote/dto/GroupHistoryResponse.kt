@@ -1,6 +1,7 @@
 package com.dino.message.groupfeature.data.remote.dto
 
 import com.dino.message.chatfeature.data.remote.dto.MessageAttachment
+import com.dino.message.chatfeature.data.remote.dto.toDomain
 import com.dino.message.chatfeature.domain.model.MessageReaction
 import com.dino.message.corefeature.data.remote.ResponseToResultMapper
 import com.dino.message.groupfeature.domain.model.GroupHistoryMessage
@@ -50,7 +51,7 @@ private fun GroupHistoryMessageDto.toDomain(): GroupHistoryMessage = GroupHistor
     encryptedKeys = encryptedKeys,
     encryptedKey = encryptedKey,
     expiresAt = expiresAt,
-    attachment = attachment,
+    attachment = attachment?.toDomain(),
     timestamp = timestamp,
     replyToMessageId = replyToMessageId,
     replyToSender = replyToSender,

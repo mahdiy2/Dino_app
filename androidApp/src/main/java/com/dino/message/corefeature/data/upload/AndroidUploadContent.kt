@@ -2,6 +2,9 @@ package com.dino.message.corefeature.data.upload
 
 import android.content.ContentResolver
 import android.net.Uri
+import com.dino.message.corefeature.domain.upload.MediaFileHandle
+import com.dino.message.corefeature.domain.upload.ReadableMediaFile
+import com.dino.message.corefeature.domain.upload.UploadInputProvider
 import io.ktor.utils.io.streams.asInput
 import java.io.File
 

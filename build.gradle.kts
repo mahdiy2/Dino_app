@@ -9,11 +9,47 @@ plugins {
     alias(libs.plugins.compose.multiplatform) apply false
 }
 
+tasks.register("checkDomainBoundaries") {
+    group = "verification"
+    description = "Fails when domain source imports data, presentation, Android, or AndroidX packages."
+
+    doLast {
+        val forbiddenImportPattern = Regex("""^\s*import\s+.*(\.data\.|\.presentation\.|android\.|androidx\.).*$""")
+        val domainRoots = listOf(
+            file("androidApp/src/main/java"),
+            file("androidApp/src/test/java"),
+        )
+        val violations = domainRoots
+            .filter { it.exists() }
+            .flatMap { root ->
+                root.walkTopDown()
+                    .filter { it.isFile && it.extension == "kt" && "${it.invariantSeparatorsPath}/".contains("/domain/") }
+                    .flatMap { sourceFile ->
+                        sourceFile.readLines().mapIndexedNotNull { index, line ->
+                            if (forbiddenImportPattern.containsMatchIn(line)) {
+                                "${sourceFile.relativeTo(rootProject.projectDir).invariantSeparatorsPath}:${index + 1}: $line"
+                            } else {
+                                null
+                            }
+                        }
+                    }
+                    .toList()
+            }
+
+        if (violations.isNotEmpty()) {
+            throw GradleException(
+                "Domain boundary violations found:\n" + violations.joinToString(separator = "\n")
+            )
+        }
+    }
+}
+
 tasks.register("verifyKmpBaseline") {
     group = "verification"
     description = "Compiles the Android shell and the initial Compose Multiplatform module."
 
     dependsOn(
+        "checkDomainBoundaries",
         ":androidApp:compileDebugKotlin",
         ":composeApp:compileKotlinMetadata",
         ":composeApp:compileDebugKotlinAndroid",

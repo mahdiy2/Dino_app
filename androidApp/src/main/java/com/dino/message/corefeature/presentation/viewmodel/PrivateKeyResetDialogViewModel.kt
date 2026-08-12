@@ -1,5 +1,6 @@
 package com.dino.message.corefeature.presentation.viewmodel
 
+import com.dino.message.corefeature.presentation.util.asString
 import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -7,7 +8,7 @@ import com.dino.message.DinoOrderApplication
 import com.dino.message.authfeature.domain.usecase.RotatePublicKeyUseCase
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.domain.crypto.MessageCrypto
-import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.corefeature.domain.result.Resource
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow

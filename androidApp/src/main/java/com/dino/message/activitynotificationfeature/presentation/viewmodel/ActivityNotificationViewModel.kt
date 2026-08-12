@@ -1,5 +1,6 @@
 package com.dino.message.activitynotificationfeature.presentation.viewmodel
 
+import com.dino.message.corefeature.presentation.util.asString
 import android.content.Context
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -9,7 +10,7 @@ import com.dino.message.DinoOrderApplication
 import com.dino.message.activitynotificationfeature.domain.model.ActivityNotification
 import com.dino.message.activitynotificationfeature.domain.usecase.GetActivityNotificationsUseCase
 import com.dino.message.activitynotificationfeature.domain.usecase.MarkNotificationsReadUseCase
-import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.corefeature.domain.result.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.dino.message.profilefeature.domain.usecase.FollowUserUseCase

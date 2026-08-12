@@ -127,39 +127,38 @@ All migration work must preserve MVVM with Clean Architecture.
 
 ### 3. Fix Clean Architecture Boundary Violations
 
-- [ ] Move `Resource` out of `corefeature.presentation.util`.
-  - Current issue: many domain repositories and use cases import
-    `com.dino.message.corefeature.presentation.util.Resource`.
-  - Create a domain-safe result type under a domain/core package, or move the
-    existing type to a neutral package.
-  - Update all domain, data, presentation, and test imports.
+- [x] Move `Resource` out of `corefeature.presentation.util`.
+  - Added `corefeature.domain.result.Resource` and updated domain, data,
+    presentation, and test imports.
   - Ensure presentation-only UI event state stays in presentation.
-- [ ] Remove domain imports of data DTOs.
-  - Current examples include chat/group domain contracts importing
+- [x] Remove domain imports of data DTOs.
+  - Current examples included chat/group domain contracts importing
     `MessageAttachment`, `MessageSent`, `NewMessage`, `PendingMessage`, and
     `UnreadResponse` from data remote DTO packages.
-  - Create domain models for these concepts.
-  - Map DTOs to domain models in the data layer.
-  - Keep server wire names and serialization annotations only in DTOs.
-- [ ] Remove domain imports of data upload classes.
-  - Current examples include domain upload models/use cases importing
-    `ReadableMediaFile` from `corefeature.data.upload`.
-  - Move the neutral upload contract to a domain/core package, or introduce a
-    domain-facing `UploadSource` type and map platform/data implementations to
-    it.
-  - Android `Uri`, `ContentResolver`, `File`, stream opening, MIME probing, and
-    metadata extraction must remain platform/data implementation details.
-- [ ] Replace domain dependencies on concrete persistence/session classes.
-  - Current examples include domain code importing `SPrefManager`,
-    `MessageDatabase`, `ActiveChatTracker`, and `ActiveGroupTracker`.
-  - Introduce domain interfaces for session clearing, database clearing, and
-    active chat/group state.
-  - Bind current Android implementations through DI.
-- [ ] Add boundary checks.
+  - Added domain-safe models for currently domain-facing DTO concepts and mapped
+    remote DTOs in the data layer.
+  - Kept server wire names and serialization annotations in DTOs.
+- [x] Remove domain imports of data upload classes.
+  - Moved neutral readable upload contracts to `corefeature.domain.upload`.
+  - Kept Android `Uri`, `ContentResolver`, stream opening, MIME probing,
+    metadata extraction, and Ktor multipart helpers in platform/data code.
+- [x] Replace domain dependencies on concrete persistence/session classes.
+  - Added domain interfaces for local session access/clearing, local message
+    store clearing, and active conversation state clearing.
+  - Bound current `SPrefManager`, Room database, and active tracker
+    implementations through DI.
+- [x] Add boundary checks.
   - Add a lightweight script or Gradle check that fails when domain code imports
     `.data.`, `.presentation.`, `android.`, or `androidx.` packages, except for
     explicitly approved multiplatform-safe APIs.
-- [ ] Commit after verification.
+  - Added `checkDomainBoundaries` and wired it into `verifyKmpBaseline`.
+  - Verified commands:
+    - `./gradlew checkDomainBoundaries`
+    - `./gradlew :androidApp:compileDebugKotlin`
+    - `./gradlew :androidApp:testDebugUnitTest`
+    - `./gradlew verifyKmpBaseline`
+  - Result: successful on 2026-08-12.
+- [x] Commit after verification.
   - Suggested message: `refactor(architecture): enforce domain boundaries`.
 
 ### 4. Make ViewModels And State Holders Multiplatform-Ready

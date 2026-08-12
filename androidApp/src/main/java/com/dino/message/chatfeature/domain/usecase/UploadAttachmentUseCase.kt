@@ -1,8 +1,8 @@
 package com.dino.message.chatfeature.domain.usecase
 
 import com.dino.message.chatfeature.domain.repository.ChatRepository
-import com.dino.message.corefeature.data.upload.ReadableMediaFile
-import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.corefeature.domain.upload.ReadableMediaFile
+import com.dino.message.corefeature.domain.result.Resource
 import kotlinx.coroutines.flow.flow
 
 class UploadAttachmentUseCase constructor(

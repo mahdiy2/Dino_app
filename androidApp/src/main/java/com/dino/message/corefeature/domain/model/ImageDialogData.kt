@@ -1,7 +1,5 @@
 package com.dino.message.corefeature.domain.model
 
-import androidx.annotation.DrawableRes
-import androidx.annotation.StringRes
 import kotlinx.serialization.Serializable
 
 /**
@@ -17,8 +15,8 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 data class ImageDialogData(
-    @StringRes val titleStrRes: Int = 0,
-    @DrawableRes val resId: Int = -1,
+    val titleStrRes: Int = 0,
+    val resId: Int = -1,
     val uriString: String? = null,
     val url: String? = null,
     val type: ImageDialogImageResourceType = ImageDialogImageResourceType.ResId

@@ -1,5 +1,6 @@
 package com.dino.message.profilefeature.presentation.viewmodel
 
+import com.dino.message.corefeature.presentation.util.asString
 import android.content.Context
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
@@ -9,7 +10,7 @@ import com.dino.message.corefeature.data.spref.DataStoreUtil
 import com.dino.message.corefeature.domain.upload.MediaMimePolicy
 import com.dino.message.corefeature.data.upload.PlatformMediaReference
 import com.dino.message.corefeature.data.upload.PlatformMediaResolver
-import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.corefeature.domain.result.Resource
 import com.dino.message.corefeature.presentation.util.PROFILE_IMAGE_SHAPE_CIRCLE
 import com.dino.message.corefeature.presentation.util.hasBadgeAccess
 import com.dino.message.corefeature.presentation.util.normalizeProfileImageShape

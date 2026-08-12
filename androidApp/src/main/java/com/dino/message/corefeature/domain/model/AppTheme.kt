@@ -1,29 +1,23 @@
 package com.dino.message.corefeature.domain.model
 
-import androidx.annotation.StringRes
-import com.dino.message.R
-
-
 /**
  * The `AppTheme` enum class represents the different themes available in the application.
- *
- * @param strRes The string resource ID representing the localized name of the theme.
  */
-enum class AppTheme(@StringRes val strRes: Int) {
+enum class AppTheme {
     /**
      * Represents the dark theme.
      */
-    DarkTheme(R.string.dark_theme),
+    DarkTheme,
 
     /**
      * Represents the light theme.
      */
-    LightTheme(R.string.light_theme),
+    LightTheme,
 
     /**
      * Represents the theme based on system settings.
      */
-    SystemSettings(R.string.system_settings)
+    SystemSettings
 }
 
 /**

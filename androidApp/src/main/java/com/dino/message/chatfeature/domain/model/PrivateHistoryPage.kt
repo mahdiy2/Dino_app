@@ -1,7 +1,5 @@
 package com.dino.message.chatfeature.domain.model
 
-import com.dino.message.chatfeature.data.remote.dto.MessageAttachment
-
 data class PrivateHistoryPage(
     val chatId: String,
     val messages: List<PrivateHistoryMessage>,

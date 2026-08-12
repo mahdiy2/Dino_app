@@ -6,7 +6,7 @@ import com.dino.message.authfeature.domain.model.RegisterConfirmUser
 import com.dino.message.authfeature.domain.model.RegisterStartUser
 import com.dino.message.authfeature.domain.model.RegisterUser
 import com.dino.message.authfeature.domain.model.RotatePublicKeyUser
-import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.corefeature.domain.result.Resource
 import com.dino.message.profilefeature.domain.model.ProfileFollowResult
 
 interface AuthRepository {

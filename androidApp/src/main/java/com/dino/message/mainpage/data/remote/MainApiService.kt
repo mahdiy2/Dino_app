@@ -1,6 +1,6 @@
 package com.dino.message.mainpage.data.remote
 
-import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.corefeature.domain.result.Resource
 import com.dino.message.mainpage.data.remote.dto.DetailedContact
 import com.dino.message.mainpage.domain.model.AddContact
 import com.dino.message.mainpage.data.remote.dto.PaginatedContacts

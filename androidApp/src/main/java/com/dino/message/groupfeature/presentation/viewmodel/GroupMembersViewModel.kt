@@ -1,12 +1,13 @@
 package com.dino.message.groupfeature.presentation.viewmodel
 
+import com.dino.message.corefeature.presentation.util.asString
 import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.dino.message.DinoOrderApplication
 import com.dino.message.corefeature.data.spref.SPrefManager
-import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.corefeature.domain.result.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.dino.message.groupfeature.domain.model.GroupMember

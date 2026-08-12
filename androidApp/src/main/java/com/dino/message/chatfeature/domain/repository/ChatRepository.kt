@@ -1,17 +1,14 @@
 package com.dino.message.chatfeature.domain.repository
 
-import com.dino.message.chatfeature.data.remote.dto.MessageAttachment
-import com.dino.message.chatfeature.data.remote.dto.MessageSent
-import com.dino.message.chatfeature.data.remote.dto.NewMessage
-import com.dino.message.chatfeature.data.remote.dto.PendingMessage
-import com.dino.message.chatfeature.data.remote.dto.UnreadResponse
 import com.dino.message.chatfeature.domain.model.Inbox
+import com.dino.message.chatfeature.domain.model.MessageAttachment
 import com.dino.message.chatfeature.domain.model.MessageEntity
 import com.dino.message.chatfeature.domain.model.PrivateHistoryPage
 import com.dino.message.chatfeature.domain.model.ReceiverPublicKey
 import com.dino.message.chatfeature.domain.model.SendMessage
-import com.dino.message.corefeature.data.upload.ReadableMediaFile
-import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.chatfeature.domain.model.UnreadSummary
+import com.dino.message.corefeature.domain.result.Resource
+import com.dino.message.corefeature.domain.upload.ReadableMediaFile
 
 interface ChatRepository {
     suspend fun getInbox(): Resource<List<Inbox>?>
@@ -38,5 +35,5 @@ interface ChatRepository {
     suspend fun updateMessageReactionsByMessageId(messageId: String, reactionsJson: String?)
     suspend fun reactToMessage(messageId: String, emoji: String?): Resource<Unit>
 
-    suspend fun getUnread(): Resource<UnreadResponse>
+    suspend fun getUnread(): Resource<UnreadSummary>
 }

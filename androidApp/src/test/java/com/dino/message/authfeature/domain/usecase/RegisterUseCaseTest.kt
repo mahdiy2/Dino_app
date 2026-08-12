@@ -9,7 +9,7 @@ import com.dino.message.authfeature.domain.model.RotatePublicKeyUser
 import com.dino.message.authfeature.domain.repository.AuthRepository
 import com.dino.message.corefeature.domain.model.StringResourceContent
 import com.dino.message.corefeature.domain.model.asStringResourceContent
-import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.corefeature.domain.result.Resource
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals

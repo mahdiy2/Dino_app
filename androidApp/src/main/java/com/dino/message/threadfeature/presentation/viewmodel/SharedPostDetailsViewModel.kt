@@ -1,12 +1,13 @@
 package com.dino.message.threadfeature.presentation.viewmodel
 
+import com.dino.message.corefeature.presentation.util.asString
 import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.dino.message.DinoOrderApplication
 import com.dino.message.corefeature.data.spref.DataStoreUtil
-import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.corefeature.domain.result.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.dino.message.threadfeature.domain.model.Post

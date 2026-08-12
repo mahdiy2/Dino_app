@@ -1,6 +1,6 @@
 package com.dino.message.profilefeature.domain.model
 
-import com.dino.message.corefeature.data.upload.ReadableMediaFile
+import com.dino.message.corefeature.domain.upload.ReadableMediaFile
 
 data class ProfileUpdateImage(
     val file: ReadableMediaFile,

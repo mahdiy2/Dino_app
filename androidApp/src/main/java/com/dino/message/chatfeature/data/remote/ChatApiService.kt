@@ -2,12 +2,12 @@ package com.dino.message.chatfeature.data.remote
 
 import com.dino.message.chatfeature.data.remote.dto.MessageAttachment
 import com.dino.message.chatfeature.data.remote.dto.UnreadResponse
-import com.dino.message.corefeature.data.upload.ReadableMediaFile
+import com.dino.message.corefeature.domain.upload.ReadableMediaFile
 import com.dino.message.chatfeature.domain.model.Inbox
 import com.dino.message.chatfeature.domain.model.PrivateHistoryPage
 import com.dino.message.chatfeature.domain.model.ReceiverPublicKey
 import com.dino.message.chatfeature.domain.model.SendMessage
-import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.corefeature.domain.result.Resource
 
 interface ChatApiService {
     suspend fun getInbox(): Resource<List<Inbox>?>

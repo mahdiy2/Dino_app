@@ -1,6 +1,6 @@
 package com.dino.message.corefeature.domain.model
 
-import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.corefeature.domain.result.Resource
 import kotlinx.serialization.Serializable
 
 

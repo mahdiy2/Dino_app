@@ -8,7 +8,7 @@ import com.dino.message.authfeature.domain.model.RegisterUser
 import com.dino.message.authfeature.domain.model.RotatePublicKeyUser
 import com.dino.message.authfeature.domain.repository.AuthRepository
 import com.dino.message.corefeature.domain.model.asStringResourceContent
-import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.corefeature.domain.result.Resource
 import com.dino.message.profilefeature.domain.model.ProfileFollowResult
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking

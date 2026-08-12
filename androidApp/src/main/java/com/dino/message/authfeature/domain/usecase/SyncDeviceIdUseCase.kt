@@ -1,14 +1,14 @@
 package com.dino.message.authfeature.domain.usecase
 
-import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.domain.device.DeviceInfoProvider
-import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.corefeature.domain.result.Resource
+import com.dino.message.corefeature.domain.session.LocalSessionStore
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 
 class SyncDeviceIdUseCase constructor(
-    private val sPrefManager: SPrefManager,
+    private val localSessionStore: LocalSessionStore,
     private val deviceIdProvider: DeviceInfoProvider,
     private val updateDeviceIdUseCase: UpdateDeviceIdUseCase,
 ) {
@@ -21,15 +21,15 @@ class SyncDeviceIdUseCase constructor(
         }
 
         try {
-            val username = sPrefManager.getUsername()?.trim().orEmpty()
-            if (username.isBlank() || !sPrefManager.getUserLogIn()) {
+            val username = localSessionStore.getUsername()?.trim().orEmpty()
+            if (username.isBlank() || !localSessionStore.getUserLogIn()) {
                 emit(Resource.Success(Unit))
                 return@flow
             }
 
             val currentDeviceId = deviceIdProvider.getDeviceId()
-            val syncedUser = sPrefManager.getDeviceSyncUserId()?.trim().orEmpty()
-            val syncedDeviceId = sPrefManager.getDeviceSyncDeviceId()?.trim().orEmpty()
+            val syncedUser = localSessionStore.getDeviceSyncUserId()?.trim().orEmpty()
+            val syncedDeviceId = localSessionStore.getDeviceSyncDeviceId()?.trim().orEmpty()
 
             if (syncedUser == username && syncedDeviceId == currentDeviceId) {
                 emit(Resource.Success(Unit))
@@ -41,8 +41,8 @@ class SyncDeviceIdUseCase constructor(
 
             when (result) {
                 is Resource.Success -> {
-                    sPrefManager.saveDeviceSyncUserId(username)
-                    sPrefManager.saveDeviceSyncDeviceId(currentDeviceId)
+                    localSessionStore.saveDeviceSyncUserId(username)
+                    localSessionStore.saveDeviceSyncDeviceId(currentDeviceId)
                     emit(Resource.Success(Unit))
                 }
 

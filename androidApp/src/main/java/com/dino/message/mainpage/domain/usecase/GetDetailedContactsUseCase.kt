@@ -1,7 +1,6 @@
 package com.dino.message.mainpage.domain.usecase
 
-import com.dino.message.corefeature.presentation.util.Resource
-import com.dino.message.mainpage.data.remote.dto.PaginatedContacts
+import com.dino.message.corefeature.domain.result.Resource
 import com.dino.message.mainpage.domain.repository.MainRepository
 import kotlinx.coroutines.flow.flow
 

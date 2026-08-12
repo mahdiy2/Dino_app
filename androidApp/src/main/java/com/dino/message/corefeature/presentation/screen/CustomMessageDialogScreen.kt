@@ -1,5 +1,6 @@
 package com.dino.message.corefeature.presentation.screen
 
+import com.dino.message.corefeature.presentation.util.asString
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -28,7 +29,7 @@ import org.koin.compose.viewmodel.koinViewModel
 import com.dino.message.R
 import com.dino.message.corefeature.domain.model.CustomMessageDialogData
 import com.dino.message.corefeature.domain.model.CustomMessageDialogType
-import com.dino.message.corefeature.domain.model.asString
+import com.dino.message.corefeature.presentation.util.asString
 import com.dino.message.corefeature.presentation.activity.theme.ButtonPrimary
 import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
 import com.dino.message.corefeature.presentation.ui.theme.DPLarge

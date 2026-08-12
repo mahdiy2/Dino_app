@@ -12,7 +12,7 @@ import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.domain.model.AppLanguage
 import com.dino.message.corefeature.domain.model.StringResourceContent
 import com.dino.message.corefeature.presentation.util.PopBackStackLevel
-import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.corefeature.domain.result.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.dino.message.profilefeature.domain.usecase.GetMyProfileUseCase

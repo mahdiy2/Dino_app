@@ -1,6 +1,6 @@
 package com.dino.message.searchfeature.data.repository
 
-import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.corefeature.domain.result.Resource
 import com.dino.message.searchfeature.data.remote.SearchApiService
 import com.dino.message.searchfeature.domain.model.SearchAllResult
 import com.dino.message.searchfeature.domain.model.SearchPostsResult

@@ -20,7 +20,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.dino.message.corefeature.domain.model.AppLanguage
-import com.dino.message.corefeature.domain.model.toLayoutDirection
+import com.dino.message.corefeature.presentation.util.toLayoutDirection
 import com.dino.message.corefeature.domain.model.toLocale
 import com.dino.message.corefeature.domain.notification.AppNotificationController
 import com.dino.message.corefeature.domain.notification.NotificationSocketController

@@ -1,6 +1,5 @@
 package com.dino.message.groupfeature.data.remote
 
-import android.content.Context
 import com.dino.message.chatfeature.data.remote.dto.MessageAttachment
 import com.dino.message.corefeature.data.remote.HaveRefreshTokenAPI
 import com.dino.message.corefeature.data.remote.HaveRefreshTokenAPIImpl
@@ -11,12 +10,13 @@ import com.dino.message.corefeature.data.remote.util.ensureFreshAccessTokenIfNea
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.data.upload.AndroidUploadContentProvider
 import com.dino.message.corefeature.domain.upload.AttachmentUploadPolicy
-import com.dino.message.corefeature.data.upload.ReadableMediaFile
+import com.dino.message.corefeature.domain.upload.ReadableMediaFile
 import com.dino.message.corefeature.data.upload.appendUploadFile
 import com.dino.message.corefeature.data.upload.toUploadFilePart
 import com.dino.message.corefeature.domain.model.asStringResourceContent
 import com.dino.message.corefeature.domain.system.AppClock
-import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.corefeature.domain.result.Resource
+import com.dino.message.corefeature.domain.resource.StringResolver
 import com.dino.message.groupfeature.data.remote.dto.AddGroupMembersRequest
 import com.dino.message.groupfeature.data.remote.dto.AddGroupMembersResponse
 import com.dino.message.groupfeature.data.remote.dto.CreateGroupRequest
@@ -55,7 +55,7 @@ class GroupApiServiceImpl constructor(
     private val sPrefManager: SPrefManager,
     private val httpAPIUtil: HttpAPIUtil,
     private val uploadContentProvider: AndroidUploadContentProvider,
-    private val appContext: Context,
+    private val stringResolver: StringResolver,
     private val appClock: AppClock,
     private val appLogger: AppLogger,
 ) : GroupApiService, HaveRefreshTokenAPI by HaveRefreshTokenAPIImpl(httpClient, sPrefManager) {
@@ -247,7 +247,7 @@ class GroupApiServiceImpl constructor(
                 result
             }
             is Resource.Error -> {
-                val errorMessage = result.message.asString(appContext)
+                val errorMessage = result.message.resolveWith(stringResolver)
                 val timeoutLike = isLikelyWeakNetworkError(errorMessage)
                 appLogger.warning(
                     TAG,

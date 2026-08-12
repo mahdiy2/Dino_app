@@ -1,5 +1,6 @@
 package com.dino.message.profilefeature.presentation.viewmodel
 
+import com.dino.message.corefeature.presentation.util.asString
 import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -8,7 +9,7 @@ import com.dino.message.corefeature.data.spref.DataStoreUtil
 import com.dino.message.corefeature.domain.model.AppLanguage
 import com.dino.message.corefeature.domain.usecase.ClearLocalSessionUseCase
 import com.dino.message.corefeature.presentation.util.PopBackStackLevel
-import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.corefeature.domain.result.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.dino.message.profilefeature.domain.usecase.DeleteMyAccountUseCase

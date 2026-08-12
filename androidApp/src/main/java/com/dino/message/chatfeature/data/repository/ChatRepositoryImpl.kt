@@ -4,19 +4,17 @@ import com.dino.message.chatfeature.data.db.MessageDao
 import com.dino.message.chatfeature.data.local.toDomainEntity
 import com.dino.message.chatfeature.data.local.toLocalEntity
 import com.dino.message.chatfeature.data.remote.ChatApiService
-import com.dino.message.chatfeature.data.remote.dto.MessageAttachment
-import com.dino.message.chatfeature.data.remote.dto.MessageSent
-import com.dino.message.chatfeature.data.remote.dto.NewMessage
-import com.dino.message.chatfeature.data.remote.dto.PendingMessage
-import com.dino.message.chatfeature.data.remote.dto.UnreadResponse
+import com.dino.message.chatfeature.data.remote.dto.toDomain
 import com.dino.message.chatfeature.domain.model.Inbox
+import com.dino.message.chatfeature.domain.model.MessageAttachment
 import com.dino.message.chatfeature.domain.model.MessageEntity
 import com.dino.message.chatfeature.domain.model.PrivateHistoryPage
 import com.dino.message.chatfeature.domain.model.ReceiverPublicKey
 import com.dino.message.chatfeature.domain.model.SendMessage
+import com.dino.message.chatfeature.domain.model.UnreadSummary
 import com.dino.message.chatfeature.domain.repository.ChatRepository
-import com.dino.message.corefeature.data.upload.ReadableMediaFile
-import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.corefeature.domain.result.Resource
+import com.dino.message.corefeature.domain.upload.ReadableMediaFile
 
 class ChatRepositoryImpl(
     private val chatApiService: ChatApiService,
@@ -46,7 +44,11 @@ class ChatRepositoryImpl(
      ): Resource<SendMessage> = chatApiService.sendMessage(to, message, encryptedKey)
 
     override suspend fun uploadAttachment(file: ReadableMediaFile): Resource<MessageAttachment> =
-        chatApiService.uploadAttachment(file)
+        when (val result = chatApiService.uploadAttachment(file)) {
+            is Resource.Success -> Resource.Success(result.data.toDomain())
+            is Resource.Error -> Resource.Error(result.message)
+            is Resource.Loading -> Resource.Loading()
+        }
 
     override suspend fun saveMessage(message: MessageEntity) = dao.insertMessage(message.toLocalEntity())
     override suspend fun getMessages(chatId: String, limit: Int, offset: Int) =
@@ -64,6 +66,10 @@ class ChatRepositoryImpl(
     override suspend fun reactToMessage(messageId: String, emoji: String?) =
         chatApiService.reactToMessage(messageId, emoji)
 
-    override suspend fun getUnread(): Resource<UnreadResponse> =
-        chatApiService.getUnread()
+    override suspend fun getUnread(): Resource<UnreadSummary> =
+        when (val result = chatApiService.getUnread()) {
+            is Resource.Success -> Resource.Success(result.data.toDomain())
+            is Resource.Error -> Resource.Error(result.message)
+            is Resource.Loading -> Resource.Loading()
+        }
 }

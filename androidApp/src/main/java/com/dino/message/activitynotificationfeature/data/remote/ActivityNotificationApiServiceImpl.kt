@@ -12,7 +12,7 @@ import com.dino.message.corefeature.data.remote.HaveRefreshTokenAPIImpl
 import com.dino.message.corefeature.data.remote.util.HttpAPIUtil
 import com.dino.message.corefeature.data.remote.util.appendTokenToHeader
 import com.dino.message.corefeature.data.spref.SPrefManager
-import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.corefeature.domain.result.Resource
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.request.post

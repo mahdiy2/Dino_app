@@ -1,6 +1,5 @@
 package com.dino.message.threadfeature.data.remote
 
-import android.content.Context
 import com.dino.message.corefeature.data.remote.HaveRefreshTokenAPI
 import com.dino.message.corefeature.data.remote.HaveRefreshTokenAPIImpl
 import com.dino.message.corefeature.data.remote.util.HttpAPIUtil
@@ -13,7 +12,8 @@ import com.dino.message.corefeature.data.upload.PlatformMediaReference
 import com.dino.message.corefeature.data.upload.appendUploadFile
 import com.dino.message.corefeature.data.upload.toUploadFilePart
 import com.dino.message.corefeature.domain.model.asStringResourceContent
-import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.corefeature.domain.result.Resource
+import com.dino.message.corefeature.domain.resource.StringResolver
 import com.dino.message.crashfeature.data.service.CrashReporter
 import com.dino.message.threadfeature.data.remote.dto.CreateCommentRequest
 import com.dino.message.threadfeature.data.remote.dto.CreateCommentResponse
@@ -82,7 +82,7 @@ class ThreadApiServiceImpl constructor(
     private val httpAPIUtil: HttpAPIUtil,
     private val crashReporter: CrashReporter,
     private val uploadContentProvider: AndroidUploadContentProvider,
-    private val appContext: Context,
+    private val stringResolver: StringResolver,
     private val mediaMetadataExtractor: PlatformMediaMetadataExtractor,
 ) : ThreadApiService, HaveRefreshTokenAPI by HaveRefreshTokenAPIImpl(httpClient, sPrefManager) {
 
@@ -169,7 +169,7 @@ class ThreadApiServiceImpl constructor(
         )
 
         if (result is Resource.Error) {
-            val errorMessage = result.message.asString(appContext)
+            val errorMessage = result.message.resolveWith(stringResolver)
             crashReporter.reportNonFatalIssue(
                 issueType = "CreatePostRequestFailed",
                 message = errorMessage,
@@ -281,7 +281,7 @@ class ThreadApiServiceImpl constructor(
         )
 
         if (result is Resource.Error) {
-            val errorMessage = result.message.asString(appContext)
+            val errorMessage = result.message.resolveWith(stringResolver)
             crashReporter.reportNonFatalIssue(
                 issueType = "EditPostRequestFailed",
                 message = errorMessage,
@@ -534,7 +534,7 @@ class ThreadApiServiceImpl constructor(
         )
 
         if (result is Resource.Error) {
-            val errorMessage = result.message.asString(appContext)
+            val errorMessage = result.message.resolveWith(stringResolver)
             crashReporter.reportNonFatalIssue(
                 issueType = "UploadStoryRequestFailed",
                 message = errorMessage,

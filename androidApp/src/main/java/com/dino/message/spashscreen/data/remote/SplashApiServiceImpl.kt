@@ -1,7 +1,7 @@
 package com.dino.message.spashscreen.data.remote
 
 import com.dino.message.corefeature.data.remote.util.HttpAPIUtil
-import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.corefeature.domain.result.Resource
 import com.dino.message.spashscreen.data.remote.dto.CheckAppVersionRequest
 import com.dino.message.spashscreen.data.remote.dto.CheckAppVersionResponse
 import com.dino.message.spashscreen.domain.model.VersionCheckDecision

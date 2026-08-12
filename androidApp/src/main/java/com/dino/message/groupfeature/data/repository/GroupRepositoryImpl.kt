@@ -1,8 +1,9 @@
 package com.dino.message.groupfeature.data.repository
 
-import com.dino.message.chatfeature.data.remote.dto.MessageAttachment
-import com.dino.message.corefeature.data.upload.ReadableMediaFile
-import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.chatfeature.data.remote.dto.toDomain
+import com.dino.message.chatfeature.domain.model.MessageAttachment
+import com.dino.message.corefeature.domain.upload.ReadableMediaFile
+import com.dino.message.corefeature.domain.result.Resource
 import com.dino.message.groupfeature.data.db.GroupMessageDao
 import com.dino.message.groupfeature.domain.model.AddGroupMembersResult
 import com.dino.message.groupfeature.data.remote.GroupApiService
@@ -62,7 +63,11 @@ class GroupRepositoryImpl constructor(
         apiService.joinPublicRoom()
 
     override suspend fun uploadGroupAttachment(groupId: Int, file: ReadableMediaFile): Resource<MessageAttachment> =
-         apiService.uploadGroupAttachment(groupId, file)
+        when (val result = apiService.uploadGroupAttachment(groupId, file)) {
+            is Resource.Success -> Resource.Success(result.data.toDomain())
+            is Resource.Error -> Resource.Error(result.message)
+            is Resource.Loading -> Resource.Loading()
+        }
 
     override suspend fun saveGroupMessage(message: GroupMessageEntity) =
         groupMessageDao.insertMessage(message.toLocalEntity())

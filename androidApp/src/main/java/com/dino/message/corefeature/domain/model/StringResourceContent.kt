@@ -1,10 +1,5 @@
 package com.dino.message.corefeature.domain.model
 
-import android.content.Context
-import androidx.annotation.StringRes
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.res.stringResource
-import com.dino.message.R
 import com.dino.message.corefeature.domain.resource.StringResolver
 import kotlinx.serialization.Serializable
 
@@ -12,14 +7,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 sealed class StringResourceContent {
     data class Str(val data: String) : StringResourceContent()
-    data class StringResId(@StringRes val data: Int) : StringResourceContent()
-
-    fun asString(context: Context): String {
-        return when (this) {
-            is Str -> this.data
-            is StringResId -> context.getString(this.data)
-        }
-    }
+    data class StringResId(val data: Int) : StringResourceContent()
 
     fun resolveWith(stringResolver: StringResolver): String {
         return when (this) {
@@ -27,20 +15,7 @@ sealed class StringResourceContent {
             is StringResId -> stringResolver.resolveStringId(this.data)
         }
     }
-
-    @Composable
-    fun asString(): String {
-        return when (this) {
-            is Str -> this.data
-            is StringResId -> stringResource(id = this.data)
-        }
-    }
 }
 
 fun Int.asStringResourceContent() = StringResourceContent.StringResId(this)
 fun String.asStringResourceContent() = StringResourceContent.Str(this)
-
-@Composable
-fun List<StringResourceContent>.asString(
-    separator: String = " " + stringResource(id = R.string.and) + " "
-) = this.map { it.asString() }.joinToString(separator = separator)

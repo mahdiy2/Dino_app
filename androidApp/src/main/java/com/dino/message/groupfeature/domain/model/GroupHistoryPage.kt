@@ -1,6 +1,6 @@
 package com.dino.message.groupfeature.domain.model
 
-import com.dino.message.chatfeature.data.remote.dto.MessageAttachment
+import com.dino.message.chatfeature.domain.model.MessageAttachment
 import com.dino.message.chatfeature.domain.model.MessageReaction
 
 data class GroupHistoryPage(

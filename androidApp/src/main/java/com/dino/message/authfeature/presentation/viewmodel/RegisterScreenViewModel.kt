@@ -17,7 +17,7 @@ import com.dino.message.corefeature.domain.device.DeviceInfoProvider
 import com.dino.message.corefeature.domain.model.AppLanguage
 import com.dino.message.corefeature.domain.resource.StringResolver
 import com.dino.message.corefeature.presentation.util.PopBackStackLevel
-import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.corefeature.domain.result.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import kotlinx.coroutines.flow.Flow

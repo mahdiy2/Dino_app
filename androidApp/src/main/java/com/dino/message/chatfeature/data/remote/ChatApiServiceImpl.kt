@@ -1,11 +1,7 @@
 package com.dino.message.chatfeature.data.remote
 
-import android.content.Context
 import com.dino.message.chatfeature.data.remote.dto.InboxResponse
 import com.dino.message.chatfeature.data.remote.dto.MessageAttachment
-import com.dino.message.chatfeature.data.remote.dto.MessageSent
-import com.dino.message.chatfeature.data.remote.dto.NewMessage
-import com.dino.message.chatfeature.data.remote.dto.PendingMessage
 import com.dino.message.chatfeature.data.remote.dto.PrivateHistoryResponse
 import com.dino.message.chatfeature.data.remote.dto.ReactToMessageRequest
 import com.dino.message.chatfeature.data.remote.dto.ReactToMessageResponse
@@ -27,12 +23,13 @@ import com.dino.message.corefeature.data.remote.util.ensureFreshAccessTokenIfNea
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.data.upload.AndroidUploadContentProvider
 import com.dino.message.corefeature.domain.upload.AttachmentUploadPolicy
-import com.dino.message.corefeature.data.upload.ReadableMediaFile
+import com.dino.message.corefeature.domain.upload.ReadableMediaFile
 import com.dino.message.corefeature.data.upload.appendUploadFile
 import com.dino.message.corefeature.data.upload.toUploadFilePart
 import com.dino.message.corefeature.domain.model.asStringResourceContent
 import com.dino.message.corefeature.domain.system.AppClock
-import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.corefeature.domain.result.Resource
+import com.dino.message.corefeature.domain.resource.StringResolver
 import io.ktor.client.HttpClient
 import io.ktor.client.request.forms.MultiPartFormDataContent
 import io.ktor.client.request.forms.formData
@@ -49,7 +46,7 @@ class ChatApiServiceImpl constructor(
     private val sPrefManager: SPrefManager,
     private val httpAPIUtil: HttpAPIUtil,
     private val uploadContentProvider: AndroidUploadContentProvider,
-    private val appContext: Context,
+    private val stringResolver: StringResolver,
     private val appClock: AppClock,
     private val appLogger: AppLogger,
 ) : ChatApiService, HaveRefreshTokenAPI by HaveRefreshTokenAPIImpl(httpClient, sPrefManager) {
@@ -179,7 +176,7 @@ class ChatApiServiceImpl constructor(
                 result
             }
             is Resource.Error -> {
-                val errorMessage = result.message.asString(appContext)
+                val errorMessage = result.message.resolveWith(stringResolver)
                 val timeoutLike = isLikelyWeakNetworkError(errorMessage)
                 appLogger.warning(
                     TAG,

@@ -1,5 +1,6 @@
 package com.dino.message.threadfeature.presentation.viewmodel
 
+import com.dino.message.corefeature.presentation.util.asString
 import android.content.Context
 import android.webkit.MimeTypeMap
 import androidx.compose.runtime.mutableStateOf
@@ -12,7 +13,7 @@ import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.data.upload.PlatformPickedMedia
 import com.dino.message.corefeature.data.upload.PlatformMediaReference
 import com.dino.message.corefeature.data.upload.PlatformMediaResolver
-import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.corefeature.domain.result.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.dino.message.threadfeature.domain.model.CreatePostMedia

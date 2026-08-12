@@ -1,21 +1,11 @@
 package com.dino.message.corefeature.data.upload
 
+import com.dino.message.corefeature.domain.upload.ReadableMediaFile
+import com.dino.message.corefeature.domain.upload.UploadInputProvider
 import io.ktor.client.request.forms.FormBuilder
 import io.ktor.client.request.forms.InputProvider
 import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
-import io.ktor.utils.io.core.Input
-
-fun interface UploadInputProvider {
-    fun open(): Input
-}
-
-data class MediaFileHandle(
-    val id: String,
-    val displayName: String,
-    val mimeType: String,
-    val sizeBytes: Long? = null,
-)
 
 data class PlatformMediaReference(
     val value: String,
@@ -54,11 +44,6 @@ interface PlatformMediaResolver {
         sizeBytes: Long? = null,
     ): ReadableMediaFile
 }
-
-data class ReadableMediaFile(
-    val handle: MediaFileHandle,
-    val openInput: UploadInputProvider,
-)
 
 data class UploadFilePart(
     val formName: String,

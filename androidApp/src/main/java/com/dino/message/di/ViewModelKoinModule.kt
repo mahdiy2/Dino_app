@@ -112,8 +112,9 @@ import org.koin.dsl.module
 val viewModelModule = module {
     factory {
         ClearLocalSessionUseCase(
-            sPrefManager = get(),
-            messageDatabase = get(),
+            localSessionCleaner = get(),
+            localMessageStoreCleaner = get(),
+            activeConversationStateCleaner = get(),
             appNotificationController = get(),
             fileSystemProvider = get(),
             dispatchers = get(),

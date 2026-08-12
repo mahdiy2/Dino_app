@@ -13,12 +13,12 @@ import com.dino.message.corefeature.data.socket.RealtimeSocketEvents
 import com.dino.message.corefeature.domain.network.NetworkStatusProvider
 import com.dino.message.corefeature.domain.resource.StringResolver
 import com.dino.message.corefeature.presentation.platform.PlatformUiEffect
-import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.corefeature.domain.result.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.dino.message.groupfeature.domain.model.Group
 import com.dino.message.groupfeature.domain.usecase.ListGroupsUseCase
-import com.dino.message.mainpage.data.remote.dto.DetailedContact
+import com.dino.message.mainpage.domain.model.DetailedContact
 import com.dino.message.mainpage.domain.model.MessageList
 import com.dino.message.mainpage.domain.usecase.AddContactUseCase
 import com.dino.message.mainpage.domain.usecase.GetContactsUseCase

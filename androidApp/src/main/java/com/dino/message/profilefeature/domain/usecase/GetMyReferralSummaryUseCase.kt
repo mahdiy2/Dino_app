@@ -1,6 +1,6 @@
 package com.dino.message.profilefeature.domain.usecase
 
-import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.corefeature.domain.result.Resource
 import com.dino.message.profilefeature.domain.model.ReferralSummary
 import com.dino.message.profilefeature.domain.repository.ProfileRepository
 import kotlinx.coroutines.flow.flow

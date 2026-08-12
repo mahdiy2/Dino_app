@@ -1,6 +1,6 @@
 package com.dino.message.reportfeature.data.repository
 
-import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.corefeature.domain.result.Resource
 import com.dino.message.reportfeature.data.remote.ReportApiService
 import com.dino.message.reportfeature.domain.model.CreatedReport
 import com.dino.message.reportfeature.domain.repository.ReportRepository

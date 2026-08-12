@@ -1,5 +1,6 @@
 package com.dino.message.threadfeature.presentation.viewmodel
 
+import com.dino.message.corefeature.presentation.util.asString
 import android.content.Context
 import androidx.annotation.StringRes
 import androidx.compose.runtime.mutableStateListOf
@@ -13,7 +14,7 @@ import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.domain.crypto.MessageCrypto
 import com.dino.message.corefeature.domain.crypto.RsaPublicKey
 import com.dino.message.corefeature.presentation.util.encodePostShareMessage
-import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.corefeature.domain.result.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.dino.message.chatfeature.domain.usecase.GetReceiverPublicKeyUseCase

@@ -11,7 +11,7 @@ import com.dino.message.corefeature.data.upload.AndroidUploadContentProvider
 import com.dino.message.corefeature.data.upload.appendUploadFile
 import com.dino.message.corefeature.data.upload.toUploadFilePart
 import com.dino.message.corefeature.domain.model.asStringResourceContent
-import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.corefeature.domain.result.Resource
 import com.dino.message.profilefeature.data.remote.dto.AboutUsResponse
 import com.dino.message.profilefeature.data.remote.dto.FollowStatusResponse
 import com.dino.message.profilefeature.data.remote.dto.GetProfilePostsResponse

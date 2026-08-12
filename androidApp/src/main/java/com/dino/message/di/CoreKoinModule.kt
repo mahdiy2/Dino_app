@@ -2,6 +2,7 @@ package com.dino.message.di
 
 import com.dino.message.DinoOrderApplication
 import com.dino.message.chatfeature.data.notification.AndroidMessageDeduplicationStore
+import com.dino.message.chatfeature.data.notification.ActiveConversationTrackerCleaner
 import com.dino.message.chatfeature.data.notification.InAppNotificationManager
 import com.dino.message.chatfeature.data.notification.NotificationHelper
 import com.dino.message.chatfeature.presentation.component.AndroidAudioRecorderFactory
@@ -28,6 +29,8 @@ import com.dino.message.corefeature.data.remote.createAppHttpClient
 import com.dino.message.corefeature.data.remote.logging.AppLogger
 import com.dino.message.corefeature.data.remote.logging.AndroidAppLogger
 import com.dino.message.corefeature.data.resource.AndroidStringResolver
+import com.dino.message.corefeature.data.session.RoomLocalMessageStoreCleaner
+import com.dino.message.corefeature.data.session.SPrefLocalSessionStore
 import com.dino.message.corefeature.data.upload.AndroidMediaMetadataExtractor
 import com.dino.message.corefeature.data.upload.AndroidUploadContentProvider
 import com.dino.message.corefeature.data.upload.PlatformMediaMetadataExtractor
@@ -70,6 +73,10 @@ import com.dino.message.corefeature.domain.notification.NotificationSocketConnec
 import com.dino.message.corefeature.domain.notification.NotificationSocketController
 import com.dino.message.corefeature.domain.notification.NotificationTokenProvider
 import com.dino.message.corefeature.domain.resource.StringResolver
+import com.dino.message.corefeature.domain.session.ActiveConversationStateCleaner
+import com.dino.message.corefeature.domain.session.LocalMessageStoreCleaner
+import com.dino.message.corefeature.domain.session.LocalSessionCleaner
+import com.dino.message.corefeature.domain.session.LocalSessionStore
 import com.dino.message.corefeature.domain.session.SessionProvider
 import com.dino.message.corefeature.domain.startup.AppStartupCoordinator
 import com.dino.message.corefeature.domain.system.AppClock
@@ -145,6 +152,11 @@ val coreModule = module {
     single<SecureKeyValueStore> { AndroidEncryptedSecureKeyValueStore(context = androidContext()) }
     single { SPrefManager(secureStore = get()) }
     single<SessionProvider> { SPrefSessionProvider(sPrefManager = get()) }
+    single { SPrefLocalSessionStore(sPrefManager = get()) }
+    single<LocalSessionStore> { get<SPrefLocalSessionStore>() }
+    single<LocalSessionCleaner> { get<SPrefLocalSessionStore>() }
+    single<LocalMessageStoreCleaner> { RoomLocalMessageStoreCleaner(messageDatabase = get()) }
+    single<ActiveConversationStateCleaner> { ActiveConversationTrackerCleaner() }
     single<AppLogger> { AndroidAppLogger }
     single<NetworkExceptionClassifier> { JvmNetworkExceptionClassifier }
     single { AndroidUploadContentProvider(contentResolver = androidContext().contentResolver) }
@@ -228,7 +240,12 @@ val coreModule = module {
             appLogger = get(),
         )
     }
-    single { AppBackgroundCleanupObserver(notificationSocketController = get()) }
+    single {
+        AppBackgroundCleanupObserver(
+            notificationSocketController = get(),
+            activeConversationStateCleaner = get(),
+        )
+    }
     single {
         AppStartupCoordinator(
             lifecycleDispatcher = get(),

@@ -1,8 +1,8 @@
 package com.dino.message.groupfeature.domain.repository
 
-import com.dino.message.chatfeature.data.remote.dto.MessageAttachment
-import com.dino.message.corefeature.data.upload.ReadableMediaFile
-import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.chatfeature.domain.model.MessageAttachment
+import com.dino.message.corefeature.domain.upload.ReadableMediaFile
+import com.dino.message.corefeature.domain.result.Resource
 import com.dino.message.groupfeature.domain.model.AddGroupMembersResult
 import com.dino.message.groupfeature.domain.model.Group
 import com.dino.message.groupfeature.domain.model.GroupHistoryPage

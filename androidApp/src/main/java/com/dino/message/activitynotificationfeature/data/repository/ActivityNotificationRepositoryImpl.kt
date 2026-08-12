@@ -5,7 +5,7 @@ import com.dino.message.activitynotificationfeature.domain.model.ActivityNotific
 import com.dino.message.activitynotificationfeature.domain.model.MarkReadResult
 import com.dino.message.activitynotificationfeature.domain.model.UnreadCount
 import com.dino.message.activitynotificationfeature.domain.repository.ActivityNotificationRepository
-import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.corefeature.domain.result.Resource
 
 class ActivityNotificationRepositoryImpl(
     private val apiService: ActivityNotificationApiService

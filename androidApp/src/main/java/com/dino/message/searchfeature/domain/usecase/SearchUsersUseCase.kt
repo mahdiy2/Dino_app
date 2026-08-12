@@ -1,6 +1,6 @@
 package com.dino.message.searchfeature.domain.usecase
 
-import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.corefeature.domain.result.Resource
 import com.dino.message.searchfeature.domain.repository.SearchRepository
 import kotlinx.coroutines.flow.flow
 

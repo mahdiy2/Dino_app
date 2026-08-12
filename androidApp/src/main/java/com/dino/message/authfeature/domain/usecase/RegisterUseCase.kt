@@ -2,7 +2,7 @@ package com.dino.message.authfeature.domain.usecase
 
 import com.dino.message.authfeature.domain.model.RegisterStartUser
 import com.dino.message.authfeature.domain.repository.AuthRepository
-import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.corefeature.domain.result.Resource
 import kotlinx.coroutines.flow.flow
 
 class RegisterUseCase constructor(

@@ -1,5 +1,6 @@
 package com.dino.message.spashscreen.screen
 
+import com.dino.message.corefeature.presentation.util.asString
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.TweenSpec
 import androidx.compose.animation.core.animateFloat

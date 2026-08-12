@@ -1,6 +1,6 @@
 package com.dino.message.threadfeature.data.repository
 
-import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.corefeature.domain.result.Resource
 import com.dino.message.threadfeature.data.remote.ThreadApiService
 import com.dino.message.threadfeature.domain.model.BlockedUserResult
 import com.dino.message.threadfeature.domain.model.Comment

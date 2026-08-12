@@ -1,5 +1,6 @@
 package com.dino.message.authfeature.presentation.viewmodel
 
+import com.dino.message.corefeature.presentation.util.asString
 import android.content.Context
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
@@ -15,7 +16,7 @@ import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.domain.crypto.MessageCrypto
 import com.dino.message.corefeature.domain.model.AppLanguage
 import com.dino.message.corefeature.presentation.util.PopBackStackLevel
-import com.dino.message.corefeature.presentation.util.Resource
+import com.dino.message.corefeature.domain.result.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import kotlinx.coroutines.flow.Flow
