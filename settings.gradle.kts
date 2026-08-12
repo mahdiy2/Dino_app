@@ -23,5 +23,5 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "SecMessage"
-include(":app")
- 
+include(":androidApp")
+include(":composeApp")

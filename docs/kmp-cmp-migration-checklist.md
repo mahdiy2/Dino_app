@@ -17,14 +17,14 @@ Target platforms:
 
 ## Current Verified State
 
-- [x] The current project builds as a single Android application module.
-  - Verified command: `./gradlew :app:compileDebugKotlin`.
+- [x] The Android shell builds as `:androidApp`.
+  - Verified command: `./gradlew :androidApp:compileDebugKotlin`.
   - Result: successful.
 - [x] The repository is currently clean before this checklist rewrite.
-- [x] Compose Multiplatform dependencies and plugin usage have started in the
-  existing Android module.
-  - Important: this is not a real KMP module split yet.
-  - Current source still lives under `app/src/main/java`.
+- [x] The project now uses the target `:androidApp` + `:composeApp` structure.
+  - Android app source lives under `androidApp/src/main/java`.
+  - `:composeApp` is an initial Kotlin Multiplatform / Compose Multiplatform
+    module with common, Android, iOS, desktop, and web/Wasm targets.
 - [x] Compose Destinations generated navigation appears to have been removed from
   active source.
   - Current app navigation uses app-owned route/event types such as `AppRoute`,
@@ -87,7 +87,7 @@ All migration work must preserve MVVM with Clean Architecture.
 
 ### 2. Create The Real KMP/CMP Module Structure
 
-- [ ] Rename or replace the current Android-only `:app` shell with
+- [x] Rename or replace the current Android-only `:app` shell with
   `:androidApp`.
   - Preserve `applicationId = "com.sec.message"`.
   - Preserve Android namespace, manifest declarations, permissions, services,
@@ -96,24 +96,34 @@ All migration work must preserve MVVM with Clean Architecture.
     `CrashReportActivity`, notification channels, foreground services,
     permission prompts, edge-to-edge setup, and intent handling in the Android
     shell.
-- [ ] Add `:composeApp` as a Kotlin Multiplatform module.
+- [x] Add `:composeApp` as a Kotlin Multiplatform module.
   - Configure `commonMain`, `commonTest`, `androidMain`, `iosMain`,
     `desktopMain`, and web/wasm source sets.
   - Apply `org.jetbrains.kotlin.multiplatform`, `org.jetbrains.compose`,
     Compose compiler, and serialization plugins as needed.
   - Keep Android-only Gradle plugins out of shared/common code.
-- [ ] Wire `:androidApp` to depend on `:composeApp`.
+- [x] Wire `:androidApp` to depend on `:composeApp`.
   - The Android app must continue to compile and launch after the split.
   - Do not move behavior in this step except the minimum needed for module
     wiring.
-- [ ] Add baseline KMP verification tasks.
+- [x] Add baseline KMP verification tasks.
   - Compile Android target.
   - Compile common metadata.
   - Run `commonTest`.
   - Add iOS, desktop, and web/wasm compile checks as soon as source sets are
     configured.
-- [ ] Commit after verification.
+- [x] Commit after verification.
   - Suggested message: `build(kmp): add androidApp and composeApp modules`.
+  - Verified commands:
+    - `./gradlew :androidApp:compileDebugKotlin`
+    - `./gradlew :composeApp:compileKotlinMetadata`
+    - `./gradlew :composeApp:compileDebugKotlinAndroid`
+    - `./gradlew :composeApp:compileKotlinDesktop`
+    - `./gradlew :composeApp:compileKotlinWasmJs`
+    - `./gradlew verifyKmpBaseline`
+  - Current verified result: successful on 2026-08-12.
+  - Follow-up: run the configured iOS compile/test tasks on macOS; Kotlin/Native
+    iOS targets are configured but disabled on this Linux host.
 
 ### 3. Fix Clean Architecture Boundary Violations
 

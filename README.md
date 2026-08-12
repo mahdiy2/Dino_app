@@ -13,7 +13,7 @@ Native Android client for SecMessage, built with Kotlin, Jetpack Compose, and a 
 - Socket.IO client for realtime updates
 
 ## Project Layout
-- `app/src/main/java/com/dino/message/`
+- `androidApp/src/main/java/com/dino/message/`
   - `corefeature/` shared app core (network, utilities, base models)
   - `authfeature/` authentication flow
   - `threadfeature/` thread/post creation and timeline features
@@ -22,7 +22,7 @@ Native Android client for SecMessage, built with Kotlin, Jetpack Compose, and a 
   - `profilefeature/` profile and account screens
   - `notificationfeature/` and `activitynotificationfeature/` notifications
   - Other feature folders follow the same `data/domain/presentation` pattern
-- `app/src/main/res/` compose/theme/resources
+- `androidApp/src/main/res/` compose/theme/resources
 - `tools/` local utility scripts (screenshots/tests/helpers)
 
 ## Requirements
@@ -57,24 +57,24 @@ The build resolves values in this order:
 From this directory:
 
 ```bash
-./gradlew :app:assembleDebug
-./gradlew :app:installDebug
+./gradlew :androidApp:assembleDebug
+./gradlew :androidApp:installDebug
 ```
 
 ## Tests
 
 ```bash
-./gradlew :app:testDebugUnitTest
-./gradlew :app:connectedDebugAndroidTest
+./gradlew :androidApp:testDebugUnitTest
+./gradlew :androidApp:connectedDebugAndroidTest
 ```
 
 ## Release
-- Release artifact path: `app/release/app-release.apk`
+- Release artifact path: `androidApp/release/app-release.apk`
 - You can get releases from: https://api.dinosocial.ir/
 - Build release APK:
 
 ```bash
-./gradlew :app:assembleRelease
+./gradlew :androidApp:assembleRelease
 ```
 
 ## App Screenshots
