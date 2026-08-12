@@ -1,9 +1,7 @@
 package com.dino.message.corefeature.domain.model
 
-import android.os.Parcelable
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
-import kotlinx.parcelize.Parcelize
 import kotlinx.serialization.Serializable
 
 /**
@@ -18,11 +16,10 @@ import kotlinx.serialization.Serializable
  * @param type The type of image resource, indicating whether it is based on resource ID, URI, or URL.
  */
 @Serializable
-@Parcelize
 data class ImageDialogData(
     @StringRes val titleStrRes: Int = 0,
     @DrawableRes val resId: Int = -1,
     val uriString: String? = null,
     val url: String? = null,
     val type: ImageDialogImageResourceType = ImageDialogImageResourceType.ResId
-) : Parcelable
+)

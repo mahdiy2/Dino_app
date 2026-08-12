@@ -118,6 +118,7 @@ import com.dino.message.chatfeature.presentation.component.MediaViewerDialog
 import com.dino.message.chatfeature.domain.model.MessageEntity
 import com.dino.message.chatfeature.presentation.component.ChatContainer
 import com.dino.message.chatfeature.presentation.viewmodel.ChatViewModel
+import com.dino.message.corefeature.data.upload.toPlatformMediaReference
 import com.dino.message.profilefeature.presentation.component.ProfileAvatarMedia
 import com.dino.message.threadfeature.presentation.component.NowPlayingTopBarRow
 import com.dino.message.threadfeature.presentation.music.MusicPlaybackManager
@@ -262,13 +263,13 @@ fun ChatScreen(
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri: Uri? ->
-        uri?.let { viewModel.sendAttachment(it) }
+        uri?.let { viewModel.sendAttachment(it.toPlatformMediaReference()) }
     }
 
     val videoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri: Uri? ->
-        uri?.let { viewModel.sendAttachment(it) }
+        uri?.let { viewModel.sendAttachment(it.toPlatformMediaReference()) }
     }
 
     val mediaPermissionLauncher = rememberLauncherForActivityResult(
@@ -860,7 +861,7 @@ fun ChatScreen(
                         }
                     },
                     onVoiceRecordStart = {
-                        pendingVoiceAction = { viewModel.startVoiceRecording(context) }
+                        pendingVoiceAction = { viewModel.startVoiceRecording() }
                         audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                     },
                     onVoiceRecordStop = { viewModel.stopVoiceRecording() },

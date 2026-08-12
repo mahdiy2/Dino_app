@@ -1,20 +1,21 @@
 package com.dino.message.groupfeature.data.remote
 
 import android.content.Context
-import android.util.Log
 import com.dino.message.chatfeature.data.remote.dto.MessageAttachment
 import com.dino.message.corefeature.data.remote.HaveRefreshTokenAPI
 import com.dino.message.corefeature.data.remote.HaveRefreshTokenAPIImpl
+import com.dino.message.corefeature.data.remote.logging.AppLogger
 import com.dino.message.corefeature.data.remote.util.HttpAPIUtil
 import com.dino.message.corefeature.data.remote.util.appendTokenToHeader
 import com.dino.message.corefeature.data.remote.util.ensureFreshAccessTokenIfNearExpiry
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.data.upload.AndroidUploadContentProvider
-import com.dino.message.corefeature.data.upload.AttachmentUploadPolicy
+import com.dino.message.corefeature.domain.upload.AttachmentUploadPolicy
 import com.dino.message.corefeature.data.upload.ReadableMediaFile
 import com.dino.message.corefeature.data.upload.appendUploadFile
 import com.dino.message.corefeature.data.upload.toUploadFilePart
 import com.dino.message.corefeature.domain.model.asStringResourceContent
+import com.dino.message.corefeature.domain.system.AppClock
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.groupfeature.data.remote.dto.AddGroupMembersRequest
 import com.dino.message.groupfeature.data.remote.dto.AddGroupMembersResponse
@@ -55,6 +56,8 @@ class GroupApiServiceImpl constructor(
     private val httpAPIUtil: HttpAPIUtil,
     private val uploadContentProvider: AndroidUploadContentProvider,
     private val appContext: Context,
+    private val appClock: AppClock,
+    private val appLogger: AppLogger,
 ) : GroupApiService, HaveRefreshTokenAPI by HaveRefreshTokenAPIImpl(httpClient, sPrefManager) {
     companion object {
         private const val TAG = "GroupApiServiceImpl"
@@ -200,8 +203,8 @@ class GroupApiServiceImpl constructor(
         if (!uploadContentProvider.canRead(file)) {
             return Resource.Error(message = "Cannot read file".asStringResourceContent())
         }
-        val startedAt = System.currentTimeMillis()
-        Log.i(
+        val startedAt = appClock.currentTimeMillis()
+        appLogger.debug(
             TAG,
             "upload_start scope=group groupId=$groupId mime=$mimeType sizeBytes=${fileSize ?: -1} name=$fileName"
         )
@@ -234,10 +237,10 @@ class GroupApiServiceImpl constructor(
             },
             callRefreshTokenAPI = this::getToken
         )
-        val elapsedMs = System.currentTimeMillis() - startedAt
+        val elapsedMs = appClock.currentTimeMillis() - startedAt
         return when (result) {
             is Resource.Success -> {
-                Log.i(
+                appLogger.debug(
                     TAG,
                     "upload_success scope=group groupId=$groupId mime=$mimeType sizeBytes=${fileSize ?: -1} durationMs=$elapsedMs"
                 )
@@ -246,7 +249,7 @@ class GroupApiServiceImpl constructor(
             is Resource.Error -> {
                 val errorMessage = result.message.asString(appContext)
                 val timeoutLike = isLikelyWeakNetworkError(errorMessage)
-                Log.w(
+                appLogger.warning(
                     TAG,
                     "upload_failed scope=group groupId=$groupId mime=$mimeType sizeBytes=${fileSize ?: -1} durationMs=$elapsedMs timeoutLike=$timeoutLike reason=$errorMessage"
                 )

@@ -1,7 +1,5 @@
 package com.dino.message.corefeature.domain.model
 
-import android.os.Parcelable
-import kotlinx.parcelize.Parcelize
 import kotlinx.serialization.Serializable
 
 /**
@@ -11,8 +9,7 @@ import kotlinx.serialization.Serializable
  * @param descriptions The descriptions of the dialog message.
  */
 @Serializable
-@Parcelize
 data class CustomMessageDialogContentItem(
     var title: StringResourceContent,
     val descriptions: MutableList<StringResourceContent>,
-) : Parcelable
+)

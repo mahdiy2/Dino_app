@@ -60,6 +60,8 @@ val chatModule = module {
             httpAPIUtil = get(),
             uploadContentProvider = get(),
             appContext = androidContext(),
+            appClock = get(),
+            appLogger = get(),
         )
     }
     single<ChatRepository> {
@@ -79,6 +81,7 @@ val threadModule = module {
             crashReporter = get(),
             uploadContentProvider = get(),
             appContext = androidContext(),
+            mediaMetadataExtractor = get(),
         )
     }
     single<ThreadRepository> { ThreadRepositoryImpl(threadApiService = get()) }
@@ -105,6 +108,8 @@ val groupModule = module {
             httpAPIUtil = get(),
             uploadContentProvider = get(),
             appContext = androidContext(),
+            appClock = get(),
+            appLogger = get(),
         )
     }
     single<GroupRepository> {

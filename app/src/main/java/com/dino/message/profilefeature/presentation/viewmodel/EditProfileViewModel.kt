@@ -1,16 +1,14 @@
 package com.dino.message.profilefeature.presentation.viewmodel
 
 import android.content.Context
-import android.net.Uri
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.dino.message.DinoOrderApplication
 import com.dino.message.corefeature.data.spref.DataStoreUtil
-import com.dino.message.corefeature.data.upload.AndroidUploadContentProvider
-import com.dino.message.corefeature.data.upload.MediaFileResolver
-import com.dino.message.corefeature.data.upload.MediaMimePolicy
-import com.dino.message.corefeature.presentation.platform.AndroidMediaMetadataExtractor
+import com.dino.message.corefeature.domain.upload.MediaMimePolicy
+import com.dino.message.corefeature.data.upload.PlatformMediaReference
+import com.dino.message.corefeature.data.upload.PlatformMediaResolver
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.corefeature.presentation.util.PROFILE_IMAGE_SHAPE_CIRCLE
 import com.dino.message.corefeature.presentation.util.hasBadgeAccess
@@ -28,9 +26,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 data class SelectedProfileMedia(
-    val uri: Uri,
+    val reference: PlatformMediaReference,
     val displayName: String,
-    val mimeType: String
+    val mimeType: String,
+    val sizeBytes: Long? = null,
+    val durationMs: Long? = null,
 )
 
 class EditProfileViewModel constructor(
@@ -38,10 +38,9 @@ class EditProfileViewModel constructor(
     private val dataStoreUtil: DataStoreUtil,
     private val getMyProfileUseCase: GetMyProfileUseCase,
     private val updateMyProfileUseCase: UpdateMyProfileUseCase,
-    private val uploadContentProvider: AndroidUploadContentProvider
+    private val mediaResolver: PlatformMediaResolver,
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
-    private val mediaMetadataExtractor = AndroidMediaMetadataExtractor(app)
 
     companion object {
         private const val MAX_PROFILE_VIDEO_DURATION_MS = 5_000L
@@ -82,13 +81,10 @@ class EditProfileViewModel constructor(
         if (_error.value != null) _error.value = null
     }
 
-    fun onImagePicked(uri: Uri?) {
-        if (uri == null) return
-        val resolver = getApplication<DinoOrderApplication>().contentResolver
-        val mimeType = MediaFileResolver.resolveMimeType(
-            contentResolver = resolver,
-            uri = uri,
-        )
+    fun onImagePicked(reference: PlatformMediaReference?) {
+        if (reference == null) return
+        val pickedMedia = mediaResolver.resolvePickedMedia(reference, displayNameHint = "profile_image")
+        val mimeType = pickedMedia.mimeType
         if (!mimeType.startsWith("image/") ||
             !MediaMimePolicy.isSupportedUploadMimeType(mimeType)
         ) {
@@ -97,21 +93,20 @@ class EditProfileViewModel constructor(
         }
 
         selectedImage.value = SelectedProfileMedia(
-            uri = uri,
-            displayName = queryDisplayName(uri) ?: "profile_image",
-            mimeType = mimeType
+            reference = pickedMedia.reference,
+            displayName = pickedMedia.displayName,
+            mimeType = mimeType,
+            sizeBytes = pickedMedia.sizeBytes,
+            durationMs = pickedMedia.durationMs,
         )
         removeProfileImageRequested.value = false
         _error.value = null
     }
 
-    fun onVideoPicked(uri: Uri?) {
-        if (uri == null) return
-        val resolver = getApplication<DinoOrderApplication>().contentResolver
-        val mimeType = MediaFileResolver.resolveMimeType(
-            contentResolver = resolver,
-            uri = uri,
-        )
+    fun onVideoPicked(reference: PlatformMediaReference?) {
+        if (reference == null) return
+        val pickedMedia = mediaResolver.resolvePickedMedia(reference, displayNameHint = "profile_video")
+        val mimeType = pickedMedia.mimeType
         if (!mimeType.startsWith("video/") ||
             !MediaMimePolicy.isSupportedUploadMimeType(mimeType)
         ) {
@@ -119,7 +114,7 @@ class EditProfileViewModel constructor(
             return
         }
 
-        val durationMs = getVideoDurationMs(uri)
+        val durationMs = pickedMedia.durationMs
         if (mimeType == "video/mp4" || mimeType == "video/quicktime") {
             if (durationMs == null) {
                 _error.value = "Could not determine profile video duration"
@@ -131,16 +126,18 @@ class EditProfileViewModel constructor(
             }
         }
 
-        val size = queryFileSize(uri)
+        val size = pickedMedia.sizeBytes
         if (size != null && size > MAX_PROFILE_VIDEO_SIZE_BYTES) {
             _error.value = "Profile video is too large. Maximum allowed size is 15.0MB."
             return
         }
 
         selectedVideo.value = SelectedProfileMedia(
-            uri = uri,
-            displayName = queryDisplayName(uri) ?: "profile_video",
-            mimeType = mimeType
+            reference = pickedMedia.reference,
+            displayName = pickedMedia.displayName,
+            mimeType = mimeType,
+            sizeBytes = pickedMedia.sizeBytes,
+            durationMs = pickedMedia.durationMs,
         )
         removeProfileVideoRequested.value = false
         _error.value = null
@@ -270,35 +267,15 @@ class EditProfileViewModel constructor(
     }
 
     private fun buildProfileUpdateMedia(media: SelectedProfileMedia): ProfileUpdateImage? {
-        val resolver = getApplication<DinoOrderApplication>().contentResolver
-        val canRead = try {
-            resolver.openInputStream(media.uri)?.use { true } ?: false
-        } catch (_: Exception) {
-            false
-        }
-        if (!canRead) return null
+        if (!mediaResolver.canRead(media.reference)) return null
 
         return ProfileUpdateImage(
-            file = uploadContentProvider.readableMediaFile(
-                uri = media.uri,
+            file = mediaResolver.readableMediaFile(
+                source = media.reference,
                 displayName = media.displayName,
                 mimeType = media.mimeType,
-                sizeBytes = queryFileSize(media.uri),
+                sizeBytes = media.sizeBytes,
             ),
         )
-    }
-
-    private fun queryDisplayName(uri: Uri): String? {
-        val resolver = getApplication<DinoOrderApplication>().contentResolver
-        return MediaFileResolver.queryDisplayName(resolver, uri)
-    }
-
-    private fun queryFileSize(uri: Uri): Long? {
-        val resolver = getApplication<DinoOrderApplication>().contentResolver
-        return MediaFileResolver.resolveFileSize(resolver, uri)
-    }
-
-    private fun getVideoDurationMs(uri: Uri): Long? {
-        return mediaMetadataExtractor.extract(uri).durationMs
     }
 }

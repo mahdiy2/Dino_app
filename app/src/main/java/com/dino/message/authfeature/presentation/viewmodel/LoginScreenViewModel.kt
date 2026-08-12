@@ -12,9 +12,9 @@ import com.dino.message.authfeature.domain.usecase.RotatePublicKeyUseCase
 import com.dino.message.authfeature.domain.usecase.SyncDeviceIdUseCase
 import com.dino.message.corefeature.data.spref.DataStoreUtil
 import com.dino.message.corefeature.data.spref.SPrefManager
+import com.dino.message.corefeature.domain.crypto.MessageCrypto
 import com.dino.message.corefeature.domain.model.AppLanguage
 import com.dino.message.corefeature.presentation.util.PopBackStackLevel
-import com.dino.message.corefeature.presentation.util.RSAUtil
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
@@ -31,6 +31,7 @@ class LoginScreenViewModel constructor(
     private val getKeyStatusUseCase: GetKeyStatusUseCase,
     private val rotatePublicKeyUseCase: RotatePublicKeyUseCase,
     private val syncDeviceIdUseCase: SyncDeviceIdUseCase,
+    private val messageCrypto: MessageCrypto,
     ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication){
 
@@ -83,9 +84,9 @@ class LoginScreenViewModel constructor(
             return@launch
         }
 
-        val keyPair = RSAUtil.generateKeyPair()
-        val publicKeyBase64 = RSAUtil.getPublicKeyBase64(keyPair.public)
-        val privateKeyBase64 = RSAUtil.getPrivateKeyBase64(keyPair.private)
+        val keyPair = messageCrypto.generateRsaKeyPair()
+        val publicKeyBase64 = keyPair.publicKeyBase64
+        val privateKeyBase64 = keyPair.privateKeyBase64
 
         rotatePublicKeyUseCase.execute(publicKeyBase64).collect { res ->
             when (res) {

@@ -1,19 +1,16 @@
 package com.dino.message.corefeature.domain.model
 
 import android.content.Context
-import android.os.Parcelable
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import com.dino.message.R
 import com.dino.message.corefeature.domain.resource.StringResolver
-import kotlinx.parcelize.Parcelize
 import kotlinx.serialization.Serializable
 
 
 @Serializable
-@Parcelize
-sealed class StringResourceContent : Parcelable {
+sealed class StringResourceContent {
     data class Str(val data: String) : StringResourceContent()
     data class StringResId(@StringRes val data: Int) : StringResourceContent()
 

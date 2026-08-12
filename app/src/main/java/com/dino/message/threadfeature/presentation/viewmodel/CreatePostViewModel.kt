@@ -1,7 +1,6 @@
 package com.dino.message.threadfeature.presentation.viewmodel
 
 import android.content.Context
-import android.net.Uri
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
@@ -9,10 +8,9 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.dino.message.DinoOrderApplication
 import com.dino.message.corefeature.data.spref.SPrefManager
-import com.dino.message.corefeature.data.upload.AndroidUploadContentProvider
-import com.dino.message.corefeature.data.upload.MediaFileResolver
-import com.dino.message.corefeature.data.upload.MediaMimePolicy
-import com.dino.message.corefeature.presentation.platform.AndroidMediaMetadataExtractor
+import com.dino.message.corefeature.domain.upload.MediaMimePolicy
+import com.dino.message.corefeature.data.upload.PlatformMediaReference
+import com.dino.message.corefeature.data.upload.PlatformMediaResolver
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
@@ -32,9 +30,11 @@ import kotlinx.coroutines.withContext
 
 data class SelectedPostMedia(
     val id: Long,
-    val uri: Uri,
+    val reference: PlatformMediaReference,
     val displayName: String,
-    val mimeType: String
+    val mimeType: String,
+    val sizeBytes: Long? = null,
+    val durationMs: Long? = null,
 )
 
 class CreatePostViewModel constructor(
@@ -43,11 +43,10 @@ class CreatePostViewModel constructor(
     private val createPostUseCase: CreatePostUseCase,
     private val editPostUseCase: EditPostUseCase,
     private val getPostUseCase: GetPostUseCase,
-    private val uploadContentProvider: AndroidUploadContentProvider,
+    private val mediaResolver: PlatformMediaResolver,
     savedStateHandle: SavedStateHandle
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
-    private val mediaMetadataExtractor = AndroidMediaMetadataExtractor(app)
 
     companion object {
         const val MAX_MEDIA_FILES_PER_POST = 8
@@ -100,30 +99,27 @@ class CreatePostViewModel constructor(
         followersOnly.value = value
     }
 
-    fun onMediaPicked(uris: List<Uri>) {
-        if (uris.isEmpty()) return
+    fun onMediaPicked(mediaReferences: List<PlatformMediaReference>) {
+        if (mediaReferences.isEmpty()) return
 
-        val resolver = getApplication<DinoOrderApplication>().contentResolver
         var skippedUnsupported = 0
         var skippedBlockedForSecurity = 0
         var skippedMaxLimit = 0
         var skippedVideoTooLong = 0
         var skippedUnknownVideoDuration = 0
 
-        uris.forEach { uri ->
+        mediaReferences.forEach { reference ->
             if (_selectedMedia.size + _existingMedia.size >= MAX_MEDIA_FILES_PER_POST) {
                 skippedMaxLimit++
                 return@forEach
             }
 
-            if (_selectedMedia.any { it.uri == uri }) {
+            if (_selectedMedia.any { it.reference == reference }) {
                 return@forEach
             }
 
-            val mimeType = MediaFileResolver.resolveMimeType(
-                contentResolver = resolver,
-                uri = uri,
-            )
+            val pickedMedia = mediaResolver.resolvePickedMedia(reference)
+            val mimeType = pickedMedia.mimeType
             if (MediaMimePolicy.isBlockedForSecurity(mimeType)) {
                 skippedBlockedForSecurity++
                 return@forEach
@@ -133,7 +129,7 @@ class CreatePostViewModel constructor(
                 return@forEach
             }
             if (mimeType.startsWith("video/")) {
-                val durationMs = getVideoDurationMs(uri)
+                val durationMs = pickedMedia.durationMs
                 if (durationMs == null) {
                     skippedUnknownVideoDuration++
                     return@forEach
@@ -148,9 +144,11 @@ class CreatePostViewModel constructor(
             _selectedMedia.add(
                 SelectedPostMedia(
                     id = mediaIdSequence,
-                    uri = uri,
-                    displayName = queryDisplayName(uri) ?: "media_$mediaIdSequence",
-                    mimeType = mimeType
+                    reference = pickedMedia.reference,
+                    displayName = pickedMedia.displayName.ifBlank { "media_$mediaIdSequence" },
+                    mimeType = mimeType,
+                    sizeBytes = pickedMedia.sizeBytes,
+                    durationMs = pickedMedia.durationMs,
                 )
             )
         }
@@ -302,44 +300,24 @@ class CreatePostViewModel constructor(
     }
 
     private fun buildCreatePostMedia(): List<CreatePostMedia>? {
-        val resolver = getApplication<DinoOrderApplication>().contentResolver
         val result = mutableListOf<CreatePostMedia>()
 
         selectedMedia.forEach { media ->
-            val canRead = try {
-                resolver.openInputStream(media.uri)?.use { true } ?: false
-            } catch (_: Exception) {
-                false
-            }
-            if (!canRead) return null
+            if (!mediaResolver.canRead(media.reference)) return null
 
             result.add(
                 CreatePostMedia(
-                    file = uploadContentProvider.readableMediaFile(
-                        uri = media.uri,
+                    file = mediaResolver.readableMediaFile(
+                        source = media.reference,
                         displayName = media.displayName,
                         mimeType = media.mimeType,
-                        sizeBytes = queryFileSize(media.uri),
+                        sizeBytes = media.sizeBytes,
                     ),
                 )
             )
         }
 
         return result
-    }
-
-    private fun queryDisplayName(uri: Uri): String? {
-        val resolver = getApplication<DinoOrderApplication>().contentResolver
-        return MediaFileResolver.queryDisplayName(resolver, uri)
-    }
-
-    private fun queryFileSize(uri: Uri): Long? {
-        val resolver = getApplication<DinoOrderApplication>().contentResolver
-        return MediaFileResolver.resolveFileSize(resolver, uri)
-    }
-
-    private fun getVideoDurationMs(uri: Uri): Long? {
-        return mediaMetadataExtractor.extract(uri).durationMs
     }
 
     private fun Post.toQuotedPostPreview(): QuotedPostPreview = QuotedPostPreview(

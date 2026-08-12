@@ -1,9 +1,8 @@
 package com.dino.message.mainpage.domain.model
 
-import android.os.Parcelable
-import kotlinx.parcelize.Parcelize
+import kotlinx.serialization.Serializable
 
-@Parcelize
+@Serializable
 data class MessageList(
     val username: String,
     val displayName: String,
@@ -15,4 +14,4 @@ data class MessageList(
     val profileImageUrl: String? = null,
     val profileImageShape: String? = null,
     val profileVideoUrl: String? = null,
-) : Parcelable
+)

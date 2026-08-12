@@ -1,22 +1,22 @@
 package com.dino.message.chatfeature.domain.util
 
-import android.content.Context
-import android.content.SharedPreferences
 import java.util.Collections
 
-class MessageDeduplicator(context: Context) {
+interface MessageDeduplicationStore {
+    fun loadSeenIds(): Set<String>
+    fun saveSeenIds(seenIds: Set<String>)
+}
+
+class MessageDeduplicator(
+    private val store: MessageDeduplicationStore,
+) {
 
     companion object {
-        private const val MAX_CACHE_SIZE = 5000
-        private const val PREFS_NAME = "msg_dedup"
-        private const val KEY_SEEN_IDS = "seen_ids"
+        const val MAX_CACHE_SIZE = 5000
     }
 
-    private val prefs: SharedPreferences =
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-
     private val seenIds: MutableSet<String> = Collections.synchronizedSet(
-        LinkedHashSet(loadSeenIds())
+        LinkedHashSet(store.loadSeenIds())
     )
 
     fun isDuplicate(messageId: String?): Boolean {
@@ -33,10 +33,6 @@ class MessageDeduplicator(context: Context) {
     }
 
     private fun persistSeenIds() {
-        prefs.edit().putStringSet(KEY_SEEN_IDS, seenIds.toSet()).apply()
-    }
-
-    private fun loadSeenIds(): Set<String> {
-        return prefs.getStringSet(KEY_SEEN_IDS, emptySet()) ?: emptySet()
+        store.saveSeenIds(seenIds.toSet())
     }
 }

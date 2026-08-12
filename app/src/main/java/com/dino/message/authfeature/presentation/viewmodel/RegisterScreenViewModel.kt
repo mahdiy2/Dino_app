@@ -12,11 +12,11 @@ import com.dino.message.authfeature.domain.usecase.RegisterUseCase
 import com.dino.message.corefeature.data.spref.DataStoreUtil
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.domain.config.AppConfig
+import com.dino.message.corefeature.domain.crypto.MessageCrypto
 import com.dino.message.corefeature.domain.device.DeviceInfoProvider
 import com.dino.message.corefeature.domain.model.AppLanguage
 import com.dino.message.corefeature.domain.resource.StringResolver
 import com.dino.message.corefeature.presentation.util.PopBackStackLevel
-import com.dino.message.corefeature.presentation.util.RSAUtil
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
@@ -35,6 +35,7 @@ class RegisterScreenViewModel constructor(
     private val deviceIdProvider: DeviceInfoProvider,
     private val appConfig: AppConfig,
     private val stringResolver: StringResolver,
+    private val messageCrypto: MessageCrypto,
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
 
@@ -154,9 +155,9 @@ class RegisterScreenViewModel constructor(
             return
         }
 
-        val keyPair = RSAUtil.generateKeyPair()
-        val publicKeyBase64 = RSAUtil.getPublicKeyBase64(keyPair.public)
-        val privateKeyBase64 = RSAUtil.getPrivateKeyBase64(keyPair.private)
+        val keyPair = messageCrypto.generateRsaKeyPair()
+        val publicKeyBase64 = keyPair.publicKeyBase64
+        val privateKeyBase64 = keyPair.privateKeyBase64
         val clientNonce = UUID.randomUUID().toString()
         val normalizedReferralCode = referralCode.value.trim().uppercase().ifBlank { null }
         val deviceId = deviceIdProvider.getDeviceId()

@@ -1,8 +1,6 @@
 package com.dino.message.corefeature.domain.model
 
-import android.os.Parcelable
 import com.dino.message.corefeature.presentation.util.Resource
-import kotlinx.parcelize.Parcelize
 import kotlinx.serialization.Serializable
 
 
@@ -13,10 +11,9 @@ import kotlinx.serialization.Serializable
  * @param type The type of the custom message dialog.
  */
 @Serializable
-@Parcelize
 class CustomMessageDialogData private constructor(
     val messages: List<CustomMessageDialogContentItem>, val type: String
-) : Parcelable {
+) {
 
     /**
      * The `CustomMessageDialogBuilder` class provides a builder pattern to create `CustomMessageDialogData` instances.

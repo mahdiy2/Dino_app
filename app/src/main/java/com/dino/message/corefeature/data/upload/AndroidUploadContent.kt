@@ -7,12 +7,16 @@ import java.io.File
 
 class AndroidUploadContentProvider(
     private val contentResolver: ContentResolver,
-) {
+) : PlatformMediaResolver {
     fun canRead(uri: Uri): Boolean {
         return runCatching {
             openInputStream(uri).use { }
             true
         }.getOrDefault(false)
+    }
+
+    override fun canRead(source: PlatformMediaReference): Boolean {
+        return canRead(source.toAndroidUri())
     }
 
     fun canRead(file: ReadableMediaFile): Boolean {
@@ -72,6 +76,54 @@ class AndroidUploadContentProvider(
         )
     }
 
+    override fun resolvePickedMedia(
+        source: PlatformMediaReference,
+        displayNameHint: String?,
+    ): PlatformPickedMedia {
+        val uri = source.toAndroidUri()
+        val displayName = displayNameHint
+            ?: MediaFileResolver.queryDisplayName(contentResolver, uri)
+            ?: uri.lastPathSegment
+                ?.substringAfterLast('/')
+                ?.ifBlank { null }
+            ?: "file"
+        val mimeType = MediaFileResolver.resolveMimeType(
+            contentResolver = contentResolver,
+            uri = uri,
+            displayNameHint = displayName,
+        )
+        val metadata = if (mimeType.startsWith("audio/") || mimeType.startsWith("video/")) {
+            metadata(source)
+        } else {
+            PlatformMediaMetadata()
+        }
+        return PlatformPickedMedia(
+            reference = source,
+            displayName = displayName,
+            mimeType = mimeType,
+            sizeBytes = MediaFileResolver.resolveFileSize(contentResolver, uri),
+            durationMs = metadata.durationMs,
+        )
+    }
+
+    override fun metadata(source: PlatformMediaReference): PlatformMediaMetadata {
+        return AndroidMediaMetadataExtractor(contentResolver).extract(source)
+    }
+
+    override fun readableMediaFile(
+        source: PlatformMediaReference,
+        displayName: String?,
+        mimeType: String?,
+        sizeBytes: Long?,
+    ): ReadableMediaFile {
+        return readableMediaFile(
+            uri = source.toAndroidUri(),
+            displayName = displayName,
+            mimeType = mimeType,
+            sizeBytes = sizeBytes,
+        )
+    }
+
     private fun openInputStream(uri: Uri): java.io.InputStream {
         if (uri.scheme == "file") {
             val path = uri.path ?: error("File path is missing")
@@ -83,3 +135,7 @@ class AndroidUploadContentProvider(
             ?: error("Unable to open input stream")
     }
 }
+
+fun PlatformMediaReference.toAndroidUri(): Uri = Uri.parse(value)
+
+fun Uri.toPlatformMediaReference(): PlatformMediaReference = PlatformMediaReference(toString())

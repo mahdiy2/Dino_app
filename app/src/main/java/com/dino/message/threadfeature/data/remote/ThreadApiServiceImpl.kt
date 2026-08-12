@@ -1,7 +1,6 @@
 package com.dino.message.threadfeature.data.remote
 
 import android.content.Context
-import android.net.Uri
 import com.dino.message.corefeature.data.remote.HaveRefreshTokenAPI
 import com.dino.message.corefeature.data.remote.HaveRefreshTokenAPIImpl
 import com.dino.message.corefeature.data.remote.util.HttpAPIUtil
@@ -9,10 +8,11 @@ import com.dino.message.corefeature.data.remote.util.appendTokenToHeader
 import com.dino.message.corefeature.data.remote.util.ensureFreshAccessTokenIfNearExpiry
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.data.upload.AndroidUploadContentProvider
+import com.dino.message.corefeature.data.upload.PlatformMediaMetadataExtractor
+import com.dino.message.corefeature.data.upload.PlatformMediaReference
 import com.dino.message.corefeature.data.upload.appendUploadFile
 import com.dino.message.corefeature.data.upload.toUploadFilePart
 import com.dino.message.corefeature.domain.model.asStringResourceContent
-import com.dino.message.corefeature.presentation.platform.AndroidMediaMetadataExtractor
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.crashfeature.data.service.CrashReporter
 import com.dino.message.threadfeature.data.remote.dto.CreateCommentRequest
@@ -83,8 +83,8 @@ class ThreadApiServiceImpl constructor(
     private val crashReporter: CrashReporter,
     private val uploadContentProvider: AndroidUploadContentProvider,
     private val appContext: Context,
+    private val mediaMetadataExtractor: PlatformMediaMetadataExtractor,
 ) : ThreadApiService, HaveRefreshTokenAPI by HaveRefreshTokenAPIImpl(httpClient, sPrefManager) {
-    private val mediaMetadataExtractor = AndroidMediaMetadataExtractor(appContext)
 
     companion object {
         private const val MAX_MEDIA_FILES_PER_POST = 8
@@ -678,11 +678,11 @@ class ThreadApiServiceImpl constructor(
         )
 
     private fun resolveVideoDurationSeconds(mediaFile: CreatePostMedia): Double? {
-        val durationMillis = mediaMetadataExtractor.extract(mediaFile.androidUri()).durationMs ?: return null
+        val durationMillis = mediaMetadataExtractor.extract(
+            PlatformMediaReference(mediaFile.file.handle.id)
+        ).durationMs ?: return null
         return durationMillis / 1000.0
     }
-
-    private fun CreatePostMedia.androidUri(): Uri = Uri.parse(file.handle.id)
 
     private fun createMultipartBoundary(): String {
         val randomToken = UUID.randomUUID().toString().replace("-", "")

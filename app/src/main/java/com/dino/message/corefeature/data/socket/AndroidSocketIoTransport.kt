@@ -1,6 +1,6 @@
 package com.dino.message.corefeature.data.socket
 
-import android.util.Log
+import com.dino.message.corefeature.data.remote.logging.AppLogger
 import io.socket.client.IO
 import io.socket.client.Socket
 import io.socket.emitter.Emitter
@@ -8,6 +8,7 @@ import java.net.URISyntaxException
 
 class AndroidSocketIoTransportFactory(
     private val baseUrl: String,
+    private val appLogger: AppLogger,
 ) : RealtimeSocketTransportFactory {
 
     override fun create(token: String): RealtimeSocketTransport? {
@@ -28,10 +29,10 @@ class AndroidSocketIoTransportFactory(
         return try {
             AndroidSocketIoTransport(IO.socket(normalizedBaseUrl, options))
         } catch (e: URISyntaxException) {
-            Log.e(TAG, "Invalid socket URL: $normalizedBaseUrl", e)
+            appLogger.error(TAG, "Invalid socket URL: $normalizedBaseUrl", e)
             null
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to create socket", e)
+            appLogger.error(TAG, "Failed to create socket", e)
             null
         }
     }

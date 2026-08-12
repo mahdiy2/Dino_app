@@ -1,20 +1,19 @@
 package com.dino.message.corefeature.data.notification
 
-import android.content.Context
 import com.dino.message.chatfeature.data.notification.InAppNotificationManager
-import com.dino.message.chatfeature.data.notification.NotificationHelper
 import com.dino.message.corefeature.domain.notification.AppNotificationController
+import com.dino.message.corefeature.domain.notification.AppNotificationPresenter
 
 class AndroidAppNotificationController(
-    private val context: Context,
+    private val notificationPresenter: AppNotificationPresenter,
     private val inAppNotificationManager: InAppNotificationManager,
 ) : AppNotificationController {
     override fun ensureMessageChannel() {
-        NotificationHelper.ensureChannel(context)
+        notificationPresenter.ensureMessageChannel()
     }
 
     override fun ensureActivityChannel() {
-        NotificationHelper.ensureActivityChannel(context)
+        notificationPresenter.ensureActivityChannel()
     }
 
     override fun ensureAppChannels() {
@@ -23,15 +22,15 @@ class AndroidAppNotificationController(
     }
 
     override fun clearPrivateChat(username: String) {
-        NotificationHelper.clearNotificationForUser(context, username)
+        notificationPresenter.clearPrivateChat(username)
     }
 
     override fun clearGroupChat(groupId: Int) {
-        NotificationHelper.clearNotificationForGroup(context, groupId)
+        notificationPresenter.clearGroupChat(groupId)
     }
 
     override fun clearAll() {
-        NotificationHelper.clearAllNotifications(context)
+        notificationPresenter.clearAll()
     }
 
     override fun clearPrivateMessageDedupe() {

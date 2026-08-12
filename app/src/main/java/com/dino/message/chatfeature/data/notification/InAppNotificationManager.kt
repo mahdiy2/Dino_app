@@ -1,21 +1,25 @@
 package com.dino.message.chatfeature.data.notification
 
-import android.content.Context
-import android.util.Log
+import com.dino.message.corefeature.data.remote.logging.AppLogger
 import com.dino.message.corefeature.data.socket.AppSocketManager
 import com.dino.message.corefeature.data.socket.RealtimeSocketEvents
+import com.dino.message.corefeature.domain.notification.AppNotificationPresenter
+import com.dino.message.corefeature.domain.notification.NotificationDedupeSnapshotStore
+import com.dino.message.corefeature.domain.notification.NotificationSocketConnection
+import com.dino.message.corefeature.domain.system.AppClock
 import org.json.JSONObject
 
 class InAppNotificationManager constructor(
-    private val context: Context,
     private val appSocketManager: AppSocketManager,
-) {
+    private val notificationPresenter: AppNotificationPresenter,
+    private val dedupeSnapshotStore: NotificationDedupeSnapshotStore,
+    private val appClock: AppClock,
+    private val appLogger: AppLogger,
+) : NotificationSocketConnection {
     companion object {
         private const val TAG = "InAppNotifManager"
         private const val LISTENER_OWNER = "InAppNotificationManager"
         private const val PRIVATE_NOTIFICATION_CHANNEL = "private"
-        private const val PRIVATE_DEDUPE_PREFS = "private_notification_dedupe"
-        private const val PRIVATE_DEDUPE_PREFS_KEY = "message_ids"
         private const val PRIVATE_DEDUPE_TTL_MS = 30 * 60 * 1000L
         private const val PRIVATE_DEDUPE_MAX_ENTRIES = 4_000
     }
@@ -23,21 +27,21 @@ class InAppNotificationManager constructor(
     private val privateMessageDeduper = MessageNotificationDeduper(
         ttlMs = PRIVATE_DEDUPE_TTL_MS,
         maxEntries = PRIVATE_DEDUPE_MAX_ENTRIES,
-        snapshotLoader = ::loadPrivateNotificationSnapshot,
-        snapshotSaver = ::savePrivateNotificationSnapshot,
+        snapshotLoader = dedupeSnapshotStore::loadPrivateMessageSnapshot,
+        snapshotSaver = dedupeSnapshotStore::savePrivateMessageSnapshot,
     )
 
-    fun connect(token: String) {
+    override fun connect(token: String) {
         val cleanToken = token.removePrefix("Bearer ").trim()
         if (cleanToken.isBlank()) {
-            Log.w(TAG, "Token is blank, cannot connect")
+            appLogger.warning(TAG, "Token is blank, cannot connect")
             return
         }
         registerListeners()
         appSocketManager.connect()
     }
 
-    fun disconnect() {
+    override fun disconnect() {
         appSocketManager.disconnect(clearListeners = false)
     }
 
@@ -47,15 +51,15 @@ class InAppNotificationManager constructor(
 
     private fun registerListeners() {
         appSocketManager.registerListener(LISTENER_OWNER, RealtimeSocketEvents.CONNECT) {
-            Log.d(TAG, "Socket connected for notifications")
+            appLogger.debug(TAG, "Socket connected for notifications")
         }
 
         appSocketManager.registerListener(LISTENER_OWNER, RealtimeSocketEvents.DISCONNECT) {
-            Log.d(TAG, "Socket disconnected")
+            appLogger.debug(TAG, "Socket disconnected")
         }
 
         appSocketManager.registerListener(LISTENER_OWNER, RealtimeSocketEvents.CONNECT_ERROR) { args ->
-            Log.w(TAG, "Socket connect error: ${args.firstOrNull()}")
+            appLogger.warning(TAG, "Socket connect error: ${args.firstOrNull()}")
         }
 
         appSocketManager.registerListener(LISTENER_OWNER, "pending_messages") { args ->
@@ -112,10 +116,10 @@ class InAppNotificationManager constructor(
 
                 val lastType = senderLastType[sender] ?: "text"
                 val body = buildNotificationBody(lastType, count)
-                NotificationHelper.showMessageNotification(context, sender, body)
+                notificationPresenter.showPrivateMessage(sender, body)
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error handling pending_messages", e)
+            appLogger.error(TAG, "Error handling pending_messages", e)
         }
     }
 
@@ -138,8 +142,7 @@ class InAppNotificationManager constructor(
                 val groupName = payload.optString("group_name", "Group Chat")
                 val type = payload.optString("type", "text")
                 val body = buildGroupNotificationBody(sender, type)
-                NotificationHelper.showGroupMessageNotification(
-                    context = context,
+                notificationPresenter.showGroupMessage(
                     groupId = groupId,
                     groupName = groupName,
                     body = body
@@ -150,7 +153,7 @@ class InAppNotificationManager constructor(
             // This keeps behavior stable when legacy sockets emit both `new_notification` and `new_message`.
             return
         } catch (e: Exception) {
-            Log.e(TAG, "Error handling new_notification", e)
+            appLogger.error(TAG, "Error handling new_notification", e)
         }
     }
 
@@ -174,9 +177,9 @@ class InAppNotificationManager constructor(
 
             val type = payload.optString("type", "text")
             val body = buildNotificationBody(type, 1)
-            NotificationHelper.showMessageNotification(context, sender, body)
+            notificationPresenter.showPrivateMessage(sender, body)
         } catch (e: Exception) {
-            Log.e(TAG, "Error handling new_message for notification", e)
+            appLogger.error(TAG, "Error handling new_message for notification", e)
         }
     }
 
@@ -236,10 +239,10 @@ class InAppNotificationManager constructor(
                 .ifBlank { "Someone" }
 
             val body = buildActivityNotificationBody(kind, actorName, payload)
-            val notifId = payload.optLong("id", System.currentTimeMillis()).toInt()
-            NotificationHelper.showActivityNotification(context, "Activity", body, notifId)
+            val notifId = payload.optLong("id", appClock.currentTimeMillis()).toInt()
+            notificationPresenter.showActivity("Activity", body, notifId)
         } catch (e: Exception) {
-            Log.e(TAG, "Error handling activity_notification", e)
+            appLogger.error(TAG, "Error handling activity_notification", e)
         }
     }
 
@@ -269,14 +272,13 @@ class InAppNotificationManager constructor(
                 buildGroupNotificationBody(sender, type)
             }
 
-            NotificationHelper.showGroupMessageNotification(
-                context = context,
+            notificationPresenter.showGroupMessage(
                 groupId = groupId,
                 groupName = groupName,
                 body = body
             )
         } catch (e: Exception) {
-            Log.e(TAG, "Error handling pending_group_messages", e)
+            appLogger.error(TAG, "Error handling pending_group_messages", e)
         }
     }
 
@@ -307,16 +309,13 @@ class InAppNotificationManager constructor(
                     } else {
                         "You have $unreadCount new activity notifications"
                     }
-                    NotificationHelper.showActivityNotification(context, "Activity", body)
+                    notificationPresenter.showActivity("Activity", body)
                 }
             } else {
-                NotificationHelper.showActivityNotification(
-                    context, "Activity",
-                    "You have $unreadCount new activity notifications"
-                )
+                notificationPresenter.showActivity("Activity", "You have $unreadCount new activity notifications")
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error handling pending_activity_notifications", e)
+            appLogger.error(TAG, "Error handling pending_activity_notifications", e)
         }
     }
 
@@ -336,42 +335,5 @@ class InAppNotificationManager constructor(
             }
             else -> "$actorName interacted with your content"
         }
-    }
-
-    private fun loadPrivateNotificationSnapshot(): Map<String, Long> {
-        val rawSnapshot = context
-            .getSharedPreferences(PRIVATE_DEDUPE_PREFS, Context.MODE_PRIVATE)
-            .getString(PRIVATE_DEDUPE_PREFS_KEY, null)
-            ?: return emptyMap()
-
-        return try {
-            val snapshotJson = JSONObject(rawSnapshot)
-            val parsed = mutableMapOf<String, Long>()
-            val keys = snapshotJson.keys()
-            while (keys.hasNext()) {
-                val key = keys.next()
-                val timestamp = snapshotJson.optLong(key, 0L)
-                if (key.isNotBlank() && timestamp > 0L) {
-                    parsed[key] = timestamp
-                }
-            }
-            parsed
-        } catch (_: Exception) {
-            emptyMap()
-        }
-    }
-
-    private fun savePrivateNotificationSnapshot(snapshot: Map<String, Long>) {
-        val prefs = context.getSharedPreferences(PRIVATE_DEDUPE_PREFS, Context.MODE_PRIVATE)
-        if (snapshot.isEmpty()) {
-            prefs.edit().remove(PRIVATE_DEDUPE_PREFS_KEY).apply()
-            return
-        }
-
-        val snapshotJson = JSONObject()
-        snapshot.forEach { (key, timestamp) ->
-            snapshotJson.put(key, timestamp)
-        }
-        prefs.edit().putString(PRIVATE_DEDUPE_PREFS_KEY, snapshotJson.toString()).apply()
     }
 }

@@ -49,6 +49,7 @@ import org.koin.compose.viewmodel.koinViewModel
 import com.dino.message.chatfeature.presentation.component.MediaAccessLevel
 import com.dino.message.chatfeature.presentation.component.MediaPermissionHandler
 import com.dino.message.R
+import com.dino.message.corefeature.data.upload.toPlatformMediaReference
 import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPSmall
@@ -81,7 +82,7 @@ fun CreatePostScreen(
             selectedMedia.map {
                 PostMedia(
                     id = it.id,
-                    url = it.uri.toString(),
+                    url = it.reference.value,
                     mime_type = it.mimeType
                 )
             }
@@ -108,7 +109,7 @@ fun CreatePostScreen(
             CreatePostViewModel.MAX_MEDIA_FILES_PER_POST
         )
     ) { uris ->
-        viewModel.onMediaPicked(uris)
+        viewModel.onMediaPicked(uris.map { it.toPlatformMediaReference() })
     }
     val mediaPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()

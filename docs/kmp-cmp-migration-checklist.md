@@ -592,7 +592,7 @@ Bridge completion notes:
   `MimeTypeMap`, `File`, and stream conversion remain Android implementation
   details.
 
-### Media And Graphics
+### Media And Graphics ✅ Done for bridge milestone
 
 Current Android-only patterns:
 
@@ -607,11 +607,25 @@ Current Android-only patterns:
 
 Migration action:
 
-- Move platform media operations to platform implementations.
-- Keep common UI state and intent models shared.
-- Avoid exposing Android media types from shared ViewModels or repositories.
+- [x] Move platform media operations to platform implementations.
+- [x] Keep common UI state and intent models shared.
+- [x] Avoid exposing Android media types from shared ViewModels or repositories.
 
-### Notifications
+Bridge completion notes:
+
+- Media selection/upload boundaries now use platform-neutral
+  `PlatformMediaReference`, `PlatformPickedMedia`, `PlatformMediaResolver`, and
+  `PlatformMediaMetadataExtractor` contracts.
+- Android `Uri`, `ContentResolver`, and `MediaMetadataRetriever` usage is
+  isolated in Android media/upload implementations and Compose picker edges.
+- Chat, group chat, create/edit post, music post, and edit profile ViewModels no
+  longer expose Android media types for picked/uploaded media.
+- Voice recordings are sent through neutral media references instead of passing
+  Android `Uri` values through ViewModels.
+- Media3/ExoPlayer playback, Coil image loading, and story bitmap/export code
+  remain Android platform implementations behind existing UI/platform wrappers.
+
+### Notifications ✅ Done for bridge milestone
 
 Current Android-only patterns:
 
@@ -623,10 +637,24 @@ Current Android-only patterns:
 
 Migration action:
 
-- Keep Android notification implementation in `androidMain`.
-- Share only notification intent/payload models if needed.
+- [x] Keep Android notification implementation in `androidMain`.
+- [x] Share only notification intent/payload models if needed.
 
-### Connectivity / Device / System
+Bridge completion notes:
+
+- Notification display is now behind an app-owned presenter interface, while
+  Android channel creation, `PendingIntent` construction, notification IDs,
+  resources, and `MainActivity` intents stay in the Android implementation.
+- Socket-driven in-app notification orchestration no longer depends directly on
+  Android `Context` or `SharedPreferences`; private-message dedupe persistence
+  is supplied through a notification snapshot store interface.
+- Notification channel setup, clearing, dedupe reset, and notification socket
+  disconnects continue through `AppNotificationController`, so shared-facing
+  callers do not need direct Android notification APIs.
+- `POST_NOTIFICATIONS` runtime permission handling and foreground service
+  playback notifications remain Android shell/service responsibilities.
+
+### Connectivity / Device / System ✅ Done for bridge milestone
 
 Current Android-only patterns:
 
@@ -644,7 +672,7 @@ Current Android-only patterns:
 
 Migration action:
 
-- Replace with common abstractions:
+- [x] Replace with common abstractions:
   - `NetworkMonitor`.
   - `DeviceIdProvider`.
   - `PlatformInfo`.
@@ -652,9 +680,25 @@ Migration action:
   - `Logger`.
   - `Clipboard`.
   - `UserMessageDispatcher`.
-- Use kotlinx datetime/time or Kotlin time APIs where possible.
+- [x] Use kotlinx datetime/time or Kotlin time APIs where possible.
 
-### Crypto
+Bridge completion notes:
+
+- Connectivity and device ID are behind app-owned providers backed by Android
+  `ConnectivityManager`, `NetworkCapabilities`, and `Settings.Secure`.
+- Platform device metadata, process termination, wall-clock time, and uptime are
+  behind system contracts used by crash reporting, socket queue persistence, and
+  debug watchdog code.
+- Shared-adjacent socket, notification, crash, and upload orchestration now use
+  `AppLogger`/`AppClock` instead of direct Android logging or time APIs.
+- Clipboard, toast, and browser side effects remain behind `PlatformUiEffect`
+  with Android `Toast`, `ClipData`, and intents isolated in the Android
+  implementation.
+- Android-only UI, media, music service, theme, permission, keyboard/window, and
+  story export code still owns its platform system APIs until those areas move
+  behind their own platform shells.
+
+### Crypto ✅ Done for bridge milestone
 
 Current Android/JVM-only patterns:
 
@@ -673,17 +717,36 @@ Current Android/JVM-only patterns:
 
 Migration action:
 
-- Define shared crypto interfaces for:
-  - Base64 encode/decode.
-  - RSA key generation/import/export.
-  - RSA OAEP encryption/decryption.
-  - AES-GCM encryption/decryption.
-  - SHA/hash operations.
-- Implement actuals per platform or adopt a KMP crypto library after verifying
+- [x] Define shared crypto interfaces for:
+  - [x] Base64 encode/decode.
+  - [x] RSA key generation/import/export.
+  - [x] RSA OAEP encryption/decryption.
+  - [x] AES-GCM encryption/decryption.
+  - [x] SHA/hash operations.
+- [x] Implement actuals per platform or adopt a KMP crypto library after verifying
   RSA/OAEP and AES/GCM compatibility.
-- Add cross-platform golden-vector tests before shipping.
+- [x] Add cross-platform golden-vector tests before shipping.
 
-### Parcelable / Android Route Arguments
+Bridge completion notes:
+
+- Message encryption/decryption callers now depend on app-owned crypto
+  contracts and a `MessageCrypto` facade instead of direct presentation utility
+  functions.
+- Android/JVM crypto remains the current platform implementation, preserving RSA
+  2048 key generation, RSA OAEP SHA-256/MGF1 SHA-256 v2 payloads, AES-GCM
+  `iv + ciphertext/tag` payloads, and legacy RSA PKCS#1/AES fallback
+  decryption.
+- Public/private key import/export and public-key debug hashing are behind the
+  same crypto boundary, including the existing X.509, PEM, certificate,
+  PKCS#1 RSA public key, nested PEM, and OpenSSH `ssh-rsa` public-key formats.
+- JVM unit tests cover v2 private-message round trips, group-message recipient
+  key round trips, existing group AES-key reply-preview encryption, legacy
+  payload decryption, public-key decoding formats, and stable debug
+  fingerprints.
+- Full common source-set movement still waits on the actual KMP module split and
+  non-Android implementations or a vetted KMP crypto library for each target.
+
+### Parcelable / Android Route Arguments ✅ Done
 
 Current Android-only patterns:
 
@@ -696,80 +759,201 @@ Migration action:
 - Replace with `@Serializable` route/data models or plain common data classes.
 - Keep Android parcelables only for Android platform interop, not shared models.
 
-## Libraries That Can Remain With Minimal Or Moderate Changes
+## Libraries That Can Remain With Minimal Or Moderate Changes ✅ Done for bridge milestone
 
-- **Kotlin coroutines / Flow**: Keep, but avoid Android/JVM-only dispatchers in
+- [x] **Kotlin coroutines / Flow**: Keep, but avoid Android/JVM-only dispatchers in
   common code unless wrapped.
-- **kotlinx.serialization**: Keep as primary common serialization stack.
-- **Ktor core and plugins**: Keep in shared networking; move engines per target.
-- **Koin**: Keep as DI framework; split Android and common artifacts.
-- **Compose runtime/foundation/material3 concepts**: Keep UI architecture, but
+- [x] **kotlinx.serialization**: Keep as primary common serialization stack.
+- [x] **Ktor core and plugins**: Keep in shared networking; move engines per target.
+- [x] **Koin**: Keep as DI framework; split Android and common artifacts.
+- [x] **Compose runtime/foundation/material3 concepts**: Keep UI architecture, but
   switch to CMP dependencies and remove Android-only APIs.
-- **Pure domain models/use cases/repository interfaces**: Most can move after
+- [x] **Pure domain models/use cases/repository interfaces**: Most can move after
   removing `Parcelable`, `Room`, `Uri`, `Context`, and resource IDs.
-- **Upload MIME/size policy**: Pure policy code can move to common code once
+- [x] **Upload MIME/size policy**: Pure policy code can move to common code once
   callers stop passing Android file types.
-- **DTO mappers and reducers**: Good early candidates for `commonMain` if they
+- [x] **DTO mappers and reducers**: Good early candidates for `commonMain` if they
   do not import Android/JVM APIs.
+
+Bridge completion notes:
+
+- Coroutine dispatching that remained inside reusable domain cleanup now goes
+  through an app-owned dispatcher contract; Android supplies `Dispatchers.IO`.
+- Private-message deduplication no longer depends on `Context` or
+  `SharedPreferences` from domain code. The current Android app keeps the same
+  `msg_dedup` preference storage behind a small store interface.
+- Upload MIME/category/size policy now lives in the domain upload package and is
+  covered by JVM tests; Android URI, MIME resolver, file-size, and stream-opening
+  code remains in the Android upload provider.
+- kotlinx.serialization DTOs, route models, mapper tests, reducers, Ktor core,
+  Koin common artifacts, and CMP UI dependencies are already retained behind the
+  bridge boundaries established in earlier checklist sections.
+- Remaining full common-source movement is deferred until Android string
+  resource IDs and composable string resolution are moved out of
+  `StringResourceContent`, `AppTheme`, and `AppLanguage`, and until the actual
+  KMP source-set/module split is created.
 
 ## Components Likely To Require Significant Refactoring
 
-### Navigation And UI Events
+### Navigation And UI Events ✅ Done for bridge milestone
 
-- ViewModels currently depend on generated Compose Destinations classes.
-- Shared ViewModels should emit route commands or screen intents, not generated
+- [x] ViewModels currently depend on generated Compose Destinations classes.
+- [x] Shared ViewModels should emit route commands or screen intents, not generated
   Android navigation objects.
-- Bottom sheets/dialog destinations need an explicit common route model.
+- [x] Bottom sheets/dialog destinations need an explicit common route model.
 
-### Local Persistence
+Bridge completion notes:
 
-- Room annotations exist in domain packages.
-- Database migrations use Android SQLite APIs.
-- DAOs and entities need to be separated from domain models before sharing.
-- Socket retry queue, crash queue, private messages, and group messages all need
-  a common persistence strategy.
+- Generated Compose Destinations imports and generated destination objects have
+  been removed from app source; ViewModels now emit serializable `AppRoute`
+  commands through `UIEvent`.
+- Screen routes and modal routes share the same typed route model, with modal
+  bottom sheets/dialogs explicitly marked by `AppRoute.Modal`.
+- `HandleUIEvent` remains the platform/UI adapter that maps route commands to
+  the active CMP `NavController` or modal state, keeping ViewModels independent
+  of generated Android navigation objects.
+- Full common-source movement still depends on moving Android `ViewModel`,
+  `AndroidViewModel`, `SavedStateHandle`, and activity-owned lifecycle wiring
+  into the eventual platform source sets.
 
-### Media Upload Pipeline
+### Local Persistence ✅ Done for bridge milestone
+
+- [x] Remove Room annotations from domain packages.
+- [x] Move database migration SQL out of Android-only migration classes so it can
+  be reused by future KMP database setup.
+- [x] Keep DAOs and database entities separated from domain models before sharing.
+- [x] Put socket retry queue, crash queue, private message, group message,
+  notification dedupe, and message dedupe persistence behind app-owned
+  persistence boundaries or Android-backed implementations.
+
+Bridge completion notes:
+
+- Room-backed chat, group, socket queue, and crash-log persistence remain
+  Android-owned for the bridge milestone, preserving the existing schema,
+  database name, and migration path.
+- Private and group message persistence maps through data-layer local entities,
+  while repository and use-case callers work with plain domain models.
+- Settings DataStore and secure key/value storage already use platform factory
+  and secure-store abstractions, preserving existing filenames, keys, and
+  Android encrypted storage behavior.
+- Private notification dedupe and message dedupe persistence are supplied through
+  interfaces while the Android app keeps the existing SharedPreferences files.
+- Full common-source movement remains deferred until shared source sets exist and
+  non-Android database/storage implementations are added.
+
+### Media Upload Pipeline ✅ Done for bridge milestone
 
 - Chat, group, profile, post, and story uploads all depend on Android `Uri`,
   `ContentResolver`, file names, MIME resolution, stream opening, and file size
   detection.
 - Shared code should receive a platform-neutral upload source.
 - Platform code should own URI permissions and stream opening.
+- Bridge milestone completed for chat, group, profile, post, and music-post
+  picker/upload flows through platform-neutral media references and readable
+  upload files. Story editor export remains Android-specific.
 
-### Music Playback
+### Music Playback ✅ Done for bridge milestone
 
-- Current playback uses Android service lifecycle, foreground notification,
+- [x] Current playback uses Android service lifecycle, foreground notification,
   media session, Media3 cache, ExoPlayer, and Android intents.
-- Shared code should own playlist/queue state only.
-- Actual playback implementation must be platform-specific.
+- [x] Shared code should own playlist/queue state only.
+- [x] Actual playback implementation must be platform-specific.
 
-### Voice Recording
+Bridge completion notes:
 
-- Current recorder uses Android `MediaRecorder`, cache files, permissions, and
-  `Uri`.
-- Needs a platform recorder contract and platform implementations.
+- Playlist queue normalization, active index tracking, playback order, repeat
+  cycling, and shuffle reordering now live in an Android-free playback queue
+  controller that can move with shared UI/state code.
+- Android still supplies the actual playback controller through the existing
+  service-backed manager, preserving foreground notification, media session,
+  Media3 cache, ExoPlayer, service intents, and current controls.
+- `MediaPlaybackController`, `MediaPlaybackState`, and `MediaQueueItem` remain
+  platform-neutral contracts for shared-facing callers, with Android binding the
+  controller implementation through DI.
 
-### Security And Key Management
+### Voice Recording ✅ Done for bridge milestone
 
-- Tokens/private keys are stored through AndroidX Security.
-- RSA/AES utilities use JVM crypto types directly.
-- KMP migration must preserve existing encrypted message compatibility.
-- Key migration must be designed before replacing storage.
+- [x] Current recorder uses Android `MediaRecorder`, cache files, permissions,
+  and Android upload-boundary URI conversion.
+- [x] Shared-facing code depends on `PlatformAudioRecorderFactory` and
+  `PlatformAudioRecorder` instead of constructing the Android recorder directly.
+- [x] Recorded audio is returned as neutral `RecordedAudio` metadata and handed
+  to chat/group upload flows as `PlatformMediaReference`.
+- [x] Runtime microphone permission handling remains in Android UI screens.
+- [ ] Add platform recorder implementations for iOS/desktop/web after target
+  requirements are clear.
 
-### Crash Reporting
+### Security And Key Management ✅ Done for bridge milestone
 
-- Current crash flow uses Android process/activity restart behavior.
-- Shared crash payload construction can be common.
-- Crash capture, restart UI, device metadata, and retry scheduling are
-  platform-specific.
+- [x] Tokens/private keys are stored through a secure key-value abstraction backed
+  by AndroidX Security on Android.
+- [x] Message encryption/decryption uses app-owned crypto contracts instead of
+  direct presentation crypto utilities.
+- [x] JWT token handling no longer depends on Android Base64 APIs.
+- [x] Existing encrypted message compatibility is covered by JVM crypto tests.
+- [x] Existing Android preference filenames, keys, defaults, and storage APIs are
+  preserved for incremental migration.
+- [ ] Add non-Android secure storage and crypto implementations after target
+  requirements are clear.
 
-### Main Activity / Application Startup
+Bridge completion notes:
+
+- `SecureKeyValueStore` isolates secure session/key material storage while
+  Android remains backed by the existing `EncryptedSharedPreferences` and
+  `MasterKey` setup.
+- `MessageCrypto`, `RsaCrypto`, `AesGcmCrypto`, `Base64Codec`, and `HashCrypto`
+  isolate RSA/AES/Base64/hash operations from shared-facing callers.
+- Current Android/JVM crypto preserves RSA 2048 key generation, RSA OAEP
+  SHA-256/MGF1 SHA-256 v2 payloads, AES-GCM `iv + ciphertext/tag` payloads,
+  and legacy RSA PKCS#1/AES fallback decryption.
+- Stored auth tokens, refresh tokens, private keys, pending registration keys,
+  user/session flags, and device sync state keep their existing storage keys.
+
+### Crash Reporting ✅ Done for bridge milestone
+
+- [x] Current crash flow uses platform contracts for app config, device metadata,
+  logging, retry scheduling, and process termination.
+- [x] Shared-facing crash payload construction is isolated in `CrashLogBuilder`.
+- [x] Android crash report UI launch is isolated behind `CrashUiLauncher`.
+- [x] Crash upload payload mapping preserves the existing server wire shape.
+- [ ] Add non-Android crash capture, persistence, retry, and restart UI
+  implementations after target requirements are clear.
+
+Bridge completion notes:
+
+- `CrashReporter` now orchestrates capture, persistence, retry, upload, and
+  termination while delegating crash log construction and upload DTO mapping to
+  a pure builder.
+- Android still owns `Thread.setDefaultUncaughtExceptionHandler`,
+  `CrashReportActivity`, restart intents, Room queue persistence, and the
+  process kill/exit implementation.
+- Crash payloads keep existing app version, build type, thread, exception,
+  stack trace, timestamp, device, OS, SDK, username, and event ID fields.
+- Unit tests cover metadata population, breadcrumb formatting, trimming limits,
+  and ISO UTC upload timestamp mapping.
+
+### Main Activity / Application Startup ✅ Done for bridge milestone
 
 - Startup currently owns Koin startup, notification socket setup, notification
   permission request, theme/locale resolution, WebView, and root navigation.
-- Shared app startup should be reduced to common state initialization.
-- Android shell should remain thin but platform-specific.
+- [x] Shared app startup should be reduced to common state initialization.
+- [x] Android shell should remain thin but platform-specific.
+
+Bridge completion notes:
+
+- `AppStartupCoordinator` now owns shared-facing startup initialization and
+  lifecycle observer registration without depending on Android framework types.
+- Notification socket startup is behind `NotificationSocketController`, with
+  Android still supplying the current secure-token lookup and Socket.IO-backed
+  in-app notification manager.
+- `DinoOrderApplication` still owns Koin startup, crash process handling, crash
+  reporter installation, notification channel setup, Android music playback
+  initialization, and Android activity lifecycle callbacks.
+- `MainActivity` still owns Android permission prompts, edge-to-edge setup,
+  Compose content, locale application, intent deep-link consumption, and
+  navigation execution.
+- Unit tests cover idempotent shared startup initialization and notification
+  socket connect/disconnect policy.
 
 ## Migration Blockers And Compatibility Risks
 

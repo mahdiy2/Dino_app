@@ -44,7 +44,6 @@ import kotlinx.coroutines.launch
 import java.io.File
 import kotlin.math.max
 import kotlin.math.min
-import kotlin.random.Random
 
 class MusicPlaybackService : Service() {
     companion object {
@@ -93,10 +92,7 @@ class MusicPlaybackService : Service() {
     private lateinit var notificationManager: NotificationManagerCompat
     private lateinit var simpleCache: SimpleCache
 
-    private var playbackQueue: List<MediaQueueItem> = emptyList()
-    private var currentQueueIndex: Int = -1
-    private var playbackOrder: List<Int> = emptyList()
-    private var currentPlaybackOrderPosition: Int = -1
+    private val playbackQueueController = PlaybackQueueController()
 
     private val playerListener = object : Player.Listener {
         override fun onPlaybackStateChanged(playbackState: Int) {
@@ -270,23 +266,19 @@ class MusicPlaybackService : Service() {
 
     private fun handlePlayPlaylistIntent(intent: Intent) {
         val incomingQueue = readQueueFromIntent(intent)
-
-        val sanitizedQueue = incomingQueue.mapNotNull { queueItem ->
-            val normalizedUrl = queueItem.trackUrl.trim()
-            if (normalizedUrl.isBlank()) {
-                null
-            } else {
-                queueItem.copy(trackUrl = normalizedUrl)
-            }
-        }
-        if (sanitizedQueue.isEmpty()) return
-
-        playbackQueue = sanitizedQueue
         val startIndex = intent.getIntExtra(EXTRA_QUEUE_START_INDEX, 0)
-            .coerceIn(0, playbackQueue.lastIndex)
-        playbackOrder = buildInitialPlaybackOrder(startIndex)
-        currentPlaybackOrderPosition = 0
-        playQueueIndex(playbackOrder.firstOrNull() ?: startIndex)
+        playbackQueueController.startPlaylist(
+            incomingQueue = incomingQueue,
+            startIndex = startIndex,
+            isShuffleEnabled = _playbackState.value.isShuffleEnabled,
+        )?.let { queueItem ->
+            playTrack(
+                trackUrl = queueItem.trackUrl,
+                title = queueItem.title,
+                artist = queueItem.artist,
+                fromQueue = true
+            )
+        }
     }
 
     private fun readQueueFromIntent(intent: Intent): List<MediaQueueItem> {
@@ -345,10 +337,7 @@ class MusicPlaybackService : Service() {
         fromQueue: Boolean = false
     ) {
         if (!fromQueue) {
-            playbackQueue = emptyList()
-            currentQueueIndex = -1
-            playbackOrder = emptyList()
-            currentPlaybackOrderPosition = -1
+            playbackQueueController.clearQueue()
         }
         val mediaItem = MediaItem.Builder()
             .setUri(trackUrl.toUri())
@@ -364,8 +353,8 @@ class MusicPlaybackService : Service() {
             currentTrackUrl = trackUrl,
             title = title ?: "Music track",
             artist = artist,
-            queue = playbackQueue,
-            queueIndex = currentQueueIndex,
+            queue = playbackQueueController.queue,
+            queueIndex = playbackQueueController.currentQueueIndex,
             errorMessage = null,
             isBuffering = true
         )
@@ -376,87 +365,30 @@ class MusicPlaybackService : Service() {
         syncSessionAndNotification()
     }
 
-    private fun playQueueIndex(index: Int) {
-        if (index !in playbackQueue.indices) return
-        currentQueueIndex = index
-        val queueItem = playbackQueue[index]
-        playTrack(
-            trackUrl = queueItem.trackUrl,
-            title = queueItem.title,
-            artist = queueItem.artist,
-            fromQueue = true
-        )
-    }
-
-    private fun buildInitialPlaybackOrder(startIndex: Int): List<Int> {
-        if (playbackQueue.isEmpty()) return emptyList()
-        val validStart = startIndex.coerceIn(0, playbackQueue.lastIndex)
-        val allIndices = playbackQueue.indices.toList()
-        return if (_playbackState.value.isShuffleEnabled) {
-            val remaining = allIndices
-                .filterNot { it == validStart }
-                .shuffled(Random(System.currentTimeMillis()))
-            listOf(validStart) + remaining
-        } else {
-            val afterStart = ((validStart + 1)..playbackQueue.lastIndex).toList()
-            val beforeStart = (0 until validStart).toList()
-            listOf(validStart) + afterStart + beforeStart
-        }
-    }
-
-    private fun buildRepeatCycleOrder(): List<Int> {
-        if (playbackQueue.isEmpty()) return emptyList()
-        val allIndices = playbackQueue.indices.toList()
-        return if (_playbackState.value.isShuffleEnabled) {
-            allIndices.shuffled(Random(System.currentTimeMillis()))
-        } else {
-            allIndices
-        }
-    }
-
-    private fun rebuildRemainingOrderFromCurrent() {
-        if (playbackQueue.isEmpty()) return
-        if (currentQueueIndex !in playbackQueue.indices) return
-        val currentIndex = currentQueueIndex
-        val remainingIndices = playbackOrder.drop((currentPlaybackOrderPosition + 1).coerceAtLeast(0))
-        val rebuiltRemaining = if (_playbackState.value.isShuffleEnabled) {
-            remainingIndices.shuffled(Random(System.currentTimeMillis()))
-        } else {
-            remainingIndices.sorted()
-        }
-        playbackOrder = listOf(currentIndex) + rebuiltRemaining
-        currentPlaybackOrderPosition = 0
-    }
-
     private fun playNextFromQueueIfAvailable(): Boolean {
-        if (playbackQueue.isEmpty() || playbackOrder.isEmpty()) return false
+        if (playbackQueueController.queue.isEmpty()) return false
 
-        val nextOrderPosition = currentPlaybackOrderPosition + 1
-        if (nextOrderPosition in playbackOrder.indices) {
-            currentPlaybackOrderPosition = nextOrderPosition
-            playQueueIndex(playbackOrder[nextOrderPosition])
-            return true
-        }
-
-        if (!_playbackState.value.isRepeatEnabled) {
+        val nextItem = playbackQueueController.nextItemOrNull(
+            isRepeatEnabled = _playbackState.value.isRepeatEnabled,
+            isShuffleEnabled = _playbackState.value.isShuffleEnabled,
+        )
+        if (nextItem == null) {
             stopPlaybackAndService()
             return true
         }
-
-        val nextCycleOrder = buildRepeatCycleOrder()
-        if (nextCycleOrder.isEmpty()) return false
-        playbackOrder = nextCycleOrder
-        currentPlaybackOrderPosition = 0
-        playQueueIndex(playbackOrder[0])
+        playTrack(
+            trackUrl = nextItem.trackUrl,
+            title = nextItem.title,
+            artist = nextItem.artist,
+            fromQueue = true
+        )
         return true
     }
 
     private fun setShuffleEnabled(enabled: Boolean) {
         if (_playbackState.value.isShuffleEnabled == enabled) return
         _playbackState.value = _playbackState.value.copy(isShuffleEnabled = enabled)
-        if (playbackOrder.isNotEmpty() && currentPlaybackOrderPosition in playbackOrder.indices) {
-            rebuildRemainingOrderFromCurrent()
-        }
+        playbackQueueController.rebuildRemainingOrderFromCurrent(isShuffleEnabled = enabled)
         syncSessionAndNotification()
         if (_playbackState.value.currentTrackUrl.isNullOrBlank()) {
             stopSelf()
@@ -506,10 +438,7 @@ class MusicPlaybackService : Service() {
         player.playWhenReady = false
         player.stop()
         player.clearMediaItems()
-        playbackQueue = emptyList()
-        currentQueueIndex = -1
-        playbackOrder = emptyList()
-        currentPlaybackOrderPosition = -1
+        playbackQueueController.clearQueue()
         _playbackState.value = MediaPlaybackState(
             isShuffleEnabled = current.isShuffleEnabled,
             isRepeatEnabled = current.isRepeatEnabled

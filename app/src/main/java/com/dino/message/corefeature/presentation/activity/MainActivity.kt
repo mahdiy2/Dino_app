@@ -19,12 +19,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
-import com.dino.message.chatfeature.data.notification.InAppNotificationManager
-import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.domain.model.AppLanguage
 import com.dino.message.corefeature.domain.model.toLayoutDirection
 import com.dino.message.corefeature.domain.model.toLocale
 import com.dino.message.corefeature.domain.notification.AppNotificationController
+import com.dino.message.corefeature.domain.notification.NotificationSocketController
 import com.dino.message.corefeature.presentation.activity.theme.SecMessageTheme
 import com.dino.message.corefeature.presentation.platform.LocalPlatformUiEffect
 import com.dino.message.corefeature.presentation.platform.rememberAndroidPlatformUiEffect
@@ -44,11 +43,9 @@ import org.koin.androidx.viewmodel.ext.android.viewModel
 
 class MainActivity : ComponentActivity() {
 
-    private val sPrefManager: SPrefManager by inject()
-
-    private val inAppNotificationManager: InAppNotificationManager by inject()
-
     private val appNotificationController: AppNotificationController by inject()
+
+    private val notificationSocketController: NotificationSocketController by inject()
 
     private val androidIntentDeepLinkHandler: AndroidIntentDeepLinkHandler by inject()
 
@@ -120,22 +117,19 @@ class MainActivity : ComponentActivity() {
 
     override fun onStop() {
         super.onStop()
-        inAppNotificationManager.disconnect()
+        notificationSocketController.disconnect()
         if (isFinishing) {
             MusicPlaybackManager.stop()
         }
     }
 
     override fun onDestroy() {
-        inAppNotificationManager.disconnect()
+        notificationSocketController.disconnect()
         super.onDestroy()
     }
 
     private fun connectNotificationSocket() {
-        val token = sPrefManager.getToken()
-        if (token.isNotBlank()) {
-            inAppNotificationManager.connect(token)
-        }
+        notificationSocketController.connectIfAuthenticated()
     }
 
     private fun requestPostNotificationsPermissionIfNeeded() {
@@ -170,17 +164,3 @@ class MainActivity : ComponentActivity() {
         private const val POST_NOTIFICATIONS_REQUEST_CODE = 1001
     }
 }
-//@Composable
-//fun StartApplication(onWebViewReady: (WebView) -> Unit) {
-//    val navController = rememberNavController()
-//    val start = "splash_screen"
-//
-//    NavHost(navController = navController, startDestination = start) {
-//        composable("splash_screen") {
-//            SplashScreen(navController = navController)
-//        }
-//        composable("main_page") {
-//            MainScreen(navController = navController, onWebViewReady = onWebViewReady)
-//        }
-//    }
-//}

@@ -3,13 +3,13 @@ package com.dino.message
 import android.app.Application
 import android.app.Activity
 import android.os.Bundle
-import android.os.Build
+import com.dino.message.corefeature.data.system.AndroidPlatformInfoProvider
 import com.dino.message.crashfeature.data.service.CrashReporter
 import com.dino.message.corefeature.domain.config.AppConfig
-import com.dino.message.corefeature.domain.lifecycle.AppBackgroundCleanupObserver
 import com.dino.message.corefeature.domain.lifecycle.AppLifecycleDispatcher
 import com.dino.message.corefeature.domain.lifecycle.AppLifecycleEvent
 import com.dino.message.corefeature.domain.notification.AppNotificationController
+import com.dino.message.corefeature.domain.startup.AppStartupCoordinator
 import com.dino.message.corefeature.presentation.util.UiEventBus
 import com.dino.message.di.appModules
 import com.dino.message.threadfeature.presentation.music.MusicPlaybackManager
@@ -28,8 +28,8 @@ class DinoOrderApplication: Application() {
     val inAppNotificationManager: InAppNotificationManager by inject()
     private val appConfig: AppConfig by inject()
     private val appLifecycleDispatcher: AppLifecycleDispatcher by inject()
-    private val appBackgroundCleanupObserver: AppBackgroundCleanupObserver by inject()
     private val appNotificationController: AppNotificationController by inject()
+    private val appStartupCoordinator: AppStartupCoordinator by inject()
     private var startedActivitiesCount: Int = 0
 
     override fun onCreate() {
@@ -50,17 +50,14 @@ class DinoOrderApplication: Application() {
         crashReporter.flushPendingLogsAsync()
         appNotificationController.ensureAppChannels()
         MusicPlaybackManager.initialize(this)
-        appLifecycleDispatcher.addObserver(appBackgroundCleanupObserver)
+        appStartupCoordinator.initializeCommonState()
         registerAppBackgroundTracker()
     }
 
     private fun isCrashUiProcess(): Boolean {
-        val processName = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            Application.getProcessName()
-        } else {
-            null
-        }
-        return processName?.endsWith(":crash_report") == true
+        return AndroidPlatformInfoProvider()
+            .currentProcessName
+            ?.endsWith(":crash_report") == true
     }
 
     private fun registerAppBackgroundTracker() {

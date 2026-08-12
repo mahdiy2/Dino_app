@@ -1,14 +1,26 @@
 package com.dino.message.di
 
 import com.dino.message.DinoOrderApplication
+import com.dino.message.chatfeature.data.notification.AndroidMessageDeduplicationStore
 import com.dino.message.chatfeature.data.notification.InAppNotificationManager
+import com.dino.message.chatfeature.data.notification.NotificationHelper
+import com.dino.message.chatfeature.presentation.component.AndroidAudioRecorderFactory
+import com.dino.message.chatfeature.presentation.component.PlatformAudioRecorderFactory
 import com.dino.message.corefeature.data.background.AppLifecycleBackgroundTaskScheduler
 import com.dino.message.corefeature.data.config.AndroidAppConfig
+import com.dino.message.corefeature.data.coroutine.AndroidAppDispatchers
+import com.dino.message.corefeature.data.crypto.DefaultMessageCrypto
+import com.dino.message.corefeature.data.crypto.JvmAesGcmCrypto
+import com.dino.message.corefeature.data.crypto.JvmBase64Codec
+import com.dino.message.corefeature.data.crypto.JvmHashCrypto
+import com.dino.message.corefeature.data.crypto.JvmRsaCrypto
 import com.dino.message.corefeature.data.db.MessageDatabase
 import com.dino.message.corefeature.data.db.buildMessageDatabase
 import com.dino.message.corefeature.data.filesystem.AndroidFileSystemProvider
 import com.dino.message.corefeature.data.network.AndroidNetworkStatusProvider
 import com.dino.message.corefeature.data.notification.AndroidAppNotificationController
+import com.dino.message.corefeature.data.notification.AndroidNotificationDedupeSnapshotStore
+import com.dino.message.corefeature.data.notification.SPrefNotificationTokenProvider
 import com.dino.message.corefeature.data.remote.NetworkExceptionClassifier
 import com.dino.message.corefeature.data.remote.JvmNetworkExceptionClassifier
 import com.dino.message.corefeature.data.remote.util.HttpAPIUtil
@@ -16,7 +28,10 @@ import com.dino.message.corefeature.data.remote.createAppHttpClient
 import com.dino.message.corefeature.data.remote.logging.AppLogger
 import com.dino.message.corefeature.data.remote.logging.AndroidAppLogger
 import com.dino.message.corefeature.data.resource.AndroidStringResolver
+import com.dino.message.corefeature.data.upload.AndroidMediaMetadataExtractor
 import com.dino.message.corefeature.data.upload.AndroidUploadContentProvider
+import com.dino.message.corefeature.data.upload.PlatformMediaMetadataExtractor
+import com.dino.message.corefeature.data.upload.PlatformMediaResolver
 import com.dino.message.corefeature.data.session.SPrefSessionProvider
 import com.dino.message.corefeature.data.socket.AndroidSocketIoTransportFactory
 import com.dino.message.corefeature.data.socket.AppSocketManager
@@ -29,20 +44,49 @@ import com.dino.message.corefeature.data.spref.DataStoreUtil
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.data.spref.SecureKeyValueStore
 import com.dino.message.corefeature.data.spref.createSettingsDataStore
+import com.dino.message.corefeature.data.system.AndroidPlatformInfoProvider
+import com.dino.message.corefeature.data.system.AndroidProcessController
+import com.dino.message.corefeature.data.system.SystemAppClock
+import com.dino.message.corefeature.data.util.DeviceIdProvider
 import com.dino.message.corefeature.domain.background.BackgroundTaskRegistry
 import com.dino.message.corefeature.domain.background.BackgroundTaskScheduler
 import com.dino.message.corefeature.domain.config.AppConfig
+import com.dino.message.corefeature.domain.coroutine.AppDispatchers
+import com.dino.message.corefeature.domain.crypto.AesGcmCrypto
+import com.dino.message.corefeature.domain.crypto.Base64Codec
+import com.dino.message.corefeature.domain.crypto.HashCrypto
+import com.dino.message.corefeature.domain.crypto.MessageCrypto
+import com.dino.message.corefeature.domain.crypto.RsaCrypto
+import com.dino.message.corefeature.domain.device.DeviceInfoProvider
 import com.dino.message.corefeature.domain.filesystem.FileSystemProvider
 import com.dino.message.corefeature.domain.lifecycle.AppBackgroundCleanupObserver
 import com.dino.message.corefeature.domain.lifecycle.AppLifecycleDispatcher
 import com.dino.message.corefeature.domain.network.NetworkStatusProvider
 import com.dino.message.corefeature.domain.notification.AppNotificationController
+import com.dino.message.corefeature.domain.notification.AppNotificationPresenter
+import com.dino.message.corefeature.domain.notification.NotificationDedupeSnapshotStore
+import com.dino.message.corefeature.domain.notification.DefaultNotificationSocketController
+import com.dino.message.corefeature.domain.notification.NotificationSocketConnection
+import com.dino.message.corefeature.domain.notification.NotificationSocketController
+import com.dino.message.corefeature.domain.notification.NotificationTokenProvider
 import com.dino.message.corefeature.domain.resource.StringResolver
 import com.dino.message.corefeature.domain.session.SessionProvider
+import com.dino.message.corefeature.domain.startup.AppStartupCoordinator
+import com.dino.message.corefeature.domain.system.AppClock
+import com.dino.message.corefeature.domain.system.AppProcessController
+import com.dino.message.corefeature.domain.system.PlatformInfoProvider
 import com.dino.message.corefeature.presentation.navigation.AndroidIntentDeepLinkHandler
+import com.dino.message.corefeature.presentation.activity.MainActivityUiSettingsState
 import com.dino.message.corefeature.presentation.util.UiEventBus
+import com.dino.message.chatfeature.domain.util.MessageDeduplicationStore
+import com.dino.message.chatfeature.domain.util.MessageDeduplicator
 import com.dino.message.crashfeature.data.remote.CrashLogApiService
+import com.dino.message.crashfeature.data.service.AndroidCrashUiLauncher
+import com.dino.message.crashfeature.data.service.CrashLogBuilder
 import com.dino.message.crashfeature.data.service.CrashReporter
+import com.dino.message.crashfeature.data.service.CrashUiLauncher
+import com.dino.message.threadfeature.presentation.music.MediaPlaybackController
+import com.dino.message.threadfeature.presentation.music.MusicPlaybackManager
 import io.ktor.client.engine.okhttp.OkHttp
 import org.koin.android.ext.koin.androidApplication
 import org.koin.android.ext.koin.androidContext
@@ -51,15 +95,50 @@ import org.koin.dsl.module
 val coreModule = module {
     single<DinoOrderApplication> { androidApplication() as DinoOrderApplication }
     single<AppConfig> { AndroidAppConfig }
+    single<AppDispatchers> { AndroidAppDispatchers }
+    single<AppClock> { SystemAppClock() }
+    single<AppProcessController> { AndroidProcessController() }
+    single<PlatformInfoProvider> { AndroidPlatformInfoProvider() }
+    single<DeviceInfoProvider> { DeviceIdProvider(context = androidContext()) }
     single<StringResolver> { AndroidStringResolver(context = androidContext()) }
     single<NetworkStatusProvider> { AndroidNetworkStatusProvider(context = androidContext()) }
     single<FileSystemProvider> { AndroidFileSystemProvider(context = androidContext()) }
+    single<PlatformAudioRecorderFactory> { AndroidAudioRecorderFactory(context = androidContext()) }
+    single<MediaPlaybackController> { MusicPlaybackManager }
+    single<Base64Codec> { JvmBase64Codec() }
+    single<AesGcmCrypto> { JvmAesGcmCrypto() }
+    single<HashCrypto> { JvmHashCrypto() }
+    single<RsaCrypto> { JvmRsaCrypto(base64Codec = get()) }
+    single<MessageCrypto> {
+        DefaultMessageCrypto(
+            base64Codec = get(),
+            rsaCrypto = get(),
+            aesGcmCrypto = get(),
+            hashCrypto = get(),
+        )
+    }
     single { UiEventBus() }
     single { AppLifecycleDispatcher() }
+    single<AppNotificationPresenter> { NotificationHelper(context = androidContext()) }
+    single<NotificationDedupeSnapshotStore> {
+        AndroidNotificationDedupeSnapshotStore(context = androidContext())
+    }
+    single<MessageDeduplicationStore> {
+        AndroidMessageDeduplicationStore(context = androidContext())
+    }
+    factory { MessageDeduplicator(store = get()) }
     single<AppNotificationController> {
         AndroidAppNotificationController(
-            context = androidContext(),
+            notificationPresenter = get(),
             inAppNotificationManager = get(),
+        )
+    }
+    single<NotificationTokenProvider> { SPrefNotificationTokenProvider(sPrefManager = get()) }
+    single<NotificationSocketConnection> { get<InAppNotificationManager>() }
+    single<NotificationSocketController> {
+        DefaultNotificationSocketController(
+            tokenProvider = get(),
+            socketConnection = get(),
         )
     }
     single { AndroidIntentDeepLinkHandler() }
@@ -69,6 +148,10 @@ val coreModule = module {
     single<AppLogger> { AndroidAppLogger }
     single<NetworkExceptionClassifier> { JvmNetworkExceptionClassifier }
     single { AndroidUploadContentProvider(contentResolver = androidContext().contentResolver) }
+    single<PlatformMediaResolver> { get<AndroidUploadContentProvider>() }
+    single<PlatformMediaMetadataExtractor> {
+        AndroidMediaMetadataExtractor(contentResolver = androidContext().contentResolver)
+    }
     single {
         createAppHttpClient(
             engineFactory = OkHttp,
@@ -90,19 +173,36 @@ val coreModule = module {
     }
     single { createSettingsDataStore(context = androidContext()) }
     single { DataStoreUtil(dataStore = get()) }
+    single { MainActivityUiSettingsState(dataStoreUtil = get()) }
     single { CrashLogApiService(httpClient = get(), sPrefManager = get()) }
+    single { CrashLogBuilder(appConfig = get(), platformInfoProvider = get()) }
+    single<CrashUiLauncher> {
+        AndroidCrashUiLauncher(
+            context = androidContext(),
+            appLogger = get(),
+        )
+    }
     single { AppLifecycleBackgroundTaskScheduler() }
     single<BackgroundTaskScheduler> { get<AppLifecycleBackgroundTaskScheduler>() }
     single<BackgroundTaskRegistry> { get<AppLifecycleBackgroundTaskScheduler>() }
-    single<RealtimeSocketTransportFactory> { AndroidSocketIoTransportFactory(baseUrl = get<AppConfig>().baseUrl) }
+    single<RealtimeSocketTransportFactory> {
+        AndroidSocketIoTransportFactory(
+            baseUrl = get<AppConfig>().baseUrl,
+            appLogger = get(),
+        )
+    }
     single<SocketOutboundQueueStore> { RoomSocketOutboundQueueStore(socketOutboundQueueDao = get()) }
     single {
         CrashReporter(
-            context = androidContext(),
             crashLogDao = get(),
             crashLogApiService = get(),
             sPrefManager = get(),
             backgroundTaskScheduler = get(),
+            appClock = get(),
+            appLogger = get(),
+            appProcessController = get(),
+            crashLogBuilder = get(),
+            crashUiLauncher = get(),
             backgroundTaskRegistry = get(),
         )
     }
@@ -113,17 +213,28 @@ val coreModule = module {
             socketOutboundQueueStore = get(),
             transportFactory = get(),
             backgroundTaskScheduler = get(),
+            appClock = get(),
+            appLogger = get(),
             backgroundTaskRegistry = get(),
         )
     }
     single<RealtimeSocketGateway> { get<AppSocketManager>() }
     single {
         InAppNotificationManager(
-            context = androidContext(),
             appSocketManager = get(),
+            notificationPresenter = get(),
+            dedupeSnapshotStore = get(),
+            appClock = get(),
+            appLogger = get(),
         )
     }
-    single { AppBackgroundCleanupObserver(inAppNotificationManager = get()) }
+    single { AppBackgroundCleanupObserver(notificationSocketController = get()) }
+    single {
+        AppStartupCoordinator(
+            lifecycleDispatcher = get(),
+            backgroundCleanupObserver = get<AppBackgroundCleanupObserver>(),
+        )
+    }
 }
 
 val databaseModule = module {

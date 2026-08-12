@@ -10,10 +10,10 @@ import com.dino.message.DinoOrderApplication
 import com.dino.message.R
 import com.dino.message.corefeature.data.socket.AppSocketManager
 import com.dino.message.corefeature.data.spref.SPrefManager
-import com.dino.message.corefeature.presentation.util.CryptoUtil
+import com.dino.message.corefeature.domain.crypto.MessageCrypto
+import com.dino.message.corefeature.domain.crypto.RsaPublicKey
 import com.dino.message.corefeature.presentation.util.encodePostShareMessage
 import com.dino.message.corefeature.presentation.util.Resource
-import com.dino.message.corefeature.presentation.util.decodePublicKey
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.dino.message.chatfeature.domain.usecase.GetReceiverPublicKeyUseCase
@@ -28,7 +28,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
-import java.security.PublicKey
 import java.time.Instant
 import java.util.UUID
 
@@ -68,6 +67,7 @@ class SharePostBottomSheetViewModel constructor(
     private val saveGroupMessageUseCase: SaveGroupMessageUseCase,
     private val sPrefManager: SPrefManager,
     private val appSocketManager: AppSocketManager,
+    private val messageCrypto: MessageCrypto,
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
 
@@ -276,26 +276,26 @@ class SharePostBottomSheetViewModel constructor(
             )
         return try {
             val clientMessageId = UUID.randomUUID().toString()
-            val (encryptedKey, encryptedMessage) = CryptoUtil.encryptMessage(
+            val encryptedPayload = messageCrypto.encryptMessage(
                 message = message,
-                receiverPublicKey = decodePublicKey(receiverPublicKey)
+                receiverPublicKey = messageCrypto.decodePublicKey(receiverPublicKey)
             )
             val senderEncrypted = runCatching {
                 val selfPublicKey = sPrefManager.getPublicKey().orEmpty()
                 if (selfPublicKey.isBlank()) {
                     null
                 } else {
-                    val (selfKey, selfMessage) = CryptoUtil.encryptMessage(
+                    val selfPayload = messageCrypto.encryptMessage(
                         message = message,
-                        receiverPublicKey = decodePublicKey(selfPublicKey)
+                        receiverPublicKey = messageCrypto.decodePublicKey(selfPublicKey)
                     )
-                    selfMessage to selfKey
+                    selfPayload.encryptedMessage to selfPayload.encryptedKey
                 }
             }.getOrNull()
             val payload = JSONObject().apply {
                 put("to", username)
-                put("message", encryptedMessage)
-                put("encrypted_key", encryptedKey)
+                put("message", encryptedPayload.encryptedMessage)
+                put("encrypted_key", encryptedPayload.encryptedKey)
                 if (senderEncrypted != null) {
                     put("sender_encrypted_message", senderEncrypted.first)
                     put("sender_encrypted_key", senderEncrypted.second)
@@ -345,7 +345,7 @@ class SharePostBottomSheetViewModel constructor(
 
         return try {
             val clientMessageId = UUID.randomUUID().toString()
-            val encryptedResult = CryptoUtil.encryptGroupMessage(message, memberKeys)
+            val encryptedResult = messageCrypto.encryptGroupMessage(message, memberKeys)
             val payload = JSONObject().apply {
                 put("group_id", groupId)
                 put("message", encryptedResult.encryptedMessage)
@@ -417,8 +417,8 @@ class SharePostBottomSheetViewModel constructor(
         return publicKey
     }
 
-    private suspend fun fetchGroupMemberKeys(groupId: Int): Map<String, PublicKey> {
-        var keys: Map<String, PublicKey> = emptyMap()
+    private suspend fun fetchGroupMemberKeys(groupId: Int): Map<String, RsaPublicKey> {
+        var keys: Map<String, RsaPublicKey> = emptyMap()
         getGroupDetailUseCase.execute(groupId).collect { res ->
             when (res) {
                 is Resource.Loading -> Unit
@@ -428,7 +428,7 @@ class SharePostBottomSheetViewModel constructor(
                             val publicKeyText = member.publicKey?.takeIf { it.isNotBlank() }
                                 ?: return@mapNotNull null
                             try {
-                                member.username to decodePublicKey(publicKeyText)
+                                member.username to messageCrypto.decodePublicKey(publicKeyText)
                             } catch (_: Exception) {
                                 null
                             }

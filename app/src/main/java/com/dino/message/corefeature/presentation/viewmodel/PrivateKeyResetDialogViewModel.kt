@@ -6,7 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.dino.message.DinoOrderApplication
 import com.dino.message.authfeature.domain.usecase.RotatePublicKeyUseCase
 import com.dino.message.corefeature.data.spref.SPrefManager
-import com.dino.message.corefeature.presentation.util.RSAUtil
+import com.dino.message.corefeature.domain.crypto.MessageCrypto
 import com.dino.message.corefeature.presentation.util.Resource
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -17,6 +17,7 @@ class PrivateKeyResetDialogViewModel constructor(
     app: Context,
     private val rotatePublicKeyUseCase: RotatePublicKeyUseCase,
     private val sPrefManager: SPrefManager,
+    private val messageCrypto: MessageCrypto,
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
 
@@ -34,9 +35,9 @@ class PrivateKeyResetDialogViewModel constructor(
         if (_isSubmitting.value) return
         _errorMessage.value = null
 
-        val keyPair = RSAUtil.generateKeyPair()
-        val publicKeyBase64 = RSAUtil.getPublicKeyBase64(keyPair.public)
-        val privateKeyBase64 = RSAUtil.getPrivateKeyBase64(keyPair.private)
+        val keyPair = messageCrypto.generateRsaKeyPair()
+        val publicKeyBase64 = keyPair.publicKeyBase64
+        val privateKeyBase64 = keyPair.privateKeyBase64
 
         viewModelScope.launch {
             rotatePublicKeyUseCase.execute(publicKeyBase64).collect { result ->

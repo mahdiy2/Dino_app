@@ -5,31 +5,37 @@ import kotlinx.serialization.Serializable
 @Serializable
 sealed interface AppRoute {
     @Serializable
-    data object Splash : AppRoute
+    sealed interface Screen : AppRoute
 
     @Serializable
-    data object Main : AppRoute
+    sealed interface Modal : AppRoute
 
     @Serializable
-    data object Login : AppRoute
+    data object Splash : Screen
 
     @Serializable
-    data object Register : AppRoute
+    data object Main : Screen
 
     @Serializable
-    data object PrivateKeyAlert : AppRoute
+    data object Login : Screen
 
     @Serializable
-    data object Thread : AppRoute
+    data object Register : Screen
 
     @Serializable
-    data class ThreadWithStory(val initialStoryId: Long? = null) : AppRoute
+    data object PrivateKeyAlert : Screen
 
     @Serializable
-    data object Search : AppRoute
+    data object Thread : Screen
 
     @Serializable
-    data object ActivityNotification : AppRoute
+    data class ThreadWithStory(val initialStoryId: Long? = null) : Screen
+
+    @Serializable
+    data object Search : Screen
+
+    @Serializable
+    data object ActivityNotification : Screen
 
     @Serializable
     data class Chat(
@@ -39,99 +45,99 @@ sealed interface AppRoute {
         val profileImageUrl: String? = null,
         val profileImageShape: String? = null,
         val profileVideoUrl: String? = null,
-    ) : AppRoute
+    ) : Screen
 
     @Serializable
-    data object CreateGroup : AppRoute
+    data object CreateGroup : Screen
 
     @Serializable
     data class GroupChat(
         val groupId: Int,
         val groupName: String? = null,
         val isPublicRoom: Boolean = false,
-    ) : AppRoute
+    ) : Screen
 
     @Serializable
     data class GroupMembers(
         val groupId: Int,
         val groupName: String? = null,
-    ) : AppRoute
+    ) : Screen
 
     @Serializable
     data class AddGroupMembers(
         val groupId: Int,
         val groupName: String? = null,
-    ) : AppRoute
+    ) : Screen
 
     @Serializable
-    data class Profile(val username: String? = null) : AppRoute
+    data class Profile(val username: String? = null) : Screen
 
     @Serializable
-    data object EditProfile : AppRoute
+    data object EditProfile : Screen
 
     @Serializable
-    data object ProfileSettings : AppRoute
+    data object ProfileSettings : Screen
 
     @Serializable
-    data object BlockList : AppRoute
+    data object BlockList : Screen
 
     @Serializable
-    data object AboutUs : AppRoute
+    data object AboutUs : Screen
 
     @Serializable
-    data object Referral : AppRoute
+    data object Referral : Screen
 
     @Serializable
     data class ProfileFollowList(
         val username: String,
         val showFollowers: Boolean,
-    ) : AppRoute
+    ) : Screen
 
     @Serializable
-    data class SharedPostDetails(val postId: Long) : AppRoute
+    data class SharedPostDetails(val postId: Long) : Screen
 
     @Serializable
     data class CreatePost(
         val quotedPostId: Long = 0L,
         val editPostId: Long = 0L,
-    ) : AppRoute
+    ) : Screen
 
     @Serializable
     data class PostMusic(
         val quotedPostId: Long = 0L,
         val editPostId: Long = 0L,
-    ) : AppRoute
+    ) : Screen
 
     @Serializable
-    data object PlaylistSheet : AppRoute
+    data object PlaylistSheet : Modal
 
     @Serializable
-    data class CreatePostOptionsSheet(val quotedPostId: Long = 0L) : AppRoute
+    data class CreatePostOptionsSheet(val quotedPostId: Long = 0L) : Modal
 
     @Serializable
-    data class ThreadCommentsSheet(val postId: Long) : AppRoute
+    data class ThreadCommentsSheet(val postId: Long) : Modal
 
     @Serializable
     data class SharePostSheet(
         val postId: Long,
         val authorUsername: String,
         val postText: String,
-    ) : AppRoute
+    ) : Modal
 
     @Serializable
-    data class ReportPostSheet(val postId: Long) : AppRoute
+    data class ReportPostSheet(val postId: Long) : Modal
 
     @Serializable
-    data class DeletePostSheet(val postId: Long) : AppRoute
+    data class DeletePostSheet(val postId: Long) : Modal
 
     @Serializable
-    data object PrivateKeyResetDialog : AppRoute
+    data object PrivateKeyResetDialog : Modal
 
     @Serializable
     data class TrackPlaylistAddersDialog(
         val trackTitle: String,
         val playlistAddersJson: String,
-    ) : AppRoute
+    ) : Modal
 
     @Serializable
     data class AppUpdate(
@@ -139,5 +145,5 @@ sealed interface AppRoute {
         val title: String,
         val message: String,
         val downloadUrl: String,
-    ) : AppRoute
+    ) : Screen
 }

@@ -20,8 +20,6 @@ import com.dino.message.chatfeature.domain.usecase.GetReceiverPublicKeyUseCase
 import com.dino.message.chatfeature.domain.usecase.SaveMessageInDbUseCase
 import com.dino.message.chatfeature.domain.usecase.UploadAttachmentUseCase
 import com.dino.message.chatfeature.presentation.viewmodel.ChatViewModel
-import com.dino.message.corefeature.data.util.DeviceIdProvider
-import com.dino.message.corefeature.domain.device.DeviceInfoProvider
 import com.dino.message.corefeature.domain.usecase.ClearLocalSessionUseCase
 import com.dino.message.corefeature.presentation.viewmodel.CustomMessageDialogViewModel
 import com.dino.message.corefeature.presentation.viewmodel.MainActivityViewModel
@@ -107,19 +105,18 @@ import com.dino.message.threadfeature.presentation.viewmodel.ThreadCommentsViewM
 import com.dino.message.threadfeature.presentation.viewmodel.ThreadViewModel
 import com.dino.message.threadfeature.presentation.viewmodel.TrackPlaylistAddersDialogViewModel
 import com.dino.message.updatefeature.presentation.viewmodel.AppUpdateViewModel
-import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.dsl.factoryOf
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
 
 val viewModelModule = module {
-    factory<DeviceInfoProvider> { DeviceIdProvider(context = androidContext()) }
     factory {
         ClearLocalSessionUseCase(
             sPrefManager = get(),
             messageDatabase = get(),
             appNotificationController = get(),
             fileSystemProvider = get(),
+            dispatchers = get(),
         )
     }
 

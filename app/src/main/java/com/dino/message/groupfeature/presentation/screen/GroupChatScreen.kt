@@ -59,6 +59,7 @@ import com.dino.message.chatfeature.domain.model.MessageDeliveryStatus
 import com.dino.message.chatfeature.domain.util.decodeMessageReactions
 import com.dino.message.chatfeature.presentation.screen.WindowKeyboardController
 import com.dino.message.R
+import com.dino.message.corefeature.data.upload.toPlatformMediaReference
 import com.dino.message.corefeature.presentation.platform.LocalPlatformUiEffect
 import com.dino.message.corefeature.presentation.util.backIconModifier
 import com.dino.message.groupfeature.domain.model.GroupMessageEntity
@@ -207,11 +208,11 @@ fun GroupChatScreen(
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia()
-    ) { uri -> uri?.let { viewModel.sendAttachment(it, "image") } }
+    ) { uri -> uri?.let { viewModel.sendAttachment(it.toPlatformMediaReference(), "image") } }
 
     val videoPickerLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia()
-    ) { uri -> uri?.let { viewModel.sendAttachment(it, "video") } }
+    ) { uri -> uri?.let { viewModel.sendAttachment(it.toPlatformMediaReference(), "video") } }
 
     val mediaPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -708,7 +709,7 @@ fun GroupChatScreen(
                     }
                 },
                 onVoiceRecordStart = {
-                    val action = { viewModel.startRecording(context) }
+                    val action = { viewModel.startRecording() }
                     if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
                         action()
                     } else {

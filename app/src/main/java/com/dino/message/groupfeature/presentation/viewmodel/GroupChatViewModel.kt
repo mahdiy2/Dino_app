@@ -1,10 +1,6 @@
 package com.dino.message.groupfeature.presentation.viewmodel
 
 import android.content.Context
-import android.net.Uri
-import android.os.Handler
-import android.os.Looper
-import android.os.SystemClock
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
@@ -13,28 +9,26 @@ import com.dino.message.DinoOrderApplication
 import com.dino.message.chatfeature.domain.model.MessageDeliveryStatus
 import com.dino.message.chatfeature.domain.util.encodeMessageReactions
 import com.dino.message.chatfeature.domain.util.parseMessageReactionsFromPayload
+import com.dino.message.corefeature.data.remote.logging.AppLogger
 import com.dino.message.corefeature.data.socket.AppSocketManager
 import com.dino.message.corefeature.data.socket.RealtimeSocketEvents
 import com.dino.message.corefeature.data.spref.SPrefManager
-import com.dino.message.corefeature.data.upload.AndroidUploadContentProvider
+import com.dino.message.corefeature.data.upload.PlatformMediaReference
+import com.dino.message.corefeature.data.upload.PlatformMediaResolver
 import com.dino.message.corefeature.domain.config.AppConfig
+import com.dino.message.corefeature.domain.crypto.MessageCrypto
+import com.dino.message.corefeature.domain.crypto.RsaPublicKey
 import com.dino.message.corefeature.domain.notification.AppNotificationController
 import com.dino.message.corefeature.domain.resource.StringResolver
+import com.dino.message.corefeature.domain.system.AppClock
 import com.dino.message.corefeature.domain.util.LocalHistoryPaging
-import com.dino.message.corefeature.presentation.util.CryptoUtil
 import com.dino.message.corefeature.presentation.util.Resource
-import com.dino.message.corefeature.presentation.util.decodePrivateKey
-import com.dino.message.corefeature.presentation.util.decodePublicKey
-import com.dino.message.corefeature.presentation.util.decodePublicKeyOrNull
-import com.dino.message.corefeature.presentation.util.decryptMessage
-import com.dino.message.corefeature.presentation.util.formatPublicKeyForLog
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.dino.message.chatfeature.data.notification.ActiveGroupTracker
 import com.dino.message.chatfeature.data.notification.ChatMessageSoundPlayer
 import com.dino.message.chatfeature.presentation.component.PlatformAudioRecorder
-import com.dino.message.chatfeature.presentation.component.VoiceRecorderManager
-import com.dino.message.chatfeature.presentation.component.toAndroidUri
+import com.dino.message.chatfeature.presentation.component.PlatformAudioRecorderFactory
 import com.dino.message.groupfeature.domain.model.GroupMessageEntity
 import com.dino.message.groupfeature.domain.model.GroupHistoryMessage
 import com.dino.message.groupfeature.domain.model.Group
@@ -46,6 +40,7 @@ import com.dino.message.groupfeature.domain.usecase.SaveGroupMessageUseCase
 import com.dino.message.groupfeature.domain.usecase.GetGroupMessagesFromDbUseCase
 import com.dino.message.threadfeature.domain.usecase.IsTrackInPlaylistUseCase
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -57,7 +52,6 @@ import org.json.JSONObject
 import org.json.JSONArray
 import java.time.Duration
 import java.time.Instant
-import java.security.PublicKey
 import java.util.Collections
 import java.util.UUID
 import com.dino.message.corefeature.presentation.navigation.AppRoute
@@ -75,7 +69,11 @@ class GroupChatViewModel constructor(
     private val appNotificationController: AppNotificationController,
     private val stringResolver: StringResolver,
     private val appConfig: AppConfig,
-    private val uploadContentProvider: AndroidUploadContentProvider,
+    private val mediaResolver: PlatformMediaResolver,
+    private val appClock: AppClock,
+    private val appLogger: AppLogger,
+    private val audioRecorderFactory: PlatformAudioRecorderFactory,
+    private val messageCrypto: MessageCrypto,
     savedStateHandle: SavedStateHandle,
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
@@ -97,7 +95,7 @@ class GroupChatViewModel constructor(
     )
 
     private data class MemberKeySnapshot(
-        val decodedKeys: Map<String, PublicKey>,
+        val decodedKeys: Map<String, RsaPublicKey>,
         val profileImages: Map<String, String?>,
         val profileImageShapes: Map<String, String?>,
         val memberBadges: Map<String, String?>,
@@ -170,15 +168,9 @@ class GroupChatViewModel constructor(
     private var composerTypingStopJob: kotlinx.coroutines.Job? = null
     private var typingHeartbeatJob: kotlinx.coroutines.Job? = null
     private var mainThreadWatchdogJob: kotlinx.coroutines.Job? = null
-    private val mainHandler = Handler(Looper.getMainLooper())
+    private var mainThreadHeartbeatJob: kotlinx.coroutines.Job? = null
     private var lastMainThreadHeartbeatMs: Long = 0L
     private var mainThreadStallReported = false
-    private val mainThreadHeartbeatRunnable = object : Runnable {
-        override fun run() {
-            lastMainThreadHeartbeatMs = SystemClock.uptimeMillis()
-            mainHandler.postDelayed(this, 500L)
-        }
-    }
 
     private val socketOwner = "GroupChatViewModel-$groupId"
     private val seenMessageIds = Collections.synchronizedSet(mutableSetOf<String>())
@@ -190,7 +182,7 @@ class GroupChatViewModel constructor(
     private var loadedLocalMessageCount = 0
     private var totalLocalMessageCount = 0
 
-    private var memberPublicKeys: Map<String, PublicKey> = emptyMap()
+    private var memberPublicKeys: Map<String, RsaPublicKey> = emptyMap()
     private var memberIdsByUsername: Map<String, Int> = emptyMap()
     private var memberKeysReady = false
     private var groupKeySession: GroupKeySession? = null
@@ -562,7 +554,7 @@ class GroupChatViewModel constructor(
 
     private suspend fun applyMemberPublicKeys(group: Group) {
         val snapshot = withContext(Dispatchers.Default) {
-            val keys = mutableMapOf<String, PublicKey>()
+            val keys = mutableMapOf<String, RsaPublicKey>()
             val profileImages = mutableMapOf<String, String?>()
             val profileImageShapes = mutableMapOf<String, String?>()
             val memberBadges = mutableMapOf<String, String?>()
@@ -576,16 +568,16 @@ class GroupChatViewModel constructor(
 
                 val pk = member.publicKey
                 if (appConfig.isDebug) {
-                    Log.d(TAG, "Group member key ${member.username}: ${formatPublicKeyForLog(pk)}")
+                    Log.d(TAG, "Group member key ${member.username}: ${messageCrypto.formatPublicKeyForLog(pk)}")
                 }
                 if (!pk.isNullOrBlank()) {
-                    val decodedPublicKey = decodePublicKeyOrNull(pk)
+                    val decodedPublicKey = messageCrypto.decodePublicKeyOrNull(pk)
                     if (decodedPublicKey != null) {
                         keys[member.username] = decodedPublicKey
                     } else {
                         Log.w(
                             TAG,
-                            "Skipping unsupported public key format for ${member.username}, ${formatPublicKeyForLog(pk)}"
+                            "Skipping unsupported public key format for ${member.username}, ${messageCrypto.formatPublicKeyForLog(pk)}"
                         )
                     }
                 }
@@ -646,7 +638,7 @@ class GroupChatViewModel constructor(
         _onlineGroupUsers.value = normalized
     }
 
-    private fun memberKeyFingerprint(keys: Map<String, PublicKey>): String {
+    private fun memberKeyFingerprint(keys: Map<String, RsaPublicKey>): String {
         if (keys.isEmpty()) return ""
         return keys.entries
             .sortedBy { it.key }
@@ -673,7 +665,7 @@ class GroupChatViewModel constructor(
         }
 
         return try {
-            val seeded = CryptoUtil.encryptGroupMessage("", memberPublicKeys)
+            val seeded = messageCrypto.encryptGroupMessage("", memberPublicKeys)
             GroupKeySession(
                 keyRef = UUID.randomUUID().toString(),
                 memberFingerprint = fingerprint,
@@ -731,10 +723,10 @@ class GroupChatViewModel constructor(
                     "Unable to decrypt some group messages. Your private key is missing on this device."
                 return GROUP_DECRYPTION_FALLBACK
             }
-            decryptMessage(
+            messageCrypto.decryptMessage(
                 encryptedMessage = encryptedMessage,
-                encryptedAESKey = myEncryptedKey,
-                privateKey = decodePrivateKey(privateKeyStr),
+                encryptedAesKey = myEncryptedKey,
+                privateKey = messageCrypto.decodePrivateKey(privateKeyStr),
             )
         } catch (e: Exception) {
             val signature = "${e::class.java.name}:${e.message.orEmpty()}"
@@ -772,7 +764,7 @@ class GroupChatViewModel constructor(
     private fun encryptForGroup(plaintext: String): Pair<GroupKeySession, String>? {
         val session = getOrCreateGroupKeySession() ?: return null
         return try {
-            session to CryptoUtil.encryptWithAesKey(plaintext, session.rawAesKey)
+            session to messageCrypto.encryptWithAesKey(plaintext, session.rawAesKey)
         } catch (e: Exception) {
             Log.e(TAG, "Group encryption failed", e)
             _socketError.value = "Encryption failed: ${e.message}"
@@ -1270,7 +1262,7 @@ class GroupChatViewModel constructor(
                     if (preview.isNotBlank()) {
                         put(
                             "encrypted_reply_preview",
-                            CryptoUtil.encryptWithAesKey(preview, keySession.rawAesKey),
+                            messageCrypto.encryptWithAesKey(preview, keySession.rawAesKey),
                         )
                     }
                 }
@@ -1306,10 +1298,10 @@ class GroupChatViewModel constructor(
         }
     }
 
-    fun sendAttachment(fileUri: Uri, mediaType: String) {
+    fun sendAttachment(media: PlatformMediaReference, mediaType: String) {
         viewModelScope.launch {
             stopTypingNow()
-            val uploadFile = uploadContentProvider.readableMediaFile(fileUri)
+            val uploadFile = mediaResolver.readableMediaFile(media)
             uploadGroupAttachmentUseCase.execute(groupId, uploadFile).collect { res ->
                 when (res) {
                     is Resource.Loading -> _isUploading.value = true
@@ -1370,7 +1362,7 @@ class GroupChatViewModel constructor(
                                     if (preview.isNotBlank()) {
                                         put(
                                             "encrypted_reply_preview",
-                                            CryptoUtil.encryptWithAesKey(preview, keySession.rawAesKey),
+                                            messageCrypto.encryptWithAesKey(preview, keySession.rawAesKey),
                                         )
                                     }
                                 }
@@ -1415,9 +1407,9 @@ class GroupChatViewModel constructor(
         }
     }
 
-    fun startRecording(context: Context) {
+    fun startRecording() {
         if (_isRecording.value) return
-        val recorder = VoiceRecorderManager(context)
+        val recorder = audioRecorderFactory.createRecorder()
         if (recorder.startRecording()) {
             voiceRecorder = recorder
             _isRecording.value = true
@@ -1438,7 +1430,7 @@ class GroupChatViewModel constructor(
         val recording = recorder.stopRecording()
         voiceRecorder = null
         if (recording != null) {
-            sendAttachment(recording.toAndroidUri(), "voice")
+            sendAttachment(PlatformMediaReference(recording.source), "voice")
         }
     }
 
@@ -1822,18 +1814,24 @@ class GroupChatViewModel constructor(
 
     private fun startMainThreadWatchdogIfDebug() {
         if (!appConfig.isDebug) return
-        lastMainThreadHeartbeatMs = SystemClock.uptimeMillis()
-        mainHandler.post(mainThreadHeartbeatRunnable)
+        lastMainThreadHeartbeatMs = appClock.uptimeMillis()
+        mainThreadHeartbeatJob = viewModelScope.launch(Dispatchers.Main.immediate) {
+            while (true) {
+                lastMainThreadHeartbeatMs = appClock.uptimeMillis()
+                delay(500L)
+            }
+        }
         mainThreadWatchdogJob = viewModelScope.launch(Dispatchers.Default) {
             while (true) {
-                kotlinx.coroutines.delay(1200L)
-                val lagMs = SystemClock.uptimeMillis() - lastMainThreadHeartbeatMs
+                delay(1200L)
+                val lagMs = appClock.uptimeMillis() - lastMainThreadHeartbeatMs
                 if (lagMs > 6000L) {
                     if (!mainThreadStallReported) {
                         mainThreadStallReported = true
-                        val mainStack = Looper.getMainLooper().thread.stackTrace
+                        val mainStack = runCatching { getApplication<DinoOrderApplication>().mainLooper.thread.stackTrace }
+                            .getOrDefault(emptyArray())
                             .joinToString(separator = "\n") { it.toString() }
-                        Log.e(
+                        appLogger.error(
                             TAG,
                             "Main thread stall detected in GroupChatViewModel. lagMs=$lagMs\n$mainStack"
                         )
@@ -1929,7 +1927,8 @@ class GroupChatViewModel constructor(
         clearTypingUsers()
         mainThreadWatchdogJob?.cancel()
         mainThreadWatchdogJob = null
-        mainHandler.removeCallbacks(mainThreadHeartbeatRunnable)
+        mainThreadHeartbeatJob?.cancel()
+        mainThreadHeartbeatJob = null
         ActiveGroupTracker.clearActiveGroup()
         voiceRecorder?.release()
         disconnectSocket()

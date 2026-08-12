@@ -3,15 +3,13 @@ package com.dino.message.corefeature.presentation.viewmodel
 import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import com.dino.message.DinoOrderApplication
-import com.dino.message.corefeature.data.spref.DataStoreUtil
 import com.dino.message.corefeature.domain.model.AppLanguage
-import com.dino.message.corefeature.domain.model.toBoolean
+import com.dino.message.corefeature.presentation.activity.MainActivityUiSettingsState
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
 
 
 class MainActivityViewModel constructor(
-    private val dataStoreUtil: DataStoreUtil,
+    private val uiSettingsState: MainActivityUiSettingsState,
     private val app: Context
 
 ) : AndroidViewModel(app as DinoOrderApplication),
@@ -20,7 +18,7 @@ class MainActivityViewModel constructor(
     /**
      * Flow representing the current app language obtained from the data store.
      */
-    val appLanguage: Flow<AppLanguage> = dataStoreUtil.getLanguage()
+    val appLanguage: Flow<AppLanguage> = uiSettingsState.appLanguage
 
     /**
      * Retrieves the system theme based on the given `systemSettings` flag.
@@ -29,5 +27,5 @@ class MainActivityViewModel constructor(
      * @return A [Flow] emitting the theme value.
      */
     fun getSystemTheme(systemSettings: Boolean): Flow<Boolean> =
-        dataStoreUtil.getTheme().map { it.toBoolean(systemSettings) }
+        uiSettingsState.darkTheme(systemSettings)
 }

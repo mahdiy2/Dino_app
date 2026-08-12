@@ -7,7 +7,6 @@ plugins {
     alias(libs.plugins.kotlinx.serialization)
 //    alias(libs.plugins.ksp)
     id ("com.google.devtools.ksp") version libs.versions.kspVersion.get() // Updated KSP plugin version
-    id ("kotlin-parcelize")
     alias(libs.plugins.compose.compiler)
 }
 

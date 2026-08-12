@@ -1,18 +1,17 @@
 package com.dino.message.threadfeature.presentation.viewmodel
 
 import android.content.Context
-import android.net.Uri
 import android.webkit.MimeTypeMap
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.dino.message.DinoOrderApplication
-import com.dino.message.corefeature.data.upload.AndroidUploadContentProvider
-import com.dino.message.corefeature.data.upload.MediaFileResolver
-import com.dino.message.corefeature.data.upload.MediaMimePolicy
+import com.dino.message.corefeature.domain.upload.MediaMimePolicy
 import com.dino.message.corefeature.data.spref.SPrefManager
-import com.dino.message.corefeature.presentation.platform.AndroidMediaMetadataExtractor
+import com.dino.message.corefeature.data.upload.PlatformPickedMedia
+import com.dino.message.corefeature.data.upload.PlatformMediaReference
+import com.dino.message.corefeature.data.upload.PlatformMediaResolver
 import com.dino.message.corefeature.presentation.util.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
@@ -32,11 +31,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 data class SelectedMusicTrack(
-    val uri: Uri,
+    val reference: PlatformMediaReference,
     val displayName: String,
     val title: String,
     val artist: String?,
-    val mimeType: String
+    val mimeType: String,
+    val sizeBytes: Long? = null,
 )
 
 class PostMusicViewModel constructor(
@@ -45,11 +45,10 @@ class PostMusicViewModel constructor(
     private val createPostUseCase: CreatePostUseCase,
     private val editPostUseCase: EditPostUseCase,
     private val getPostUseCase: GetPostUseCase,
-    private val uploadContentProvider: AndroidUploadContentProvider,
+    private val mediaResolver: PlatformMediaResolver,
     savedStateHandle: SavedStateHandle
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
-    private val mediaMetadataExtractor = AndroidMediaMetadataExtractor(app)
 
     private val quotedPostIdArg: Long = savedStateHandle.get<Long>("quotedPostId") ?: 0L
     private val editPostIdArg: Long = savedStateHandle.get<Long>("editPostId") ?: 0L
@@ -93,28 +92,29 @@ class PostMusicViewModel constructor(
         followersOnly.value = value
     }
 
-    fun onMusicPicked(uri: Uri) {
-        val resolver = getApplication<DinoOrderApplication>().contentResolver
-        val displayName = queryDisplayName(uri) ?: "music_track"
-        val mimeType = resolveMusicMimeType(uri, displayName)
+    fun onMusicPicked(reference: PlatformMediaReference) {
+        val pickedMedia = mediaResolver.resolvePickedMedia(reference, displayNameHint = "music_track")
+        val displayName = pickedMedia.displayName
+        val mimeType = resolveMusicMimeType(pickedMedia)
         if (mimeType == null) {
             _error.value = "Selected file is not a supported music file"
             return
         }
 
-        val (rawTitle, rawArtist) = extractMetadata(uri)
+        val metadata = mediaResolver.metadata(reference)
         val resolved = resolveMusicMetadata(
             displayName = displayName,
-            title = rawTitle,
-            artist = rawArtist,
+            title = metadata.title,
+            artist = metadata.artist,
             titleFallback = "Unknown track"
         )
         selectedTrack.value = SelectedMusicTrack(
-            uri = uri,
+            reference = reference,
             displayName = displayName,
             title = resolved.title,
             artist = resolved.artist,
-            mimeType = mimeType
+            mimeType = mimeType,
+            sizeBytes = pickedMedia.sizeBytes,
         )
         if (isEditMode) {
             existingTrack.value = null
@@ -255,44 +255,22 @@ class PostMusicViewModel constructor(
     }
 
     private fun buildMedia(track: SelectedMusicTrack): CreatePostMedia? {
-        val resolver = getApplication<DinoOrderApplication>().contentResolver
-        val canRead = try {
-            resolver.openInputStream(track.uri)?.use { true } ?: false
-        } catch (_: Exception) {
-            false
-        }
-        if (!canRead) return null
+        if (!mediaResolver.canRead(track.reference)) return null
 
         return CreatePostMedia(
-            file = uploadContentProvider.readableMediaFile(
-                uri = track.uri,
+            file = mediaResolver.readableMediaFile(
+                source = track.reference,
                 displayName = track.displayName,
                 mimeType = track.mimeType,
-                sizeBytes = queryFileSize(track.uri),
+                sizeBytes = track.sizeBytes,
             ),
             trackTitle = track.title,
             trackArtist = track.artist
         )
     }
 
-    private fun queryDisplayName(uri: Uri): String? {
-        val resolver = getApplication<DinoOrderApplication>().contentResolver
-        return MediaFileResolver.queryDisplayName(resolver, uri)
-    }
-
-    private fun queryFileSize(uri: Uri): Long? {
-        val resolver = getApplication<DinoOrderApplication>().contentResolver
-        return MediaFileResolver.resolveFileSize(resolver, uri)
-    }
-
-    private fun extractMetadata(uri: Uri): Pair<String?, String?> {
-        val metadata = mediaMetadataExtractor.extract(uri)
-        return metadata.title to metadata.artist
-    }
-
-    private fun resolveMusicMimeType(uri: Uri, displayName: String): String? {
-        val resolver = getApplication<DinoOrderApplication>().contentResolver
-        val rawResolverMime = MediaMimePolicy.normalizeMimeType(resolver.getType(uri))
+    private fun resolveMusicMimeType(pickedMedia: PlatformPickedMedia): String? {
+        val rawResolverMime = MediaMimePolicy.normalizeMimeType(pickedMedia.mimeType)
         if (MediaMimePolicy.isBlockedForSecurity(rawResolverMime)) {
             return null
         }
@@ -300,12 +278,12 @@ class PostMusicViewModel constructor(
             return rawResolverMime
         }
 
-        val retrieverMime = extractRetrieverMimeType(uri)
+        val retrieverMime = mediaResolver.metadata(pickedMedia.reference).mimeType.orEmpty()
         if (retrieverMime.startsWith("audio/")) {
             return retrieverMime
         }
 
-        val extension = displayName
+        val extension = pickedMedia.displayName
             .substringAfterLast('.', "")
             .lowercase()
             .takeIf { it.isNotBlank() }
@@ -324,10 +302,6 @@ class PostMusicViewModel constructor(
         }
 
         return null
-    }
-
-    private fun extractRetrieverMimeType(uri: Uri): String {
-        return mediaMetadataExtractor.extract(uri).mimeType.orEmpty()
     }
 
     private fun Post.toQuotedPostPreview(): QuotedPostPreview = QuotedPostPreview(

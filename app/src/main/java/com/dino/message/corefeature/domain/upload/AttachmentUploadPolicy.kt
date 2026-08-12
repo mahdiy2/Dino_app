@@ -1,4 +1,4 @@
-package com.dino.message.corefeature.data.upload
+package com.dino.message.corefeature.domain.upload
 
 object AttachmentUploadPolicy {
     const val MAX_IMAGE_SIZE_BYTES: Long = 10L * 1024L * 1024L

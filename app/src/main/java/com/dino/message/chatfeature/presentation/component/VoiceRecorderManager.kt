@@ -2,7 +2,6 @@ package com.dino.message.chatfeature.presentation.component
 
 import android.content.Context
 import android.media.MediaRecorder
-import android.net.Uri
 import android.os.Build
 import java.io.File
 
@@ -22,6 +21,14 @@ interface PlatformAudioRecorder {
     fun stopRecording(): RecordedAudio?
     fun cancelRecording()
     fun release()
+}
+
+interface PlatformAudioRecorderFactory {
+    fun createRecorder(): PlatformAudioRecorder
+}
+
+class AndroidAudioRecorderFactory(private val context: Context) : PlatformAudioRecorderFactory {
+    override fun createRecorder(): PlatformAudioRecorder = AndroidVoiceRecorder(context)
 }
 
 class AndroidVoiceRecorder(private val context: Context) : PlatformAudioRecorder {
@@ -122,7 +129,3 @@ class AndroidVoiceRecorder(private val context: Context) : PlatformAudioRecorder
         const val VOICE_RECORDING_MIME_TYPE = "audio/mp4"
     }
 }
-
-fun RecordedAudio.toAndroidUri(): Uri = Uri.fromFile(File(source))
-
-typealias VoiceRecorderManager = AndroidVoiceRecorder

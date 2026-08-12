@@ -1,4 +1,4 @@
-package com.dino.message.corefeature.data.upload
+package com.dino.message.corefeature.domain.upload
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull

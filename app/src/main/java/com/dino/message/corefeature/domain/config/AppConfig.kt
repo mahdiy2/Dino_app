@@ -4,6 +4,7 @@ interface AppConfig {
     val baseUrl: String
     val isDebug: Boolean
     val versionName: String
+    val versionCode: Int
     val buildType: String
     val authPasswordRequireSymbol: Boolean
 }

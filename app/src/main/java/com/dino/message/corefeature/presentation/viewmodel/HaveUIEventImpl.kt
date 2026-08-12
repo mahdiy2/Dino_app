@@ -31,7 +31,6 @@ class HaveUIEventImpl(
         level: PopBackStackLevel
     ) = scope.launch {
         mutableUIEventFlow.emit(
-            // Uses the secondary constructor of UIEvent.NavigateWithPopBackStack
             UIEvent.NavigateWithPopBackStack(route = route, level = level)
         )
     }
@@ -41,7 +40,6 @@ class HaveUIEventImpl(
         scope: CoroutineScope
     ) = scope.launch {
         mutableUIEventFlow.emit(
-            // Uses the secondary constructor of UIEvent.Navigate
             UIEvent.Navigate(route = route)
         )
     }

@@ -47,13 +47,18 @@ import com.dino.message.corefeature.presentation.viewmodel.CustomMessageDialogVi
  * @param customMessageDialogData The data for the custom message dialog.
  */
 @Composable
-@Suppress("UNUSED_PARAMETER")
 fun CustomMessageDialogScreen(customMessageDialogData: CustomMessageDialogData) {
     // Create an instance of the CustomMessageDialogViewModel using Hilt
     val viewModel: CustomMessageDialogViewModel = koinViewModel()
 
+    val header = when (customMessageDialogData.type) {
+        CustomMessageDialogType.Error.type -> R.string.error
+        CustomMessageDialogType.Success.type -> R.string.successful
+        else -> R.string.empty
+    }
+
     // Determine the context color based on the custom message dialog type
-    val contextColor = when (viewModel.customMessageDialogData.type) {
+    val contextColor = when (customMessageDialogData.type) {
         CustomMessageDialogType.Error.type -> MaterialTheme.colorScheme.onErrorContainer
         else -> MaterialTheme.colorScheme.onBackground
     }
@@ -62,7 +67,7 @@ fun CustomMessageDialogScreen(customMessageDialogData: CustomMessageDialogData) 
         modifier = Modifier
             .clip(MaterialTheme.shapes.extraLarge)
             .background(
-                when (viewModel.customMessageDialogData.type) {
+                when (customMessageDialogData.type) {
                     CustomMessageDialogType.Error.type -> MaterialTheme.colorScheme.errorContainer
                     else -> MaterialTheme.colorScheme.background
                 }
@@ -78,7 +83,7 @@ fun CustomMessageDialogScreen(customMessageDialogData: CustomMessageDialogData) 
             // Header Icon
             Icon(
                 painter = painterResource(
-                    id = when (viewModel.customMessageDialogData.type) {
+                    id = when (customMessageDialogData.type) {
                         CustomMessageDialogType.Error.type -> R.drawable.ic_error
                         CustomMessageDialogType.Success.type -> R.drawable.ic_success
                         else -> R.drawable.ic_success
@@ -92,7 +97,7 @@ fun CustomMessageDialogScreen(customMessageDialogData: CustomMessageDialogData) 
 
             // Header Text
             Text(
-                text = stringResource(id = viewModel.header),
+                text = stringResource(id = header),
                 style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.padding(end = DPLarge),
                 color = contextColor
@@ -106,10 +111,10 @@ fun CustomMessageDialogScreen(customMessageDialogData: CustomMessageDialogData) 
                 .fillMaxWidth()
                 .padding(start = DPExtraLarge)
         ) {
-            items(viewModel.customMessageDialogData.messages.size) { message ->
+            items(customMessageDialogData.messages.size) { message ->
                 // Message Title
                 Text(
-                    text = viewModel.customMessageDialogData.messages[message].title.asString(),
+                    text = customMessageDialogData.messages[message].title.asString(),
                     color = contextColor,
                     style = MaterialTheme.typography.titleMedium,
                     textAlign = TextAlign.Start,
@@ -118,7 +123,7 @@ fun CustomMessageDialogScreen(customMessageDialogData: CustomMessageDialogData) 
 
                 // Message Descriptions
                 Text(
-                    text = viewModel.customMessageDialogData.messages[message].descriptions.asString(),
+                    text = customMessageDialogData.messages[message].descriptions.asString(),
                     color = (contextColor).copy(alpha = 0.7f),
                     style = MaterialTheme.typography.bodyMedium,
                     textAlign = TextAlign.Start,

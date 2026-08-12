@@ -1,7 +1,6 @@
 package com.dino.message.chatfeature.presentation.viewmodel
 
 import android.content.Context
-import android.net.Uri
 import android.os.Build
 import android.util.Log
 import androidx.compose.runtime.mutableStateOf
@@ -20,17 +19,14 @@ import com.dino.message.chatfeature.domain.usecase.UploadAttachmentUseCase
 import com.dino.message.corefeature.data.socket.AppSocketManager
 import com.dino.message.corefeature.data.socket.RealtimeSocketEvents
 import com.dino.message.corefeature.data.spref.SPrefManager
-import com.dino.message.corefeature.data.upload.AndroidUploadContentProvider
+import com.dino.message.corefeature.data.upload.PlatformMediaReference
+import com.dino.message.corefeature.data.upload.PlatformMediaResolver
+import com.dino.message.corefeature.domain.crypto.MessageCrypto
+import com.dino.message.corefeature.domain.crypto.RsaPublicKey
 import com.dino.message.corefeature.domain.notification.AppNotificationController
 import com.dino.message.corefeature.domain.resource.StringResolver
 import com.dino.message.profilefeature.domain.usecase.FollowUserUseCase
-import com.dino.message.corefeature.presentation.util.CryptoUtil
 import com.dino.message.corefeature.presentation.util.Resource
-import com.dino.message.corefeature.presentation.util.decodePrivateKey
-import com.dino.message.corefeature.presentation.util.decodePublicKey
-import com.dino.message.corefeature.presentation.util.decodePublicKeyOrNull
-import com.dino.message.corefeature.presentation.util.decryptMessage
-import com.dino.message.corefeature.presentation.util.formatPublicKeyForLog
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.dino.message.corefeature.domain.util.LocalHistoryPaging
@@ -48,13 +44,13 @@ import com.dino.message.chatfeature.data.notification.ActiveChatTracker
 import com.dino.message.chatfeature.data.notification.ChatMessageSoundPlayer
 import com.dino.message.chatfeature.domain.model.PrivateHistoryMessage
 import com.dino.message.chatfeature.presentation.component.PlatformAudioRecorder
-import com.dino.message.chatfeature.presentation.component.VoiceRecorderManager
-import com.dino.message.chatfeature.presentation.component.toAndroidUri
+import com.dino.message.chatfeature.presentation.component.PlatformAudioRecorderFactory
 import java.util.ArrayDeque
 import java.util.UUID
 import java.time.Duration
 import java.time.Instant
 import java.time.format.DateTimeParseException
+import java.net.URI
 import kotlin.math.abs
 import com.dino.message.chatfeature.domain.util.MessageDeduplicator
 import com.dino.message.chatfeature.domain.util.decodeMessageReactions
@@ -62,7 +58,6 @@ import com.dino.message.chatfeature.domain.util.encodeMessageReactions
 import com.dino.message.chatfeature.domain.util.parseMessageReactionsFromPayload
 import com.dino.message.chatfeature.domain.repository.ChatRepository
 import com.dino.message.threadfeature.domain.usecase.IsTrackInPlaylistUseCase
-import java.security.PublicKey
 import com.dino.message.corefeature.presentation.navigation.AppRoute
 
 class ChatViewModel constructor(
@@ -79,7 +74,10 @@ class ChatViewModel constructor(
     private val appSocketManager: AppSocketManager,
     private val appNotificationController: AppNotificationController,
     private val stringResolver: StringResolver,
-    private val uploadContentProvider: AndroidUploadContentProvider,
+    private val mediaResolver: PlatformMediaResolver,
+    private val audioRecorderFactory: PlatformAudioRecorderFactory,
+    private val messageCrypto: MessageCrypto,
+    private val deduplicator: MessageDeduplicator,
     savedStateHandle: SavedStateHandle
 ) : AndroidViewModel(app as DinoOrderApplication),
     HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
@@ -105,7 +103,7 @@ class ChatViewModel constructor(
     private val chatId: String = checkNotNull(savedStateHandle["chatId"])
 
     private val receiverPublicKey = mutableStateOf<String?>(null)
-    private var receiverEncryptionPublicKey: PublicKey? = null
+    private var receiverEncryptionPublicKey: RsaPublicKey? = null
 
     private val _messages = MutableStateFlow<List<MessageEntity>>(emptyList())
     val messages: StateFlow<List<MessageEntity>> = _messages.asStateFlow()
@@ -183,7 +181,6 @@ class ChatViewModel constructor(
     private var latestDbMessages: List<MessageEntity> = emptyList()
     private var lastPendingMessageTimestamp: Instant = Instant.EPOCH
 
-    private val deduplicator = MessageDeduplicator(app)
     private val messagesMutex = Mutex()
     private val historyMutex = Mutex()
     private var privateHistoryCursorInitialized = false
@@ -223,7 +220,7 @@ class ChatViewModel constructor(
             when (res) {
                 is Resource.Success -> {
                     val publicKey = res.data.public_key
-                    Log.d("ChatViewModel", "Fetched receiver public key for $chatId: ${formatPublicKeyForLog(publicKey)}")
+                    Log.d("ChatViewModel", "Fetched receiver public key for $chatId: ${messageCrypto.formatPublicKeyForLog(publicKey)}")
                     if (publicKey.isNullOrBlank()) {
                         Log.e("ChatViewModel", "getReceiverPublicKey: empty public key for chatId=$chatId")
                         _publicKeyError.value = "Received empty public key"
@@ -232,11 +229,11 @@ class ChatViewModel constructor(
                         showRefreshing()
                         return@collect
                     }
-                    val resolvedPublicKey = decodePublicKeyOrNull(publicKey)
+                    val resolvedPublicKey = messageCrypto.decodePublicKeyOrNull(publicKey)
                     if (resolvedPublicKey == null) {
                         Log.w(
                             "ChatViewModel",
-                            "getReceiverPublicKey: unsupported public key format for chatId=$chatId, ${formatPublicKeyForLog(publicKey)}"
+                            "getReceiverPublicKey: unsupported public key format for chatId=$chatId, ${messageCrypto.formatPublicKeyForLog(publicKey)}"
                         )
                         receiverPublicKey.value = null
                         receiverEncryptionPublicKey = null
@@ -288,14 +285,14 @@ class ChatViewModel constructor(
         return isPublicKeyLoaded
     }
 
-    private fun resolveReceiverEncryptionPublicKey(): PublicKey? {
+    private fun resolveReceiverEncryptionPublicKey(): RsaPublicKey? {
         receiverEncryptionPublicKey?.let { return it }
         val rawKey = receiverPublicKey.value.orEmpty()
         if (rawKey.isBlank()) return null
-        val decoded = decodePublicKeyOrNull(rawKey) ?: run {
+        val decoded = messageCrypto.decodePublicKeyOrNull(rawKey) ?: run {
             Log.w(
                 "ChatViewModel",
-                "resolveReceiverEncryptionPublicKey: unsupported key format for chatId=$chatId, ${formatPublicKeyForLog(rawKey)}"
+                "resolveReceiverEncryptionPublicKey: unsupported key format for chatId=$chatId, ${messageCrypto.formatPublicKeyForLog(rawKey)}"
             )
             receiverPublicKey.value = null
             _isPublicKeyReady.value = false
@@ -542,10 +539,10 @@ class ChatViewModel constructor(
             return ""
         }
         return runCatching {
-            decryptMessage(
+            messageCrypto.decryptMessage(
                 encryptedMessage = encryptedMessage,
-                encryptedAESKey = encryptedKey,
-                privateKey = decodePrivateKey(spref.getPrivateKey() ?: ""),
+                encryptedAesKey = encryptedKey,
+                privateKey = messageCrypto.decodePrivateKey(spref.getPrivateKey() ?: ""),
             )
         }.getOrElse {
             if (historyMessage.from == currentUsername) {
@@ -560,10 +557,10 @@ class ChatViewModel constructor(
         val encryptedPreview = historyMessage.encryptedReplyPreview ?: return null
         val decryptKey = historyMessage.encryptedReplyKey ?: historyMessage.encryptedKey ?: return null
         return runCatching {
-            decryptMessage(
+            messageCrypto.decryptMessage(
                 encryptedMessage = encryptedPreview,
-                encryptedAESKey = decryptKey,
-                privateKey = decodePrivateKey(spref.getPrivateKey() ?: ""),
+                encryptedAesKey = decryptKey,
+                privateKey = messageCrypto.decodePrivateKey(spref.getPrivateKey() ?: ""),
             )
         }.getOrNull()
     }
@@ -814,9 +811,9 @@ class ChatViewModel constructor(
         navigateUp(viewModelScope)
     }
 
-    fun startVoiceRecording(context: Context) {
+    fun startVoiceRecording() {
         if (_isRecording.value) return
-        val recorder = VoiceRecorderManager(context)
+        val recorder = audioRecorderFactory.createRecorder()
         if (recorder.startRecording()) {
             voiceRecorder = recorder
             _isRecording.value = true
@@ -837,7 +834,7 @@ class ChatViewModel constructor(
         val recording = recorder.stopRecording()
         voiceRecorder = null
         if (recording != null) {
-            sendAttachment(recording.toAndroidUri())
+            sendAttachment(PlatformMediaReference(recording.source))
         }
     }
 
@@ -986,7 +983,7 @@ class ChatViewModel constructor(
         )
     }
 
-    fun sendAttachment(fileUri: Uri, caption: String? = null) {
+    fun sendAttachment(media: PlatformMediaReference, caption: String? = null) {
         val publicKey = receiverPublicKey.value
         if (publicKey.isNullOrBlank() || resolveReceiverEncryptionPublicKey() == null) {
             pushSocketDebugLog("Cannot send attachment: missing receiver public key")
@@ -997,7 +994,7 @@ class ChatViewModel constructor(
             _isUploading.value = true
             _uploadError.value = null
             pushSocketDebugLog("Uploading attachment...")
-            val uploadFile = uploadContentProvider.readableMediaFile(fileUri)
+            val uploadFile = mediaResolver.readableMediaFile(media)
 
             uploadAttachmentUseCase.execute(uploadFile).collect { result ->
                 when (result) {
@@ -1041,19 +1038,19 @@ class ChatViewModel constructor(
             val senderEncryptedCaption: SenderEncryptedPayload?
 
             if (!caption.isNullOrBlank()) {
-                val (ek, em) = CryptoUtil.encryptMessage(
+                val encryptedPayload = messageCrypto.encryptMessage(
                     message = caption,
                     receiverPublicKey = receiverKey
                 )
-                encryptedKey = ek
-                encryptedCaption = em
+                encryptedKey = encryptedPayload.encryptedKey
+                encryptedCaption = encryptedPayload.encryptedMessage
                 senderEncryptedCaption = encryptForCurrentUser(caption)
             } else {
-                val (ek, _) = CryptoUtil.encryptMessage(
+                val encryptedPayload = messageCrypto.encryptMessage(
                     message = "",
                     receiverPublicKey = receiverKey
                 )
-                encryptedKey = ek
+                encryptedKey = encryptedPayload.encryptedKey
                 encryptedCaption = null
                 senderEncryptedCaption = null
             }
@@ -1084,12 +1081,12 @@ class ChatViewModel constructor(
                     put("reply_to_sender", replyTo.senderOrReceiver)
                    val preview = replyTo.content.take(100)
                    if (preview.isNotBlank()) {
-                        val (encReplyKey, encReplyPreview) = CryptoUtil.encryptMessage(
+                        val encryptedReplyPayload = messageCrypto.encryptMessage(
                            message = preview,
                            receiverPublicKey = receiverKey
                        )
-                      put("encrypted_reply_preview", encReplyPreview)
-                       put("encrypted_reply_key", encReplyKey)
+                      put("encrypted_reply_preview", encryptedReplyPayload.encryptedMessage)
+                       put("encrypted_reply_key", encryptedReplyPayload.encryptedKey)
                    }
                 }
             }
@@ -1152,7 +1149,7 @@ class ChatViewModel constructor(
         val receiverKey = resolveReceiverEncryptionPublicKey() ?: return
 
         try {
-            val (encryptedKey, encryptedMessage) = CryptoUtil.encryptMessage(
+            val encryptedPayload = messageCrypto.encryptMessage(
                 message = message,
                 receiverPublicKey = receiverKey
             )
@@ -1160,8 +1157,8 @@ class ChatViewModel constructor(
 
             val payload = JSONObject().apply {
                 put("to", chatId)
-                put("message", encryptedMessage)
-                put("encrypted_key", encryptedKey)
+                put("message", encryptedPayload.encryptedMessage)
+                put("encrypted_key", encryptedPayload.encryptedKey)
                 if (senderEncryptedMessage != null) {
                     put("sender_encrypted_message", senderEncryptedMessage.encryptedMessage)
                     put("sender_encrypted_key", senderEncryptedMessage.encryptedKey)
@@ -1173,12 +1170,12 @@ class ChatViewModel constructor(
                     put("reply_to_sender", replyTo.senderOrReceiver)
                     val preview = replyTo.content.take(100)
                     if (preview.isNotBlank()) {
-                        val (encReplyKey, encReplyPreview) = CryptoUtil.encryptMessage(
+                        val encryptedReplyPayload = messageCrypto.encryptMessage(
                             message = preview,
                             receiverPublicKey = receiverKey
                         )
-                       put("encrypted_reply_preview", encReplyPreview)
-                        put("encrypted_reply_key", encReplyKey)
+                       put("encrypted_reply_preview", encryptedReplyPayload.encryptedMessage)
+                        put("encrypted_reply_key", encryptedReplyPayload.encryptedKey)
                    }
                 }
             }
@@ -1740,7 +1737,11 @@ class ChatViewModel constructor(
         val decryptedReplyPreview = if (encryptedReplyPreview != null && replyDecryptKey.isNotBlank()) {
            try {
                val privateKey = spref.getPrivateKey() ?: ""
-                decryptMessage(encryptedReplyPreview, replyDecryptKey, decodePrivateKey(privateKey))
+                messageCrypto.decryptMessage(
+                    encryptedMessage = encryptedReplyPreview,
+                    encryptedAesKey = replyDecryptKey,
+                    privateKey = messageCrypto.decodePrivateKey(privateKey),
+                )
            } catch (e: Exception) { null }
         } else null
 
@@ -1780,7 +1781,11 @@ class ChatViewModel constructor(
             val decryptedCaption = if (encryptedMessage.isNotBlank() && encryptedKey.isNotBlank()) {
                 try {
                     val privateKey = spref.getPrivateKey() ?: ""
-                    decryptMessage(encryptedMessage, encryptedKey, decodePrivateKey(privateKey))
+                    messageCrypto.decryptMessage(
+                        encryptedMessage = encryptedMessage,
+                        encryptedAesKey = encryptedKey,
+                        privateKey = messageCrypto.decodePrivateKey(privateKey),
+                    )
                 } catch (e: Exception) {
                     if (isPlaintextStoryMessage) encryptedMessage else ""
                 }
@@ -1848,13 +1853,13 @@ class ChatViewModel constructor(
         if (selfPublicKey.isBlank()) return null
 
         return runCatching {
-            val (encryptedKey, encryptedMessage) = CryptoUtil.encryptMessage(
+            val encryptedPayload = messageCrypto.encryptMessage(
                 message = plainText,
-                receiverPublicKey = decodePublicKey(selfPublicKey)
+                receiverPublicKey = messageCrypto.decodePublicKey(selfPublicKey)
             )
             SenderEncryptedPayload(
-                encryptedMessage = encryptedMessage,
-                encryptedKey = encryptedKey,
+                encryptedMessage = encryptedPayload.encryptedMessage,
+                encryptedKey = encryptedPayload.encryptedKey,
             )
         }.getOrNull()
     }
@@ -2064,10 +2069,10 @@ class ChatViewModel constructor(
     ) {
         try {
             val privateKey = spref.getPrivateKey() ?: return
-            val decryptedMsg = decryptMessage(
+            val decryptedMsg = messageCrypto.decryptMessage(
                 encryptedMessage = encryptedMessage,
-                encryptedAESKey = encryptedKey,
-                privateKey = decodePrivateKey(privateKey)
+                encryptedAesKey = encryptedKey,
+                privateKey = messageCrypto.decodePrivateKey(privateKey)
             )
             Log.d("ChatViewModel", "decryptAndSaveMessage: decrypt success for sender=$sender timestamp=$timestamp")
 
@@ -2117,8 +2122,11 @@ class ChatViewModel constructor(
             ?: return null
 
         return runCatching {
-            Uri.parse(storyLink)
-                .pathSegments
+            URI(storyLink)
+                .path
+                ?.split('/')
+                .orEmpty()
+                .filter { it.isNotBlank() }
                 .lastOrNull()
                 ?.toLongOrNull()
                 ?.takeIf { it > 0L }

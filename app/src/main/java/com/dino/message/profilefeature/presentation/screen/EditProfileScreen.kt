@@ -79,6 +79,7 @@ import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
 import com.dino.message.corefeature.presentation.ui.theme.DPLarge
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPSmall
+import com.dino.message.corefeature.data.upload.toPlatformMediaReference
 import com.dino.message.corefeature.presentation.util.PROFILE_IMAGE_SHAPE_CIRCLE
 import com.dino.message.corefeature.presentation.util.PROFILE_IMAGE_SHAPE_COOKIE_12_SIDED
 import com.dino.message.corefeature.presentation.util.PROFILE_IMAGE_SHAPE_COOKIE_9_SIDED
@@ -107,8 +108,8 @@ fun EditProfileScreen() {
     val selectedProfileImageShape = viewModel.selectedProfileImageShape.value
     val currentProfileBadge = viewModel.currentProfileBadge.value
     val isFormEnabled = !isLoading && !isSaving
-    val imagePreviewModel: Any? = selectedImage?.uri ?: currentProfileImageUrl?.takeIf { it.isNotBlank() }
-    val videoPreviewModel: Any? = selectedVideo?.uri ?: currentProfileVideoUrl?.takeIf { it.isNotBlank() }
+    val imagePreviewModel: Any? = selectedImage?.reference?.value ?: currentProfileImageUrl?.takeIf { it.isNotBlank() }
+    val videoPreviewModel: Any? = selectedVideo?.reference?.value ?: currentProfileVideoUrl?.takeIf { it.isNotBlank() }
     val hasPendingMedia = selectedImage != null ||
         selectedVideo != null ||
         viewModel.removeProfileImageRequested.value ||
@@ -122,12 +123,12 @@ fun EditProfileScreen() {
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
-        viewModel.onImagePicked(uri)
+        viewModel.onImagePicked(uri?.toPlatformMediaReference())
     }
     val videoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
-        viewModel.onVideoPicked(uri)
+        viewModel.onVideoPicked(uri?.toPlatformMediaReference())
     }
 
     val listState = rememberLazyListState()

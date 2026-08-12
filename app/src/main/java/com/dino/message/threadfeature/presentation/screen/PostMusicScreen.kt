@@ -40,6 +40,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import org.koin.compose.viewmodel.koinViewModel
 import com.dino.message.R
+import com.dino.message.corefeature.data.upload.toPlatformMediaReference
 import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPSmall
@@ -91,7 +92,7 @@ fun PostMusicScreen(
             )
         } catch (_: Exception) {
         }
-        viewModel.onMusicPicked(uri)
+        viewModel.onMusicPicked(uri.toPlatformMediaReference())
     }
 
     Scaffold(
@@ -208,7 +209,7 @@ fun PostMusicScreen(
 
                     if (selectedTrack != null) {
                         MusicTrackPlayerCard(
-                            trackUrl = selectedTrack.uri.toString(),
+                            trackUrl = selectedTrack.reference.value,
                             trackTitle = selectedTrack.title,
                             trackSubtitle = artistTextOrUnknown(selectedTrack.artist),
                             enabled = !isSubmitting

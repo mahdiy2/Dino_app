@@ -1,10 +1,11 @@
 package com.dino.message.corefeature.data.socket
 
-import android.util.Log
+import com.dino.message.corefeature.data.remote.logging.AppLogger
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.domain.background.BackgroundTask
 import com.dino.message.corefeature.domain.background.BackgroundTaskRegistry
 import com.dino.message.corefeature.domain.background.BackgroundTaskScheduler
+import com.dino.message.corefeature.domain.system.AppClock
 import com.dino.message.crashfeature.data.service.CrashReporter
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -25,6 +26,8 @@ class AppSocketManager constructor(
     private val socketOutboundQueueStore: SocketOutboundQueueStore,
     private val transportFactory: RealtimeSocketTransportFactory,
     private val backgroundTaskScheduler: BackgroundTaskScheduler,
+    private val appClock: AppClock,
+    private val appLogger: AppLogger,
     backgroundTaskRegistry: BackgroundTaskRegistry,
 ) : RealtimeSocketGateway {
 
@@ -53,6 +56,7 @@ class AppSocketManager constructor(
         initialBackoffMs = OUTBOUND_BACKOFF_INITIAL_MS,
         maxBackoffMs = OUTBOUND_BACKOFF_MAX_MS,
         maxQueueSize = MAX_OUTBOUND_QUEUE_SIZE,
+        timeProvider = appClock::currentTimeMillis,
     )
     private val outboundScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var outboundQueueJob: Job? = null
@@ -78,7 +82,7 @@ class AppSocketManager constructor(
             .removePrefix("bearer ")
             .trim()
         if (token.isBlank()) {
-            Log.w(TAG, "Token is blank; skipping socket connect")
+            appLogger.warning(TAG, "Token is blank; skipping socket connect")
             crashReporter.addBreadcrumb(
                 category = "socket",
                 message = "Skipping socket connect because auth token is blank"
@@ -310,7 +314,7 @@ class AppSocketManager constructor(
                         )
                     }
                 }
-                Log.w(
+                appLogger.warning(
                     TAG,
                     "Queued outbound emit event=$event dedupeKey=${dedupeKey ?: enqueueResult.item.queueId}"
                 )
@@ -318,7 +322,7 @@ class AppSocketManager constructor(
             }
             SocketOutboundRetryQueue.EnqueueResult.AlreadyQueued -> EmitWithRetryResult.ALREADY_QUEUED
             SocketOutboundRetryQueue.EnqueueResult.QueueFull -> {
-                Log.e(TAG, "Outbound queue full; dropping event=$event")
+                appLogger.error(TAG, "Outbound queue full; dropping event=$event")
                 crashReporter.reportSocketOutboundQueueIssue(
                     issueType = "SocketOutboundQueueFull",
                     event = event,
@@ -412,7 +416,7 @@ class AppSocketManager constructor(
                     syncOutboundQueueCountLocked()
                 }
                 removedItem?.let { deletePersistedQueueItem(it.queueId) }
-                Log.d(TAG, "Flushed queued outbound event=${readyItem.event}")
+                appLogger.debug(TAG, "Flushed queued outbound event=${readyItem.event}")
                 continue
             }
 
@@ -433,14 +437,14 @@ class AppSocketManager constructor(
         when (failure) {
             is SocketOutboundRetryQueue.FailureResult.RetryScheduled -> {
                 updatePersistedQueueItem(failure.item)
-                Log.w(
+                appLogger.warning(
                     TAG,
                     "Retrying queued event=${item.event} in ${failure.delayMs}ms (attempt=${failure.item.attempts}) due to $reason"
                 )
             }
             is SocketOutboundRetryQueue.FailureResult.Dropped -> {
                 deletePersistedQueueItem(failure.item.queueId)
-                Log.e(
+                appLogger.error(
                     TAG,
                     "Dropped queued event=${item.event} after ${failure.item.attempts} attempts due to $reason"
                 )
@@ -469,7 +473,7 @@ class AppSocketManager constructor(
                 socketOutboundQueueStore.getAll()
             }
         }.getOrElse { error ->
-            Log.e(TAG, "Failed to restore outbound queue from DB", error)
+            appLogger.error(TAG, "Failed to restore outbound queue from DB", error)
             crashReporter.reportSocketOutboundQueueIssue(
                 issueType = "SocketOutboundQueueRestoreFailed",
                 event = "restore",
@@ -496,7 +500,7 @@ class AppSocketManager constructor(
                     payloadBody = entity.payloadBody,
                 )
             }.getOrElse { decodeError ->
-                Log.e(TAG, "Dropping invalid persisted outbound payload queueId=${entity.queueId}", decodeError)
+                appLogger.error(TAG, "Dropping invalid persisted outbound payload queueId=${entity.queueId}", decodeError)
                 deletePersistedQueueItem(entity.queueId)
                 return@mapNotNull null
             }
@@ -526,7 +530,7 @@ class AppSocketManager constructor(
         val encodedPayload = runCatching {
             SocketOutboundPayloadCodec.encode(item.payload)
         }.getOrElse { error ->
-            Log.e(TAG, "Failed to encode outbound payload queueId=${item.queueId}", error)
+            appLogger.error(TAG, "Failed to encode outbound payload queueId=${item.queueId}", error)
             return PersistQueueResult.FAILED
         }
 
@@ -542,7 +546,7 @@ class AppSocketManager constructor(
                         dedupeKey = item.dedupeKey,
                         attempts = item.attempts,
                         nextAttemptAtMs = item.nextAttemptAtMs,
-                        createdAtMs = System.currentTimeMillis(),
+                        createdAtMs = appClock.currentTimeMillis(),
                     )
                 )
             }
@@ -551,7 +555,7 @@ class AppSocketManager constructor(
                 if (inserted) PersistQueueResult.PERSISTED else PersistQueueResult.DUPLICATE
             },
             onFailure = { error ->
-                Log.e(TAG, "Failed to persist outbound queue item queueId=${item.queueId}", error)
+                appLogger.error(TAG, "Failed to persist outbound queue item queueId=${item.queueId}", error)
                 PersistQueueResult.FAILED
             }
         )
@@ -567,7 +571,7 @@ class AppSocketManager constructor(
                 )
             }
         }.onFailure { error ->
-            Log.e(TAG, "Failed to update retry state for queueId=${item.queueId}", error)
+            appLogger.error(TAG, "Failed to update retry state for queueId=${item.queueId}", error)
         }
     }
 
@@ -577,7 +581,7 @@ class AppSocketManager constructor(
                 socketOutboundQueueStore.deleteByQueueId(queueId)
             }
         }.onFailure { error ->
-            Log.e(TAG, "Failed to delete outbound queue item queueId=$queueId", error)
+            appLogger.error(TAG, "Failed to delete outbound queue item queueId=$queueId", error)
         }
     }
 
@@ -587,7 +591,7 @@ class AppSocketManager constructor(
                 socketOutboundQueueStore.clearAll()
             }
         }.onFailure { error ->
-            Log.e(TAG, "Failed to clear persisted outbound queue", error)
+            appLogger.error(TAG, "Failed to clear persisted outbound queue", error)
         }
     }
 
