@@ -1,1044 +1,487 @@
-# Kotlin Multiplatform / Compose Multiplatform Migration Checklist
-
-This document lists the non-DI work required to migrate the current native
-Android app to Kotlin Multiplatform (KMP) with Compose Multiplatform (CMP).
-It is based on the current single-module Android project under `:app`.
-
-DI has already been handled separately in `docs/di-migration.md`; this checklist
-focuses on every other dependency, Android API, and architecture boundary that
-must be changed before code can move safely into shared source sets.
-
-## Current Project Shape
-
-- The project is currently a single Android application module: `:app`.
-- The app source lives under `app/src/main/java/com/dino/message`.
-- Gradle uses Android-only plugins: `com.android.application`,
-  `org.jetbrains.kotlin.android`, and `kotlin-parcelize`.
-- UI is Jetpack Compose for Android, not Compose Multiplatform.
-- Local persistence uses Room, AndroidX DataStore, and
-  `EncryptedSharedPreferences`.
-- Networking uses Ktor, but with Android/JVM-specific engine and upload
-  stream APIs.
-- Realtime messaging uses the Java Socket.IO client.
-- Media recording/playback/upload is deeply tied to Android platform APIs.
-
-## Dependencies That Need Replacement Or Source-Set Separation
-
-### Build / Project Structure
-
-- Replace the single Android-only module structure with a KMP/CMP layout.
-  Recommended first structure:
-  - `:app` or `:androidApp`: Android app shell.
-  - `:shared` or `:composeApp`: KMP shared module.
-  - Optional later feature modules if the shared module becomes too large.
-- Replace `org.jetbrains.kotlin.android` in shared code with
-  `org.jetbrains.kotlin.multiplatform`.
-- Add Compose Multiplatform Gradle plugin/dependencies for shared UI.
-- Keep Android application ID, manifest, services, permissions, ProGuard, and
-  signing only in the Android app target.
-- Keep `BuildConfig` access Android-specific, or replace with a shared config
-  abstraction supplied by each platform.
-
-### Compose / UI ✅ Done for bridge milestone
-
-Current dependencies:
-
-- `androidx.compose:*`
-- `androidx.activity:activity-compose`
-- `androidx.lifecycle:lifecycle-runtime-ktx`
-- `androidx.compose.material:material`
-- `androidx.compose.material3:material3`
-- `androidx.compose.foundation:foundation`
-- `androidx.compose.ui:ui-tooling-preview`
-- `androidx.compose.ui:ui-tooling`
-- `androidx.compose.ui:ui-test-junit4`
-- `androidx.compose.ui:ui-test-manifest`
-
-Migration actions:
-
-- [x] Replace AndroidX Compose BOM usage with Compose Multiplatform dependencies.
-- [x] Move `ComponentActivity`, `setContent`, `enableEdgeToEdge`, permission
-  launchers, and Android lifecycle code into `androidMain`.
-- [x] Keep pure composables only if they do not depend on Android-only resources,
-  `LocalContext`, activity result APIs, Android views, Android drawables, or
-  platform media classes.
-- [x] Replace Android-only previews/tooling dependencies with target-appropriate
-  CMP preview/tooling setup.
-
-Bridge completion notes:
-
-- `:app` now applies the Compose Multiplatform Gradle plugin and uses CMP
-  runtime/foundation/material/resource/preview dependencies for Compose UI,
-  while Android activity, lifecycle, Material3 Expressive, tooling, and UI-test
-  artifacts remain Android-only.
-- Theme code is split so pure color/theme composition lives behind
-  `SecMessageThemeContent`; Android dynamic colors and system bar side effects
-  stay in the Android shell.
-- Platform UI effects and image loading are behind presentation wrappers so
-  shared composables have a clear migration seam instead of directly depending
-  on Android browser intents, clipboard/toast APIs, `LocalContext`, or
-  `ImageRequest.Builder(context)`.
-- Full common source-set movement is intentionally deferred until Navigation,
-  Resources, Images, and Android UI Utility Libraries are migrated.
-
-### Navigation ✅ Done for bridge milestone
-
-Current dependencies:
-
-- Compose Multiplatform Navigation via
-  `org.jetbrains.androidx.navigation:navigation-compose`.
-
-Migration actions:
-
-- [x] Replace Compose Destinations generated routes and host with Compose
-  Multiplatform Navigation typed routes.
-- [x] Remove Compose Destinations annotations, generated destination imports,
-  `DestinationsNavHost`, `Direction`, and generated destination objects from app
-  source.
-- [x] Replace ViewModel navigation events with platform-independent `AppRoute`
-  commands.
-- [x] Preserve bottom-sheet and dialog destinations with CMP navigation wrapper
-  routes.
-
-Bridge completion notes:
-
-- `AppRoute` now defines serializable, typed navigation commands for existing
-  screens and arguments.
-- `AppNavGraph` owns CMP `NavHost` registration and manually maps route args to
-  composables.
-- Notification deep links now navigate directly to typed chat, group chat, and
-  activity notification routes without Compose Destinations generated classes.
-
-### Koin
-
-Current dependencies:
-
-- `koin-android`
-- `koin-androidx-compose`
-- `koin-compose`
-- `koin-compose-viewmodel`
-- `koin-compose-viewmodel-navigation`
-- `koin-test`
-
-Migration actions:
-
-- Keep Koin, but split artifacts by source set.
-- Use `koin-core` in `commonMain`.
-- Use KMP-compatible `koin-compose` / `koin-compose-viewmodel` where shared UI
-  or shared ViewModels are used.
-- Keep `koin-android`, `androidContext()`, `androidApplication()`, Android
-  Workers, and Android ViewModel integration only in `androidMain`.
-- Avoid Koin APIs that depend on Android framework types inside common modules.
-
-### Networking / HTTP ✅ Done for bridge milestone
-
-Current dependencies:
-
-- `ktor-client-core`
-- `ktor-client-okhttp`
-- `ktor-client-content-negotiation`
-- `ktor-serialization-kotlinx-json`
-- `ktor-client-serialization`
-- `ktor-client-logging`
-
-Migration actions:
-
-- [x] Keep Ktor client core, content negotiation, logging, and
-  kotlinx.serialization in shared code.
-- [x] Move `ktor-client-okhttp` to `androidMain`.
-- [x] Add platform-specific engines:
-  - Android: OkHttp or Android engine.
-  - iOS/macOS: Darwin engine.
-  - Desktop/JVM: CIO or Java engine.
-  - Web/Wasm: supported Ktor web engine choice.
-- [x] Replace JVM stream upload usage such as `io.ktor.utils.io.streams.asInput()`
-  with a multiplatform upload abstraction.
-- [x] Move `java.net.SocketTimeoutException`,
-  `java.nio.channels.UnresolvedAddressException`, and other JVM exceptions out
-  of common error handling.
-- [x] Replace `logback-classic` with a multiplatform logger such as Kermit or Napier,
-  or wrap logging behind a common interface.
-
-Bridge completion notes:
-
-- HTTP client setup now lives in a reusable Ktor factory that accepts the base
-  URL, debug flag, engine factory, and logger; Android DI supplies the OkHttp
-  engine for the current app target.
-- Multipart uploads now go through upload part helpers, while Android URI and
-  stream opening details are contained in an Android upload content provider.
-- Retry/error handling now delegates timeout and network exception detection to
-  a classifier; JVM-only exceptions are isolated in the Android/JVM classifier.
-- Ktor logging now uses an app logger interface backed by Android `Log`, so the
-  JVM-only `logback-classic` dependency was removed.
-
-### Realtime Socket ✅ Done for bridge milestone
-
-Current dependency:
-
-- `io.socket:socket.io-client`
-
-Migration actions:
-
-- [x] Replace Java Socket.IO client with a KMP-compatible transport seam.
-- [x] Recommended path: abstract current socket manager behind a shared realtime
-  gateway, then implement Android with the existing client initially.
-- Long-term options:
-  - Ktor WebSockets if the server can support a compatible websocket protocol.
-  - Platform-specific Socket.IO actuals if Socket.IO protocol compatibility must
-    remain exact.
-- [x] Socket queue persistence must be decoupled from Room before it can be shared.
-
-Bridge completion notes:
-
-- Realtime socket callers now depend on app-owned gateway/event abstractions
-  instead of direct Socket.IO event constants.
-- `AppSocketManager` owns connection, listener, emit, and retry behavior through
-  a transport interface; Android supplies a Socket.IO transport that preserves
-  current `/socket.io/` auth, websocket/polling, and reconnection behavior.
-- Outbound socket queue persistence is behind a store interface with the current
-  Room table kept as the Android-backed implementation.
-- Full common source-set movement remains deferred until Room/domain JSON payload
-  boundaries and the final cross-platform Socket.IO/WebSocket strategy are chosen.
-
-### Local Database ✅ Done for bridge milestone
-
-Current dependencies:
-
-- `androidx.room:room-runtime`
-- `androidx.room:room-ktx`
-- `androidx.room:room-compiler`
-- `androidx.room:room-sqlite-wrapper`
-- `androidx.sqlite:sqlite-bundled`
-- Android SQLite APIs through Room migrations.
-
-Migration actions:
-
-- [x] Choose Room KMP as the database strategy.
-- [x] Split database entities from domain models. Current Room annotations leak
-  into domain packages for messages and group messages.
-- [x] Refactor `SupportSQLiteDatabase` migrations because that API is Android-only.
-- [x] Preserve existing schema version and migration SQL when changing
-  persistence libraries.
-- [x] Keep DAOs/database builders platform-specific until the KMP database
-  strategy is selected and validated.
-
-Bridge completion notes:
-
-- Room is upgraded to a KMP-capable version and paired with the bundled SQLite
-  and Room SQLite wrapper artifacts recommended for incremental KMP migration.
-- Private and group message Room annotations now live in data-layer local
-  entities, with repositories mapping to the existing domain-facing models.
-- Migration SQL is centralized outside Android `Migration` subclasses so it can
-  be reused when migrations move to SQLite driver APIs in shared code.
-- Android still owns the Room builder and database path through a local factory,
-  preserving the existing `chat_db` name and schema version `13`; the generated
-  Room constructor seam is deferred until this database moves into a true KMP
-  source set.
-
-### Preferences / Secure Storage ✅ Done for bridge milestone
-
-Current dependencies:
-
-- `androidx.datastore:datastore-preferences`
-- `androidx.security:security-crypto`
-- `androidx.security:security-identity-credential`
-- `androidx.security:security-app-authenticator`
-- `EncryptedSharedPreferences`
-- `MasterKey`
-
-Migration actions:
-
-- [x] Refactor DataStore creation to KMP factory style with platform-specific file
-  paths.
-- [x] Keep Android `Context.preferencesDataStore` only in `androidMain`.
-- [x] Replace `EncryptedSharedPreferences` with a secure storage abstraction:
-  - Android actual: Android Keystore / EncryptedSharedPreferences or successor.
-  - iOS actual: Keychain.
-  - Desktop actual: OS keychain or encrypted file strategy.
-- [x] Treat auth tokens, refresh tokens, private keys, pending registration keys,
-  device sync state, theme, language, and onboarding flags as migration-sensitive
-  stored data.
-
-Bridge completion notes:
-
-- Settings DataStore construction now goes through a platform factory that supplies
-  the Android file path while `DataStoreUtil` depends only on `DataStore<Preferences>`.
-- Secure session/key material access now goes through an app-owned
-  `SecureKeyValueStore` abstraction, with Android backed by the existing
-  `EncryptedSharedPreferences` and `MasterKey` strategy.
-- Existing storage filenames, preference keys, defaults, and public manager APIs
-  are preserved so current Android callers continue to work during incremental
-  source-set migration.
-
-### JSON Serialization ✅ Done for bridge milestone
-
-Current dependencies:
-
-- `kotlinx-serialization-json`
-- `gson`
-
-Migration actions:
-
-- [x] Keep `kotlinx.serialization`.
-- [x] Replace Gson usage with kotlinx.serialization or a small common serializer
-  abstraction.
-- [x] Audit all DTOs for `@Serializable`; add annotations where shared decoding is
-  required.
-
-Bridge completion notes:
-
-- Gson is no longer registered in DI or included as an app dependency; Ktor
-  content negotiation continues to use kotlinx serialization for HTTP JSON.
-- Chat DTOs that still participate in JSON payload decoding now have
-  `@Serializable` annotations and explicit serial names for snake_case fields.
-- Existing Socket.IO `JSONObject` and `JSONArray` usage is intentionally left in
-  place until the realtime payload boundary moves further toward common code.
-
-### Images ✅ Done for bridge milestone
-
-Current dependencies:
-
-- `io.coil-kt:coil-compose`
-- `io.coil-kt:coil-video`
-
-Migration actions:
-
-- [x] Upgrade to Coil 3 for CMP image loading.
-- [x] Replace Android-only `ImageRequest.Builder(context)`,
-  `LocalContext`, and video frame decoding with CMP-compatible APIs or
-  platform-specific thumbnail providers.
-- [x] Keep image loading wrappers in one place so UI does not directly depend on
-  Android Coil APIs.
-
-Bridge completion notes:
-
-- Coil is upgraded to Coil 3 using `io.coil-kt.coil3` artifacts, with OkHttp
-  networking kept for the current Android target.
-- Direct Coil Compose, request, cache, image loader, and video-frame APIs are
-  isolated behind `PlatformImage` wrappers so feature UI calls app-owned image
-  APIs instead of Android/Coil request builders.
-- Existing video thumbnail first-frame behavior is preserved through wrapper
-  options, while full media playback/editing remains Android-specific for the
-  later media milestones.
-
-### Video / Audio / Media Playback ✅ Done for bridge milestone
-
-Current dependencies:
-
-- `androidx.media3:media3-exoplayer`
-- `androidx.media3:media3-ui`
-- `androidx.media3:media3-common`
-- `androidx.media3:media3-transformer`
-- `androidx.media3:media3-effect`
-
-Migration actions:
-
-- [x] Move Media3/ExoPlayer code to Android platform seams.
-- [x] Create shared-facing interfaces for:
-  - Audio playback controls.
-  - Queue state.
+# KMP / CMP Migration Checklist
+
+This is the main migration tracker for moving the current Android app to
+Kotlin Multiplatform (KMP) with Compose Multiplatform (CMP).
+
+Target structure:
+
+- `:androidApp`: Android application shell.
+- `:composeApp`: KMP/CMP shared module.
+
+Target platforms:
+
+- Android.
+- iOS.
+- Desktop.
+- Web/Wasm.
+
+## Current Verified State
+
+- [x] The current project builds as a single Android application module.
+  - Verified command: `./gradlew :app:compileDebugKotlin`.
+  - Result: successful.
+- [x] The repository is currently clean before this checklist rewrite.
+- [x] Compose Multiplatform dependencies and plugin usage have started in the
+  existing Android module.
+  - Important: this is not a real KMP module split yet.
+  - Current source still lives under `app/src/main/java`.
+- [x] Compose Destinations generated navigation appears to have been removed from
+  active source.
+  - Current app navigation uses app-owned route/event types such as `AppRoute`,
+    `AppModalRoute`, `AppNavGraph`, and `UIEvent`.
+- [x] Several migration seams already exist and should be preserved.
+  - Networking: `AppHttpClientFactory`, `NetworkExceptionClassifier`,
+    `AppLogger`.
+  - Realtime socket: `RealtimeSocketGateway`, `RealtimeSocketTransport`,
+    `SocketOutboundQueueStore`.
+  - Persistence: local Room entities are separated for private and group
+    messages, and migration SQL is centralized in `MessageDatabaseMigrationSql`.
+  - Preferences/security: `SecureKeyValueStore` and platform DataStore factory.
+  - Platform UI/media: `PlatformImage`, `PlatformVideoPlayer`,
+    `PlatformUiEffect`, platform media references, upload content abstractions,
+    audio recorder abstractions, and playback controller abstractions.
+  - Background work: `BackgroundTaskScheduler` and task registry abstractions.
+  - Crypto: `MessageCrypto`, `RsaCrypto`, `AesGcmCrypto`, `Base64Codec`,
+    `HashCrypto`.
+- [x] Useful JVM/Android tests already exist for DTO mappers, routes, crypto,
+  socket retry policy, upload policy, notification logic, startup, and several
+  reducers.
+
+## Architecture Rules
+
+All migration work must preserve MVVM with Clean Architecture.
+
+- [ ] Domain code must not import data-layer packages.
+- [ ] Domain code must not import presentation-layer packages.
+- [ ] Domain models and repository interfaces must expose domain-safe models,
+  not DTOs, Room entities, Android `Uri`, Android `Context`, or platform file
+  types.
+- [ ] ViewModels/state holders must depend on use cases and platform-neutral
+  interfaces, not repositories directly when a use case exists.
+- [ ] Shared ViewModels/state holders must not extend `AndroidViewModel` and must
+  not depend on `Application`, Android `Context`, Android resources, Android
+  lifecycle APIs, or Android permission APIs.
+- [ ] Platform behavior must be represented by focused interfaces and supplied
+  through platform implementations.
+- [ ] Data implementations may depend on Ktor, Room, platform storage, platform
+  media, and DTOs, but those details must not leak into domain contracts.
+- [ ] Presentation composables that move to common must use CMP-compatible APIs
+  and app-owned platform wrappers for side effects.
+- [ ] After each completed change, run the relevant verification command and
+  commit the change with an appropriate scoped commit message.
+
+## Migration Checklist
+
+### 1. Establish And Commit The Baseline
+
+- [ ] Commit this checklist rewrite.
+  - Use a documentation commit message, for example:
+    `docs(kmp): refresh migration checklist`.
+- [ ] Record the current baseline build status in the commit or PR notes.
+  - Required command: `./gradlew :app:compileDebugKotlin`.
+  - Current known result: successful.
+- [ ] Before every later migration step, confirm whether the working tree already
+  contains unrelated changes and avoid reverting user work.
+
+### 2. Create The Real KMP/CMP Module Structure
+
+- [ ] Rename or replace the current Android-only `:app` shell with
+  `:androidApp`.
+  - Preserve `applicationId = "com.sec.message"`.
+  - Preserve Android namespace, manifest declarations, permissions, services,
+    providers, signing, ProGuard, version code/name, and Android resources.
+  - Keep Android app startup, `DinoOrderApplication`, `MainActivity`,
+    `CrashReportActivity`, notification channels, foreground services,
+    permission prompts, edge-to-edge setup, and intent handling in the Android
+    shell.
+- [ ] Add `:composeApp` as a Kotlin Multiplatform module.
+  - Configure `commonMain`, `commonTest`, `androidMain`, `iosMain`,
+    `desktopMain`, and web/wasm source sets.
+  - Apply `org.jetbrains.kotlin.multiplatform`, `org.jetbrains.compose`,
+    Compose compiler, and serialization plugins as needed.
+  - Keep Android-only Gradle plugins out of shared/common code.
+- [ ] Wire `:androidApp` to depend on `:composeApp`.
+  - The Android app must continue to compile and launch after the split.
+  - Do not move behavior in this step except the minimum needed for module
+    wiring.
+- [ ] Add baseline KMP verification tasks.
+  - Compile Android target.
+  - Compile common metadata.
+  - Run `commonTest`.
+  - Add iOS, desktop, and web/wasm compile checks as soon as source sets are
+    configured.
+- [ ] Commit after verification.
+  - Suggested message: `build(kmp): add androidApp and composeApp modules`.
+
+### 3. Fix Clean Architecture Boundary Violations
+
+- [ ] Move `Resource` out of `corefeature.presentation.util`.
+  - Current issue: many domain repositories and use cases import
+    `com.dino.message.corefeature.presentation.util.Resource`.
+  - Create a domain-safe result type under a domain/core package, or move the
+    existing type to a neutral package.
+  - Update all domain, data, presentation, and test imports.
+  - Ensure presentation-only UI event state stays in presentation.
+- [ ] Remove domain imports of data DTOs.
+  - Current examples include chat/group domain contracts importing
+    `MessageAttachment`, `MessageSent`, `NewMessage`, `PendingMessage`, and
+    `UnreadResponse` from data remote DTO packages.
+  - Create domain models for these concepts.
+  - Map DTOs to domain models in the data layer.
+  - Keep server wire names and serialization annotations only in DTOs.
+- [ ] Remove domain imports of data upload classes.
+  - Current examples include domain upload models/use cases importing
+    `ReadableMediaFile` from `corefeature.data.upload`.
+  - Move the neutral upload contract to a domain/core package, or introduce a
+    domain-facing `UploadSource` type and map platform/data implementations to
+    it.
+  - Android `Uri`, `ContentResolver`, `File`, stream opening, MIME probing, and
+    metadata extraction must remain platform/data implementation details.
+- [ ] Replace domain dependencies on concrete persistence/session classes.
+  - Current examples include domain code importing `SPrefManager`,
+    `MessageDatabase`, `ActiveChatTracker`, and `ActiveGroupTracker`.
+  - Introduce domain interfaces for session clearing, database clearing, and
+    active chat/group state.
+  - Bind current Android implementations through DI.
+- [ ] Add boundary checks.
+  - Add a lightweight script or Gradle check that fails when domain code imports
+    `.data.`, `.presentation.`, `android.`, or `androidx.` packages, except for
+    explicitly approved multiplatform-safe APIs.
+- [ ] Commit after verification.
+  - Suggested message: `refactor(architecture): enforce domain boundaries`.
+
+### 4. Make ViewModels And State Holders Multiplatform-Ready
+
+- [ ] Replace all `AndroidViewModel` inheritance.
+  - Current affected areas include auth, chat, group, main page, search, splash,
+    thread, profile, report, update, activity notification, and core dialog/main
+    ViewModels.
+  - Use a KMP-compatible ViewModel approach or plain state-holder pattern.
+  - Android-specific adapters may remain in `:androidApp` or `androidMain`.
+- [ ] Remove `Application` and `Context` constructor dependencies from shared
+  ViewModel candidates.
+  - Replace app strings with `StringResolver` or UI text models.
+  - Replace app config with `AppConfig`.
+  - Replace process/app operations with focused platform interfaces.
+  - Replace toast/clipboard/browser effects with `PlatformUiEffect` or UI events.
+- [ ] Keep lifecycle, permissions, activity result launchers, saved-state
+  adapters, and Android navigation execution outside shared ViewModels.
+- [ ] Ensure ViewModels expose immutable state and one-shot events.
+  - State should be serializable or platform-neutral where practical.
+  - Navigation should continue through app route commands, not platform
+    navigation types.
+- [ ] Add unit tests for migrated state holders.
+  - Cover initial state, loading/success/error transitions, navigation events,
+    retry behavior, and cancellation behavior where relevant.
+- [ ] Commit after verification.
+  - Suggested message: `refactor(viewmodel): remove android application coupling`.
+
+### 5. Move Pure Common Logic To `:composeApp/commonMain`
+
+- [ ] Move platform-free domain models and use cases after the architecture
+  cleanup is complete.
+- [ ] Move pure reducers, policies, route models, codecs, queue controllers, and
+  utility logic.
+  - Good candidates include route serialization, upload size/MIME policies,
+    message deduplication, socket retry policy, socket payload codec, playback
+    queue controller, contact delta reducer, comment ordering, local paging, and
+    startup coordination logic that has no platform imports.
+- [ ] Move existing JVM tests for moved logic to `commonTest`.
+  - Convert from JUnit assertions to `kotlin.test` where needed.
+  - Keep Android-specific tests in Android source sets.
+- [ ] Keep any code with Android, JVM-only, Room, Java security, Java IO, or
+  resource imports out of `commonMain` until platform abstractions exist.
+- [ ] Commit in small groups.
+  - Suggested messages:
+    - `refactor(kmp): move route models to common`
+    - `refactor(kmp): move upload policy to common`
+    - `test(kmp): move pure logic tests to common`.
+
+### 6. Move Networking To Common
+
+- [ ] Move Ktor API interfaces, request construction, response mapping, DTOs, and
+  serialization setup that have no platform dependency to `commonMain`.
+- [ ] Configure platform HTTP engines.
+  - Android: OkHttp.
+  - iOS: Darwin.
+  - Desktop: CIO or Java engine.
+  - Web/Wasm: supported Ktor web engine selected for the final web target.
+- [ ] Remove Android `Context` from API service implementations.
+  - Current API service implementations still include `Context` usage in several
+    features.
+  - Use structured API errors or a domain-safe `StringResolver` boundary instead
+    of resolving Android strings in data/network code.
+- [ ] Keep auth token injection and refresh behavior platform-neutral.
+  - Secure token lookup must go through shared session/secure-storage
+    interfaces.
+  - Android encrypted storage remains the Android implementation.
+- [ ] Preserve all server wire shapes.
+  - DTO serial names must match existing API payloads.
+  - Multipart field names and response parsing must remain compatible.
+- [ ] Add or move tests.
+  - DTO mapper tests.
+  - Serialization round-trip tests for request/response DTOs.
+  - Error mapping tests.
+  - Token refresh/session-expiry tests.
+- [ ] Commit after verification.
+  - Suggested message: `refactor(network): move ktor services to common`.
+
+### 7. Complete Resource And Localization Migration
+
+- [ ] Move shared UI strings to Compose Multiplatform resources.
+  - Replace common/shared usages of Android `R.string` and
+    `androidx.compose.ui.res.stringResource`.
+  - Keep Android resource access only in Android shell/platform code.
+- [ ] Move shared drawable/vector assets to CMP resources.
+  - Replace common/shared usages of Android `R.drawable`, `R.mipmap`, and
+    `androidx.compose.ui.res.painterResource`.
+  - Keep launcher icons, notification icons, XML provider metadata, and
+    Android-only service assets in Android resources.
+- [ ] Replace domain models that expose Android resource IDs.
+  - Current examples include `StringResourceContent`, `AppTheme`, and
+    `AppLanguage`.
+  - Use stable keys/enums/domain text descriptors instead of Android resource
+    IDs.
+- [ ] Preserve current localization behavior.
+  - Keep Persian/RTL behavior working.
+  - Keep Android locale application in the Android shell until shared resource
+    locale handling is fully validated.
+- [ ] Add UI/resource compile checks for all configured targets.
+- [ ] Commit after verification.
+  - Suggested message: `refactor(resources): migrate shared strings to cmp`.
+
+### 8. Move Compose UI Feature By Feature
+
+- [ ] Start with platform-light screens.
+  - Recommended first candidates: error/no-internet/update/basic notification
+    screens, then auth/profile/search screens.
+  - Move chat, group chat, story editor/viewer, music, media picker, and playback
+    screens later.
+- [ ] For each moved screen, remove shared composable dependencies on:
+  - `LocalContext`.
+  - Android `Toast`.
+  - Android activity result APIs.
+  - Android permission APIs.
+  - Android lifecycle observers.
+  - Android resource IDs.
+  - Android `Uri`.
+  - Media3/ExoPlayer views.
+  - Android keyboard/window APIs.
+- [ ] Keep Android edges as adapters.
+  - Permission launchers, pickers, file providers, notification permission,
+    system bars, keyboard/window control, and activity lifecycle handling remain
+    in `:androidApp` or platform source sets.
+- [ ] Keep shared UI dependent on state, callbacks, route commands, CMP
+  resources, and platform wrapper interfaces only.
+- [ ] Verify every moved feature on Android and through all target compile tasks.
+- [ ] Commit each feature migration separately.
+  - Suggested message format:
+    `refactor(cmp): move <feature> ui to composeApp`.
+
+### 9. Finalize Persistence
+
+- [ ] Keep Room KMP as the selected database strategy.
+- [ ] Move database declarations, entities, DAOs, and migration SQL only after
+  the module split and source sets are stable.
+- [ ] Preserve the current Android database contract.
+  - Database name: `chat_db`.
+  - Current schema version: `13`.
+  - Existing migration SQL must remain compatible.
+- [ ] Keep domain models separate from Room entities.
+  - Private message and group message local entities must remain data-layer
+    persistence models.
+  - Repositories map local entities to domain models.
+- [ ] Add platform database builders.
+  - Android builder keeps the existing database location.
+  - iOS, desktop, and web/wasm storage strategy must be explicit before enabling
+    persistence on those targets.
+- [ ] Add migration and repository tests.
+  - Private messages.
+  - Group messages.
+  - Socket outbound queue.
+  - Crash log queue.
+  - Notification/message dedupe stores.
+  - Schema migration from existing Android installs.
+- [ ] Commit after verification.
+  - Suggested message: `refactor(database): move room schema to composeApp`.
+
+### 10. Finalize Preferences, Secure Storage, And Crypto
+
+- [ ] Keep existing Android preference filenames, keys, defaults, and encrypted
+  storage behavior.
+- [ ] Add platform secure storage implementations.
+  - Android: current encrypted storage or vetted successor.
+  - iOS: Keychain.
+  - Desktop: OS keychain or encrypted file strategy.
+  - Web/Wasm: explicit browser storage strategy with documented security limits.
+- [ ] Keep sensitive data behind secure/session interfaces.
+  - Auth token.
+  - Refresh token.
+  - Private keys.
+  - Pending registration keys.
+  - Device sync state.
+  - Theme, language, onboarding, and session flags.
+- [ ] Add non-Android crypto implementations or adopt a vetted KMP crypto
+  library.
+  - Preserve RSA 2048 key generation/import/export.
+  - Preserve RSA OAEP SHA-256/MGF1 SHA-256 v2 payload compatibility.
+  - Preserve AES-GCM `iv + ciphertext/tag` compatibility.
+  - Preserve legacy RSA PKCS#1/AES fallback decryption.
+  - Preserve public-key parsing formats currently supported by Android/JVM.
+- [ ] Keep golden-vector tests in common.
+  - Private-message round trips.
+  - Group-message recipient key round trips.
+  - Legacy payload decrypt.
+  - Public-key import/export formats.
+  - Stable debug fingerprints.
+- [ ] Commit after verification.
+  - Suggested message: `feat(kmp): add multiplatform secure storage`.
+
+### 11. Finalize Realtime Socket
+
+- [ ] Keep current Android Socket.IO behavior behind `RealtimeSocketTransport`.
+  - Preserve `/socket.io/` auth, websocket/polling behavior, reconnection policy,
+    event names, and payload shapes unless the server protocol changes.
+- [ ] Choose and implement non-Android realtime transports.
+  - Option A: platform-specific Socket.IO actuals.
+  - Option B: Ktor WebSockets if the server supports a compatible protocol.
+  - Do not silently switch protocols without server compatibility validation.
+- [ ] Keep outbound queue persistence behind shared contracts.
+  - Shared code owns queue policy and payload encoding.
+  - Platform code owns durable storage.
+- [ ] Add tests.
+  - Event mapping.
+  - Payload serialization/deserialization.
+  - Retry/backoff policy.
+  - Queue persistence behavior.
+  - Reconnect and auth-refresh behavior.
+- [ ] Commit after verification.
+  - Suggested message: `feat(kmp): add multiplatform realtime transport`.
+
+### 12. Finalize Media, Uploads, And Files
+
+- [ ] Keep platform-neutral upload/file handles in shared APIs.
+  - Shared contracts may expose ID/URI string, display name, MIME type, size,
+    byte reading, and lifecycle/cleanup hooks.
+  - Shared contracts must not expose Android `Uri`, `ContentResolver`,
+    `OpenableColumns`, `MimeTypeMap`, `MediaStore`, `FileProvider`, or
+    `Environment`.
+- [ ] Implement media picking per platform.
+  - Android keeps Activity Result APIs and URI permission handling.
+  - iOS uses native picker/file APIs.
+  - Desktop uses desktop file chooser/file APIs.
+  - Web/Wasm uses browser file input/blob APIs.
+- [ ] Implement media metadata extraction per platform.
+  - Preserve current duration, size, MIME, title/artist, and thumbnail behavior
+    where supported.
+  - Document target-specific unsupported metadata behavior.
+- [ ] Keep upload validation common.
+  - MIME policy.
+  - Size policy.
+  - Media category policy.
+  - User-visible validation errors through domain/presentation-safe text models.
+- [ ] Preserve multipart upload behavior for chat, group, profile, post, music
+  post, and story flows.
+- [ ] Commit feature areas separately.
+  - Suggested message format:
+    `refactor(upload): move <flow> upload source to common`.
+
+### 13. Finalize Playback, Recording, Story Editing, And Background Work
+
+- [ ] Keep playback state and queue logic shared.
+  - Queue normalization.
+  - Active index.
+  - Progress/duration state.
+  - Repeat/shuffle behavior.
   - Now-playing metadata.
-  - Seek/play/pause/repeat/shuffle events.
-  - Media duration/metadata extraction.
-  - Media transcoding/compression, if still required.
-- [ ] Implement platform actuals for iOS/desktop/web using native media APIs or a
-  KMP media library.
-- [x] Keep Android `Service`, foreground notification, media session, and audio
-  focus code Android-only.
-
-Bridge completion notes:
-
-- Audio playback UI now calls a platform-neutral `MediaPlaybackController`
-  surface; Android `Context`, foreground-service intents, Media3 player setup,
-  media session, notifications, caching, and audio-focus/noisy handling remain
-  inside Android-backed playback code.
-- Playback state now includes now-playing metadata, queue contents, queue index,
-  progress, duration, buffering, error, repeat, and shuffle state for shared UI
-  migration.
-- Video playback composables use the app-owned `PlatformVideoPlayer` wrapper
-  instead of embedding ExoPlayer/PlayerView directly in feature screens.
-- Duration/title/artist/MIME probing now goes through a shared-facing media
-  metadata extractor contract with Android backed by `MediaMetadataRetriever`.
-- Story video export/transformation still uses Android Media3 Transformer behind
-  the current Android story-editor implementation; non-Android actuals remain a
-  future target-specific milestone.
-
-### Audio Recording ✅ Done for bridge milestone
-
-Current APIs:
-
-- `MediaRecorder`
-- `RECORD_AUDIO` permission
-- `FileProvider`
-- Android `Uri`
-- Android cache directory
-
-Migration actions:
-
-- [x] Move current voice recorder implementation to Android platform seams.
-- [x] Define a shared recorder contract that returns a platform-neutral media handle
-  instead of `android.net.Uri`.
-- [ ] Add platform actuals for iOS/desktop only after target requirements are clear.
-
-Bridge completion notes:
-
-- Voice recording now uses an app-owned `PlatformAudioRecorder` contract with
-  neutral `RecordedAudio` handles for recording source, name, MIME type, size,
-  and duration.
-- Android recording remains backed by `MediaRecorder`, AAC-in-MP4 `.m4a` cache
-  files, Android cache cleanup, and Android URI conversion only at the current
-  upload boundary.
-- Private and group chat ViewModels depend on the recorder contract instead of
-  the concrete Android recorder type, while runtime microphone permission
-  launchers remain in Android UI screens.
-
-### Background Work ✅ Done for bridge milestone
-
-Current dependency:
-
-- `androidx.work:work-runtime-ktx`
-
-Migration actions:
-
-- [x] Keep WorkManager only in Android source set.
-- [x] Abstract background tasks:
-  - Pending private chat upload retry.
-  - Pending group upload retry.
-  - Socket outbound retry.
-  - Crash log retry.
-- [x] For non-Android targets, choose platform-specific scheduling or run retries
-  in app lifecycle scope.
-
-Bridge completion notes:
-
-- Background retry requests now go through an app-owned `BackgroundTaskScheduler`
-  and task registry instead of feature code directly owning scheduling details.
-- Socket outbound retry and crash log retry are registered task handlers that
-  preserve the current in-process coroutine behavior for the Android app.
-- Private and group upload retry task IDs exist as no-op bridge hooks; persistent
-  attachment upload retry is deferred until cross-platform file-handle retention
-  and retry UX are specified.
-- WorkManager remains an Android dependency and can be introduced behind the
-  Android scheduler implementation without changing shared-facing task callers.
-
-### Android UI Utility Libraries ✅ Done for bridge milestone
-
-Current dependencies:
-
-- `androidx.swiperefreshlayout:swiperefreshlayout`
-- `com.google.accompanist:accompanist-systemuicontroller`
-- `androidx.constraintlayout:constraintlayout-compose`
-- `androidx.graphics:graphics-shapes`
-- `androidx.compose.material:material-icons-extended`
-- `com.airbnb.android:lottie-compose`
-
-Migration actions:
-
-- [x] Replace `SwipeRefreshLayout` and custom View subclassing with CMP pull refresh
-  or pure Compose gesture logic.
-- [x] Replace Accompanist system UI controller with platform-specific system bar
-  handling.
-- [x] Verify `constraintlayout-compose` availability for CMP targets; otherwise
-  rewrite layouts with `Box`, `Row`, `Column`, `Lazy*`, and custom layouts.
-- [x] Verify `graphics-shapes` target support before moving shape utilities to
-  common code.
-- [x] Keep material icons if the selected CMP dependency provides them for all
-  targets; otherwise replace with shared vector resources.
-- [x] Replace Android Lottie with a CMP-compatible alternative such as Compottie, or
-  keep animations platform-specific.
-
-Bridge completion notes:
-
-- `SwipeRefreshLayout`, Accompanist system UI controller, ConstraintLayout
-  Compose, AndroidX graphics-shapes, Material Icons Extended, and Lottie Compose
-  dependencies were removed from the app module.
-- The remaining active playlist ConstraintLayout usage was rewritten with pure
-  Compose layout primitives, and the profile decorative polygon shape now uses
-  an app-owned Compose `Shape` implementation.
-- Direct Material icon imports were replaced by an app-owned `AppIcons` vector
-  boundary, so future CMP resource migration can move icons without touching
-  feature screens.
-- The create-post options animation uses the existing custom Canvas animation;
-  stale Lottie imports and dependency wiring were removed.
-
-### Testing
-
-Current dependencies:
-
-- JUnit 4.
-- AndroidX test JUnit.
-- Espresso.
-- Android Compose UI test artifacts.
-
-Migration actions:
-
-- Keep Android instrumentation tests in Android source sets.
-- Add common tests with `kotlin.test`.
-- Add target-specific UI tests only where tooling supports the chosen targets.
-- Start with tests around migrated pure logic: upload policy, reducers, route
-  serialization, DTO mapping, token/session rules, and crypto compatibility.
-
-## Android-Specific APIs To Abstract Or Move
-
-### Application / Activity / Manifest ✅ Done for bridge milestone
-
-Current Android-only areas:
-
-- `DinoOrderApplication`.
-- `MainActivity`.
-- `CrashReportActivity`.
-- Manifest permissions, activities, services, and provider declarations.
-- Notification channels and foreground services.
-- Runtime permissions.
-- WebView setup.
-- Locale configuration through Android resources/configuration.
-
-Migration action:
-
-- [x] Keep app lifecycle shells in `androidMain`.
-- [x] Expose only platform-neutral app lifecycle events to shared code.
-
-Bridge completion notes:
-
-- Android application and activity classes remain the app-shell owners for Koin
-  startup, manifest entrypoints, runtime permissions, locale resource mutation,
-  crash UI restart intents, foreground services, and provider declarations.
-- App foreground/background and visible-screen callbacks now flow through
-  platform-neutral lifecycle event and observer abstractions instead of placing
-  all background cleanup directly in `DinoOrderApplication`.
-- Navigation events now use an injectable UI event bus, so shared-facing callers
-  no longer need to depend on app-shell global flows.
-- Notification channel setup and notification clearing now go through an
-  app-owned notification controller backed by the current Android notification
-  helper.
-- Notification deep links are parsed into typed app routes behind an Android
-  intent handler, keeping `Intent` and notification extras at the Android shell
-  boundary.
-
-### Context And Resources ✅ Done for bridge milestone
-
-Current Android-only patterns:
-
-- `Context` injected into repositories, ViewModels, API utilities, storage
-  managers, media managers, and UI helpers.
-- `context.getString(...)`.
-- `R.string`, `R.drawable`, `R.mipmap`, XML drawables, Android resource IDs.
-- `@StringRes`, `@DrawableRes`.
-- `LocalContext` inside composables.
-
-Migration action:
-
-- [x] Replace direct `Context` dependencies with focused interfaces:
-  - `StringResolver`.
-  - `AppConfig`.
-  - `DeviceInfoProvider`.
-  - `NetworkStatusProvider`.
-  - `ClipboardManager`.
-  - `Toast/Snackbar/EventNotifier`.
-  - `FileSystemProvider`.
-- [ ] Move resources to Compose Multiplatform resources where shared UI needs them.
-- [x] Keep Android resource IDs only in Android-specific code for this bridge
-  milestone.
-
-Bridge completion notes:
-
-- Non-composable string resolution now has a `StringResolver` seam, with Android
-  backed by existing string resources.
-- Runtime app constants now flow through `AppConfig`, keeping `BuildConfig`
-  reads at the Android DI boundary.
-- Device ID, network status, and app cache cleanup are behind app-owned provider
-  interfaces with Android implementations.
-- Chat, group chat, and main-screen user feedback now use the existing
-  platform UI effect boundary for toast and clipboard actions instead of direct
-  `Toast`/clipboard calls in shared-facing UI paths.
-- Full resource migration remains deferred: composable `stringResource`,
-  `painterResource`, Android drawable IDs, media `Uri`/`ContentResolver`, and
-  platform media save flows stay Android-specific until the resource and file
-  milestones.
-
-### Files, URIs, And Uploads ✅ Done for bridge milestone
-
-Current Android-only patterns:
-
-- `android.net.Uri`.
-- `ContentResolver`.
-- `OpenableColumns`.
-- `MimeTypeMap`.
-- `MediaStore`.
-- `FileProvider`.
-- `Environment`.
-- `java.io.File` passed through domain/repository APIs.
-- Multipart uploads built from JVM input streams.
-
-Migration action:
-
-- [x] Introduce a platform-neutral media/file handle:
-  - ID or URI string.
-  - Display name.
-  - MIME type.
-  - Size.
-  - Open-read-byte-channel callback.
-- [x] Keep Android URI resolution in `androidMain`.
-- [x] Keep common validation in shared code.
-
-Bridge completion notes:
-
-- Upload-facing domain contracts now use `ReadableMediaFile`/`MediaFileHandle`
-  instead of exposing `android.net.Uri`.ik
-- Android picker, recorder, and story editor boundaries convert `Uri` values into
-  readable media files before invoking domain use cases.
-- Private chat, group chat, post/story, and profile multipart uploads now reuse
-  neutral file metadata/input providers; `ContentResolver`, `OpenableColumns`,
-  `MimeTypeMap`, `File`, and stream conversion remain Android implementation
-  details.
-
-### Media And Graphics ✅ Done for bridge milestone
-
-Current Android-only patterns:
-
-- `Bitmap`, `BitmapFactory`, `ImageDecoder`.
-- `MediaMetadataRetriever`.
-- `MediaPlayer`.
-- `MediaRecorder`.
-- `AudioManager`.
-- `MediaSession`.
-- `PlaybackState`.
-- ExoPlayer/Media3 UI.
-
-Migration action:
-
-- [x] Move platform media operations to platform implementations.
-- [x] Keep common UI state and intent models shared.
-- [x] Avoid exposing Android media types from shared ViewModels or repositories.
-
-Bridge completion notes:
-
-- Media selection/upload boundaries now use platform-neutral
-  `PlatformMediaReference`, `PlatformPickedMedia`, `PlatformMediaResolver`, and
-  `PlatformMediaMetadataExtractor` contracts.
-- Android `Uri`, `ContentResolver`, and `MediaMetadataRetriever` usage is
-  isolated in Android media/upload implementations and Compose picker edges.
-- Chat, group chat, create/edit post, music post, and edit profile ViewModels no
-  longer expose Android media types for picked/uploaded media.
-- Voice recordings are sent through neutral media references instead of passing
-  Android `Uri` values through ViewModels.
-- Media3/ExoPlayer playback, Coil image loading, and story bitmap/export code
-  remain Android platform implementations behind existing UI/platform wrappers.
-
-### Notifications ✅ Done for bridge milestone
-
-Current Android-only patterns:
-
-- `Notification`, `NotificationChannel`, `NotificationManager`.
-- `PendingIntent`.
-- `NotificationManagerCompat`.
-- `POST_NOTIFICATIONS`.
-- Foreground service notifications.
-
-Migration action:
-
-- [x] Keep Android notification implementation in `androidMain`.
-- [x] Share only notification intent/payload models if needed.
-
-Bridge completion notes:
-
-- Notification display is now behind an app-owned presenter interface, while
-  Android channel creation, `PendingIntent` construction, notification IDs,
-  resources, and `MainActivity` intents stay in the Android implementation.
-- Socket-driven in-app notification orchestration no longer depends directly on
-  Android `Context` or `SharedPreferences`; private-message dedupe persistence
-  is supplied through a notification snapshot store interface.
-- Notification channel setup, clearing, dedupe reset, and notification socket
-  disconnects continue through `AppNotificationController`, so shared-facing
-  callers do not need direct Android notification APIs.
-- `POST_NOTIFICATIONS` runtime permission handling and foreground service
-  playback notifications remain Android shell/service responsibilities.
-
-### Connectivity / Device / System ✅ Done for bridge milestone
-
-Current Android-only patterns:
-
-- `ConnectivityManager`.
-- `NetworkCapabilities`.
-- `Settings.Secure`.
-- `Build`, `Build.VERSION`.
-- `Process`.
-- `SystemClock`.
-- `Handler`, `Looper`.
-- `Toast`.
-- `Log`.
-- `ClipData`.
-- `WindowManager`.
-
-Migration action:
-
-- [x] Replace with common abstractions:
-  - `NetworkMonitor`.
-  - `DeviceIdProvider`.
-  - `PlatformInfo`.
-  - `Clock`.
-  - `Logger`.
-  - `Clipboard`.
-  - `UserMessageDispatcher`.
-- [x] Use kotlinx datetime/time or Kotlin time APIs where possible.
-
-Bridge completion notes:
-
-- Connectivity and device ID are behind app-owned providers backed by Android
-  `ConnectivityManager`, `NetworkCapabilities`, and `Settings.Secure`.
-- Platform device metadata, process termination, wall-clock time, and uptime are
-  behind system contracts used by crash reporting, socket queue persistence, and
-  debug watchdog code.
-- Shared-adjacent socket, notification, crash, and upload orchestration now use
-  `AppLogger`/`AppClock` instead of direct Android logging or time APIs.
-- Clipboard, toast, and browser side effects remain behind `PlatformUiEffect`
-  with Android `Toast`, `ClipData`, and intents isolated in the Android
+- [ ] Implement actual playback per platform.
+  - Android keeps Media3/ExoPlayer, service, audio focus, media session, cache,
+    and foreground notification behavior.
+  - iOS, desktop, and web/wasm use native or vetted target-appropriate playback
+    APIs.
+- [ ] Implement audio recording per platform.
+  - Android keeps `MediaRecorder`, cache files, microphone permissions, and URI
+    conversion at Android edges.
+  - Other targets return the same neutral recorded-audio model.
+- [ ] Keep story/video editing platform-specific until each target has an
   implementation.
-- Android-only UI, media, music service, theme, permission, keyboard/window, and
-  story export code still owns its platform system APIs until those areas move
-  behind their own platform shells.
+  - Android Media3 Transformer remains Android-only.
+  - Shared code owns editor state, validation, and upload intent models.
+- [ ] Define background retry behavior per platform.
+  - Android may use WorkManager/foreground services behind the scheduler.
+  - iOS, desktop, and web/wasm need explicit lifecycle/background constraints.
+  - Cover pending uploads, socket outbound retry, crash log upload, and any
+    notification sync behavior.
+- [ ] Commit after verification.
+  - Suggested messages:
+    - `feat(kmp): add multiplatform audio recorder contract`
+    - `feat(kmp): add platform playback implementations`
+    - `refactor(background): isolate retry scheduling by platform`.
 
-### Crypto ✅ Done for bridge milestone
+### 14. Notifications, Crash Reporting, And Startup
 
-Current Android/JVM-only patterns:
+- [ ] Keep Android notification implementation platform-specific.
+  - Notification channels.
+  - `NotificationManager`.
+  - `PendingIntent`.
+  - Runtime notification permission.
+  - Foreground service notifications.
+  - Android notification icons/resources.
+- [ ] Share only platform-neutral notification intent and payload models.
+- [ ] Add target-specific notification behavior only after product requirements
+  are clear for iOS, desktop, and web/wasm.
+- [ ] Keep crash capture and restart UI platform-specific.
+  - Android keeps uncaught exception handler, crash activity, restart intents,
+    Room-backed crash queue, and process kill/exit behavior.
+  - Shared code may own crash payload construction, trimming, breadcrumbs, and
+    upload mapping.
+- [ ] Keep startup split clean.
+  - Shared startup initializes common state and observers.
+  - Android shell owns Koin startup, crash reporter installation, notification
+    channel setup, Android music setup, locale application, permissions, and
+    intent/deep-link consumption.
+- [ ] Commit after verification.
+  - Suggested message: `refactor(startup): separate shared and android startup`.
 
-- `android.util.Base64`.
-- `java.security.KeyPairGenerator`.
-- `java.security.KeyFactory`.
-- `java.security.PublicKey`.
-- `java.security.PrivateKey`.
-- `java.security.SecureRandom`.
-- `java.security.MessageDigest`.
-- `javax.crypto.Cipher`.
-- `GCMParameterSpec`.
-- `OAEPParameterSpec`.
-- `SecretKeySpec`.
-- `CertificateFactory`.
+### 15. Remove Obsolete Dependencies And Stale Code
 
-Migration action:
+- [ ] Remove dependencies only after source imports are gone.
+  - AndroidX Compose artifacts replaced by CMP equivalents where code is shared.
+  - Android-only Koin artifacts kept only in Android source sets.
+  - OkHttp Ktor engine kept only for Android/JVM targets that use it.
+  - Socket.IO Java client kept only if Android transport still requires it.
+  - Media3, AndroidX Security, WorkManager, Room Android artifacts, and Android
+    test artifacts kept only in Android source sets.
+- [ ] Remove stale comments and old migration wording after each area is moved.
+- [ ] Remove security-sensitive debug logs.
+  - Current TODOs in chat/group surfaces mention raw key samples in production
+    logs; redact or remove those logs before release.
+- [ ] Run dependency and import audits.
+  - No Android imports in `commonMain`.
+  - No data/presentation imports in domain.
+  - No unused old generated navigation or Android-only UI utility dependencies.
+- [ ] Commit after verification.
+  - Suggested message: `chore(kmp): remove obsolete android dependencies`.
 
-- [x] Define shared crypto interfaces for:
-  - [x] Base64 encode/decode.
-  - [x] RSA key generation/import/export.
-  - [x] RSA OAEP encryption/decryption.
-  - [x] AES-GCM encryption/decryption.
-  - [x] SHA/hash operations.
-- [x] Implement actuals per platform or adopt a KMP crypto library after verifying
-  RSA/OAEP and AES/GCM compatibility.
-- [x] Add cross-platform golden-vector tests before shipping.
+## Final Acceptance Criteria
 
-Bridge completion notes:
+- [ ] The project uses `:androidApp + :composeApp`.
+- [ ] Android builds and existing Android behavior remains compatible.
+- [ ] `:composeApp` compiles for Android, iOS, desktop, and web/wasm targets.
+- [ ] Common tests pass.
+- [ ] Android unit tests pass.
+- [ ] Android instrumentation tests pass where required.
+- [ ] Domain code has no data, presentation, Android, or AndroidX imports.
+- [ ] Shared UI has no Android resource, context, lifecycle, permission, or
+  activity-result dependencies.
+- [ ] Existing database schema, secure storage keys, crypto payloads, route
+  arguments, server wire shapes, and upload multipart behavior remain compatible.
+- [ ] Every completed checklist item has a corresponding commit with an
+  appropriate commit message.
 
-- Message encryption/decryption callers now depend on app-owned crypto
-  contracts and a `MessageCrypto` facade instead of direct presentation utility
-  functions.
-- Android/JVM crypto remains the current platform implementation, preserving RSA
-  2048 key generation, RSA OAEP SHA-256/MGF1 SHA-256 v2 payloads, AES-GCM
-  `iv + ciphertext/tag` payloads, and legacy RSA PKCS#1/AES fallback
-  decryption.
-- Public/private key import/export and public-key debug hashing are behind the
-  same crypto boundary, including the existing X.509, PEM, certificate,
-  PKCS#1 RSA public key, nested PEM, and OpenSSH `ssh-rsa` public-key formats.
-- JVM unit tests cover v2 private-message round trips, group-message recipient
-  key round trips, existing group AES-key reply-preview encryption, legacy
-  payload decryption, public-key decoding formats, and stable debug
-  fingerprints.
-- Full common source-set movement still waits on the actual KMP module split and
-  non-Android implementations or a vetted KMP crypto library for each target.
+## Useful References
 
-### Parcelable / Android Route Arguments ✅ Done
-
-Current Android-only patterns:
-
-- `Parcelable`.
-- `@Parcelize`.
-- Android route argument passing through generated destinations.
-
-Migration action:
-
-- Replace with `@Serializable` route/data models or plain common data classes.
-- Keep Android parcelables only for Android platform interop, not shared models.
-
-## Libraries That Can Remain With Minimal Or Moderate Changes ✅ Done for bridge milestone
-
-- [x] **Kotlin coroutines / Flow**: Keep, but avoid Android/JVM-only dispatchers in
-  common code unless wrapped.
-- [x] **kotlinx.serialization**: Keep as primary common serialization stack.
-- [x] **Ktor core and plugins**: Keep in shared networking; move engines per target.
-- [x] **Koin**: Keep as DI framework; split Android and common artifacts.
-- [x] **Compose runtime/foundation/material3 concepts**: Keep UI architecture, but
-  switch to CMP dependencies and remove Android-only APIs.
-- [x] **Pure domain models/use cases/repository interfaces**: Most can move after
-  removing `Parcelable`, `Room`, `Uri`, `Context`, and resource IDs.
-- [x] **Upload MIME/size policy**: Pure policy code can move to common code once
-  callers stop passing Android file types.
-- [x] **DTO mappers and reducers**: Good early candidates for `commonMain` if they
-  do not import Android/JVM APIs.
-
-Bridge completion notes:
-
-- Coroutine dispatching that remained inside reusable domain cleanup now goes
-  through an app-owned dispatcher contract; Android supplies `Dispatchers.IO`.
-- Private-message deduplication no longer depends on `Context` or
-  `SharedPreferences` from domain code. The current Android app keeps the same
-  `msg_dedup` preference storage behind a small store interface.
-- Upload MIME/category/size policy now lives in the domain upload package and is
-  covered by JVM tests; Android URI, MIME resolver, file-size, and stream-opening
-  code remains in the Android upload provider.
-- kotlinx.serialization DTOs, route models, mapper tests, reducers, Ktor core,
-  Koin common artifacts, and CMP UI dependencies are already retained behind the
-  bridge boundaries established in earlier checklist sections.
-- Remaining full common-source movement is deferred until Android string
-  resource IDs and composable string resolution are moved out of
-  `StringResourceContent`, `AppTheme`, and `AppLanguage`, and until the actual
-  KMP source-set/module split is created.
-
-## Components Likely To Require Significant Refactoring
-
-### Navigation And UI Events ✅ Done for bridge milestone
-
-- [x] ViewModels currently depend on generated Compose Destinations classes.
-- [x] Shared ViewModels should emit route commands or screen intents, not generated
-  Android navigation objects.
-- [x] Bottom sheets/dialog destinations need an explicit common route model.
-
-Bridge completion notes:
-
-- Generated Compose Destinations imports and generated destination objects have
-  been removed from app source; ViewModels now emit serializable `AppRoute`
-  commands through `UIEvent`.
-- Screen routes and modal routes share the same typed route model, with modal
-  bottom sheets/dialogs explicitly marked by `AppRoute.Modal`.
-- `HandleUIEvent` remains the platform/UI adapter that maps route commands to
-  the active CMP `NavController` or modal state, keeping ViewModels independent
-  of generated Android navigation objects.
-- Full common-source movement still depends on moving Android `ViewModel`,
-  `AndroidViewModel`, `SavedStateHandle`, and activity-owned lifecycle wiring
-  into the eventual platform source sets.
-
-### Local Persistence ✅ Done for bridge milestone
-
-- [x] Remove Room annotations from domain packages.
-- [x] Move database migration SQL out of Android-only migration classes so it can
-  be reused by future KMP database setup.
-- [x] Keep DAOs and database entities separated from domain models before sharing.
-- [x] Put socket retry queue, crash queue, private message, group message,
-  notification dedupe, and message dedupe persistence behind app-owned
-  persistence boundaries or Android-backed implementations.
-
-Bridge completion notes:
-
-- Room-backed chat, group, socket queue, and crash-log persistence remain
-  Android-owned for the bridge milestone, preserving the existing schema,
-  database name, and migration path.
-- Private and group message persistence maps through data-layer local entities,
-  while repository and use-case callers work with plain domain models.
-- Settings DataStore and secure key/value storage already use platform factory
-  and secure-store abstractions, preserving existing filenames, keys, and
-  Android encrypted storage behavior.
-- Private notification dedupe and message dedupe persistence are supplied through
-  interfaces while the Android app keeps the existing SharedPreferences files.
-- Full common-source movement remains deferred until shared source sets exist and
-  non-Android database/storage implementations are added.
-
-### Media Upload Pipeline ✅ Done for bridge milestone
-
-- Chat, group, profile, post, and story uploads all depend on Android `Uri`,
-  `ContentResolver`, file names, MIME resolution, stream opening, and file size
-  detection.
-- Shared code should receive a platform-neutral upload source.
-- Platform code should own URI permissions and stream opening.
-- Bridge milestone completed for chat, group, profile, post, and music-post
-  picker/upload flows through platform-neutral media references and readable
-  upload files. Story editor export remains Android-specific.
-
-### Music Playback ✅ Done for bridge milestone
-
-- [x] Current playback uses Android service lifecycle, foreground notification,
-  media session, Media3 cache, ExoPlayer, and Android intents.
-- [x] Shared code should own playlist/queue state only.
-- [x] Actual playback implementation must be platform-specific.
-
-Bridge completion notes:
-
-- Playlist queue normalization, active index tracking, playback order, repeat
-  cycling, and shuffle reordering now live in an Android-free playback queue
-  controller that can move with shared UI/state code.
-- Android still supplies the actual playback controller through the existing
-  service-backed manager, preserving foreground notification, media session,
-  Media3 cache, ExoPlayer, service intents, and current controls.
-- `MediaPlaybackController`, `MediaPlaybackState`, and `MediaQueueItem` remain
-  platform-neutral contracts for shared-facing callers, with Android binding the
-  controller implementation through DI.
-
-### Voice Recording ✅ Done for bridge milestone
-
-- [x] Current recorder uses Android `MediaRecorder`, cache files, permissions,
-  and Android upload-boundary URI conversion.
-- [x] Shared-facing code depends on `PlatformAudioRecorderFactory` and
-  `PlatformAudioRecorder` instead of constructing the Android recorder directly.
-- [x] Recorded audio is returned as neutral `RecordedAudio` metadata and handed
-  to chat/group upload flows as `PlatformMediaReference`.
-- [x] Runtime microphone permission handling remains in Android UI screens.
-- [ ] Add platform recorder implementations for iOS/desktop/web after target
-  requirements are clear.
-
-### Security And Key Management ✅ Done for bridge milestone
-
-- [x] Tokens/private keys are stored through a secure key-value abstraction backed
-  by AndroidX Security on Android.
-- [x] Message encryption/decryption uses app-owned crypto contracts instead of
-  direct presentation crypto utilities.
-- [x] JWT token handling no longer depends on Android Base64 APIs.
-- [x] Existing encrypted message compatibility is covered by JVM crypto tests.
-- [x] Existing Android preference filenames, keys, defaults, and storage APIs are
-  preserved for incremental migration.
-- [ ] Add non-Android secure storage and crypto implementations after target
-  requirements are clear.
-
-Bridge completion notes:
-
-- `SecureKeyValueStore` isolates secure session/key material storage while
-  Android remains backed by the existing `EncryptedSharedPreferences` and
-  `MasterKey` setup.
-- `MessageCrypto`, `RsaCrypto`, `AesGcmCrypto`, `Base64Codec`, and `HashCrypto`
-  isolate RSA/AES/Base64/hash operations from shared-facing callers.
-- Current Android/JVM crypto preserves RSA 2048 key generation, RSA OAEP
-  SHA-256/MGF1 SHA-256 v2 payloads, AES-GCM `iv + ciphertext/tag` payloads,
-  and legacy RSA PKCS#1/AES fallback decryption.
-- Stored auth tokens, refresh tokens, private keys, pending registration keys,
-  user/session flags, and device sync state keep their existing storage keys.
-
-### Crash Reporting ✅ Done for bridge milestone
-
-- [x] Current crash flow uses platform contracts for app config, device metadata,
-  logging, retry scheduling, and process termination.
-- [x] Shared-facing crash payload construction is isolated in `CrashLogBuilder`.
-- [x] Android crash report UI launch is isolated behind `CrashUiLauncher`.
-- [x] Crash upload payload mapping preserves the existing server wire shape.
-- [ ] Add non-Android crash capture, persistence, retry, and restart UI
-  implementations after target requirements are clear.
-
-Bridge completion notes:
-
-- `CrashReporter` now orchestrates capture, persistence, retry, upload, and
-  termination while delegating crash log construction and upload DTO mapping to
-  a pure builder.
-- Android still owns `Thread.setDefaultUncaughtExceptionHandler`,
-  `CrashReportActivity`, restart intents, Room queue persistence, and the
-  process kill/exit implementation.
-- Crash payloads keep existing app version, build type, thread, exception,
-  stack trace, timestamp, device, OS, SDK, username, and event ID fields.
-- Unit tests cover metadata population, breadcrumb formatting, trimming limits,
-  and ISO UTC upload timestamp mapping.
-
-### Main Activity / Application Startup ✅ Done for bridge milestone
-
-- Startup currently owns Koin startup, notification socket setup, notification
-  permission request, theme/locale resolution, WebView, and root navigation.
-- [x] Shared app startup should be reduced to common state initialization.
-- [x] Android shell should remain thin but platform-specific.
-
-Bridge completion notes:
-
-- `AppStartupCoordinator` now owns shared-facing startup initialization and
-  lifecycle observer registration without depending on Android framework types.
-- Notification socket startup is behind `NotificationSocketController`, with
-  Android still supplying the current secure-token lookup and Socket.IO-backed
-  in-app notification manager.
-- `DinoOrderApplication` still owns Koin startup, crash process handling, crash
-  reporter installation, notification channel setup, Android music playback
-  initialization, and Android activity lifecycle callbacks.
-- `MainActivity` still owns Android permission prompts, edge-to-edge setup,
-  Compose content, locale application, intent deep-link consumption, and
-  navigation execution.
-- Unit tests cover idempotent shared startup initialization and notification
-  socket connect/disconnect policy.
-
-## Migration Blockers And Compatibility Risks
-
-- **Single-module architecture**: Code cannot move incrementally until shared
-  source sets or a `:shared` module exist.
-- **Generated navigation coupling**: Compose Destinations types appear across UI
-  and ViewModels, making presentation sharing difficult.
-- **Android `Context` spread**: Many data, domain, and presentation classes
-  currently receive `Context`, preventing commonization.
-- **Android resource IDs in models**: `StringResourceContent`, `AppLanguage`,
-  `AppTheme`, and dialog models expose Android resource/Parcelable concepts.
-- **Room annotations in domain models**: Domain/database boundaries must be
-  separated before sharing.
-- **Android `Uri` in repository interfaces**: Upload APIs leak Android platform
-  types into domain contracts.
-- **Socket.IO protocol choice**: If the server requires Socket.IO rather than
-  plain WebSockets, KMP client support may require platform actuals or a server
-  protocol change.
-- **Crypto byte compatibility**: Message encryption must remain compatible with
-  existing users and server expectations.
-- **Media feature parity**: ExoPlayer/Media3 behavior may not map cleanly to iOS,
-  desktop, or web.
-- **Secure storage migration**: Existing tokens/private keys stored in
-  `EncryptedSharedPreferences` need a safe Android migration path and equivalent
-  secure storage on each new platform.
-- **Background execution parity**: WorkManager and Android foreground services
-  have no direct cross-platform equivalent.
-- **Resource/localization strategy**: XML strings/drawables and `R` references
-  must be migrated or wrapped before shared UI can compile.
-
-## Suggested Step-By-Step Migration Order
-
-1. **Create KMP structure without moving behavior**
-   - Add shared source sets/module.
-   - Keep Android app building exactly as before.
-   - Add common test setup.
-
-2. **Move pure common code**
-   - Move DTOs, mappers, validation policies, reducers, simple domain models,
-     and repository interfaces that do not expose Android types.
-   - Replace Gson with kotlinx.serialization where needed.
-
-3. **Define platform contracts**
-   - Add interfaces for config, strings, logging, secure storage, device info,
-     network status, files/uploads, crypto, background work, notifications, and
-     media.
-   - Keep Android implementations backed by current code.
-
-4. **Untangle navigation**
-   - Replace generated destination objects in ViewModels with common route
-     commands.
-   - Keep actual navigation rendering in UI/platform layer.
-
-5. **Refactor persistence**
-   - Split domain models from database entities.
-   - Choose Room KMP or SQLDelight.
-   - Port schema and migrations with tests.
-
-6. **Refactor networking and uploads**
-   - Move Ktor API services to common where possible.
-   - Split HTTP engines by target.
-   - Replace Android `Uri` upload inputs with common upload sources.
-
-7. **Refactor crypto and secure session storage**
-   - Add compatibility tests.
-   - Move shared crypto intent/API to common.
-   - Implement platform actuals.
-
-8. **Migrate UI to CMP**
-   - Replace Android resources with CMP resources.
-   - Replace navigation, image loading, pull refresh, system UI, and platform
-     media components.
-   - Move composables feature by feature.
-
-9. **Move platform-heavy features last**
-   - Music playback.
-   - Voice recording.
-   - Video/story editing.
-   - Notifications.
-   - Crash reporter UI.
-   - Background upload/retry workers.
-
-## Useful Official References
-
-- Kotlin Multiplatform overview:
+- Kotlin Multiplatform:
   <https://kotlinlang.org/docs/multiplatform-get-started.html>
 - Compose Multiplatform:
   <https://kotlinlang.org/docs/multiplatform/compose-multiplatform.html>
@@ -1052,7 +495,7 @@ Bridge completion notes:
   <https://developer.android.com/kotlin/multiplatform/room>
 - DataStore KMP:
   <https://developer.android.com/kotlin/multiplatform/datastore>
-- Koin setup:
+- Koin:
   <https://insert-koin.io/docs/setup/>
 - Coil:
   <https://coil-kt.github.io/coil/>
