@@ -1,13 +1,6 @@
 package com.dino.message.chatfeature.presentation.viewmodel
 
-import android.content.Context
-import android.os.Build
-import android.util.Log
 import androidx.compose.runtime.mutableStateOf
-import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.SavedStateHandle
-import androidx.lifecycle.viewModelScope
-import com.dino.message.DinoOrderApplication
 import com.dino.message.chatfeature.domain.model.MessageDeliveryStatus
 import com.dino.message.chatfeature.domain.model.MessageEntity
 import com.dino.message.chatfeature.domain.model.MessageReaction
@@ -16,19 +9,23 @@ import com.dino.message.chatfeature.domain.usecase.GetMessageFromDBUseCase
 import com.dino.message.chatfeature.domain.usecase.GetReceiverPublicKeyUseCase
 import com.dino.message.chatfeature.domain.usecase.SaveMessageInDbUseCase
 import com.dino.message.chatfeature.domain.usecase.UploadAttachmentUseCase
-import com.dino.message.corefeature.data.socket.AppSocketManager
-import com.dino.message.corefeature.data.socket.RealtimeSocketEvents
-import com.dino.message.corefeature.data.spref.SPrefManager
-import com.dino.message.corefeature.data.upload.PlatformMediaReference
-import com.dino.message.corefeature.data.upload.PlatformMediaResolver
+import com.dino.message.corefeature.domain.upload.PlatformMediaReference
+import com.dino.message.corefeature.domain.upload.PlatformMediaResolver
 import com.dino.message.corefeature.domain.crypto.MessageCrypto
 import com.dino.message.corefeature.domain.crypto.RsaPublicKey
+import com.dino.message.corefeature.domain.logging.AppLogger
 import com.dino.message.corefeature.domain.notification.AppNotificationController
 import com.dino.message.corefeature.domain.resource.StringResolver
 import com.dino.message.profilefeature.domain.usecase.FollowUserUseCase
 import com.dino.message.corefeature.domain.result.Resource
+import com.dino.message.corefeature.domain.session.ActiveChatState
+import com.dino.message.corefeature.domain.session.AuthSessionStore
+import com.dino.message.corefeature.domain.socket.RealtimeSocketEvents
+import com.dino.message.corefeature.domain.socket.RealtimeSocketGateway
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
+import com.dino.message.corefeature.presentation.util.UiEventBus
+import com.dino.message.corefeature.presentation.viewmodel.ScopedStateHolder
 import com.dino.message.corefeature.domain.util.LocalHistoryPaging
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -40,8 +37,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
-import com.dino.message.chatfeature.data.notification.ActiveChatTracker
-import com.dino.message.chatfeature.data.notification.ChatMessageSoundPlayer
+import com.dino.message.chatfeature.domain.audio.MessageSoundPlayer
 import com.dino.message.chatfeature.domain.model.PrivateHistoryMessage
 import com.dino.message.chatfeature.presentation.component.PlatformAudioRecorder
 import com.dino.message.chatfeature.presentation.component.PlatformAudioRecorderFactory
@@ -61,8 +57,8 @@ import com.dino.message.threadfeature.domain.usecase.IsTrackInPlaylistUseCase
 import com.dino.message.corefeature.presentation.navigation.AppRoute
 
 class ChatViewModel constructor(
-    app: Context,
-    private val spref: SPrefManager,
+    uiEventBus: UiEventBus,
+    private val spref: AuthSessionStore,
     private val getReceiverPublicKeyUseCase: GetReceiverPublicKeyUseCase,
     private val getMessageFromDBUseCase: GetMessageFromDBUseCase,
     private val saveMessageInDbUseCase: SaveMessageInDbUseCase,
@@ -71,18 +67,22 @@ class ChatViewModel constructor(
     private val followUserUseCase: FollowUserUseCase,
     private val chatRepository: ChatRepository,
     private val isTrackInPlaylistUseCase: IsTrackInPlaylistUseCase,
-    private val appSocketManager: AppSocketManager,
+    private val appSocketManager: RealtimeSocketGateway,
     private val appNotificationController: AppNotificationController,
     private val stringResolver: StringResolver,
     private val mediaResolver: PlatformMediaResolver,
+    private val appLogger: AppLogger,
+    private val activeChatState: ActiveChatState,
     private val audioRecorderFactory: PlatformAudioRecorderFactory,
     private val messageCrypto: MessageCrypto,
     private val deduplicator: MessageDeduplicator,
-    savedStateHandle: SavedStateHandle
-) : AndroidViewModel(app as DinoOrderApplication),
-    HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
+    private val messageSoundPlayer: MessageSoundPlayer,
+    private val chatId: String,
+) : ScopedStateHolder(),
+    HaveUIEvent by HaveUIEventImpl(uiEventBus) {
 
     companion object {
+        private const val TAG = "ChatViewModel"
         private const val HISTORY_PAGE_SIZE = 50
         private const val LOCAL_DB_PAGE_SIZE = 100
         private val HISTORY_STALE_AFTER: Duration = Duration.ofMinutes(2)
@@ -99,8 +99,6 @@ class ChatViewModel constructor(
         val clientMessageId: String,
         val message: MessageEntity,
     )
-
-    private val chatId: String = checkNotNull(savedStateHandle["chatId"])
 
     private val receiverPublicKey = mutableStateOf<String?>(null)
     private var receiverEncryptionPublicKey: RsaPublicKey? = null
@@ -195,12 +193,12 @@ class ChatViewModel constructor(
             syncHistoryOnOpen()
         }
         prepareEncryptionSession()
-        ActiveChatTracker.setActiveChat(chatId)
+        activeChatState.setActiveChat(chatId)
         appNotificationController.clearPrivateChat(chatId)
     }
 
     private fun pushSocketDebugLog(message: String) {
-        val now = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) java.time.LocalTime.now().toString() else "time"
+        val now = java.time.LocalTime.now().toString()
         val updated = (_socketDebugEvents.value + "[$now] $message").takeLast(40)
         _socketDebugEvents.value = updated
     }
@@ -220,9 +218,9 @@ class ChatViewModel constructor(
             when (res) {
                 is Resource.Success -> {
                     val publicKey = res.data.public_key
-                    Log.d("ChatViewModel", "Fetched receiver public key for $chatId: ${messageCrypto.formatPublicKeyForLog(publicKey)}")
+                    appLogger.debug(TAG, "Fetched receiver public key for $chatId: ${messageCrypto.formatPublicKeyForLog(publicKey)}")
                     if (publicKey.isNullOrBlank()) {
-                        Log.e("ChatViewModel", "getReceiverPublicKey: empty public key for chatId=$chatId")
+                        appLogger.error(TAG, "getReceiverPublicKey: empty public key for chatId=$chatId")
                         _publicKeyError.value = "Received empty public key"
                         _isPublicKeyLoading.value = false
                         getPublicKey = false
@@ -231,8 +229,8 @@ class ChatViewModel constructor(
                     }
                     val resolvedPublicKey = messageCrypto.decodePublicKeyOrNull(publicKey)
                     if (resolvedPublicKey == null) {
-                        Log.w(
-                            "ChatViewModel",
+                        appLogger.warning(
+                            TAG,
                             "getReceiverPublicKey: unsupported public key format for chatId=$chatId, ${messageCrypto.formatPublicKeyForLog(publicKey)}"
                         )
                         receiverPublicKey.value = null
@@ -251,7 +249,7 @@ class ChatViewModel constructor(
                     _publicKeyError.value = null
                     _isPublicKeyLoading.value = false
                     pushSocketDebugLog("HTTP public key loaded for $chatId")
-                    Log.d("ChatViewModel", "getReceiverPublicKey: public key loaded for chatId=$chatId")
+                    appLogger.debug(TAG, "getReceiverPublicKey: public key loaded for chatId=$chatId")
                     getPublicKey = false
                     showRefreshing()
                     isPublicKeyLoaded = true
@@ -275,7 +273,7 @@ class ChatViewModel constructor(
                         _isPublicKeyLoading.value = false
                     }
                     pushSocketDebugLog("HTTP public key failed for $chatId")
-                    Log.e("ChatViewModel", "getReceiverPublicKey: failed for chatId=$chatId")
+                    appLogger.error(TAG, "getReceiverPublicKey: failed for chatId=$chatId")
                     getPublicKey = false
                     showRefreshing()
                 }
@@ -290,8 +288,8 @@ class ChatViewModel constructor(
         val rawKey = receiverPublicKey.value.orEmpty()
         if (rawKey.isBlank()) return null
         val decoded = messageCrypto.decodePublicKeyOrNull(rawKey) ?: run {
-            Log.w(
-                "ChatViewModel",
+            appLogger.warning(
+                TAG,
                 "resolveReceiverEncryptionPublicKey: unsupported key format for chatId=$chatId, ${messageCrypto.formatPublicKeyForLog(rawKey)}"
             )
             receiverPublicKey.value = null
@@ -311,7 +309,7 @@ class ChatViewModel constructor(
     }
 
     private suspend fun saveMessageToDb(message: MessageEntity) {
-        Log.d("ChatViewModel", "saveMessageToDb: senderOrReceiver=${message.senderOrReceiver}, timestamp=${message.timestamp}")
+        appLogger.debug(TAG, "saveMessageToDb: senderOrReceiver=${message.senderOrReceiver}, timestamp=${message.timestamp}")
         saveMessageInDbUseCase.execute(message).collect { }
     }
 
@@ -1137,7 +1135,7 @@ class ChatViewModel constructor(
             _replyingTo.value = null
         } catch (e: Exception) {
             pushSocketDebugLog("Attachment send failed: ${e.message ?: "unknown error"}")
-            Log.e("ChatViewModel", "emitAttachmentMessage: failed", e)
+            appLogger.error(TAG, "emitAttachmentMessage: failed", e)
         }
     }
 
@@ -1213,12 +1211,12 @@ class ChatViewModel constructor(
                 payload = payload,
                 clientMessageId = clientMessageId,
             )
-            Log.d("ChatViewModel", "sendMessage: queued/emitted send_message to=$chatId")
+            appLogger.debug(TAG, "sendMessage: queued/emitted send_message to=$chatId")
 
             _replyingTo.value = null
         } catch (e: Exception) {
             pushSocketDebugLog("Encryption/send failed: ${e.message ?: "unknown error"}")
-            Log.e("ChatViewModel", "sendMessage: failed", e)
+            appLogger.error(TAG, "sendMessage: failed", e)
         }
     }
 
@@ -1233,12 +1231,12 @@ class ChatViewModel constructor(
                 dedupeKey = "private:$chatId:$clientMessageId",
             )
         ) {
-            AppSocketManager.EmitWithRetryResult.EMITTED -> Unit
-            AppSocketManager.EmitWithRetryResult.QUEUED,
-            AppSocketManager.EmitWithRetryResult.ALREADY_QUEUED -> {
+            RealtimeSocketGateway.EmitWithRetryResult.EMITTED -> Unit
+            RealtimeSocketGateway.EmitWithRetryResult.QUEUED,
+            RealtimeSocketGateway.EmitWithRetryResult.ALREADY_QUEUED -> {
                 _socketError.value = "Disconnected. Message queued and will retry automatically."
             }
-            AppSocketManager.EmitWithRetryResult.QUEUE_FULL -> {
+            RealtimeSocketGateway.EmitWithRetryResult.QUEUE_FULL -> {
                 _socketError.value = "Send queue is full. Please retry in a moment."
                 markPendingMessageFailed(clientMessageId)
             }
@@ -1288,7 +1286,7 @@ class ChatViewModel constructor(
 
     private fun sendAck(messageIds: List<String>) {
         if (messageIds.isEmpty()) return
-        if (!ActiveChatTracker.isChattingWith(chatId)) {
+        if (!activeChatState.isChattingWith(chatId)) {
             pushSocketDebugLog("Skipping ack for inactive chat $chatId")
             return
         }
@@ -1302,7 +1300,7 @@ class ChatViewModel constructor(
 
     private fun sendRead(messageIds: List<String>) {
         if (messageIds.isEmpty()) return
-        if (!ActiveChatTracker.isChattingWith(chatId)) {
+        if (!activeChatState.isChattingWith(chatId)) {
             pushSocketDebugLog("Skipping read for inactive chat $chatId")
             return
         }
@@ -1380,7 +1378,7 @@ class ChatViewModel constructor(
         appSocketManager.registerListener(socketOwner, "pending_messages") { args ->
             viewModelScope.launch {
                 val raw = extractPayloadArg(args, "pending_messages")
-                Log.d("ChatViewModel", "pending_messages raw type=${raw?.javaClass?.name}, value=${raw?.toString()?.take(500)}")
+                appLogger.debug(TAG, "pending_messages raw type=${raw?.javaClass?.name}, value=${raw?.toString()?.take(500)}")
                 pushSocketDebugLog("pending_messages raw type=${raw?.javaClass?.simpleName}, preview=${raw?.toString()?.take(200)}")
 
                 val messages: JSONArray? = when (raw) {
@@ -1392,13 +1390,13 @@ class ChatViewModel constructor(
                             trimmed.startsWith("{") -> try {
                                 JSONObject(trimmed).optJSONArray("messages")
                             } catch (e: Exception) {
-                                Log.w("ChatViewModel", "pending_messages: failed to parse String as JSONObject", e)
+                                appLogger.warning(TAG, "pending_messages: failed to parse String as JSONObject", e)
                                 null
                             }
                             trimmed.startsWith("[") -> try {
                                 JSONArray(trimmed)
                             } catch (e: Exception) {
-                                Log.w("ChatViewModel", "pending_messages: failed to parse String as JSONArray", e)
+                                appLogger.warning(TAG, "pending_messages: failed to parse String as JSONArray", e)
                                 null
                             }
                             else -> null
@@ -1409,7 +1407,7 @@ class ChatViewModel constructor(
 
                 if (messages == null) {
                     pushSocketDebugLog("pending_messages: could not extract messages array (raw type=${raw?.javaClass?.simpleName})")
-                    Log.e("ChatViewModel", "pending_messages: could not extract messages. raw type=${raw?.javaClass?.name}, raw=$raw")
+                    appLogger.error(TAG, "pending_messages: could not extract messages. raw type=${raw?.javaClass?.name}, raw=$raw")
                     return@launch
                 }
                 pushSocketDebugLog("Received ${messages.length()} pending message(s)")
@@ -1421,7 +1419,7 @@ class ChatViewModel constructor(
                         val ackableMessageId = PrivateAckScope.ackableMessageId(
                             payload = item,
                             chatId = chatId,
-                            currentlyActiveChatId = ActiveChatTracker.activeChatId.value,
+                            currentlyActiveChatId = activeChatState.activeChatId.value,
                         )
                         if (msgId.isNotBlank() && deduplicator.isDuplicate(msgId)) {
                             pushSocketDebugLog("Skipping duplicate pending message $msgId")
@@ -1448,25 +1446,25 @@ class ChatViewModel constructor(
         appSocketManager.registerListener(socketOwner, "new_message") { args ->
             viewModelScope.launch {
                 val raw = extractPayloadArg(args, "new_message")
-                Log.d("ChatViewModel", "new_message raw type=${raw?.javaClass?.name}, value=${raw?.toString()?.take(500)}")
+                appLogger.debug(TAG, "new_message raw type=${raw?.javaClass?.name}, value=${raw?.toString()?.take(500)}")
                 val payload = when (raw) {
                     is JSONObject -> raw
                     is String -> try { JSONObject(raw) } catch (e: Exception) {
-                        Log.w("ChatViewModel", "new_message: failed to parse String as JSONObject", e)
+                        appLogger.warning(TAG, "new_message: failed to parse String as JSONObject", e)
                         null
                     }
                     else -> null
                 }
                 if (payload == null) {
                     pushSocketDebugLog("new_message payload invalid (type=${raw?.javaClass?.simpleName}, preview=${raw?.toString()?.take(200)})")
-                    Log.e("ChatViewModel", "new_message: could not parse. raw type=${raw?.javaClass?.name}, raw=$raw")
+                    appLogger.error(TAG, "new_message: could not parse. raw type=${raw?.javaClass?.name}, raw=$raw")
                     return@launch
                 }
                 val msgId = payload.optString("message_id", "")
                 val ackableMessageId = PrivateAckScope.ackableMessageId(
                     payload = payload,
                     chatId = chatId,
-                    currentlyActiveChatId = ActiveChatTracker.activeChatId.value,
+                    currentlyActiveChatId = activeChatState.activeChatId.value,
                 )
                 if (msgId.isNotBlank() && deduplicator.isDuplicate(msgId)) {
                     pushSocketDebugLog("Skipping duplicate new_message $msgId")
@@ -1482,8 +1480,8 @@ class ChatViewModel constructor(
                 }
                 loadMessages()
                 val messageFrom = payload.optString("from", "")
-                if (messageFrom != currentUsername && ActiveChatTracker.isChattingWith(chatId)) {
-                    ChatMessageSoundPlayer.playReceived(getApplication())
+                if (messageFrom != currentUsername && activeChatState.isChattingWith(chatId)) {
+                    messageSoundPlayer.playReceived()
                 }
                 if (ackableMessageId != null) {
                     sendAck(listOf(ackableMessageId))
@@ -1497,7 +1495,7 @@ class ChatViewModel constructor(
                 val payload = parseSocketPayload(args, "message_sent") ?: return@launch
                 val detail = payload.toDebugString()
                 pushSocketDebugLog("✅ message_sent: $detail")
-                Log.d("ChatViewModel", "message_sent ack received: $detail")
+                appLogger.debug(TAG, "message_sent ack received: $detail")
                 val to = payload.optString("to", "")
                 val serverTimestamp = payload.optString("timestamp", "")
                 val serverMessageId = payload.optString("message_id", "")
@@ -1529,8 +1527,8 @@ class ChatViewModel constructor(
                     saveMessageToDb(message)
                     loadMessages()
                     markMessageAsSent(serverMessageId)
-                    if (ActiveChatTracker.isChattingWith(chatId)) {
-                        ChatMessageSoundPlayer.playSent(getApplication())
+                    if (activeChatState.isChattingWith(chatId)) {
+                        messageSoundPlayer.playSent()
                     }
                     pushSocketDebugLog("Saved sent message")
                 } else {
@@ -1602,7 +1600,7 @@ class ChatViewModel constructor(
                 val payload = parseSocketPayload(args, "message_error")
                 val detail = payload?.toDebugString() ?: raw?.toDebugString() ?: "unknown"
                 pushSocketDebugLog("❌ message_error: $detail")
-                Log.e("ChatViewModel", "message_error from server: $detail")
+                appLogger.error(TAG, "message_error from server: $detail")
 
                 val errorText = payload?.optString("error", "").orEmpty()
                 val errorCode = payload?.optString("code", "").orEmpty()
@@ -2074,7 +2072,7 @@ class ChatViewModel constructor(
                 encryptedAesKey = encryptedKey,
                 privateKey = messageCrypto.decodePrivateKey(privateKey)
             )
-            Log.d("ChatViewModel", "decryptAndSaveMessage: decrypt success for sender=$sender timestamp=$timestamp")
+            appLogger.debug(TAG, "decryptAndSaveMessage: decrypt success for sender=$sender timestamp=$timestamp")
 
             saveMessageToDb(
                 MessageEntity(
@@ -2092,7 +2090,7 @@ class ChatViewModel constructor(
             )
         } catch (e: Exception) {
             pushSocketDebugLog("Decrypt failed for $sender: ${e.message ?: "unknown error"}")
-            Log.e("ChatViewModel", "decryptAndSaveMessage: decrypt failed for sender=$sender", e)
+            appLogger.error(TAG, "decryptAndSaveMessage: decrypt failed for sender=$sender", e)
             _decryptionError.value = "Unable to decrypt message from $sender. Your private key may not match. Please re-login with the correct private key."
             saveMessageToDb(
                 MessageEntity(
@@ -2185,11 +2183,11 @@ class ChatViewModel constructor(
         return null
     }
 
-    override fun onCleared() {
-        ActiveChatTracker.clearActiveChat()
+    override fun clear() {
+        activeChatState.clearActiveChat()
         pendingVisibleMessagesByClientId.clear()
         voiceRecorder?.release()
         disconnectSocket()
-        super.onCleared()
+        super.clear()
     }
 }

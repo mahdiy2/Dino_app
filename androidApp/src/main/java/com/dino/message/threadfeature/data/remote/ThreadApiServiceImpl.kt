@@ -7,8 +7,8 @@ import com.dino.message.corefeature.data.remote.util.appendTokenToHeader
 import com.dino.message.corefeature.data.remote.util.ensureFreshAccessTokenIfNearExpiry
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.data.upload.AndroidUploadContentProvider
-import com.dino.message.corefeature.data.upload.PlatformMediaMetadataExtractor
-import com.dino.message.corefeature.data.upload.PlatformMediaReference
+import com.dino.message.corefeature.domain.upload.PlatformMediaMetadataExtractor
+import com.dino.message.corefeature.domain.upload.PlatformMediaReference
 import com.dino.message.corefeature.data.upload.appendUploadFile
 import com.dino.message.corefeature.data.upload.toUploadFilePart
 import com.dino.message.corefeature.domain.model.asStringResourceContent

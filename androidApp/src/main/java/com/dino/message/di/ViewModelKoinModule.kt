@@ -24,6 +24,7 @@ import com.dino.message.corefeature.domain.usecase.ClearLocalSessionUseCase
 import com.dino.message.corefeature.presentation.viewmodel.CustomMessageDialogViewModel
 import com.dino.message.corefeature.presentation.viewmodel.MainActivityViewModel
 import com.dino.message.corefeature.presentation.viewmodel.PrivateKeyResetDialogViewModel
+import com.dino.message.corefeature.presentation.util.UiEventBus
 import com.dino.message.groupfeature.domain.usecase.AddGroupMembersUseCase
 import com.dino.message.groupfeature.domain.usecase.CreateGroupUseCase
 import com.dino.message.groupfeature.domain.usecase.GetGroupDetailUseCase
@@ -106,7 +107,6 @@ import com.dino.message.threadfeature.presentation.viewmodel.ThreadViewModel
 import com.dino.message.threadfeature.presentation.viewmodel.TrackPlaylistAddersDialogViewModel
 import com.dino.message.updatefeature.presentation.viewmodel.AppUpdateViewModel
 import org.koin.core.module.dsl.factoryOf
-import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
 
 val viewModelModule = module {
@@ -192,38 +192,166 @@ val viewModelModule = module {
     factoryOf(::UploadStoryUseCase)
     factoryOf(::VoteUseCase)
 
-    viewModelOf(::ActivityNotificationViewModel)
-    viewModelOf(::LoginScreenViewModel)
-    viewModelOf(::PrivateKeyAlertScreenViewModel)
-    viewModelOf(::RegisterScreenViewModel)
-    viewModelOf(::ChatViewModel)
-    viewModelOf(::CustomMessageDialogViewModel)
-    viewModelOf(::MainActivityViewModel)
-    viewModelOf(::PrivateKeyResetDialogViewModel)
-    viewModelOf(::AddGroupMembersViewModel)
-    viewModelOf(::CreateGroupViewModel)
-    viewModelOf(::GroupChatViewModel)
-    viewModelOf(::GroupMembersViewModel)
-    viewModelOf(::MainScreenViewModel)
-    viewModelOf(::AboutUsViewModel)
-    viewModelOf(::BlockListViewModel)
-    viewModelOf(::DeletePostBottomSheetViewModel)
-    viewModelOf(::EditProfileViewModel)
-    viewModelOf(::ProfileFollowListViewModel)
-    viewModelOf(::ProfileScreenViewModel)
-    viewModelOf(::ProfileSettingsViewModel)
-    viewModelOf(::ReferralViewModel)
-    viewModelOf(::ReportPostBottomSheetViewModel)
-    viewModelOf(::SearchViewModel)
-    viewModelOf(::SpashViewModel)
-    viewModelOf(::CreatePostOptionsBottomSheetScreenViewModel)
-    viewModelOf(::CreatePostViewModel)
-    viewModelOf(::PlaylistBottomSheetViewModel)
-    viewModelOf(::PostMusicViewModel)
-    viewModelOf(::SharePostBottomSheetViewModel)
-    viewModelOf(::SharedPostDetailsViewModel)
-    viewModelOf(::ThreadCommentsViewModel)
-    viewModelOf(::ThreadViewModel)
-    viewModelOf(::TrackPlaylistAddersDialogViewModel)
-    viewModelOf(::AppUpdateViewModel)
+    factoryOf(::ActivityNotificationViewModel)
+    factoryOf(::LoginScreenViewModel)
+    factoryOf(::PrivateKeyAlertScreenViewModel)
+    factoryOf(::RegisterScreenViewModel)
+    factory { (chatId: String) ->
+        ChatViewModel(
+            uiEventBus = get(),
+            spref = get(),
+            getReceiverPublicKeyUseCase = get(),
+            getMessageFromDBUseCase = get(),
+            saveMessageInDbUseCase = get(),
+            clearMessageFromDBUseCase = get(),
+            uploadAttachmentUseCase = get(),
+            followUserUseCase = get(),
+            chatRepository = get(),
+            isTrackInPlaylistUseCase = get(),
+            appSocketManager = get(),
+            appNotificationController = get(),
+            stringResolver = get(),
+            mediaResolver = get(),
+            appLogger = get(),
+            activeChatState = get(),
+            audioRecorderFactory = get(),
+            messageCrypto = get(),
+            deduplicator = get(),
+            messageSoundPlayer = get(),
+            chatId = chatId,
+        )
+    }
+    factoryOf(::CustomMessageDialogViewModel)
+    factoryOf(::MainActivityViewModel)
+    factoryOf(::PrivateKeyResetDialogViewModel)
+    factory { (groupId: Int, groupName: String?) ->
+        AddGroupMembersViewModel(
+            stringResolver = get(),
+            uiEventBus = get(),
+            groupId = groupId,
+            initialGroupNameArg = groupName,
+            getMutualFollowersUseCase = get(),
+            getGroupDetailUseCase = get(),
+            addGroupMembersUseCase = get(),
+        )
+    }
+    factoryOf(::CreateGroupViewModel)
+    factory { (groupId: Int, groupName: String?, isPublicRoom: Boolean) ->
+        GroupChatViewModel(
+            uiEventBus = get(),
+            spref = get(),
+            getGroupDetailUseCase = get(),
+            uploadGroupAttachmentUseCase = get(),
+            saveGroupMessageUseCase = get(),
+            getGroupMessagesFromDbUseCase = get(),
+            isTrackInPlaylistUseCase = get(),
+            groupRepository = get(),
+            appSocketManager = get(),
+            appNotificationController = get(),
+            stringResolver = get(),
+            appConfig = get(),
+            mediaResolver = get(),
+            appClock = get(),
+            appLogger = get(),
+            activeGroupState = get(),
+            audioRecorderFactory = get(),
+            messageCrypto = get(),
+            messageSoundPlayer = get(),
+            groupId = groupId,
+            groupName = groupName,
+            isPublicRoom = isPublicRoom,
+        )
+    }
+    factory { (groupId: Int, groupName: String?) ->
+        GroupMembersViewModel(
+            stringResolver = get(),
+            uiEventBus = get(),
+            groupId = groupId,
+            initialGroupName = groupName,
+            getGroupDetailUseCase = get(),
+            sPrefManager = get(),
+        )
+    }
+    factoryOf(::MainScreenViewModel)
+    factoryOf(::AboutUsViewModel)
+    factoryOf(::BlockListViewModel)
+    factoryOf(::DeletePostBottomSheetViewModel)
+    factoryOf(::EditProfileViewModel)
+    factoryOf(::ProfileFollowListViewModel)
+    factoryOf(::ProfileScreenViewModel)
+    factoryOf(::ProfileSettingsViewModel)
+    factoryOf(::ReferralViewModel)
+    factoryOf(::ReportPostBottomSheetViewModel)
+    factoryOf(::SearchViewModel)
+    factoryOf(::SpashViewModel)
+    factoryOf(::CreatePostOptionsBottomSheetScreenViewModel)
+    factory { (quotedPostId: Long, editPostId: Long) ->
+        CreatePostViewModel(
+            stringResolver = get(),
+            uiEventBus = get(),
+            sPrefManager = get(),
+            createPostUseCase = get(),
+            editPostUseCase = get(),
+            getPostUseCase = get(),
+            mediaResolver = get(),
+            quotedPostIdArg = quotedPostId,
+            editPostIdArg = editPostId,
+        )
+    }
+    factoryOf(::PlaylistBottomSheetViewModel)
+    factory { (quotedPostId: Long, editPostId: Long) ->
+        PostMusicViewModel(
+            stringResolver = get(),
+            uiEventBus = get(),
+            sPrefManager = get(),
+            createPostUseCase = get(),
+            editPostUseCase = get(),
+            getPostUseCase = get(),
+            mediaResolver = get(),
+            quotedPostIdArg = quotedPostId,
+            editPostIdArg = editPostId,
+        )
+    }
+    factoryOf(::SharePostBottomSheetViewModel)
+    factory { (postId: Long) ->
+        SharedPostDetailsViewModel(
+            stringResolver = get(),
+            uiEventBus = get(),
+            dataStoreUtil = get(),
+            getPostUseCase = get(),
+            voteUseCase = get(),
+            addTrackToPlaylistUseCase = get(),
+            postId = postId,
+        )
+    }
+    factoryOf(::ThreadCommentsViewModel)
+    factory {
+        ThreadViewModel(
+            stringResolver = get(),
+            uiEventBus = get(),
+            getPostsUseCase = get(),
+            voteUseCase = get(),
+            blockUserUseCase = get(),
+            addTrackToPlaylistUseCase = get(),
+            isTrackInPlaylistUseCase = get(),
+            getStoryFeedUseCase = get(),
+            getStoryMentionCandidatesUseCase = get(),
+            getStoryBundleUseCase = get(),
+            deleteStoryUseCase = get(),
+            recordStoryViewUseCase = get(),
+            setStoryLikeUseCase = get(),
+            getStoryViewersUseCase = get(),
+            replyToStoryUseCase = get(),
+            uploadStoryUseCase = get(),
+            followUserUseCase = get(),
+            getMyProfileUseCase = get(),
+            dataStoreUtil = get(),
+            sPrefManager = get(),
+            getUnreadCountUseCase = get(),
+            appSocketManager = get(),
+            appClock = get(),
+        )
+    }
+    factoryOf(::TrackPlaylistAddersDialogViewModel)
+    factoryOf(::AppUpdateViewModel)
 }

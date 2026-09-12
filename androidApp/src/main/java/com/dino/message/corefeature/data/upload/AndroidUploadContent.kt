@@ -3,6 +3,10 @@ package com.dino.message.corefeature.data.upload
 import android.content.ContentResolver
 import android.net.Uri
 import com.dino.message.corefeature.domain.upload.MediaFileHandle
+import com.dino.message.corefeature.domain.upload.PlatformMediaMetadata
+import com.dino.message.corefeature.domain.upload.PlatformMediaReference
+import com.dino.message.corefeature.domain.upload.PlatformMediaResolver
+import com.dino.message.corefeature.domain.upload.PlatformPickedMedia
 import com.dino.message.corefeature.domain.upload.ReadableMediaFile
 import com.dino.message.corefeature.domain.upload.UploadInputProvider
 import io.ktor.utils.io.streams.asInput
@@ -111,6 +115,10 @@ class AndroidUploadContentProvider(
 
     override fun metadata(source: PlatformMediaReference): PlatformMediaMetadata {
         return AndroidMediaMetadataExtractor(contentResolver).extract(source)
+    }
+
+    override fun mimeTypeFromDisplayName(displayName: String): String? {
+        return MediaFileResolver.mimeTypeFromName(displayName)
     }
 
     override fun readableMediaFile(

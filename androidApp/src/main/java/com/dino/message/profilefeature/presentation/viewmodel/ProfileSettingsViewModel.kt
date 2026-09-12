@@ -1,17 +1,16 @@
 package com.dino.message.profilefeature.presentation.viewmodel
 
 import com.dino.message.corefeature.presentation.util.asString
-import android.content.Context
-import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.viewModelScope
-import com.dino.message.DinoOrderApplication
-import com.dino.message.corefeature.data.spref.DataStoreUtil
+import com.dino.message.corefeature.domain.settings.AppSettingsStore
 import com.dino.message.corefeature.domain.model.AppLanguage
 import com.dino.message.corefeature.domain.usecase.ClearLocalSessionUseCase
 import com.dino.message.corefeature.presentation.util.PopBackStackLevel
 import com.dino.message.corefeature.domain.result.Resource
+import com.dino.message.corefeature.domain.resource.StringResolver
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
+import com.dino.message.corefeature.presentation.util.UiEventBus
+import com.dino.message.corefeature.presentation.viewmodel.ScopedStateHolder
 import com.dino.message.profilefeature.domain.usecase.DeleteMyAccountUseCase
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,12 +19,13 @@ import kotlinx.coroutines.launch
 import com.dino.message.corefeature.presentation.navigation.AppRoute
 
 class ProfileSettingsViewModel constructor(
-    app: Context,
+    private val stringResolver: StringResolver,
+    uiEventBus: UiEventBus,
     private val deleteMyAccountUseCase: DeleteMyAccountUseCase,
     private val clearLocalSessionUseCase: ClearLocalSessionUseCase,
-    private val dataStoreUtil: DataStoreUtil
-) : AndroidViewModel(app as DinoOrderApplication),
-    HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
+    private val dataStoreUtil: AppSettingsStore
+) : ScopedStateHolder(),
+    HaveUIEvent by HaveUIEventImpl(uiEventBus) {
 
     private val _showDeleteAccountDialog = MutableStateFlow(false)
     val showDeleteAccountDialog = _showDeleteAccountDialog.asStateFlow()
@@ -82,7 +82,7 @@ class ProfileSettingsViewModel constructor(
 
                     is Resource.Error -> {
                         _deleteAccountLoading.value = false
-                        _deleteAccountError.value = res.message.asString(getApplication())
+                        _deleteAccountError.value = res.message.resolveWith(stringResolver)
                     }
                 }
             }

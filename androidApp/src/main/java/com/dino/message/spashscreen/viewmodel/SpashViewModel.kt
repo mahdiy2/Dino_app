@@ -1,22 +1,20 @@
 package com.dino.message.spashscreen.viewmodel
 
-import android.app.Application
-import android.content.Context
-import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.viewModelScope
-import com.dino.message.BuildConfig
-import com.dino.message.DinoOrderApplication
 import com.dino.message.authfeature.domain.usecase.SyncDeviceIdUseCase
-import com.dino.message.corefeature.data.spref.DataStoreUtil
-import com.dino.message.corefeature.data.spref.SPrefManager
+import com.dino.message.corefeature.domain.config.AppConfig
+import com.dino.message.corefeature.domain.session.AuthSessionStore
+import com.dino.message.corefeature.domain.settings.AppSettingsStore
 import com.dino.message.corefeature.domain.model.AppLanguage
 import com.dino.message.corefeature.domain.model.StringResourceContent
+import com.dino.message.corefeature.domain.system.AppClock
 import com.dino.message.corefeature.presentation.util.PopBackStackLevel
 import com.dino.message.corefeature.domain.result.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
+import com.dino.message.corefeature.presentation.util.UiEventBus
+import com.dino.message.corefeature.presentation.viewmodel.ScopedStateHolder
 import com.dino.message.profilefeature.domain.usecase.GetMyProfileUseCase
-import com.dino.message.spashscreen.data.remote.SplashApiService
+import com.dino.message.spashscreen.domain.repository.SplashApiService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -25,14 +23,16 @@ import kotlinx.coroutines.launch
 import com.dino.message.corefeature.presentation.navigation.AppRoute
 
 class SpashViewModel constructor(
-    app: Context,
-    private val dataStoreUtil: DataStoreUtil,
-    private val sPrefManager: SPrefManager,
+    uiEventBus: UiEventBus,
+    private val dataStoreUtil: AppSettingsStore,
+    private val sPrefManager: AuthSessionStore,
     private val getMyProfileUseCase: GetMyProfileUseCase,
     private val splashApiService: SplashApiService,
     private val syncDeviceIdUseCase: SyncDeviceIdUseCase,
-) : AndroidViewModel(app as Application),
-    HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
+    private val appConfig: AppConfig,
+    private val appClock: AppClock,
+) : ScopedStateHolder(),
+    HaveUIEvent by HaveUIEventImpl(uiEventBus) {
 
     private val _uiState = MutableStateFlow(SplashUiState())
     val uiState: StateFlow<SplashUiState> = _uiState.asStateFlow()
@@ -87,7 +87,7 @@ class SpashViewModel constructor(
             errorMessage = null,
         )
         viewModelScope.launch {
-            val appVersion = normalizeVersionName(BuildConfig.VERSION_NAME)
+            val appVersion = normalizeVersionName(appConfig.versionName)
             when (val response = splashApiService.checkAppVersion(version = appVersion)) {
                 is Resource.Success -> {
                     val decision = response.data
@@ -176,7 +176,7 @@ class SpashViewModel constructor(
 
     private suspend fun refreshBadgeCacheIfNeeded() {
         val lastSyncEpochMillis = dataStoreUtil.getBadgeAccessLastSyncEpochMillis().first()
-        val now = System.currentTimeMillis()
+        val now = appClock.currentTimeMillis()
         val isCacheFresh = (now - lastSyncEpochMillis) in 0 until BADGE_CACHE_TTL_MILLIS
         if (isCacheFresh) return
 
@@ -214,7 +214,7 @@ class SpashViewModel constructor(
         }
 
         val path = if (trimmed.isBlank()) "download/app" else trimmed.trimStart('/')
-        return BuildConfig.BASE_URL.trimEnd('/') + "/" + path
+        return appConfig.baseUrl.trimEnd('/') + "/" + path
     }
 
     private fun normalizeVersionName(rawVersion: String): String {

@@ -1,20 +1,20 @@
 package com.dino.message.profilefeature.presentation.viewmodel
 
 import com.dino.message.corefeature.presentation.util.asString
-import android.content.Context
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.viewModelScope
-import com.dino.message.DinoOrderApplication
 import com.dino.message.corefeature.domain.usecase.ClearLocalSessionUseCase
-import com.dino.message.corefeature.data.spref.DataStoreUtil
-import com.dino.message.corefeature.data.spref.SPrefManager
+import com.dino.message.corefeature.domain.session.AuthSessionStore
+import com.dino.message.corefeature.domain.settings.AppSettingsStore
 import com.dino.message.corefeature.presentation.util.PopBackStackLevel
 import com.dino.message.corefeature.domain.result.Resource
+import com.dino.message.corefeature.domain.resource.StringResolver
+import com.dino.message.corefeature.domain.system.AppClock
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
+import com.dino.message.corefeature.presentation.util.UiEventBus
+import com.dino.message.corefeature.presentation.viewmodel.ScopedStateHolder
 import com.dino.message.profilefeature.domain.model.Profile
 import com.dino.message.profilefeature.domain.usecase.FollowUserUseCase
 import com.dino.message.profilefeature.domain.usecase.GetFollowStatusUseCase
@@ -38,9 +38,10 @@ import kotlinx.serialization.json.Json
 import com.dino.message.corefeature.presentation.navigation.AppRoute
 
 class ProfileScreenViewModel constructor(
-    app: Context,
-    private val dataStoreUtil: DataStoreUtil,
-    private val sPrefManager: SPrefManager,
+    private val stringResolver: StringResolver,
+    uiEventBus: UiEventBus,
+    private val dataStoreUtil: AppSettingsStore,
+    private val sPrefManager: AuthSessionStore,
     private val getMyProfileUseCase: GetMyProfileUseCase,
     private val getProfileUseCase: GetProfileUseCase,
     private val getProfilePostsUseCase: GetProfilePostsUseCase,
@@ -51,8 +52,9 @@ class ProfileScreenViewModel constructor(
     private val addTrackToPlaylistUseCase: AddTrackToPlaylistUseCase,
     private val getStoryFeedUseCase: GetStoryFeedUseCase,
     private val clearLocalSessionUseCase: ClearLocalSessionUseCase,
-) : AndroidViewModel(app as DinoOrderApplication),
-    HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
+    private val appClock: AppClock,
+) : ScopedStateHolder(),
+    HaveUIEvent by HaveUIEventImpl(uiEventBus) {
     val profile = mutableStateOf<Profile?>(null)
     val posts = mutableStateListOf<Post>()
     private val postsPageLimit = 20
@@ -143,7 +145,8 @@ class ProfileScreenViewModel constructor(
                     profile.value = res.data
                     if (_isOwnProfile.value) {
                         dataStoreUtil.saveBadgeAccessCache(
-                            hasBadge = !res.data.badge.isNullOrBlank()
+                            hasBadge = !res.data.badge.isNullOrBlank(),
+                            syncedAtEpochMillis = appClock.currentTimeMillis(),
                         )
                     }
                     _error.value = null
@@ -155,7 +158,7 @@ class ProfileScreenViewModel constructor(
                 }
 
                 is Resource.Error -> {
-                    _error.value = res.message.asString(getApplication())
+                    _error.value = res.message.resolveWith(stringResolver)
                     _isProfileLoading.value = false
                 }
             }
@@ -213,7 +216,7 @@ class ProfileScreenViewModel constructor(
                 is Resource.Error -> {
                     _isPostsLoading.value = false
                     _isLoadingMore.value = false
-                    _error.value = res.message.asString(getApplication())
+                    _error.value = res.message.resolveWith(stringResolver)
                     isPostsRequestRunning = false
                 }
             }
@@ -237,7 +240,7 @@ class ProfileScreenViewModel constructor(
 
                     is Resource.Error -> {
                         if (_error.value == null) {
-                            _error.value = res.message.asString(getApplication())
+                            _error.value = res.message.resolveWith(stringResolver)
                         }
                     }
                 }
@@ -285,7 +288,7 @@ class ProfileScreenViewModel constructor(
 
                     is Resource.Error -> {
                         _isActionLoading.value = false
-                        _error.value = res.message.asString(getApplication())
+                        _error.value = res.message.resolveWith(stringResolver)
                     }
                 }
             }
@@ -362,7 +365,7 @@ class ProfileScreenViewModel constructor(
                 is Resource.Loading -> Unit
 
                 is Resource.Error -> {
-                    postErrorByPost[postId] = res.message.asString(getApplication())
+                    postErrorByPost[postId] = res.message.resolveWith(stringResolver)
                 }
             }
         }
@@ -428,7 +431,7 @@ class ProfileScreenViewModel constructor(
                 is Resource.Loading -> Unit
 
                 is Resource.Error -> {
-                    _playlistFeedback.value = res.message.asString(getApplication())
+                    _playlistFeedback.value = res.message.resolveWith(stringResolver)
                 }
             }
         }

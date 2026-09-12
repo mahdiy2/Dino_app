@@ -1,11 +1,11 @@
 package com.dino.message.chatfeature.data.notification
 
-import com.dino.message.corefeature.data.remote.logging.AppLogger
 import com.dino.message.corefeature.data.socket.AppSocketManager
-import com.dino.message.corefeature.data.socket.RealtimeSocketEvents
+import com.dino.message.corefeature.domain.logging.AppLogger
 import com.dino.message.corefeature.domain.notification.AppNotificationPresenter
 import com.dino.message.corefeature.domain.notification.NotificationDedupeSnapshotStore
 import com.dino.message.corefeature.domain.notification.NotificationSocketConnection
+import com.dino.message.corefeature.domain.socket.RealtimeSocketEvents
 import com.dino.message.corefeature.domain.system.AppClock
 import org.json.JSONObject
 

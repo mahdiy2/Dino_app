@@ -1,6 +1,7 @@
 package com.dino.message.corefeature.data.remote.logging
 
 import android.util.Log
+import com.dino.message.corefeature.domain.logging.AppLogger
 
 object AndroidAppLogger : AppLogger {
     override fun debug(tag: String, message: String) {

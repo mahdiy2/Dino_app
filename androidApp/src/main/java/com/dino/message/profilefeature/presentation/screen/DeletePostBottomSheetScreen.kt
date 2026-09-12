@@ -22,7 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import org.koin.compose.viewmodel.koinViewModel
+import com.dino.message.corefeature.presentation.viewmodel.rememberStateHolder
 import com.dino.message.R
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.profilefeature.presentation.viewmodel.DeletePostBottomSheetViewModel
@@ -31,7 +31,7 @@ import com.dino.message.profilefeature.presentation.viewmodel.DeletePostBottomSh
 fun DeletePostBottomSheetScreen(
     postId: Long,
 ) {
-    val viewModel: DeletePostBottomSheetViewModel = koinViewModel()
+    val viewModel: DeletePostBottomSheetViewModel = rememberStateHolder(postId)
     val isDeleting by viewModel.isDeleting.collectAsState()
     val error by viewModel.error.collectAsState()
 

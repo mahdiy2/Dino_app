@@ -1,17 +1,16 @@
 package com.dino.message.threadfeature.presentation.viewmodel
 
 import com.dino.message.corefeature.presentation.util.asString
-import android.content.Context
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.viewModelScope
-import com.dino.message.DinoOrderApplication
-import com.dino.message.corefeature.data.spref.SPrefManager
+import com.dino.message.corefeature.domain.session.AuthSessionStore
 import com.dino.message.corefeature.domain.result.Resource
+import com.dino.message.corefeature.domain.resource.StringResolver
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
+import com.dino.message.corefeature.presentation.util.UiEventBus
+import com.dino.message.corefeature.presentation.viewmodel.ScopedStateHolder
 import com.dino.message.threadfeature.domain.model.Comment
 import com.dino.message.threadfeature.domain.model.VoteTargetType
 import com.dino.message.threadfeature.domain.usecase.CreateCommentUseCase
@@ -26,14 +25,15 @@ import kotlinx.coroutines.launch
 import com.dino.message.corefeature.presentation.navigation.AppRoute
 
 class ThreadCommentsViewModel constructor(
-    app: Context,
+    private val stringResolver: StringResolver,
+    uiEventBus: UiEventBus,
     private val getCommentsUseCase: GetCommentsUseCase,
     private val createCommentUseCase: CreateCommentUseCase,
     private val deleteCommentUseCase: DeleteCommentUseCase,
     private val voteUseCase: VoteUseCase,
-    private val sPrefManager: SPrefManager,
-) : AndroidViewModel(app as DinoOrderApplication),
-    HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
+    private val sPrefManager: AuthSessionStore,
+) : ScopedStateHolder(),
+    HaveUIEvent by HaveUIEventImpl(uiEventBus) {
 
     var postId: Long = 0L
         private set
@@ -124,7 +124,7 @@ class ThreadCommentsViewModel constructor(
                 }
 
                 is Resource.Error -> {
-                    _error.value = res.message.asString(getApplication())
+                    _error.value = res.message.resolveWith(stringResolver)
                     _isCommentsLoading.value = false
                 }
             }
@@ -162,7 +162,7 @@ class ThreadCommentsViewModel constructor(
 
                         is Resource.Error -> {
                             _isCommentSending.value = false
-                            _error.value = res.message.asString(getApplication())
+                            _error.value = res.message.resolveWith(stringResolver)
                         }
                     }
                 }
@@ -206,7 +206,7 @@ class ThreadCommentsViewModel constructor(
                     }
                     is Resource.Error -> {
                         _isCommentDeleting.value = false
-                        _error.value = res.message.asString(getApplication())
+                        _error.value = res.message.resolveWith(stringResolver)
                     }
                 }
             }
@@ -242,7 +242,7 @@ class ThreadCommentsViewModel constructor(
                         if (delta != 0L) {
                             updateCommentScore(commentId = commentId, delta = -delta)
                         }
-                        _error.value = res.message.asString(getApplication())
+                        _error.value = res.message.resolveWith(stringResolver)
                     }
                 }
             }

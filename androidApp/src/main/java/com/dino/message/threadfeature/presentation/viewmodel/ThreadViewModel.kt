@@ -1,19 +1,19 @@
 package com.dino.message.threadfeature.presentation.viewmodel
 
 import com.dino.message.corefeature.presentation.util.asString
-import android.content.Context
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.viewModelScope
-import com.dino.message.DinoOrderApplication
-import com.dino.message.corefeature.data.socket.AppSocketManager
-import com.dino.message.corefeature.data.spref.DataStoreUtil
-import com.dino.message.corefeature.data.spref.SPrefManager
+import com.dino.message.corefeature.domain.session.AuthSessionStore
+import com.dino.message.corefeature.domain.settings.AppSettingsStore
 import com.dino.message.corefeature.domain.result.Resource
+import com.dino.message.corefeature.domain.resource.StringResolver
+import com.dino.message.corefeature.domain.socket.RealtimeSocketGateway
+import com.dino.message.corefeature.domain.system.AppClock
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
+import com.dino.message.corefeature.presentation.util.UiEventBus
+import com.dino.message.corefeature.presentation.viewmodel.ScopedStateHolder
 import com.dino.message.profilefeature.domain.model.Profile
 import com.dino.message.profilefeature.domain.usecase.FollowUserUseCase
 import com.dino.message.profilefeature.domain.usecase.GetMyProfileUseCase
@@ -63,7 +63,8 @@ data class FollowSuggestion(
 )
 
 class ThreadViewModel constructor(
-    app: Context,
+    private val stringResolver: StringResolver,
+    uiEventBus: UiEventBus,
     private val getPostsUseCase: GetPostsUseCase,
     private val voteUseCase: VoteUseCase,
     private val blockUserUseCase: BlockUserUseCase,
@@ -80,12 +81,13 @@ class ThreadViewModel constructor(
     private val uploadStoryUseCase: UploadStoryUseCase,
     private val followUserUseCase: FollowUserUseCase,
     private val getMyProfileUseCase: GetMyProfileUseCase,
-    private val dataStoreUtil: DataStoreUtil,
-    private val sPrefManager: SPrefManager,
+    private val dataStoreUtil: AppSettingsStore,
+    private val sPrefManager: AuthSessionStore,
     private val getUnreadCountUseCase: GetUnreadCountUseCase,
-    private val appSocketManager: AppSocketManager,
-) : AndroidViewModel(app as DinoOrderApplication),
-    HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
+    private val appSocketManager: RealtimeSocketGateway,
+    private val appClock: AppClock,
+) : ScopedStateHolder(),
+    HaveUIEvent by HaveUIEventImpl(uiEventBus) {
 
     val profile = mutableStateOf<Profile?>(null)
     private val postsPageLimit = 10
@@ -251,7 +253,7 @@ class ThreadViewModel constructor(
                 }
                 is Resource.Loading -> Unit
                 is Resource.Error -> {
-                    _error.value = res.message.asString(getApplication())
+                    _error.value = res.message.resolveWith(stringResolver)
                 }
             }
         }
@@ -329,7 +331,8 @@ class ThreadViewModel constructor(
                 is Resource.Success -> {
                     profile.value = res.data
                     dataStoreUtil.saveBadgeAccessCache(
-                        hasBadge = !res.data.badge.isNullOrBlank()
+                        hasBadge = !res.data.badge.isNullOrBlank(),
+                        syncedAtEpochMillis = appClock.currentTimeMillis(),
                     )
                     _profileError.value = null
                     _isProfileLoading.value = false
@@ -340,7 +343,7 @@ class ThreadViewModel constructor(
                 }
 
                 is Resource.Error -> {
-                    _profileError.value = res.message.asString(getApplication())
+                    _profileError.value = res.message.resolveWith(stringResolver)
                     _isProfileLoading.value = false
                 }
             }
@@ -383,7 +386,7 @@ class ThreadViewModel constructor(
                 }
 
                 is Resource.Error -> {
-                    _error.value = res.message.asString(getApplication())
+                    _error.value = res.message.resolveWith(stringResolver)
                     showLoading(isRefresh = false, isLoadMore = false)
                     finishPostsRequest()
                 }
@@ -495,7 +498,7 @@ class ThreadViewModel constructor(
                 is Resource.Loading -> Unit
 
                 is Resource.Error -> {
-                    postErrorByPost[postId] = res.message.asString(getApplication())
+                    postErrorByPost[postId] = res.message.resolveWith(stringResolver)
                 }
             }
         }
@@ -516,7 +519,7 @@ class ThreadViewModel constructor(
                 is Resource.Loading -> Unit
 
                 is Resource.Error -> {
-                    _blockFeedback.value = res.message.asString(getApplication())
+                    _blockFeedback.value = res.message.resolveWith(stringResolver)
                 }
             }
         }
@@ -566,7 +569,7 @@ class ThreadViewModel constructor(
                 is Resource.Loading -> Unit
 
                 is Resource.Error -> {
-                    _playlistFeedback.value = res.message.asString(getApplication())
+                    _playlistFeedback.value = res.message.resolveWith(stringResolver)
                 }
             }
         }
@@ -597,7 +600,7 @@ class ThreadViewModel constructor(
                 }
 
                 is Resource.Error -> {
-                    _storyFeedError.value = res.message.asString(getApplication())
+                    _storyFeedError.value = res.message.resolveWith(stringResolver)
                     _isStoryFeedLoading.value = false
                 }
             }
@@ -621,7 +624,7 @@ class ThreadViewModel constructor(
 
                 is Resource.Error -> {
                     _storyActionInFlight.value = false
-                    _storyFeedback.value = res.message.asString(getApplication())
+                    _storyFeedback.value = res.message.resolveWith(stringResolver)
                 }
             }
         }
@@ -671,7 +674,7 @@ class ThreadViewModel constructor(
 
                 is Resource.Error -> {
                     _storyActionInFlight.value = false
-                    _storyFeedback.value = res.message.asString(getApplication())
+                    _storyFeedback.value = res.message.resolveWith(stringResolver)
                 }
             }
         }
@@ -773,7 +776,7 @@ class ThreadViewModel constructor(
 
                 is Resource.Error -> {
                     _storyActionInFlight.value = false
-                    _storyFeedback.value = res.message.asString(getApplication())
+                    _storyFeedback.value = res.message.resolveWith(stringResolver)
                 }
             }
         }
@@ -795,7 +798,7 @@ class ThreadViewModel constructor(
 
                 is Resource.Error -> {
                     _storyActionInFlight.value = false
-                    _storyFeedback.value = res.message.asString(getApplication())
+                    _storyFeedback.value = res.message.resolveWith(stringResolver)
                 }
             }
         }
@@ -817,7 +820,7 @@ class ThreadViewModel constructor(
 
                 is Resource.Error -> {
                     _storyViewersLoading.value = false
-                    _storyFeedback.value = res.message.asString(getApplication())
+                    _storyFeedback.value = res.message.resolveWith(stringResolver)
                 }
             }
         }
@@ -842,7 +845,7 @@ class ThreadViewModel constructor(
 
                 is Resource.Error -> {
                     _storyActionInFlight.value = false
-                    _storyFeedback.value = res.message.asString(getApplication())
+                    _storyFeedback.value = res.message.resolveWith(stringResolver)
                 }
             }
         }
@@ -950,9 +953,9 @@ class ThreadViewModel constructor(
         appSocketManager.connect()
     }
 
-    override fun onCleared() {
+    override fun clear() {
         storyMentionSearchJob?.cancel()
         appSocketManager.unregisterOwner(socketOwner)
-        super.onCleared()
+        super.clear()
     }
 }

@@ -1,21 +1,17 @@
 package com.dino.message.threadfeature.presentation.viewmodel
 
-import com.dino.message.corefeature.presentation.util.asString
-import android.content.Context
-import android.webkit.MimeTypeMap
 import androidx.compose.runtime.mutableStateOf
-import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.SavedStateHandle
-import androidx.lifecycle.viewModelScope
-import com.dino.message.DinoOrderApplication
 import com.dino.message.corefeature.domain.upload.MediaMimePolicy
-import com.dino.message.corefeature.data.spref.SPrefManager
-import com.dino.message.corefeature.data.upload.PlatformPickedMedia
-import com.dino.message.corefeature.data.upload.PlatformMediaReference
-import com.dino.message.corefeature.data.upload.PlatformMediaResolver
+import com.dino.message.corefeature.domain.session.AuthSessionStore
+import com.dino.message.corefeature.domain.upload.PlatformPickedMedia
+import com.dino.message.corefeature.domain.upload.PlatformMediaReference
+import com.dino.message.corefeature.domain.upload.PlatformMediaResolver
 import com.dino.message.corefeature.domain.result.Resource
+import com.dino.message.corefeature.domain.resource.StringResolver
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
+import com.dino.message.corefeature.presentation.util.UiEventBus
+import com.dino.message.corefeature.presentation.viewmodel.ScopedStateHolder
 import com.dino.message.threadfeature.domain.model.CreatePostMedia
 import com.dino.message.threadfeature.domain.model.Post
 import com.dino.message.threadfeature.domain.model.PostMedia
@@ -41,18 +37,18 @@ data class SelectedMusicTrack(
 )
 
 class PostMusicViewModel constructor(
-    app: Context,
-    private val sPrefManager: SPrefManager,
+    private val stringResolver: StringResolver,
+    uiEventBus: UiEventBus,
+    private val sPrefManager: AuthSessionStore,
     private val createPostUseCase: CreatePostUseCase,
     private val editPostUseCase: EditPostUseCase,
     private val getPostUseCase: GetPostUseCase,
     private val mediaResolver: PlatformMediaResolver,
-    savedStateHandle: SavedStateHandle
-) : AndroidViewModel(app as DinoOrderApplication),
-    HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
+    quotedPostIdArg: Long,
+    editPostIdArg: Long,
+) : ScopedStateHolder(),
+    HaveUIEvent by HaveUIEventImpl(uiEventBus) {
 
-    private val quotedPostIdArg: Long = savedStateHandle.get<Long>("quotedPostId") ?: 0L
-    private val editPostIdArg: Long = savedStateHandle.get<Long>("editPostId") ?: 0L
     val quotedPostId: Long? = quotedPostIdArg.takeIf { it > 0L }
     val editPostId: Long? = editPostIdArg.takeIf { it > 0L }
     val isEditMode: Boolean = editPostId != null
@@ -184,7 +180,7 @@ class PostMusicViewModel constructor(
                             navigateUp(viewModelScope)
                         }
                         is Resource.Error -> {
-                            _error.value = res.message.asString(getApplication())
+                            _error.value = res.message.resolveWith(stringResolver)
                         }
                     }
                 }
@@ -219,7 +215,7 @@ class PostMusicViewModel constructor(
 
                     is Resource.Error -> {
                         _isQuotedPostLoading.value = false
-                        _quotedPostError.value = res.message.asString(getApplication())
+                        _quotedPostError.value = res.message.resolveWith(stringResolver)
                     }
                 }
             }
@@ -248,7 +244,7 @@ class PostMusicViewModel constructor(
 
                     is Resource.Error -> {
                         _isInitialPostLoading.value = false
-                        _error.value = res.message.asString(getApplication())
+                        _error.value = res.message.resolveWith(stringResolver)
                     }
                 }
             }
@@ -290,7 +286,7 @@ class PostMusicViewModel constructor(
             .takeIf { it.isNotBlank() }
         if (extension != null) {
             val guessedMime = MediaMimePolicy.normalizeMimeType(
-                MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension)
+                mediaResolver.mimeTypeFromDisplayName(pickedMedia.displayName)
             )
             if (guessedMime.startsWith("audio/")) {
                 return guessedMime

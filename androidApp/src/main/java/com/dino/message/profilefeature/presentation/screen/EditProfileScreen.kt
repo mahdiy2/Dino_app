@@ -70,7 +70,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.statusBarsPadding
-import org.koin.compose.viewmodel.koinViewModel
+import com.dino.message.corefeature.presentation.viewmodel.rememberStateHolder
 import com.dino.message.R
 import com.dino.message.corefeature.presentation.platform.PlatformImageRequestOptions
 import com.dino.message.corefeature.presentation.platform.PlatformSubcomposeAsyncImage
@@ -97,7 +97,7 @@ import com.dino.message.corefeature.presentation.icons.AppIcons
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditProfileScreen() {
-    val viewModel: EditProfileViewModel = koinViewModel()
+    val viewModel: EditProfileViewModel = rememberStateHolder()
     val isLoading by viewModel.isLoading.collectAsState()
     val isSaving by viewModel.isSaving.collectAsState()
     val error by viewModel.error.collectAsState()

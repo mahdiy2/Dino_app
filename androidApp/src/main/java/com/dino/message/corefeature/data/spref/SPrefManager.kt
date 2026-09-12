@@ -2,6 +2,7 @@ package com.dino.message.corefeature.data.spref
 
 import com.dino.message.corefeature.data.util.Constants.REFRESH_TOKEN_KEY
 import com.dino.message.corefeature.data.util.Constants.TOKEN_KEY
+import com.dino.message.corefeature.domain.session.AuthSessionStore
 
 /**
  * The `SPrefManager` class provides a shared preferences manager for
@@ -11,7 +12,7 @@ import com.dino.message.corefeature.data.util.Constants.TOKEN_KEY
  */
 class SPrefManager constructor(
     private val secureStore: SecureKeyValueStore
-) {
+) : AuthSessionStore {
     private companion object {
         const val PRIVATE_KEY = "PRIVATE_KEY"
         const val PUBLIC_KEY = "PUBLIC_KEY"
@@ -34,7 +35,7 @@ class SPrefManager constructor(
      *
      * @param token The token to be set.
      */
-    fun setToken(token: String) {
+    override fun setToken(token: String) {
         secureStore.putString(TOKEN_KEY, token)
     }
 
@@ -44,7 +45,7 @@ class SPrefManager constructor(
      * @return The token as a String. If the value is not found,
      * returns an empty string.
      */
-    fun getToken(): String {
+    override fun getToken(): String {
         return secureStore.getString(TOKEN_KEY, "") ?: ""
     }
 
@@ -53,7 +54,7 @@ class SPrefManager constructor(
      *
      * @param token The refresh token to be set.
      */
-    fun setRefreshToken(token: String) {
+    override fun setRefreshToken(token: String) {
         secureStore.putString(REFRESH_TOKEN_KEY, token)
     }
 
@@ -63,96 +64,96 @@ class SPrefManager constructor(
      * @return The refresh token as a String. If the value is not found,
      * returns an empty string.
      */
-    fun getRefreshToken(): String {
+    override fun getRefreshToken(): String {
         return secureStore.getString(REFRESH_TOKEN_KEY, "") ?: ""
     }
 
-    fun savePrivateKey(privateKey: String) {
+    override fun savePrivateKey(privateKey: String) {
         secureStore.putString(PRIVATE_KEY, privateKey)
     }
 
-    fun getPrivateKey(): String? {
+    override fun getPrivateKey(): String? {
         return secureStore.getString(PRIVATE_KEY, null)
     }
 
-    fun savePublicKey(publicKey: String) {
+    override fun savePublicKey(publicKey: String) {
         secureStore.putString(PUBLIC_KEY, publicKey)
     }
 
-    fun getPublicKey(): String? {
+    override fun getPublicKey(): String? {
         return secureStore.getString(PUBLIC_KEY, null)
     }
 
-    fun setUserLogIn(isLogeIn: Boolean){
-        secureStore.putBoolean(USER_LOG_IN, isLogeIn)
+    override fun setUserLogIn(isLogIn: Boolean){
+        secureStore.putBoolean(USER_LOG_IN, isLogIn)
     }
 
-    fun getUserLogIn(): Boolean {
+    override fun getUserLogIn(): Boolean {
         return secureStore.getBoolean(USER_LOG_IN, false)
     }
 
-    fun setUsername(username: String){
+    override fun setUsername(username: String){
         secureStore.putString(USER_NAME, username)
     }
-    fun getUsername(): String?{
+    override fun getUsername(): String?{
         return secureStore.getString(USER_NAME, null)
     }
 
-    fun savePendingPrivateKey(privateKey: String) {
+    override fun savePendingPrivateKey(privateKey: String) {
         secureStore.putString(PENDING_PRIVATE_KEY, privateKey)
     }
 
-    fun getPendingPrivateKey(): String? {
+    override fun getPendingPrivateKey(): String? {
         return secureStore.getString(PENDING_PRIVATE_KEY, null)
     }
 
-    fun savePendingPublicKey(publicKey: String) {
+    override fun savePendingPublicKey(publicKey: String) {
         secureStore.putString(PENDING_PUBLIC_KEY, publicKey)
     }
 
-    fun getPendingPublicKey(): String? {
+    override fun getPendingPublicKey(): String? {
         return secureStore.getString(PENDING_PUBLIC_KEY, null)
     }
 
-    fun savePendingRegistrationId(registrationId: String) {
+    override fun savePendingRegistrationId(registrationId: String) {
         secureStore.putString(PENDING_REGISTRATION_ID, registrationId)
     }
 
-    fun getPendingRegistrationId(): String? {
+    override fun getPendingRegistrationId(): String? {
         return secureStore.getString(PENDING_REGISTRATION_ID, null)
     }
 
-    fun savePendingRegistrationUsername(username: String) {
+    override fun savePendingRegistrationUsername(username: String) {
         secureStore.putString(PENDING_REGISTRATION_USERNAME, username)
     }
 
-    fun getPendingRegistrationUsername(): String? {
+    override fun getPendingRegistrationUsername(): String? {
         return secureStore.getString(PENDING_REGISTRATION_USERNAME, null)
     }
 
-    fun savePendingRegistrationNonce(nonce: String) {
+    override fun savePendingRegistrationNonce(nonce: String) {
         secureStore.putString(PENDING_REGISTRATION_NONCE, nonce)
     }
 
-    fun getPendingRegistrationNonce(): String? {
+    override fun getPendingRegistrationNonce(): String? {
         return secureStore.getString(PENDING_REGISTRATION_NONCE, null)
     }
 
-    fun savePendingRegistrationExpiresAt(expiresAtEpochMillis: Long) {
+    override fun savePendingRegistrationExpiresAt(expiresAtEpochMillis: Long) {
         secureStore.putLong(PENDING_REGISTRATION_EXPIRES_AT, expiresAtEpochMillis)
     }
 
-    fun getPendingRegistrationExpiresAt(): Long {
+    override fun getPendingRegistrationExpiresAt(): Long {
         return secureStore.getLong(PENDING_REGISTRATION_EXPIRES_AT, 0L)
     }
 
-    fun hasPendingRegistration(): Boolean {
+    override fun hasPendingRegistration(): Boolean {
         return !getPendingPrivateKey().isNullOrBlank() &&
             !getPendingPublicKey().isNullOrBlank() &&
             !getPendingRegistrationId().isNullOrBlank()
     }
 
-    fun finalizePendingRegistration() {
+    override fun finalizePendingRegistration() {
         val pendingPrivateKey = getPendingPrivateKey()
         val pendingPublicKey = getPendingPublicKey()
         if (!pendingPrivateKey.isNullOrBlank()) {
@@ -164,7 +165,7 @@ class SPrefManager constructor(
         clearPendingRegistration()
     }
 
-    fun clearPendingRegistration() {
+    override fun clearPendingRegistration() {
         secureStore
             .remove(PENDING_PRIVATE_KEY)
             .remove(PENDING_PUBLIC_KEY)
@@ -175,11 +176,11 @@ class SPrefManager constructor(
             .apply()
     }
 
-    fun markThreadRefreshAfterPost() {
+    override fun markThreadRefreshAfterPost() {
         secureStore.putBoolean(THREAD_REFRESH_AFTER_POST, true)
     }
 
-    fun consumeThreadRefreshAfterPost(): Boolean {
+    override fun consumeThreadRefreshAfterPost(): Boolean {
         val shouldRefresh = secureStore.getBoolean(THREAD_REFRESH_AFTER_POST, false)
         if (shouldRefresh) {
             secureStore.putBoolean(THREAD_REFRESH_AFTER_POST, false)
@@ -187,7 +188,7 @@ class SPrefManager constructor(
         return shouldRefresh
     }
 
-    fun clearAuthSession() {
+    override fun clearAuthSession() {
         secureStore
             .remove(TOKEN_KEY)
             .remove(REFRESH_TOKEN_KEY)
@@ -199,23 +200,23 @@ class SPrefManager constructor(
             .apply()
     }
 
-    fun clearAll() {
+    override fun clearAll() {
         secureStore.clear()
     }
 
-    fun saveDeviceSyncUserId(userId: String) {
+    override fun saveDeviceSyncUserId(userId: String) {
         secureStore.putString(DEVICE_SYNC_USER_ID, userId)
     }
 
-    fun getDeviceSyncUserId(): String? {
+    override fun getDeviceSyncUserId(): String? {
         return secureStore.getString(DEVICE_SYNC_USER_ID, null)
     }
 
-    fun saveDeviceSyncDeviceId(deviceId: String) {
+    override fun saveDeviceSyncDeviceId(deviceId: String) {
         secureStore.putString(DEVICE_SYNC_DEVICE_ID, deviceId)
     }
 
-    fun getDeviceSyncDeviceId(): String? {
+    override fun getDeviceSyncDeviceId(): String? {
         return secureStore.getString(DEVICE_SYNC_DEVICE_ID, null)
     }
 

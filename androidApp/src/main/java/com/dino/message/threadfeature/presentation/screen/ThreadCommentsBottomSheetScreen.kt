@@ -16,7 +16,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import org.koin.compose.viewmodel.koinViewModel
+import com.dino.message.corefeature.presentation.viewmodel.rememberStateHolder
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPSmall
 import com.dino.message.threadfeature.presentation.component.ThreadCommentsSection
@@ -27,7 +27,7 @@ import com.dino.message.threadfeature.presentation.viewmodel.ThreadCommentsViewM
 fun ThreadCommentsBottomSheetScreen(
     postId: Long
 ) {
-    val viewModel: ThreadCommentsViewModel = koinViewModel()
+    val viewModel: ThreadCommentsViewModel = rememberStateHolder(postId)
 
     LaunchedEffect(postId) {
         viewModel.setPostId(postId)

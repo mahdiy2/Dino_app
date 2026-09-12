@@ -54,7 +54,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import org.koin.compose.viewmodel.koinViewModel
+import com.dino.message.corefeature.presentation.viewmodel.rememberStateHolder
 import com.dino.message.R
 import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
@@ -69,7 +69,7 @@ fun CreatePostOptionsBottomSheetScreen(
     quotedPostId: Long = 0L,
 ){
 
-    val viewModel: CreatePostOptionsBottomSheetScreenViewModel = koinViewModel()
+    val viewModel: CreatePostOptionsBottomSheetScreenViewModel = rememberStateHolder(quotedPostId)
 
     Column(
         modifier = Modifier
@@ -362,5 +362,3 @@ fun PremiumCreatePostAnimation() {
         )
     }
 }
-
-

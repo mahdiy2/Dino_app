@@ -38,7 +38,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import org.koin.compose.viewmodel.koinViewModel
+import com.dino.message.corefeature.presentation.viewmodel.rememberStateHolder
 import com.dino.message.R
 import com.dino.message.corefeature.data.upload.toPlatformMediaReference
 import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
@@ -52,6 +52,7 @@ import com.dino.message.threadfeature.presentation.component.QuotedPostPreviewCa
 import com.dino.message.threadfeature.presentation.util.artistTextOrUnknown
 import com.dino.message.threadfeature.presentation.viewmodel.PostMusicViewModel
 import com.dino.message.corefeature.presentation.icons.AppIcons
+import org.koin.core.parameter.parametersOf
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -59,7 +60,9 @@ fun PostMusicScreen(
     quotedPostId: Long = 0L,
     editPostId: Long = 0L
 ) {
-    val viewModel: PostMusicViewModel = koinViewModel()
+    val viewModel: PostMusicViewModel = rememberStateHolder(quotedPostId, editPostId) {
+        parametersOf(quotedPostId, editPostId)
+    }
     val context = LocalContext.current
     val selectedTrack = viewModel.selectedTrack.value
     val existingTrack = viewModel.existingTrack.value

@@ -35,7 +35,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import org.koin.compose.viewmodel.koinViewModel
+import com.dino.message.corefeature.presentation.viewmodel.rememberStateHolder
 import com.dino.message.R
 import com.dino.message.authfeature.presentation.viewmodel.PrivateKeyAlertScreenViewModel
 import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
@@ -44,7 +44,7 @@ import com.dino.message.corefeature.presentation.icons.AppIcons
 
 @Composable
 fun PrivateKeyAlertScreen() {
-    val viewModel: PrivateKeyAlertScreenViewModel = koinViewModel()
+    val viewModel: PrivateKeyAlertScreenViewModel = rememberStateHolder()
     val clipboardManager = LocalClipboardManager.current
     val confirmErrorMessage by viewModel.confirmErrorMessage
     val isConfirmLoading by viewModel.confirmLoadingState

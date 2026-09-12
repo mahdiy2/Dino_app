@@ -35,11 +35,11 @@ import com.dino.message.corefeature.presentation.util.HandleUIEvent
 import com.dino.message.corefeature.presentation.util.LocaleUtils
 import com.dino.message.corefeature.presentation.util.UiEventBus
 import com.dino.message.corefeature.presentation.viewmodel.MainActivityViewModel
+import com.dino.message.corefeature.presentation.viewmodel.rememberStateHolder
 import com.dino.message.threadfeature.presentation.music.MusicPlaybackManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
-import org.koin.androidx.viewmodel.ext.android.viewModel
 
 class MainActivity : ComponentActivity() {
 
@@ -50,8 +50,6 @@ class MainActivity : ComponentActivity() {
     private val androidIntentDeepLinkHandler: AndroidIntentDeepLinkHandler by inject()
 
     private val uiEventBus: UiEventBus by inject()
-
-    private val viewModel: MainActivityViewModel by viewModel()
 
     private var navController: NavHostController? = null
 
@@ -72,6 +70,7 @@ class MainActivity : ComponentActivity() {
 
         enableEdgeToEdge()
         setContent {
+            val viewModel: MainActivityViewModel = rememberStateHolder()
 
             // Retrieve the app theme and app language from the view model
             val theme = viewModel.getSystemTheme(systemTheme).collectAsState(initial = systemTheme)

@@ -1,17 +1,16 @@
 package com.dino.message.searchfeature.presentation.viewmodel
 
 import com.dino.message.corefeature.presentation.util.asString
-import android.content.Context
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.viewModelScope
-import com.dino.message.DinoOrderApplication
-import com.dino.message.corefeature.data.spref.DataStoreUtil
+import com.dino.message.corefeature.domain.settings.AppSettingsStore
 import com.dino.message.corefeature.domain.result.Resource
+import com.dino.message.corefeature.domain.resource.StringResolver
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
+import com.dino.message.corefeature.presentation.util.UiEventBus
+import com.dino.message.corefeature.presentation.viewmodel.ScopedStateHolder
 import com.dino.message.searchfeature.domain.model.SearchTab
 import com.dino.message.searchfeature.domain.model.SearchUser
 import com.dino.message.searchfeature.domain.usecase.SearchAllUseCase
@@ -33,15 +32,16 @@ import kotlinx.serialization.json.Json
 import com.dino.message.corefeature.presentation.navigation.AppRoute
 
 class SearchViewModel constructor(
-    app: Context,
-    private val dataStoreUtil: DataStoreUtil,
+    private val stringResolver: StringResolver,
+    uiEventBus: UiEventBus,
+    private val dataStoreUtil: AppSettingsStore,
     private val searchUsersUseCase: SearchUsersUseCase,
     private val searchPostsUseCase: SearchPostsUseCase,
     private val searchAllUseCase: SearchAllUseCase,
     private val voteUseCase: VoteUseCase,
     private val addTrackToPlaylistUseCase: AddTrackToPlaylistUseCase,
-) : AndroidViewModel(app as DinoOrderApplication),
-    HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
+) : ScopedStateHolder(),
+    HaveUIEvent by HaveUIEventImpl(uiEventBus) {
 
     val query = mutableStateOf("")
     val selectedTab = mutableStateOf(SearchTab.BOTH)
@@ -130,7 +130,7 @@ class SearchViewModel constructor(
                     _isLoading.value = false
                 }
                 is Resource.Error -> {
-                    _error.value = res.message.asString(getApplication())
+                    _error.value = res.message.resolveWith(stringResolver)
                     _isLoading.value = false
                 }
             }
@@ -154,7 +154,7 @@ class SearchViewModel constructor(
                     _isLoading.value = false
                 }
                 is Resource.Error -> {
-                    _error.value = res.message.asString(getApplication())
+                    _error.value = res.message.resolveWith(stringResolver)
                     _isLoading.value = false
                 }
             }
@@ -179,7 +179,7 @@ class SearchViewModel constructor(
                     _isLoading.value = false
                 }
                 is Resource.Error -> {
-                    _error.value = res.message.asString(getApplication())
+                    _error.value = res.message.resolveWith(stringResolver)
                     _isLoading.value = false
                 }
             }
@@ -216,7 +216,7 @@ class SearchViewModel constructor(
                 is Resource.Loading -> Unit
 
                 is Resource.Error -> {
-                    postErrorByPost[postId] = res.message.asString(getApplication())
+                    postErrorByPost[postId] = res.message.resolveWith(stringResolver)
                 }
             }
         }
@@ -281,7 +281,7 @@ class SearchViewModel constructor(
                 is Resource.Loading -> Unit
 
                 is Resource.Error -> {
-                    _playlistFeedback.value = res.message.asString(getApplication())
+                    _playlistFeedback.value = res.message.resolveWith(stringResolver)
                 }
             }
         }

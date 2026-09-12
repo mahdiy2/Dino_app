@@ -1,13 +1,12 @@
 package com.dino.message.profilefeature.presentation.viewmodel
 
 import com.dino.message.corefeature.presentation.util.asString
-import android.content.Context
-import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.viewModelScope
-import com.dino.message.DinoOrderApplication
 import com.dino.message.corefeature.domain.result.Resource
+import com.dino.message.corefeature.domain.resource.StringResolver
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
+import com.dino.message.corefeature.presentation.util.UiEventBus
+import com.dino.message.corefeature.presentation.viewmodel.ScopedStateHolder
 import com.dino.message.profilefeature.domain.model.AboutUs
 import com.dino.message.profilefeature.domain.usecase.GetAboutUsUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,10 +16,11 @@ import kotlinx.coroutines.launch
 import com.dino.message.corefeature.presentation.navigation.AppRoute
 
 class AboutUsViewModel constructor(
-    app: Context,
+    private val stringResolver: StringResolver,
+    uiEventBus: UiEventBus,
     private val getAboutUsUseCase: GetAboutUsUseCase,
-) : AndroidViewModel(app as DinoOrderApplication),
-    HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
+) : ScopedStateHolder(),
+    HaveUIEvent by HaveUIEventImpl(uiEventBus) {
 
     private val _aboutUs = MutableStateFlow<AboutUs?>(null)
     val aboutUs: StateFlow<AboutUs?> = _aboutUs.asStateFlow()
@@ -47,7 +47,7 @@ class AboutUsViewModel constructor(
 
                 is Resource.Error -> {
                     _isLoading.value = false
-                    _error.value = res.message.asString(getApplication())
+                    _error.value = res.message.resolveWith(stringResolver)
                 }
             }
         }

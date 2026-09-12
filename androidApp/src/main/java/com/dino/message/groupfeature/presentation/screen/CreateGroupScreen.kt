@@ -12,7 +12,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import org.koin.compose.viewmodel.koinViewModel
+import com.dino.message.corefeature.presentation.viewmodel.rememberStateHolder
 import com.dino.message.R
 import com.dino.message.corefeature.presentation.component.UserBadgeIcon
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
@@ -25,7 +25,7 @@ import com.dino.message.corefeature.presentation.icons.AppIcons
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateGroupScreen() {
-    val viewModel: CreateGroupViewModel = koinViewModel()
+    val viewModel: CreateGroupViewModel = rememberStateHolder()
     val context = LocalContext.current
 
     val isLoadingFollowers by viewModel.isLoadingFollowers.collectAsState()

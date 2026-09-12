@@ -1,16 +1,15 @@
 package com.dino.message.groupfeature.presentation.viewmodel
 
 import com.dino.message.corefeature.presentation.util.asString
-import android.content.Context
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.viewModelScope
 import com.dino.message.R
-import com.dino.message.DinoOrderApplication
 import com.dino.message.corefeature.domain.result.Resource
+import com.dino.message.corefeature.domain.resource.StringResolver
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
+import com.dino.message.corefeature.presentation.util.UiEventBus
+import com.dino.message.corefeature.presentation.viewmodel.ScopedStateHolder
 import com.dino.message.groupfeature.domain.model.MutualFollower
 import com.dino.message.groupfeature.domain.usecase.CreateGroupUseCase
 import com.dino.message.groupfeature.domain.usecase.GetMutualFollowersUseCase
@@ -20,11 +19,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class CreateGroupViewModel constructor(
-    app: Context,
+    private val stringResolver: StringResolver,
+    uiEventBus: UiEventBus,
     private val createGroupUseCase: CreateGroupUseCase,
     private val getMutualFollowersUseCase: GetMutualFollowersUseCase,
-) : AndroidViewModel(app as DinoOrderApplication),
-    HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
+) : ScopedStateHolder(),
+    HaveUIEvent by HaveUIEventImpl(uiEventBus) {
 
     val groupName = mutableStateOf("")
     val searchQuery = mutableStateOf("")
@@ -62,7 +62,7 @@ class CreateGroupViewModel constructor(
                 }
                 is Resource.Error -> {
                     _isLoadingFollowers.value = false
-                    _errorMessage.value = res.message.asString(getApplication<DinoOrderApplication>())
+                    _errorMessage.value = res.message.resolveWith(stringResolver)
                 }
             }
         }
@@ -80,12 +80,12 @@ class CreateGroupViewModel constructor(
         val name = groupName.value.trim()
         if (name.isBlank()) {
             _errorMessage.value =
-                getApplication<DinoOrderApplication>().getString(R.string.group_create_error_empty_name)
+                stringResolver.resolveStringId(R.string.group_create_error_empty_name)
             return
         }
         if (name.length > 120) {
             _errorMessage.value =
-                getApplication<DinoOrderApplication>().getString(R.string.group_create_error_name_too_long)
+                stringResolver.resolveStringId(R.string.group_create_error_name_too_long)
             return
         }
 
@@ -99,7 +99,7 @@ class CreateGroupViewModel constructor(
                     }
                     is Resource.Error -> {
                         _isCreating.value = false
-                        _errorMessage.value = res.message.asString(getApplication<DinoOrderApplication>())
+                        _errorMessage.value = res.message.resolveWith(stringResolver)
                     }
                 }
             }

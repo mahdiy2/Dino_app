@@ -1,4 +1,4 @@
-package com.dino.message.corefeature.data.socket
+package com.dino.message.corefeature.domain.socket
 
 object RealtimeSocketEvents {
     const val CONNECT = "connect"

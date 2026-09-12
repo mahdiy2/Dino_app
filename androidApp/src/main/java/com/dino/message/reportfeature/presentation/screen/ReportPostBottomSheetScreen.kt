@@ -40,7 +40,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import org.koin.compose.viewmodel.koinViewModel
+import com.dino.message.corefeature.presentation.viewmodel.rememberStateHolder
 import com.dino.message.R
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPSmall
@@ -52,7 +52,7 @@ import com.dino.message.corefeature.presentation.icons.AppIcons
 fun ReportPostBottomSheetScreen(
     postId: Long,
 ) {
-    val viewModel: ReportPostBottomSheetViewModel = koinViewModel()
+    val viewModel: ReportPostBottomSheetViewModel = rememberStateHolder(postId)
     val isTypesLoading by viewModel.isTypesLoading.collectAsState()
     val isSubmitting by viewModel.isSubmitting.collectAsState()
     val error by viewModel.error.collectAsState()

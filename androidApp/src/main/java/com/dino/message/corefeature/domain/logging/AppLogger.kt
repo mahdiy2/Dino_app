@@ -1,4 +1,4 @@
-package com.dino.message.corefeature.data.remote.logging
+package com.dino.message.corefeature.domain.logging
 
 interface AppLogger {
     fun debug(tag: String, message: String)

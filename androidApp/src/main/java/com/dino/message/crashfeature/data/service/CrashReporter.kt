@@ -1,6 +1,6 @@
 package com.dino.message.crashfeature.data.service
 
-import com.dino.message.corefeature.data.remote.logging.AppLogger
+import com.dino.message.corefeature.domain.logging.AppLogger
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.domain.background.BackgroundTask
 import com.dino.message.corefeature.domain.background.BackgroundTaskRegistry

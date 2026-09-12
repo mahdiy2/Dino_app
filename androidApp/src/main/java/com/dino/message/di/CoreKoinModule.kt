@@ -2,9 +2,13 @@ package com.dino.message.di
 
 import com.dino.message.DinoOrderApplication
 import com.dino.message.chatfeature.data.notification.AndroidMessageDeduplicationStore
+import com.dino.message.chatfeature.data.notification.AndroidMessageSoundPlayer
+import com.dino.message.chatfeature.data.notification.ActiveChatTracker
 import com.dino.message.chatfeature.data.notification.ActiveConversationTrackerCleaner
+import com.dino.message.chatfeature.data.notification.ActiveGroupTracker
 import com.dino.message.chatfeature.data.notification.InAppNotificationManager
 import com.dino.message.chatfeature.data.notification.NotificationHelper
+import com.dino.message.chatfeature.domain.audio.MessageSoundPlayer
 import com.dino.message.chatfeature.presentation.component.AndroidAudioRecorderFactory
 import com.dino.message.chatfeature.presentation.component.PlatformAudioRecorderFactory
 import com.dino.message.corefeature.data.background.AppLifecycleBackgroundTaskScheduler
@@ -26,19 +30,18 @@ import com.dino.message.corefeature.data.remote.NetworkExceptionClassifier
 import com.dino.message.corefeature.data.remote.JvmNetworkExceptionClassifier
 import com.dino.message.corefeature.data.remote.util.HttpAPIUtil
 import com.dino.message.corefeature.data.remote.createAppHttpClient
-import com.dino.message.corefeature.data.remote.logging.AppLogger
 import com.dino.message.corefeature.data.remote.logging.AndroidAppLogger
 import com.dino.message.corefeature.data.resource.AndroidStringResolver
 import com.dino.message.corefeature.data.session.RoomLocalMessageStoreCleaner
 import com.dino.message.corefeature.data.session.SPrefLocalSessionStore
 import com.dino.message.corefeature.data.upload.AndroidMediaMetadataExtractor
 import com.dino.message.corefeature.data.upload.AndroidUploadContentProvider
-import com.dino.message.corefeature.data.upload.PlatformMediaMetadataExtractor
-import com.dino.message.corefeature.data.upload.PlatformMediaResolver
+import com.dino.message.corefeature.domain.upload.PlatformMediaMetadataExtractor
+import com.dino.message.corefeature.domain.upload.PlatformMediaResolver
 import com.dino.message.corefeature.data.session.SPrefSessionProvider
 import com.dino.message.corefeature.data.socket.AndroidSocketIoTransportFactory
 import com.dino.message.corefeature.data.socket.AppSocketManager
-import com.dino.message.corefeature.data.socket.RealtimeSocketGateway
+import com.dino.message.corefeature.domain.socket.RealtimeSocketGateway
 import com.dino.message.corefeature.data.socket.RealtimeSocketTransportFactory
 import com.dino.message.corefeature.data.socket.RoomSocketOutboundQueueStore
 import com.dino.message.corefeature.data.socket.SocketOutboundQueueStore
@@ -64,6 +67,7 @@ import com.dino.message.corefeature.domain.device.DeviceInfoProvider
 import com.dino.message.corefeature.domain.filesystem.FileSystemProvider
 import com.dino.message.corefeature.domain.lifecycle.AppBackgroundCleanupObserver
 import com.dino.message.corefeature.domain.lifecycle.AppLifecycleDispatcher
+import com.dino.message.corefeature.domain.logging.AppLogger
 import com.dino.message.corefeature.domain.network.NetworkStatusProvider
 import com.dino.message.corefeature.domain.notification.AppNotificationController
 import com.dino.message.corefeature.domain.notification.AppNotificationPresenter
@@ -73,11 +77,15 @@ import com.dino.message.corefeature.domain.notification.NotificationSocketConnec
 import com.dino.message.corefeature.domain.notification.NotificationSocketController
 import com.dino.message.corefeature.domain.notification.NotificationTokenProvider
 import com.dino.message.corefeature.domain.resource.StringResolver
+import com.dino.message.corefeature.domain.session.ActiveChatState
 import com.dino.message.corefeature.domain.session.ActiveConversationStateCleaner
+import com.dino.message.corefeature.domain.session.ActiveGroupState
+import com.dino.message.corefeature.domain.session.AuthSessionStore
 import com.dino.message.corefeature.domain.session.LocalMessageStoreCleaner
 import com.dino.message.corefeature.domain.session.LocalSessionCleaner
 import com.dino.message.corefeature.domain.session.LocalSessionStore
 import com.dino.message.corefeature.domain.session.SessionProvider
+import com.dino.message.corefeature.domain.settings.AppSettingsStore
 import com.dino.message.corefeature.domain.startup.AppStartupCoordinator
 import com.dino.message.corefeature.domain.system.AppClock
 import com.dino.message.corefeature.domain.system.AppProcessController
@@ -92,6 +100,8 @@ import com.dino.message.crashfeature.data.service.AndroidCrashUiLauncher
 import com.dino.message.crashfeature.data.service.CrashLogBuilder
 import com.dino.message.crashfeature.data.service.CrashReporter
 import com.dino.message.crashfeature.data.service.CrashUiLauncher
+import com.dino.message.profilefeature.data.share.AndroidReferralShareLauncher
+import com.dino.message.profilefeature.domain.share.ReferralShareLauncher
 import com.dino.message.threadfeature.presentation.music.MediaPlaybackController
 import com.dino.message.threadfeature.presentation.music.MusicPlaybackManager
 import io.ktor.client.engine.okhttp.OkHttp
@@ -134,6 +144,8 @@ val coreModule = module {
         AndroidMessageDeduplicationStore(context = androidContext())
     }
     factory { MessageDeduplicator(store = get()) }
+    single<MessageSoundPlayer> { AndroidMessageSoundPlayer(context = androidContext()) }
+    single<ReferralShareLauncher> { AndroidReferralShareLauncher(context = androidContext()) }
     single<AppNotificationController> {
         AndroidAppNotificationController(
             notificationPresenter = get(),
@@ -151,12 +163,15 @@ val coreModule = module {
     single { AndroidIntentDeepLinkHandler() }
     single<SecureKeyValueStore> { AndroidEncryptedSecureKeyValueStore(context = androidContext()) }
     single { SPrefManager(secureStore = get()) }
+    single<AuthSessionStore> { get<SPrefManager>() }
     single<SessionProvider> { SPrefSessionProvider(sPrefManager = get()) }
     single { SPrefLocalSessionStore(sPrefManager = get()) }
     single<LocalSessionStore> { get<SPrefLocalSessionStore>() }
     single<LocalSessionCleaner> { get<SPrefLocalSessionStore>() }
     single<LocalMessageStoreCleaner> { RoomLocalMessageStoreCleaner(messageDatabase = get()) }
     single<ActiveConversationStateCleaner> { ActiveConversationTrackerCleaner() }
+    single<ActiveChatState> { ActiveChatTracker }
+    single<ActiveGroupState> { ActiveGroupTracker }
     single<AppLogger> { AndroidAppLogger }
     single<NetworkExceptionClassifier> { JvmNetworkExceptionClassifier }
     single { AndroidUploadContentProvider(contentResolver = androidContext().contentResolver) }
@@ -185,6 +200,7 @@ val coreModule = module {
     }
     single { createSettingsDataStore(context = androidContext()) }
     single { DataStoreUtil(dataStore = get()) }
+    single<AppSettingsStore> { get<DataStoreUtil>() }
     single { MainActivityUiSettingsState(dataStoreUtil = get()) }
     single { CrashLogApiService(httpClient = get(), sPrefManager = get()) }
     single { CrashLogBuilder(appConfig = get(), platformInfoProvider = get()) }

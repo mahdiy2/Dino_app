@@ -85,7 +85,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import org.koin.compose.viewmodel.koinViewModel
+import com.dino.message.corefeature.presentation.viewmodel.rememberStateHolder
 import androidx.lifecycle.Lifecycle
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -125,7 +125,7 @@ import com.dino.message.corefeature.presentation.icons.AppIcons
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun ThreadScreen(initialStoryId: Long? = null) {
-    val viewModel: ThreadViewModel = koinViewModel()
+    val viewModel: ThreadViewModel = rememberStateHolder()
     val listState = rememberLazyListState()
     val profile = viewModel.profile.value
     val canDownloadPostMedia by viewModel.viewerHasBadge.collectAsState()

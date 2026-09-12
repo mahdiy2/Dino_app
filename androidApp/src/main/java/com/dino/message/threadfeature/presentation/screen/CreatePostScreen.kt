@@ -45,7 +45,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.dino.message.corefeature.presentation.util.rememberLayoutDirection
-import org.koin.compose.viewmodel.koinViewModel
+import com.dino.message.corefeature.presentation.viewmodel.rememberStateHolder
 import com.dino.message.chatfeature.presentation.component.MediaAccessLevel
 import com.dino.message.chatfeature.presentation.component.MediaPermissionHandler
 import com.dino.message.R
@@ -60,6 +60,7 @@ import com.dino.message.threadfeature.presentation.component.PostContainer
 import com.dino.message.threadfeature.presentation.component.QuotedPostPreviewCard
 import com.dino.message.threadfeature.presentation.viewmodel.CreatePostViewModel
 import com.dino.message.corefeature.presentation.icons.AppIcons
+import org.koin.core.parameter.parametersOf
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -67,7 +68,9 @@ fun CreatePostScreen(
     quotedPostId: Long = 0L,
     editPostId: Long = 0L
 ) {
-    val viewModel: CreatePostViewModel = koinViewModel()
+    val viewModel: CreatePostViewModel = rememberStateHolder(quotedPostId, editPostId) {
+        parametersOf(quotedPostId, editPostId)
+    }
     val isSubmitting by viewModel.isSubmitting.collectAsState()
     val isInitialPostLoading by viewModel.isInitialPostLoading.collectAsState()
     val error by viewModel.error.collectAsState()

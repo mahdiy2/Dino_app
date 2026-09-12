@@ -1,17 +1,14 @@
 package com.dino.message.groupfeature.presentation.viewmodel
 
-import com.dino.message.corefeature.presentation.util.asString
-import android.content.Context
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.SavedStateHandle
-import androidx.lifecycle.viewModelScope
-import com.dino.message.DinoOrderApplication
 import com.dino.message.R
 import com.dino.message.corefeature.domain.result.Resource
+import com.dino.message.corefeature.domain.resource.StringResolver
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
+import com.dino.message.corefeature.presentation.util.UiEventBus
+import com.dino.message.corefeature.presentation.viewmodel.ScopedStateHolder
 import com.dino.message.groupfeature.domain.model.MutualFollower
 import com.dino.message.groupfeature.domain.usecase.AddGroupMembersUseCase
 import com.dino.message.groupfeature.domain.usecase.GetGroupDetailUseCase
@@ -22,17 +19,18 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class AddGroupMembersViewModel constructor(
-    app: Context,
-    savedStateHandle: SavedStateHandle,
+    private val stringResolver: StringResolver,
+    uiEventBus: UiEventBus,
+    val groupId: Int,
+    initialGroupNameArg: String?,
     private val getMutualFollowersUseCase: GetMutualFollowersUseCase,
     private val getGroupDetailUseCase: GetGroupDetailUseCase,
     private val addGroupMembersUseCase: AddGroupMembersUseCase,
-) : AndroidViewModel(app as DinoOrderApplication),
-    HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
+) : ScopedStateHolder(),
+    HaveUIEvent by HaveUIEventImpl(uiEventBus) {
 
-    val groupId: Int = checkNotNull(savedStateHandle["groupId"])
     private val initialGroupName: String =
-        savedStateHandle["groupName"] ?: app.getString(R.string.group_fallback_name)
+        initialGroupNameArg ?: stringResolver.resolveStringId(R.string.group_fallback_name)
 
     val searchQuery = mutableStateOf("")
 
@@ -88,7 +86,7 @@ class AddGroupMembersViewModel constructor(
                 }
                 is Resource.Error -> {
                     loadingFollowers = false
-                    _errorMessage.value = result.message.asString(getApplication<DinoOrderApplication>())
+                    _errorMessage.value = result.message.resolveWith(stringResolver)
                     updateLoadingState()
                 }
             }
@@ -112,7 +110,7 @@ class AddGroupMembersViewModel constructor(
                 }
                 is Resource.Error -> {
                     loadingGroupDetail = false
-                    _errorMessage.value = result.message.asString(getApplication<DinoOrderApplication>())
+                    _errorMessage.value = result.message.resolveWith(stringResolver)
                     updateLoadingState()
                 }
             }
@@ -145,7 +143,7 @@ class AddGroupMembersViewModel constructor(
         val selected = _selectedUsernames.toList()
         if (selected.isEmpty()) {
             _errorMessage.value =
-                getApplication<DinoOrderApplication>().getString(R.string.group_add_members_error_select_one)
+                stringResolver.resolveStringId(R.string.group_add_members_error_select_one)
             return
         }
 
@@ -156,15 +154,14 @@ class AddGroupMembersViewModel constructor(
                     is Resource.Success -> {
                         _isSubmitting.value = false
                         if (result.data.added.isEmpty()) {
-                            _errorMessage.value = getApplication<DinoOrderApplication>()
-                                .getString(R.string.group_add_members_error_already_member)
+                            _errorMessage.value = stringResolver.resolveStringId(R.string.group_add_members_error_already_member)
                             return@collect
                         }
                         _membersAdded.value = true
                     }
                     is Resource.Error -> {
                         _isSubmitting.value = false
-                        _errorMessage.value = result.message.asString(getApplication<DinoOrderApplication>())
+                        _errorMessage.value = result.message.resolveWith(stringResolver)
                     }
                 }
             }

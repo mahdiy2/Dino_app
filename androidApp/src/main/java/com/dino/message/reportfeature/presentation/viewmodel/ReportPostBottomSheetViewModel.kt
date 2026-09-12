@@ -1,16 +1,15 @@
 package com.dino.message.reportfeature.presentation.viewmodel
 
 import com.dino.message.corefeature.presentation.util.asString
-import android.content.Context
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.viewModelScope
-import com.dino.message.DinoOrderApplication
 import com.dino.message.R
 import com.dino.message.corefeature.domain.result.Resource
+import com.dino.message.corefeature.domain.resource.StringResolver
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
+import com.dino.message.corefeature.presentation.util.UiEventBus
+import com.dino.message.corefeature.presentation.viewmodel.ScopedStateHolder
 import com.dino.message.reportfeature.domain.usecase.CreatePostReportUseCase
 import com.dino.message.reportfeature.domain.usecase.GetReportTypesUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,11 +18,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class ReportPostBottomSheetViewModel constructor(
-    app: Context,
+    private val stringResolver: StringResolver,
+    uiEventBus: UiEventBus,
     private val getReportTypesUseCase: GetReportTypesUseCase,
     private val createPostReportUseCase: CreatePostReportUseCase,
-) : AndroidViewModel(app as DinoOrderApplication),
-    HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
+) : ScopedStateHolder(),
+    HaveUIEvent by HaveUIEventImpl(uiEventBus) {
 
 
     private val _reportTypes = mutableStateListOf<String>()
@@ -64,7 +64,7 @@ class ReportPostBottomSheetViewModel constructor(
 
                 is Resource.Error -> {
                     _isTypesLoading.value = false
-                    _error.value = res.message.asString(getApplication())
+                    _error.value = res.message.resolveWith(stringResolver)
                 }
             }
         }
@@ -87,7 +87,7 @@ class ReportPostBottomSheetViewModel constructor(
         val type = selectedType.value
         if (type.isNullOrBlank()) {
             _error.value =
-                getApplication<DinoOrderApplication>().getString(R.string.report_post_select_type_error)
+                stringResolver.resolveStringId(R.string.report_post_select_type_error)
             return
         }
 
@@ -112,7 +112,7 @@ class ReportPostBottomSheetViewModel constructor(
 
                     is Resource.Error -> {
                         _isSubmitting.value = false
-                        _error.value = res.message.asString(getApplication())
+                        _error.value = res.message.resolveWith(stringResolver)
                     }
                 }
             }

@@ -25,15 +25,15 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import org.koin.compose.viewmodel.koinViewModel
 import com.dino.message.R
 import com.dino.message.corefeature.presentation.viewmodel.PrivateKeyResetDialogViewModel
 import androidx.compose.material3.Icon
 import com.dino.message.corefeature.presentation.icons.AppIcons
+import com.dino.message.corefeature.presentation.viewmodel.rememberStateHolder
 
 @Composable
 fun PrivateKeyResetDialogScreen() {
-    val viewModel: PrivateKeyResetDialogViewModel = koinViewModel()
+    val viewModel: PrivateKeyResetDialogViewModel = rememberStateHolder()
     val isSubmitting by viewModel.isSubmitting.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
 

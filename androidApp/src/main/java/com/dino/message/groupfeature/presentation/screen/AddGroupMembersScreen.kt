@@ -33,7 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import org.koin.compose.viewmodel.koinViewModel
+import com.dino.message.corefeature.presentation.viewmodel.rememberStateHolder
 import com.dino.message.R
 import com.dino.message.corefeature.presentation.component.UserBadgeIcon
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
@@ -42,6 +42,7 @@ import com.dino.message.corefeature.presentation.util.backIconModifier
 import com.dino.message.profilefeature.presentation.component.ProfileAvatarMedia
 import com.dino.message.groupfeature.presentation.viewmodel.AddGroupMembersViewModel
 import com.dino.message.corefeature.presentation.icons.AppIcons
+import org.koin.core.parameter.parametersOf
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -49,7 +50,9 @@ fun AddGroupMembersScreen(
     groupId: Int,
     groupName: String? = null,
 ) {
-    val viewModel: AddGroupMembersViewModel = koinViewModel()
+    val viewModel: AddGroupMembersViewModel = rememberStateHolder(groupId, groupName) {
+        parametersOf(groupId, groupName)
+    }
     val context = LocalContext.current
 
     val title by viewModel.groupName.collectAsState()

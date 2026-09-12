@@ -1,8 +1,15 @@
-package com.dino.message.corefeature.data.socket
+package com.dino.message.corefeature.domain.socket
 
 import kotlinx.coroutines.flow.StateFlow
 
 interface RealtimeSocketGateway {
+    enum class EmitWithRetryResult {
+        EMITTED,
+        QUEUED,
+        ALREADY_QUEUED,
+        QUEUE_FULL,
+    }
+
     val queuedOutboundCount: StateFlow<Int>
 
     fun connect(forceReconnect: Boolean = false): Boolean
@@ -21,5 +28,5 @@ interface RealtimeSocketGateway {
         event: String,
         payload: Any? = null,
         dedupeKey: String? = null,
-    ): AppSocketManager.EmitWithRetryResult
+    ): EmitWithRetryResult
 }

@@ -66,7 +66,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import org.koin.compose.viewmodel.koinViewModel
+import com.dino.message.corefeature.presentation.viewmodel.rememberStateHolder
 import com.dino.message.R
 import com.dino.message.corefeature.domain.model.AppLanguage
 import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
@@ -82,7 +82,7 @@ import com.dino.message.corefeature.presentation.icons.AppIcons
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileSettingsScreen() {
-    val viewModel: ProfileSettingsViewModel = koinViewModel()
+    val viewModel: ProfileSettingsViewModel = rememberStateHolder()
     val showDeleteAccountDialog by viewModel.showDeleteAccountDialog.collectAsState()
     val deleteAccountLoading by viewModel.deleteAccountLoading.collectAsState()
     val deleteAccountError by viewModel.deleteAccountError.collectAsState()

@@ -5,6 +5,7 @@ import com.dino.message.corefeature.domain.result.Resource
 import com.dino.message.spashscreen.data.remote.dto.CheckAppVersionRequest
 import com.dino.message.spashscreen.data.remote.dto.CheckAppVersionResponse
 import com.dino.message.spashscreen.domain.model.VersionCheckDecision
+import com.dino.message.spashscreen.domain.repository.SplashApiService
 import io.ktor.client.HttpClient
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody

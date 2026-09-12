@@ -1,6 +1,6 @@
 package com.dino.message.corefeature.data.socket
 
-import com.dino.message.corefeature.data.remote.logging.AppLogger
+import com.dino.message.corefeature.domain.logging.AppLogger
 import io.socket.client.IO
 import io.socket.client.Socket
 import io.socket.emitter.Emitter

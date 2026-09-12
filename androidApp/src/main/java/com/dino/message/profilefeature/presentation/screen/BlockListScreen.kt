@@ -30,7 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import org.koin.compose.viewmodel.koinViewModel
+import com.dino.message.corefeature.presentation.viewmodel.rememberStateHolder
 import com.dino.message.R
 import com.dino.message.corefeature.presentation.component.UserBadgeIcon
 import com.dino.message.corefeature.presentation.ui.theme.DPExtraLarge
@@ -46,7 +46,7 @@ import com.dino.message.corefeature.presentation.icons.AppIcons
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BlockListScreen() {
-    val viewModel: BlockListViewModel = koinViewModel()
+    val viewModel: BlockListViewModel = rememberStateHolder()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
     val actionUsername by viewModel.actionUsername.collectAsState()

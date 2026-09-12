@@ -1,19 +1,13 @@
 package com.dino.message.corefeature.presentation.viewmodel
 
-import android.content.Context
-import androidx.lifecycle.AndroidViewModel
-import com.dino.message.DinoOrderApplication
 import com.dino.message.corefeature.domain.model.AppLanguage
 import com.dino.message.corefeature.presentation.activity.MainActivityUiSettingsState
 import kotlinx.coroutines.flow.Flow
 
 
-class MainActivityViewModel constructor(
+class MainActivityViewModel(
     private val uiSettingsState: MainActivityUiSettingsState,
-    private val app: Context
-
-) : AndroidViewModel(app as DinoOrderApplication),
-    HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication){
+) : ScopedStateHolder() {
 
     /**
      * Flow representing the current app language obtained from the data store.

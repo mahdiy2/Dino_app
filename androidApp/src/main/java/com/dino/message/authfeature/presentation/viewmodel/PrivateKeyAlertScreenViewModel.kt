@@ -1,32 +1,32 @@
 package com.dino.message.authfeature.presentation.viewmodel
 
 import com.dino.message.corefeature.presentation.util.asString
-import android.content.Context
 import androidx.compose.runtime.mutableStateOf
-import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.viewModelScope
-import com.dino.message.DinoOrderApplication
 import com.dino.message.authfeature.domain.util.RegisterConfirmErrorPolicy
 import com.dino.message.authfeature.domain.usecase.ConfirmRegistrationUseCase
-import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.presentation.util.PopBackStackLevel
 import com.dino.message.corefeature.domain.result.Resource
+import com.dino.message.corefeature.domain.resource.StringResolver
+import com.dino.message.corefeature.domain.session.AuthSessionStore
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
+import com.dino.message.corefeature.presentation.util.UiEventBus
+import com.dino.message.corefeature.presentation.viewmodel.ScopedStateHolder
 import kotlinx.coroutines.launch
 import com.dino.message.corefeature.presentation.navigation.AppRoute
 
 class PrivateKeyAlertScreenViewModel constructor(
-    app: Context,
+    private val stringResolver: StringResolver,
+    uiEventBus: UiEventBus,
     private val confirmRegistrationUseCase: ConfirmRegistrationUseCase,
-    private val sPrefManager: SPrefManager,
-) : AndroidViewModel(app as DinoOrderApplication),
-    HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
+    private val authSessionStore: AuthSessionStore,
+) : ScopedStateHolder(),
+    HaveUIEvent by HaveUIEventImpl(uiEventBus) {
 
     val confirmLoadingState = mutableStateOf(false)
     val confirmErrorMessage = mutableStateOf<String?>(null)
 
-    fun getPendingPrivateKey() = sPrefManager.getPendingPrivateKey()
+    fun getPendingPrivateKey() = authSessionStore.getPendingPrivateKey()
 
     fun onContinueClicked(hasCopied: Boolean) {
         if (confirmLoadingState.value) return
@@ -37,7 +37,7 @@ class PrivateKeyAlertScreenViewModel constructor(
             return
         }
 
-        val registrationId = sPrefManager.getPendingRegistrationId()
+        val registrationId = authSessionStore.getPendingRegistrationId()
         if (registrationId.isNullOrBlank()) {
             confirmErrorMessage.value = "Registration session is missing. Please register again."
             navigateToRegisterScreenAndResetPending()
@@ -54,18 +54,18 @@ class PrivateKeyAlertScreenViewModel constructor(
                     is Resource.Success -> {
                         confirmLoadingState.value = false
                         confirmErrorMessage.value = null
-                        sPrefManager.finalizePendingRegistration()
+                        authSessionStore.finalizePendingRegistration()
                         navigateToLoginScreen()
                     }
 
                     is Resource.Error -> {
                         confirmLoadingState.value = false
                         val errorMessage =
-                            res.message.asString(getApplication<DinoOrderApplication>())
+                            res.message.resolveWith(stringResolver)
                         confirmErrorMessage.value = errorMessage
 
                         if (RegisterConfirmErrorPolicy.shouldClearPendingSession(errorMessage)) {
-                            sPrefManager.clearPendingRegistration()
+                            authSessionStore.clearPendingRegistration()
                         }
                     }
                 }
@@ -74,7 +74,7 @@ class PrivateKeyAlertScreenViewModel constructor(
     }
 
     fun navigateToRegisterScreenAndResetPending() {
-        sPrefManager.clearPendingRegistration()
+        authSessionStore.clearPendingRegistration()
         navigateWithPopBackStackToDestination(
             route = AppRoute.Register,
             scope = viewModelScope,

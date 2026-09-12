@@ -25,7 +25,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
-import org.koin.compose.viewmodel.koinViewModel
+import com.dino.message.corefeature.presentation.viewmodel.rememberStateHolder
 import com.dino.message.R
 import com.dino.message.corefeature.presentation.util.backIconModifier
 import com.dino.message.searchfeature.presentation.component.SearchResultsList
@@ -36,7 +36,7 @@ import com.dino.message.corefeature.presentation.icons.AppIcons
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchScreen() {
-    val viewModel: SearchViewModel = koinViewModel()
+    val viewModel: SearchViewModel = rememberStateHolder()
     val query = viewModel.query.value
     val selectedTab = viewModel.selectedTab.value
     val isLoading by viewModel.isLoading.collectAsState()

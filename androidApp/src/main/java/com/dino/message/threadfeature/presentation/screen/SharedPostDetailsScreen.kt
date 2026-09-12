@@ -26,7 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import org.koin.compose.viewmodel.koinViewModel
+import com.dino.message.corefeature.presentation.viewmodel.rememberStateHolder
 import com.dino.message.R
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPSmall
@@ -37,14 +37,17 @@ import com.dino.message.threadfeature.presentation.component.ThreadPostCard
 import com.dino.message.threadfeature.presentation.viewmodel.SharedPostDetailsViewModel
 import com.dino.message.threadfeature.presentation.viewmodel.ThreadCommentsViewModel
 import com.dino.message.corefeature.presentation.icons.AppIcons
+import org.koin.core.parameter.parametersOf
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SharedPostDetailsScreen(
     postId: Long
 ) {
-    val viewModel: SharedPostDetailsViewModel = koinViewModel()
-    val commentsViewModel: ThreadCommentsViewModel = koinViewModel()
+    val viewModel: SharedPostDetailsViewModel = rememberStateHolder(postId) {
+        parametersOf(postId)
+    }
+    val commentsViewModel: ThreadCommentsViewModel = rememberStateHolder(postId)
     val post by viewModel.post.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()

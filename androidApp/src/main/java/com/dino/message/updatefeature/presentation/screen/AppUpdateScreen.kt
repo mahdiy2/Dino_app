@@ -19,10 +19,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import org.koin.compose.viewmodel.koinViewModel
 import com.dino.message.R
 import com.dino.message.corefeature.presentation.platform.LocalPlatformUiEffect
 import com.dino.message.updatefeature.presentation.viewmodel.AppUpdateViewModel
+import com.dino.message.corefeature.presentation.viewmodel.rememberStateHolder
 
 @Composable
 fun AppUpdateScreen(
@@ -32,7 +32,7 @@ fun AppUpdateScreen(
     @Suppress("UNUSED_PARAMETER")
     downloadUrl: String,
 ) {
-    val viewModel: AppUpdateViewModel = koinViewModel()
+    val viewModel: AppUpdateViewModel = rememberStateHolder(isForceUpdate, title, message, downloadUrl)
     val platformUiEffect = LocalPlatformUiEffect.current
     val openingWebsiteMessage = stringResource(R.string.update_opening_website)
     val openBrowserFailedMessage = stringResource(R.string.update_open_browser_failed)

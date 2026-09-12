@@ -34,7 +34,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import org.koin.compose.viewmodel.koinViewModel
+import com.dino.message.corefeature.presentation.viewmodel.rememberStateHolder
 import com.dino.message.R
 import com.dino.message.authfeature.presentation.viewmodel.RegisterScreenViewModel
 import com.dino.message.corefeature.domain.model.AppLanguage
@@ -47,7 +47,7 @@ import com.dino.message.corefeature.presentation.icons.AppIcons
 @Composable
 fun RegisterScreen() {
 
-    val viewModel: RegisterScreenViewModel = koinViewModel()
+    val viewModel: RegisterScreenViewModel = rememberStateHolder()
     val registerErrorMessage by viewModel.registerErrorMessage
     val currentLanguage by viewModel.currentLanguage.collectAsState(initial = AppLanguage.Farsi)
     val minUsernameLength = 7

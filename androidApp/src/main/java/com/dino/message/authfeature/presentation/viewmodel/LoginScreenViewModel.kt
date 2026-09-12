@@ -1,40 +1,41 @@
 package com.dino.message.authfeature.presentation.viewmodel
 
-import com.dino.message.corefeature.presentation.util.asString
-import android.content.Context
 import androidx.compose.runtime.mutableStateOf
-import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.viewModelScope
 import com.dino.message.R
-import com.dino.message.DinoOrderApplication
 import com.dino.message.authfeature.domain.usecase.LoginUseCase
 import com.dino.message.authfeature.domain.usecase.GetKeyStatusUseCase
 import com.dino.message.authfeature.domain.usecase.RotatePublicKeyUseCase
 import com.dino.message.authfeature.domain.usecase.SyncDeviceIdUseCase
-import com.dino.message.corefeature.data.spref.DataStoreUtil
-import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.domain.crypto.MessageCrypto
 import com.dino.message.corefeature.domain.model.AppLanguage
+import com.dino.message.corefeature.domain.notification.NotificationSocketConnection
+import com.dino.message.corefeature.domain.session.AuthSessionStore
+import com.dino.message.corefeature.domain.settings.AppSettingsStore
 import com.dino.message.corefeature.presentation.util.PopBackStackLevel
 import com.dino.message.corefeature.domain.result.Resource
+import com.dino.message.corefeature.domain.resource.StringResolver
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
+import com.dino.message.corefeature.presentation.util.UiEventBus
+import com.dino.message.corefeature.presentation.viewmodel.ScopedStateHolder
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import com.dino.message.corefeature.presentation.navigation.AppRoute
 
 class LoginScreenViewModel constructor(
-    app: Context,
-    private val sPrefManager: SPrefManager,
-    private val dataStoreUtil: DataStoreUtil,
+    private val stringResolver: StringResolver,
+    uiEventBus: UiEventBus,
+    private val authSessionStore: AuthSessionStore,
+    private val appSettingsStore: AppSettingsStore,
     private val loginUseCase: LoginUseCase,
     private val getKeyStatusUseCase: GetKeyStatusUseCase,
     private val rotatePublicKeyUseCase: RotatePublicKeyUseCase,
     private val syncDeviceIdUseCase: SyncDeviceIdUseCase,
     private val messageCrypto: MessageCrypto,
-    ) : AndroidViewModel(app as DinoOrderApplication),
-    HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication){
+    private val notificationSocketConnection: NotificationSocketConnection,
+    ) : ScopedStateHolder(),
+    HaveUIEvent by HaveUIEventImpl(uiEventBus){
 
     val userName = mutableStateOf("")
     val password = mutableStateOf("")
@@ -44,7 +45,7 @@ class LoginScreenViewModel constructor(
 
     val usernameTextFieldIsError = mutableStateOf(false)
     val passwordTextFieldIsError = mutableStateOf(false)
-    val currentLanguage: Flow<AppLanguage> = dataStoreUtil.getLanguage()
+    val currentLanguage: Flow<AppLanguage> = appSettingsStore.getLanguage()
 
     private fun login(username: String, pass: String) = viewModelScope.launch {
         loginUseCase.execute(
@@ -52,9 +53,9 @@ class LoginScreenViewModel constructor(
         ).collect { data ->
             when(data){
                 is Resource.Success -> {
-                    sPrefManager.setUsername(username)
-                    sPrefManager.setToken(data.data.accessToken)
-                    sPrefManager.setRefreshToken(data.data.refreshToken)
+                    authSessionStore.setUsername(username)
+                    authSessionStore.setToken(data.data.accessToken)
+                    authSessionStore.setRefreshToken(data.data.refreshToken)
                     ensureLocalKeysThenContinue(data.data.accessToken)
                 }
                 is Resource.Loading -> {
@@ -63,7 +64,7 @@ class LoginScreenViewModel constructor(
                 }
                 is Resource.Error -> {
                     loginErrorMessage.value =
-                        data.message.asString(getApplication<DinoOrderApplication>())
+                        data.message.resolveWith(stringResolver)
                     usernameTextFieldIsError.value = true
                     passwordTextFieldIsError.value = true
                     loginLoadingState.value = false
@@ -74,13 +75,11 @@ class LoginScreenViewModel constructor(
 
     private fun ensureLocalKeysThenContinue(accessToken: String) = viewModelScope.launch {
         if (!isPrivateKeyEmpty() && hasServerPublicKey()) {
-            sPrefManager.setUserLogIn(true)
+            authSessionStore.setUserLogIn(true)
             syncDeviceIdBestEffort()
             loginLoadingState.value = false
             loginErrorMessage.value = null
-            getApplication<DinoOrderApplication>()
-                .inAppNotificationManager
-                .connect(accessToken)
+            notificationSocketConnection.connect(accessToken)
             navigateToMainScreen()
             return@launch
         }
@@ -95,25 +94,22 @@ class LoginScreenViewModel constructor(
                     loginLoadingState.value = true
                 }
                 is Resource.Success -> {
-                    sPrefManager.savePrivateKey(privateKeyBase64)
-                    sPrefManager.savePublicKey(publicKeyBase64)
-                    sPrefManager.setUserLogIn(true)
+                    authSessionStore.savePrivateKey(privateKeyBase64)
+                    authSessionStore.savePublicKey(publicKeyBase64)
+                    authSessionStore.setUserLogIn(true)
                     syncDeviceIdBestEffort()
                     loginLoadingState.value = false
                     loginErrorMessage.value = null
-                    getApplication<DinoOrderApplication>()
-                        .inAppNotificationManager
-                        .connect(accessToken)
+                    notificationSocketConnection.connect(accessToken)
                     navigateToMainScreen()
                 }
                 is Resource.Error -> {
-                    sPrefManager.setUserLogIn(false)
-                    sPrefManager.setToken("")
-                    sPrefManager.setRefreshToken("")
+                    authSessionStore.setUserLogIn(false)
+                    authSessionStore.setToken("")
+                    authSessionStore.setRefreshToken("")
                     loginLoadingState.value = false
                     loginErrorMessage.value =
-                        getApplication<DinoOrderApplication>()
-                            .getString(R.string.login_key_recovery_failed)
+                        stringResolver.resolveStringId(R.string.login_key_recovery_failed)
                 }
             }
         }
@@ -154,11 +150,11 @@ class LoginScreenViewModel constructor(
 
     fun toggleLanguage() {
         viewModelScope.launch {
-            val nextLanguage = when (dataStoreUtil.getLanguage().first()) {
+            val nextLanguage = when (appSettingsStore.getLanguage().first()) {
                 AppLanguage.Farsi -> AppLanguage.English
                 AppLanguage.English -> AppLanguage.Farsi
             }
-            dataStoreUtil.saveLanguage(nextLanguage)
+            appSettingsStore.saveLanguage(nextLanguage)
         }
     }
 
@@ -175,7 +171,7 @@ class LoginScreenViewModel constructor(
     }
 
     private fun isPrivateKeyEmpty(): Boolean {
-        return sPrefManager.getPrivateKey().isNullOrEmpty()
+        return authSessionStore.getPrivateKey().isNullOrEmpty()
     }
 
     private fun syncDeviceIdBestEffort() = viewModelScope.launch {

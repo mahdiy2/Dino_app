@@ -1,18 +1,17 @@
 package com.dino.message.activitynotificationfeature.presentation.viewmodel
 
 import com.dino.message.corefeature.presentation.util.asString
-import android.content.Context
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
-import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.viewModelScope
-import com.dino.message.DinoOrderApplication
 import com.dino.message.activitynotificationfeature.domain.model.ActivityNotification
 import com.dino.message.activitynotificationfeature.domain.usecase.GetActivityNotificationsUseCase
 import com.dino.message.activitynotificationfeature.domain.usecase.MarkNotificationsReadUseCase
 import com.dino.message.corefeature.domain.result.Resource
+import com.dino.message.corefeature.domain.resource.StringResolver
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
+import com.dino.message.corefeature.presentation.util.UiEventBus
+import com.dino.message.corefeature.presentation.viewmodel.ScopedStateHolder
 import com.dino.message.profilefeature.domain.usecase.FollowUserUseCase
 import com.dino.message.profilefeature.domain.usecase.GetFollowStatusUseCase
 import com.dino.message.threadfeature.domain.usecase.CreateCommentUseCase
@@ -24,14 +23,15 @@ import kotlinx.coroutines.launch
 import com.dino.message.corefeature.presentation.navigation.AppRoute
 
 class ActivityNotificationViewModel constructor(
-    app: Context,
+    private val stringResolver: StringResolver,
+    uiEventBus: UiEventBus,
     private val getActivityNotificationsUseCase: GetActivityNotificationsUseCase,
     private val markNotificationsReadUseCase: MarkNotificationsReadUseCase,
     private val getFollowStatusUseCase: GetFollowStatusUseCase,
     private val followUserUseCase: FollowUserUseCase,
     private val createCommentUseCase: CreateCommentUseCase
-) : AndroidViewModel(app as DinoOrderApplication),
-    HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
+) : ScopedStateHolder(),
+    HaveUIEvent by HaveUIEventImpl(uiEventBus) {
 
     private val pageLimit = 20
     private var currentPage = 1
@@ -109,7 +109,7 @@ class ActivityNotificationViewModel constructor(
                 }
 
                 is Resource.Error -> {
-                    _error.value = res.message.asString(getApplication())
+                    _error.value = res.message.resolveWith(stringResolver)
                     showLoading(isRefresh = false, isLoadMore = false)
                     isRequestRunning = false
                 }
@@ -180,7 +180,7 @@ class ActivityNotificationViewModel constructor(
                     }
 
                     is Resource.Error -> {
-                        _error.value = res.message.asString(getApplication())
+                        _error.value = res.message.resolveWith(stringResolver)
                         followActionLoadingByUsername[username] = false
                     }
                 }
@@ -263,7 +263,7 @@ class ActivityNotificationViewModel constructor(
 
                     is Resource.Error -> {
                         replySendingByNotification[notification.id] = false
-                        _error.value = res.message.asString(getApplication())
+                        _error.value = res.message.resolveWith(stringResolver)
                     }
                 }
             }

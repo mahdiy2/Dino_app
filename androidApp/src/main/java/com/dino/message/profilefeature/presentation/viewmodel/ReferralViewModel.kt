@@ -1,16 +1,14 @@
 package com.dino.message.profilefeature.presentation.viewmodel
 
-import com.dino.message.corefeature.presentation.util.asString
-import android.content.Context
-import android.content.Intent
-import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.viewModelScope
-import com.dino.message.DinoOrderApplication
-import com.dino.message.R
-import com.dino.message.corefeature.data.spref.DataStoreUtil
+import com.dino.message.corefeature.domain.settings.AppSettingsStore
 import com.dino.message.corefeature.domain.result.Resource
+import com.dino.message.corefeature.domain.resource.StringResolver
+import com.dino.message.corefeature.domain.system.AppClock
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
+import com.dino.message.corefeature.presentation.util.UiEventBus
+import com.dino.message.corefeature.presentation.viewmodel.ScopedStateHolder
+import com.dino.message.profilefeature.domain.share.ReferralShareLauncher
 import com.dino.message.profilefeature.domain.model.ReferralSummary
 import com.dino.message.profilefeature.domain.usecase.GetMyReferralSummaryUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,11 +17,14 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class ReferralViewModel constructor(
-    app: Context,
-    private val dataStoreUtil: DataStoreUtil,
+    private val stringResolver: StringResolver,
+    uiEventBus: UiEventBus,
+    private val dataStoreUtil: AppSettingsStore,
     private val getMyReferralSummaryUseCase: GetMyReferralSummaryUseCase,
-) : AndroidViewModel(app as DinoOrderApplication),
-    HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
+    private val referralShareLauncher: ReferralShareLauncher,
+    private val appClock: AppClock,
+) : ScopedStateHolder(),
+    HaveUIEvent by HaveUIEventImpl(uiEventBus) {
 
     private val _summary = MutableStateFlow<ReferralSummary?>(null)
     val summary: StateFlow<ReferralSummary?> = _summary.asStateFlow()
@@ -46,13 +47,14 @@ class ReferralViewModel constructor(
                     _summary.value = res.data
                     _error.value = null
                     dataStoreUtil.saveBadgeAccessCache(
-                        hasBadge = hasVerifiedReferralBadge(res.data)
+                        hasBadge = hasVerifiedReferralBadge(res.data),
+                        syncedAtEpochMillis = appClock.currentTimeMillis(),
                     )
                 }
 
                 is Resource.Error -> {
                     _isLoading.value = false
-                    _error.value = res.message.asString(getApplication())
+                    _error.value = res.message.resolveWith(stringResolver)
                 }
             }
         }
@@ -60,17 +62,8 @@ class ReferralViewModel constructor(
 
     fun shareReferralInvite() {
         val referralSummary = _summary.value ?: return
-        val context = getApplication<DinoOrderApplication>()
         val shareText = buildPersianShareText(referralSummary)
-        val sendIntent = Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_TEXT, shareText)
-        }
-        val chooser = Intent.createChooser(
-            sendIntent,
-            context.getString(R.string.referral_share_sheet_title)
-        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        context.startActivity(chooser)
+        referralShareLauncher.shareInvite(shareText)
     }
 
     private fun buildPersianShareText(summary: ReferralSummary): String {

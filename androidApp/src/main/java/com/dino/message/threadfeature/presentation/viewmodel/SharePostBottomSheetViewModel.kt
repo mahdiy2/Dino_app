@@ -1,22 +1,21 @@
 package com.dino.message.threadfeature.presentation.viewmodel
 
 import com.dino.message.corefeature.presentation.util.asString
-import android.content.Context
-import androidx.annotation.StringRes
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
-import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.viewModelScope
-import com.dino.message.DinoOrderApplication
 import com.dino.message.R
-import com.dino.message.corefeature.data.socket.AppSocketManager
-import com.dino.message.corefeature.data.spref.SPrefManager
+import com.dino.message.corefeature.domain.session.AuthSessionStore
 import com.dino.message.corefeature.domain.crypto.MessageCrypto
 import com.dino.message.corefeature.domain.crypto.RsaPublicKey
+import com.dino.message.corefeature.domain.socket.RealtimeSocketGateway
 import com.dino.message.corefeature.presentation.util.encodePostShareMessage
 import com.dino.message.corefeature.domain.result.Resource
+import com.dino.message.corefeature.domain.resource.StringResolver
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
+import com.dino.message.corefeature.presentation.util.UiEventBus
+import com.dino.message.corefeature.presentation.viewmodel.ScopedStateHolder
+import androidx.annotation.StringRes
 import com.dino.message.chatfeature.domain.usecase.GetReceiverPublicKeyUseCase
 import com.dino.message.groupfeature.domain.model.GroupMessageEntity
 import com.dino.message.groupfeature.domain.usecase.GetGroupDetailUseCase
@@ -60,17 +59,18 @@ private data class ShareDispatchResult(
 )
 
 class SharePostBottomSheetViewModel constructor(
-    app: Context,
+    private val stringResolver: StringResolver,
+    uiEventBus: UiEventBus,
     private val getDetailedContactsUseCase: GetDetailedContactsUseCase,
     private val listGroupsUseCase: ListGroupsUseCase,
     private val getReceiverPublicKeyUseCase: GetReceiverPublicKeyUseCase,
     private val getGroupDetailUseCase: GetGroupDetailUseCase,
     private val saveGroupMessageUseCase: SaveGroupMessageUseCase,
-    private val sPrefManager: SPrefManager,
-    private val appSocketManager: AppSocketManager,
+    private val sPrefManager: AuthSessionStore,
+    private val appSocketManager: RealtimeSocketGateway,
     private val messageCrypto: MessageCrypto,
-) : AndroidViewModel(app as DinoOrderApplication),
-    HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
+) : ScopedStateHolder(),
+    HaveUIEvent by HaveUIEventImpl(uiEventBus) {
 
     private val _contacts = mutableStateListOf<ShareTargetContact>()
     val contacts: List<ShareTargetContact> = _contacts
@@ -230,7 +230,7 @@ class SharePostBottomSheetViewModel constructor(
                     is Resource.Error -> {
                         pageFailed = true
                         hasMore = false
-                        _error.value = res.message.asString(getApplication())
+                        _error.value = res.message.resolveWith(stringResolver)
                     }
                 }
             }
@@ -259,7 +259,7 @@ class SharePostBottomSheetViewModel constructor(
                 }
                 is Resource.Error -> {
                     if (_error.value == null) {
-                        _error.value = res.message.asString(getApplication())
+                        _error.value = res.message.resolveWith(stringResolver)
                     }
                 }
             }
@@ -310,13 +310,13 @@ class SharePostBottomSheetViewModel constructor(
                 dedupeKey = "share-private:$username:$clientMessageId",
             )
             when (dispatchResult) {
-                AppSocketManager.EmitWithRetryResult.EMITTED ->
+                RealtimeSocketGateway.EmitWithRetryResult.EMITTED ->
                     ShareDispatchResult(status = ShareDispatchStatus.SENT)
-                AppSocketManager.EmitWithRetryResult.QUEUED,
-                AppSocketManager.EmitWithRetryResult.ALREADY_QUEUED -> {
+                RealtimeSocketGateway.EmitWithRetryResult.QUEUED,
+                RealtimeSocketGateway.EmitWithRetryResult.ALREADY_QUEUED -> {
                     ShareDispatchResult(status = ShareDispatchStatus.QUEUED)
                 }
-                AppSocketManager.EmitWithRetryResult.QUEUE_FULL -> {
+                RealtimeSocketGateway.EmitWithRetryResult.QUEUE_FULL -> {
                     ShareDispatchResult(
                         status = ShareDispatchStatus.FAILED,
                         error = str(R.string.share_error_queue_full),
@@ -361,17 +361,17 @@ class SharePostBottomSheetViewModel constructor(
                 dedupeKey = "share-group:$groupId:$clientMessageId",
             )
             when (dispatchResult) {
-                AppSocketManager.EmitWithRetryResult.EMITTED -> {
+                RealtimeSocketGateway.EmitWithRetryResult.EMITTED -> {
                     runCatching {
                         saveLocalGroupShare(groupId = groupId, encodedMessage = message)
                     }
                     ShareDispatchResult(status = ShareDispatchStatus.SENT)
                 }
-                AppSocketManager.EmitWithRetryResult.QUEUED,
-                AppSocketManager.EmitWithRetryResult.ALREADY_QUEUED -> {
+                RealtimeSocketGateway.EmitWithRetryResult.QUEUED,
+                RealtimeSocketGateway.EmitWithRetryResult.ALREADY_QUEUED -> {
                     ShareDispatchResult(status = ShareDispatchStatus.QUEUED)
                 }
-                AppSocketManager.EmitWithRetryResult.QUEUE_FULL -> {
+                RealtimeSocketGateway.EmitWithRetryResult.QUEUE_FULL -> {
                     ShareDispatchResult(
                         status = ShareDispatchStatus.FAILED,
                         error = str(R.string.share_error_queue_full),
@@ -411,7 +411,7 @@ class SharePostBottomSheetViewModel constructor(
                     publicKey = res.data.public_key.takeIf { it.isNotBlank() }
                 }
                 is Resource.Error -> {
-                    _error.value = res.message.asString(getApplication())
+                    _error.value = res.message.resolveWith(stringResolver)
                 }
             }
         }
@@ -437,7 +437,7 @@ class SharePostBottomSheetViewModel constructor(
                         .toMap()
                 }
                 is Resource.Error -> {
-                    _error.value = res.message.asString(getApplication())
+                    _error.value = res.message.resolveWith(stringResolver)
                 }
             }
         }
@@ -475,10 +475,7 @@ class SharePostBottomSheetViewModel constructor(
     }
 
     private fun str(@StringRes id: Int, vararg args: Any): String {
-        return getApplication<DinoOrderApplication>().getString(id, *args)
+        return stringResolver.resolveStringId(id, *args)
     }
 
-    override fun onCleared() {
-        super.onCleared()
-    }
 }

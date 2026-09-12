@@ -7,13 +7,13 @@ import com.dino.message.corefeature.presentation.util.UiEventBus
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
-import org.junit.Assert.assertEquals
-import org.junit.Test
+import kotlinx.coroutines.test.runTest
+import kotlin.test.Test
+import kotlin.test.assertEquals
 
 class HaveUIEventImplTest {
     @Test
-    fun navigateToDestinationEmitsTypedRouteCommand() = runBlocking {
+    fun navigateToDestinationEmitsTypedRouteCommand() = runTest {
         val uiEvent = HaveUIEventImpl(UiEventBus())
         val emitted = async(start = CoroutineStart.UNDISPATCHED) {
             uiEvent.uIEventFlow.first()
@@ -23,12 +23,12 @@ class HaveUIEventImplTest {
 
         assertEquals(
             UIEvent.Navigate(AppRoute.ThreadCommentsSheet(postId = 7L)),
-            emitted.await()
+            emitted.await(),
         )
     }
 
     @Test
-    fun navigateWithPopBackStackEmitsTypedRouteCommand() = runBlocking {
+    fun navigateWithPopBackStackEmitsTypedRouteCommand() = runTest {
         val uiEvent = HaveUIEventImpl(UiEventBus())
         val emitted = async(start = CoroutineStart.UNDISPATCHED) {
             uiEvent.uIEventFlow.first()
@@ -37,12 +37,12 @@ class HaveUIEventImplTest {
         uiEvent.navigateWithPopBackStackToDestination(
             route = AppRoute.Login,
             scope = this,
-            level = PopBackStackLevel.ALL
+            level = PopBackStackLevel.ALL,
         ).join()
 
         assertEquals(
             UIEvent.NavigateWithPopBackStack(AppRoute.Login, PopBackStackLevel.ALL),
-            emitted.await()
+            emitted.await(),
         )
     }
 }

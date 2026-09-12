@@ -22,7 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import org.koin.compose.viewmodel.koinViewModel
+import com.dino.message.corefeature.presentation.viewmodel.rememberStateHolder
 import com.dino.message.R
 import com.dino.message.corefeature.presentation.component.UserBadgeIcon
 import com.dino.message.profilefeature.presentation.component.ProfileAvatarMedia
@@ -35,7 +35,7 @@ fun TrackPlaylistAddersDialogScreen(
     trackTitle: String,
     playlistAddersJson: String,
 ) {
-    val viewModel: TrackPlaylistAddersDialogViewModel = koinViewModel()
+    val viewModel: TrackPlaylistAddersDialogViewModel = rememberStateHolder(trackTitle, playlistAddersJson)
     val playlistAdders = remember(playlistAddersJson) {
         runCatching {
             Json.decodeFromString<List<Author>>(playlistAddersJson)

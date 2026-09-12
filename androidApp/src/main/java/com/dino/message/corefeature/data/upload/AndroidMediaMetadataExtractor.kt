@@ -3,6 +3,9 @@ package com.dino.message.corefeature.data.upload
 import android.content.ContentResolver
 import android.content.Context
 import android.media.MediaMetadataRetriever
+import com.dino.message.corefeature.domain.upload.PlatformMediaMetadata
+import com.dino.message.corefeature.domain.upload.PlatformMediaMetadataExtractor
+import com.dino.message.corefeature.domain.upload.PlatformMediaReference
 
 class AndroidMediaMetadataExtractor(
     private val contentResolver: ContentResolver,

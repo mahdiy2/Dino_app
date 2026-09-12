@@ -1,21 +1,21 @@
 package com.dino.message.profilefeature.presentation.viewmodel
 
 import com.dino.message.corefeature.presentation.util.asString
-import android.content.Context
 import androidx.compose.runtime.mutableStateOf
-import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.viewModelScope
-import com.dino.message.DinoOrderApplication
-import com.dino.message.corefeature.data.spref.DataStoreUtil
+import com.dino.message.corefeature.domain.settings.AppSettingsStore
+import com.dino.message.corefeature.domain.system.AppClock
 import com.dino.message.corefeature.domain.upload.MediaMimePolicy
-import com.dino.message.corefeature.data.upload.PlatformMediaReference
-import com.dino.message.corefeature.data.upload.PlatformMediaResolver
+import com.dino.message.corefeature.domain.upload.PlatformMediaReference
+import com.dino.message.corefeature.domain.upload.PlatformMediaResolver
 import com.dino.message.corefeature.domain.result.Resource
+import com.dino.message.corefeature.domain.resource.StringResolver
 import com.dino.message.corefeature.presentation.util.PROFILE_IMAGE_SHAPE_CIRCLE
 import com.dino.message.corefeature.presentation.util.hasBadgeAccess
 import com.dino.message.corefeature.presentation.util.normalizeProfileImageShape
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
+import com.dino.message.corefeature.presentation.util.UiEventBus
+import com.dino.message.corefeature.presentation.viewmodel.ScopedStateHolder
 import com.dino.message.profilefeature.domain.model.ProfileUpdateImage
 import com.dino.message.profilefeature.domain.usecase.GetMyProfileUseCase
 import com.dino.message.profilefeature.domain.usecase.UpdateMyProfileUseCase
@@ -35,13 +35,15 @@ data class SelectedProfileMedia(
 )
 
 class EditProfileViewModel constructor(
-    app: Context,
-    private val dataStoreUtil: DataStoreUtil,
+    private val stringResolver: StringResolver,
+    uiEventBus: UiEventBus,
+    private val dataStoreUtil: AppSettingsStore,
     private val getMyProfileUseCase: GetMyProfileUseCase,
     private val updateMyProfileUseCase: UpdateMyProfileUseCase,
     private val mediaResolver: PlatformMediaResolver,
-) : AndroidViewModel(app as DinoOrderApplication),
-    HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
+    private val appClock: AppClock,
+) : ScopedStateHolder(),
+    HaveUIEvent by HaveUIEventImpl(uiEventBus) {
 
     companion object {
         private const val MAX_PROFILE_VIDEO_DURATION_MS = 5_000L
@@ -229,7 +231,7 @@ class EditProfileViewModel constructor(
 
                     is Resource.Error -> {
                         _isSaving.value = false
-                        _error.value = res.message.asString(getApplication())
+                        _error.value = res.message.resolveWith(stringResolver)
                     }
                 }
             }
@@ -250,7 +252,8 @@ class EditProfileViewModel constructor(
                     removeProfileImageRequested.value = false
                     removeProfileVideoRequested.value = false
                     dataStoreUtil.saveBadgeAccessCache(
-                        hasBadge = hasBadgeAccess(res.data.badge)
+                        hasBadge = hasBadgeAccess(res.data.badge),
+                        syncedAtEpochMillis = appClock.currentTimeMillis(),
                     )
                     _error.value = null
                 }
@@ -261,7 +264,7 @@ class EditProfileViewModel constructor(
 
                 is Resource.Error -> {
                     _isLoading.value = false
-                    _error.value = res.message.asString(getApplication())
+                    _error.value = res.message.resolveWith(stringResolver)
                 }
             }
         }

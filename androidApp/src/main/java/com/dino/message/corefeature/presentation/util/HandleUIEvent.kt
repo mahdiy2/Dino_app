@@ -30,7 +30,8 @@ fun HandleUIEvent(
                             }
                         }
                         is PopBackStackLevel.Number -> {
-                            for (index in 0 until event.level.number) {
+                            val level = event.level as PopBackStackLevel.Number
+                            for (index in 0 until level.number) {
                                 if (!navController.popBackStack()) {
                                     break
                                 }

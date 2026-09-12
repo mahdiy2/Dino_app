@@ -1,4 +1,4 @@
-package com.dino.message.spashscreen.data.remote
+package com.dino.message.spashscreen.domain.repository
 
 import com.dino.message.corefeature.domain.result.Resource
 import com.dino.message.spashscreen.domain.model.VersionCheckDecision

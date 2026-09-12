@@ -4,7 +4,7 @@ import android.content.Context
 import com.dino.message.R
 import com.dino.message.corefeature.data.remote.NetworkExceptionClassifier
 import com.dino.message.corefeature.data.remote.ResponseToResultMapper
-import com.dino.message.corefeature.data.remote.logging.AppLogger
+import com.dino.message.corefeature.domain.logging.AppLogger
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.domain.config.AppConfig
 import com.dino.message.corefeature.domain.model.asStringResourceContent

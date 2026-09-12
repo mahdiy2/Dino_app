@@ -1,21 +1,19 @@
 package com.dino.message.mainpage.presentation.viewmodel
 
-import android.content.Context
-import android.util.Log
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.viewModelScope
-import com.dino.message.DinoOrderApplication
 import com.dino.message.R
-import com.dino.message.corefeature.data.socket.AppSocketManager
-import com.dino.message.corefeature.data.socket.RealtimeSocketEvents
+import com.dino.message.corefeature.domain.logging.AppLogger
 import com.dino.message.corefeature.domain.network.NetworkStatusProvider
 import com.dino.message.corefeature.domain.resource.StringResolver
+import com.dino.message.corefeature.domain.socket.RealtimeSocketEvents
+import com.dino.message.corefeature.domain.socket.RealtimeSocketGateway
 import com.dino.message.corefeature.presentation.platform.PlatformUiEffect
 import com.dino.message.corefeature.domain.result.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
+import com.dino.message.corefeature.presentation.util.UiEventBus
+import com.dino.message.corefeature.presentation.viewmodel.ScopedStateHolder
 import com.dino.message.groupfeature.domain.model.Group
 import com.dino.message.groupfeature.domain.usecase.ListGroupsUseCase
 import com.dino.message.mainpage.domain.model.DetailedContact
@@ -35,18 +33,19 @@ import org.json.JSONObject
 import com.dino.message.corefeature.presentation.navigation.AppRoute
 
 class MainScreenViewModel constructor(
-    app: Context,
+    uiEventBus: UiEventBus,
     private val addContactUseCase: AddContactUseCase,
     private val getContactsUseCase: GetContactsUseCase,
     private val getContactsDeltaUseCase: GetContactsDeltaUseCase,
     private val getDetailedContactsUseCase: GetDetailedContactsUseCase,
     private val listGroupsUseCase: ListGroupsUseCase,
     private val isTrackInPlaylistUseCase: IsTrackInPlaylistUseCase,
-    private val appSocketManager: AppSocketManager,
+    private val appSocketManager: RealtimeSocketGateway,
     private val networkStatusProvider: NetworkStatusProvider,
     private val stringResolver: StringResolver,
-) : AndroidViewModel(app as DinoOrderApplication),
-    HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
+    private val appLogger: AppLogger,
+) : ScopedStateHolder(),
+    HaveUIEvent by HaveUIEventImpl(uiEventBus) {
 
     companion object {
         private const val TAG = "MainScreenVM"
@@ -211,7 +210,7 @@ class MainScreenViewModel constructor(
                 }
                 is Resource.Loading -> { }
                 is Resource.Error -> {
-                    Log.e(TAG, "Failed to load groups")
+                    appLogger.error(TAG, "Failed to load groups")
                 }
             }
         }
@@ -229,7 +228,7 @@ class MainScreenViewModel constructor(
                     val payload = extractPayloadArg(args) as? JSONObject ?: return@launch
                     applyContactsDelta(payload)
                 } catch (e: Exception) {
-                    Log.e(TAG, "contacts_updated handling error", e)
+                    appLogger.error(TAG, "contacts_updated handling error", e)
                 }
             }
         }
@@ -243,7 +242,7 @@ class MainScreenViewModel constructor(
                         updateGroupUnreadIndicator(groupId = groupId, hasUnread = true)
                     }
                 } catch (e: Exception) {
-                    Log.e(TAG, "new_notification handling error", e)
+                    appLogger.error(TAG, "new_notification handling error", e)
                 }
             }
         }
@@ -257,7 +256,7 @@ class MainScreenViewModel constructor(
                         updateGroupUnreadIndicator(groupId = groupId, hasUnread = true)
                     }
                 } catch (e: Exception) {
-                    Log.e(TAG, "pending_group_messages handling error", e)
+                    appLogger.error(TAG, "pending_group_messages handling error", e)
                 }
             }
         }
@@ -275,20 +274,20 @@ class MainScreenViewModel constructor(
                         }
                     }
                 } catch (e: Exception) {
-                    Log.e(TAG, "user_status handling error", e)
+                    appLogger.error(TAG, "user_status handling error", e)
                 }
             }
         }
 
         appSocketManager.registerListener(SOCKET_OWNER, RealtimeSocketEvents.CONNECT) {
-            Log.d(TAG, "Socket connected")
+            appLogger.debug(TAG, "Socket connected")
             viewModelScope.launch {
                 refreshFromServer(force = false)
             }
         }
 
         appSocketManager.registerListener(SOCKET_OWNER, RealtimeSocketEvents.DISCONNECT) {
-            Log.d(TAG, "Socket disconnected")
+            appLogger.debug(TAG, "Socket disconnected")
             pendingReconnectRefresh = true
         }
     }
@@ -516,8 +515,8 @@ class MainScreenViewModel constructor(
         navigateUp(viewModelScope)
     }
 
-    override fun onCleared() {
+    override fun clear() {
         disconnectSocket()
-        super.onCleared()
+        super.clear()
     }
 }

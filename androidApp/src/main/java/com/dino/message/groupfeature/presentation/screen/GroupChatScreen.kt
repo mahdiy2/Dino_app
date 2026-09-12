@@ -48,7 +48,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
-import org.koin.compose.viewmodel.koinViewModel
+import com.dino.message.corefeature.presentation.viewmodel.rememberStateHolder
 import com.dino.message.chatfeature.presentation.component.ChatScreenBottomAppBar
 import com.dino.message.chatfeature.presentation.component.ChatContainer
 import com.dino.message.chatfeature.presentation.component.MessageReactionSummaryRow
@@ -76,6 +76,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlin.math.min
 import com.dino.message.corefeature.presentation.icons.AppIcons
+import org.koin.core.parameter.parametersOf
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -84,7 +85,9 @@ fun GroupChatScreen(
     groupName: String? = null,
     isPublicRoom: Boolean = false,
 ) {
-    val viewModel: GroupChatViewModel = koinViewModel()
+    val viewModel: GroupChatViewModel = rememberStateHolder(groupId, groupName, isPublicRoom) {
+        parametersOf(groupId, groupName, isPublicRoom)
+    }
     val messages by viewModel.messages.collectAsState()
     val messageDeliveryStatuses by viewModel.messageDeliveryStatuses.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()

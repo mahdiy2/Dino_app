@@ -1,25 +1,24 @@
 package com.dino.message.authfeature.presentation.viewmodel
 
-import android.content.Context
 import androidx.compose.runtime.mutableStateOf
-import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.viewModelScope
 import com.dino.message.R
-import com.dino.message.DinoOrderApplication
 import com.dino.message.authfeature.domain.util.RegisterConfirmErrorPolicy
 import com.dino.message.authfeature.domain.usecase.ConfirmRegistrationUseCase
 import com.dino.message.authfeature.domain.usecase.RegisterUseCase
-import com.dino.message.corefeature.data.spref.DataStoreUtil
-import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.domain.config.AppConfig
 import com.dino.message.corefeature.domain.crypto.MessageCrypto
 import com.dino.message.corefeature.domain.device.DeviceInfoProvider
 import com.dino.message.corefeature.domain.model.AppLanguage
 import com.dino.message.corefeature.domain.resource.StringResolver
+import com.dino.message.corefeature.domain.session.AuthSessionStore
+import com.dino.message.corefeature.domain.settings.AppSettingsStore
+import com.dino.message.corefeature.domain.system.AppClock
 import com.dino.message.corefeature.presentation.util.PopBackStackLevel
 import com.dino.message.corefeature.domain.result.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
+import com.dino.message.corefeature.presentation.util.UiEventBus
+import com.dino.message.corefeature.presentation.viewmodel.ScopedStateHolder
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -27,17 +26,18 @@ import java.util.UUID
 import com.dino.message.corefeature.presentation.navigation.AppRoute
 
 class RegisterScreenViewModel constructor(
-    app: Context,
+    uiEventBus: UiEventBus,
     private val registerUseCase: RegisterUseCase,
     private val confirmRegistrationUseCase: ConfirmRegistrationUseCase,
-    private val sPrefManager: SPrefManager,
-    private val dataStoreUtil: DataStoreUtil,
+    private val authSessionStore: AuthSessionStore,
+    private val appSettingsStore: AppSettingsStore,
     private val deviceIdProvider: DeviceInfoProvider,
     private val appConfig: AppConfig,
     private val stringResolver: StringResolver,
     private val messageCrypto: MessageCrypto,
-) : AndroidViewModel(app as DinoOrderApplication),
-    HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
+    private val appClock: AppClock,
+) : ScopedStateHolder(),
+    HaveUIEvent by HaveUIEventImpl(uiEventBus) {
 
     val userName = mutableStateOf("")
     val password = mutableStateOf("")
@@ -45,7 +45,7 @@ class RegisterScreenViewModel constructor(
 
     val registerLoadingState = mutableStateOf(false)
     val registerErrorMessage = mutableStateOf<String?>(null)
-    val currentLanguage: Flow<AppLanguage> = dataStoreUtil.getLanguage()
+    val currentLanguage: Flow<AppLanguage> = appSettingsStore.getLanguage()
 
     private val usernameAllowedPattern = Regex("^[A-Za-z0-9._-]+$")
     private val passwordLetterPattern = Regex("[A-Za-z]")
@@ -53,10 +53,10 @@ class RegisterScreenViewModel constructor(
     private val passwordSymbolPattern = Regex("[^A-Za-z0-9]")
 
     init {
-        if (sPrefManager.hasPendingRegistration()) {
-            val registrationId = sPrefManager.getPendingRegistrationId()
+        if (authSessionStore.hasPendingRegistration()) {
+            val registrationId = authSessionStore.getPendingRegistrationId()
             if (registrationId.isNullOrBlank()) {
-                sPrefManager.clearPendingRegistration()
+                authSessionStore.clearPendingRegistration()
             } else {
                 confirmPendingRegistration(registrationId)
             }
@@ -82,10 +82,10 @@ class RegisterScreenViewModel constructor(
             when (res) {
                 is Resource.Success -> {
                     registerErrorMessage.value = null
-                    sPrefManager.savePendingRegistrationId(res.data.registrationId)
+                    authSessionStore.savePendingRegistrationId(res.data.registrationId)
                     val expiresAt =
-                        System.currentTimeMillis() + (res.data.expiresInSeconds * 1000L)
-                    sPrefManager.savePendingRegistrationExpiresAt(expiresAt)
+                        appClock.currentTimeMillis() + (res.data.expiresInSeconds * 1000L)
+                    authSessionStore.savePendingRegistrationExpiresAt(expiresAt)
                     confirmPendingRegistration(res.data.registrationId)
                 }
                 is Resource.Loading -> {
@@ -108,7 +108,7 @@ class RegisterScreenViewModel constructor(
                 is Resource.Success -> {
                     registerLoadingState.value = false
                     registerErrorMessage.value = null
-                    sPrefManager.finalizePendingRegistration()
+                    authSessionStore.finalizePendingRegistration()
                     navigateToLoginAfterRegistration()
                 }
                 is Resource.Error -> {
@@ -116,7 +116,7 @@ class RegisterScreenViewModel constructor(
                     val errorMessage = res.message.resolveWith(stringResolver)
                     registerErrorMessage.value = errorMessage
                     if (RegisterConfirmErrorPolicy.shouldClearPendingSession(errorMessage)) {
-                        sPrefManager.clearPendingRegistration()
+                        authSessionStore.clearPendingRegistration()
                     }
                 }
             }
@@ -162,11 +162,11 @@ class RegisterScreenViewModel constructor(
         val normalizedReferralCode = referralCode.value.trim().uppercase().ifBlank { null }
         val deviceId = deviceIdProvider.getDeviceId()
 
-        sPrefManager.clearPendingRegistration()
-        sPrefManager.savePendingPrivateKey(privateKeyBase64)
-        sPrefManager.savePendingPublicKey(publicKeyBase64)
-        sPrefManager.savePendingRegistrationUsername(trimmedUsername)
-        sPrefManager.savePendingRegistrationNonce(clientNonce)
+        authSessionStore.clearPendingRegistration()
+        authSessionStore.savePendingPrivateKey(privateKeyBase64)
+        authSessionStore.savePendingPublicKey(publicKeyBase64)
+        authSessionStore.savePendingRegistrationUsername(trimmedUsername)
+        authSessionStore.savePendingRegistrationNonce(clientNonce)
 
         register(
             trimmedUsername,
@@ -199,11 +199,11 @@ class RegisterScreenViewModel constructor(
 
     fun toggleLanguage() {
         viewModelScope.launch {
-            val nextLanguage = when (dataStoreUtil.getLanguage().first()) {
+            val nextLanguage = when (appSettingsStore.getLanguage().first()) {
                 AppLanguage.Farsi -> AppLanguage.English
                 AppLanguage.English -> AppLanguage.Farsi
             }
-            dataStoreUtil.saveLanguage(nextLanguage)
+            appSettingsStore.saveLanguage(nextLanguage)
         }
     }
 

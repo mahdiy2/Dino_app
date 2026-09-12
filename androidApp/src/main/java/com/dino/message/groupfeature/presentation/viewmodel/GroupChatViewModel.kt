@@ -1,32 +1,28 @@
 package com.dino.message.groupfeature.presentation.viewmodel
 
-import android.content.Context
-import android.util.Log
-import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.SavedStateHandle
-import androidx.lifecycle.viewModelScope
-import com.dino.message.DinoOrderApplication
 import com.dino.message.chatfeature.domain.model.MessageDeliveryStatus
 import com.dino.message.chatfeature.domain.util.encodeMessageReactions
 import com.dino.message.chatfeature.domain.util.parseMessageReactionsFromPayload
-import com.dino.message.corefeature.data.remote.logging.AppLogger
-import com.dino.message.corefeature.data.socket.AppSocketManager
-import com.dino.message.corefeature.data.socket.RealtimeSocketEvents
-import com.dino.message.corefeature.data.spref.SPrefManager
-import com.dino.message.corefeature.data.upload.PlatformMediaReference
-import com.dino.message.corefeature.data.upload.PlatformMediaResolver
+import com.dino.message.corefeature.domain.upload.PlatformMediaReference
+import com.dino.message.corefeature.domain.upload.PlatformMediaResolver
 import com.dino.message.corefeature.domain.config.AppConfig
 import com.dino.message.corefeature.domain.crypto.MessageCrypto
 import com.dino.message.corefeature.domain.crypto.RsaPublicKey
+import com.dino.message.corefeature.domain.logging.AppLogger
 import com.dino.message.corefeature.domain.notification.AppNotificationController
 import com.dino.message.corefeature.domain.resource.StringResolver
+import com.dino.message.corefeature.domain.session.ActiveGroupState
+import com.dino.message.corefeature.domain.session.AuthSessionStore
 import com.dino.message.corefeature.domain.system.AppClock
 import com.dino.message.corefeature.domain.util.LocalHistoryPaging
 import com.dino.message.corefeature.domain.result.Resource
+import com.dino.message.corefeature.domain.socket.RealtimeSocketEvents
+import com.dino.message.corefeature.domain.socket.RealtimeSocketGateway
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
-import com.dino.message.chatfeature.data.notification.ActiveGroupTracker
-import com.dino.message.chatfeature.data.notification.ChatMessageSoundPlayer
+import com.dino.message.corefeature.presentation.util.UiEventBus
+import com.dino.message.corefeature.presentation.viewmodel.ScopedStateHolder
+import com.dino.message.chatfeature.domain.audio.MessageSoundPlayer
 import com.dino.message.chatfeature.presentation.component.PlatformAudioRecorder
 import com.dino.message.chatfeature.presentation.component.PlatformAudioRecorderFactory
 import com.dino.message.groupfeature.domain.model.GroupMessageEntity
@@ -57,26 +53,30 @@ import java.util.UUID
 import com.dino.message.corefeature.presentation.navigation.AppRoute
 
 class GroupChatViewModel constructor(
-    app: Context,
-    private val spref: SPrefManager,
+    uiEventBus: UiEventBus,
+    private val spref: AuthSessionStore,
     private val getGroupDetailUseCase: GetGroupDetailUseCase,
     private val uploadGroupAttachmentUseCase: UploadGroupAttachmentUseCase,
     private val saveGroupMessageUseCase: SaveGroupMessageUseCase,
     private val getGroupMessagesFromDbUseCase: GetGroupMessagesFromDbUseCase,
     private val isTrackInPlaylistUseCase: IsTrackInPlaylistUseCase,
     private val groupRepository: GroupRepository,
-    private val appSocketManager: AppSocketManager,
+    private val appSocketManager: RealtimeSocketGateway,
     private val appNotificationController: AppNotificationController,
     private val stringResolver: StringResolver,
     private val appConfig: AppConfig,
     private val mediaResolver: PlatformMediaResolver,
     private val appClock: AppClock,
     private val appLogger: AppLogger,
+    private val activeGroupState: ActiveGroupState,
     private val audioRecorderFactory: PlatformAudioRecorderFactory,
     private val messageCrypto: MessageCrypto,
-    savedStateHandle: SavedStateHandle,
-) : AndroidViewModel(app as DinoOrderApplication),
-    HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
+    private val messageSoundPlayer: MessageSoundPlayer,
+    val groupId: Int,
+    groupName: String?,
+    val isPublicRoom: Boolean,
+) : ScopedStateHolder(),
+    HaveUIEvent by HaveUIEventImpl(uiEventBus) {
 
     companion object {
         private const val TAG = "GroupChatVM"
@@ -102,9 +102,7 @@ class GroupChatViewModel constructor(
         val memberIds: Map<String, Int>,
     )
 
-    val groupId: Int = checkNotNull(savedStateHandle["groupId"])
-    val groupName: String = savedStateHandle["groupName"] ?: "Group"
-    val isPublicRoom: Boolean = savedStateHandle["isPublicRoom"] ?: false
+    val groupName: String = groupName ?: "Group"
 
     private val currentUsername: String = spref.getUsername() ?: ""
 
@@ -194,7 +192,7 @@ class GroupChatViewModel constructor(
     private val typingExpiryJobsByUsername = mutableMapOf<String, kotlinx.coroutines.Job>()
 
     init {
-        ActiveGroupTracker.setActiveGroup(groupId)
+        activeGroupState.setActiveGroup(groupId)
         appNotificationController.clearGroupChat(groupId)
         startMainThreadWatchdogIfDebug()
         loadMessagesFromDb(resetPaging = true)
@@ -213,7 +211,7 @@ class GroupChatViewModel constructor(
                 onGroupMessagesLoaded(dbMessages)
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to load messages from DB", e)
+            appLogger.error(TAG, "Failed to load messages from DB", e)
         }
     }
 
@@ -280,7 +278,7 @@ class GroupChatViewModel constructor(
             }
             is Resource.Error -> {
                 val errorText = result.message.resolveWith(stringResolver)
-                Log.w(TAG, "History fetch failed for group $groupId: $errorText")
+                appLogger.warning(TAG, "History fetch failed for group $groupId: $errorText")
             }
             is Resource.Loading -> Unit
         }
@@ -530,7 +528,7 @@ class GroupChatViewModel constructor(
         try {
             saveGroupMessageUseCase.execute(entity).collect { }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to save message to DB", e)
+            appLogger.error(TAG, "Failed to save message to DB", e)
         }
     }
 
@@ -568,14 +566,14 @@ class GroupChatViewModel constructor(
 
                 val pk = member.publicKey
                 if (appConfig.isDebug) {
-                    Log.d(TAG, "Group member key ${member.username}: ${messageCrypto.formatPublicKeyForLog(pk)}")
+                    appLogger.debug(TAG, "Group member key ${member.username}: ${messageCrypto.formatPublicKeyForLog(pk)}")
                 }
                 if (!pk.isNullOrBlank()) {
                     val decodedPublicKey = messageCrypto.decodePublicKeyOrNull(pk)
                     if (decodedPublicKey != null) {
                         keys[member.username] = decodedPublicKey
                     } else {
-                        Log.w(
+                        appLogger.warning(
                             TAG,
                             "Skipping unsupported public key format for ${member.username}, ${messageCrypto.formatPublicKeyForLog(pk)}"
                         )
@@ -604,7 +602,7 @@ class GroupChatViewModel constructor(
         if (previousFingerprint != newFingerprint) {
             invalidateGroupKeySession()
         }
-        Log.d(TAG, "Loaded ${snapshot.decodedKeys.size} member public keys for group $groupId")
+        appLogger.debug(TAG, "Loaded ${snapshot.decodedKeys.size} member public keys for group $groupId")
     }
 
     private fun reconcileOnlineUsersWithKnownMembers(
@@ -653,7 +651,7 @@ class GroupChatViewModel constructor(
 
     private fun getOrCreateGroupKeySession(): GroupKeySession? {
         if (!memberKeysReady || memberPublicKeys.isEmpty()) {
-            Log.e(TAG, "Cannot encrypt: member keys not ready")
+            appLogger.error(TAG, "Cannot encrypt: member keys not ready")
             _socketError.value = "Encryption keys not loaded yet"
             return null
         }
@@ -674,7 +672,7 @@ class GroupChatViewModel constructor(
                 includeKeyRecordsOnNextSend = true,
             ).also { groupKeySession = it }
         } catch (e: Exception) {
-            Log.e(TAG, "Group key session bootstrap failed", e)
+            appLogger.error(TAG, "Group key session bootstrap failed", e)
             _socketError.value = "Encryption failed: ${e.message}"
             null
         }
@@ -687,7 +685,7 @@ class GroupChatViewModel constructor(
                     applyMemberPublicKeys(res.data)
                 }
                 is Resource.Error -> {
-                    Log.w(TAG, "Failed to refresh member keys: ${res.message.resolveWith(stringResolver)}")
+                    appLogger.warning(TAG, "Failed to refresh member keys: ${res.message.resolveWith(stringResolver)}")
                 }
                 is Resource.Loading -> Unit
             }
@@ -705,7 +703,7 @@ class GroupChatViewModel constructor(
         val myEncryptedKey = encryptedKeys[currentUsername].orEmpty()
         if (myEncryptedKey.isBlank()) {
             if (!hasLoggedMissingEncryptedGroupKey) {
-                Log.w(TAG, "No encrypted key found for $currentUsername")
+                appLogger.warning(TAG, "No encrypted key found for $currentUsername")
                 hasLoggedMissingEncryptedGroupKey = true
             }
             _decryptionError.value =
@@ -716,7 +714,7 @@ class GroupChatViewModel constructor(
         return try {
             val privateKeyStr = spref.getPrivateKey() ?: run {
                 if (!hasLoggedMissingPrivateKey) {
-                    Log.w(TAG, "Private key missing on device for user $currentUsername")
+                    appLogger.warning(TAG, "Private key missing on device for user $currentUsername")
                     hasLoggedMissingPrivateKey = true
                 }
                 _decryptionError.value =
@@ -731,7 +729,7 @@ class GroupChatViewModel constructor(
         } catch (e: Exception) {
             val signature = "${e::class.java.name}:${e.message.orEmpty()}"
             if (lastGroupDecryptFailureSignature != signature) {
-                Log.e(TAG, "Failed to decrypt group message", e)
+                appLogger.error(TAG, "Failed to decrypt group message", e)
                 lastGroupDecryptFailureSignature = signature
             }
             _decryptionError.value =
@@ -766,7 +764,7 @@ class GroupChatViewModel constructor(
         return try {
             session to messageCrypto.encryptWithAesKey(plaintext, session.rawAesKey)
         } catch (e: Exception) {
-            Log.e(TAG, "Group encryption failed", e)
+            appLogger.error(TAG, "Group encryption failed", e)
             _socketError.value = "Encryption failed: ${e.message}"
             null
         }
@@ -808,12 +806,12 @@ class GroupChatViewModel constructor(
 
     private fun registerSocketListeners() {
         appSocketManager.registerListener(socketOwner, RealtimeSocketEvents.CONNECT) {
-            Log.d(TAG, "Socket connected, joining group room")
+            appLogger.debug(TAG, "Socket connected, joining group room")
             joinGroupAndRequestStatusSync()
         }
 
         appSocketManager.registerListener(socketOwner, "group_joined") {
-            Log.d(TAG, "Joined group room $groupId")
+            appLogger.debug(TAG, "Joined group room $groupId")
             requestGroupOnlineUsersFromSocket()
         }
 
@@ -866,7 +864,7 @@ class GroupChatViewModel constructor(
                     if (pendingGroupId != groupId) return@launch
 
                     val messagesArr: JSONArray = obj.optJSONArray("messages") ?: return@launch
-                    Log.d(TAG, "Received ${messagesArr.length()} pending group messages for group $groupId")
+                    appLogger.debug(TAG, "Received ${messagesArr.length()} pending group messages for group $groupId")
 
                     val ackedIds = withContext(Dispatchers.Default) {
                         val processedIds = mutableListOf<String>()
@@ -933,7 +931,7 @@ class GroupChatViewModel constructor(
                         sendGroupRead(ackedIds)
                     }
                 } catch (e: Exception) {
-                    Log.e(TAG, "Error handling pending_group_messages", e)
+                    appLogger.error(TAG, "Error handling pending_group_messages", e)
                 }
             }
         }
@@ -997,15 +995,15 @@ class GroupChatViewModel constructor(
                         saveMessageToDb(entity)
                     }
                     loadMessagesFromDb()
-                    if (sender != currentUsername && ActiveGroupTracker.isViewingGroup(groupId)) {
-                        ChatMessageSoundPlayer.playReceived(getApplication())
+                    if (sender != currentUsername && activeGroupState.isViewingGroup(groupId)) {
+                        messageSoundPlayer.playReceived()
                     }
                     if (sender != currentUsername && messageId.isNotBlank()) {
                         sendGroupAck(listOf(messageId))
                         sendGroupRead(listOf(messageId))
                     }
                 } catch (e: Exception) {
-                    Log.e(TAG, "Error handling new_group_message", e)
+                    appLogger.error(TAG, "Error handling new_group_message", e)
                 }
             }
         }
@@ -1020,10 +1018,10 @@ class GroupChatViewModel constructor(
                 if (messageId.isBlank()) return@launch
 
                 markMessageAsSent(messageId)
-                if (ActiveGroupTracker.isViewingGroup(groupId)) {
-                    ChatMessageSoundPlayer.playSent(getApplication())
+                if (activeGroupState.isViewingGroup(groupId)) {
+                    messageSoundPlayer.playSent()
                 }
-                Log.d(
+                appLogger.debug(
                     TAG,
                     "group_message_sent ack received: messageId=$messageId clientMessageId=${payload.optString("client_message_id", "")}"
                 )
@@ -1166,7 +1164,7 @@ class GroupChatViewModel constructor(
                 } else {
                     _socketError.value = uiError
                 }
-                Log.e(
+                appLogger.error(
                     TAG,
                     "message_error: code=$errorCode client_message_id=${payload?.optString("client_message_id", "")} error=$errorMsg"
                 )
@@ -1197,7 +1195,7 @@ class GroupChatViewModel constructor(
                 payloadGroupIdsContainsCurrentGroup(payload)
             if (!shouldRefresh) return@registerListener
 
-            Log.d(TAG, "Detected updated public key for $updatedUsername, refreshing group keys")
+            appLogger.debug(TAG, "Detected updated public key for $updatedUsername, refreshing group keys")
             refreshMemberPublicKeysSilently()
         }
 
@@ -1206,12 +1204,12 @@ class GroupChatViewModel constructor(
             val payloadGroupId = payload.optInt("group_id", -1)
             if (payloadGroupId != groupId) return@registerListener
 
-            Log.d(TAG, "Received group_member_key_updated for group $groupId")
+            appLogger.debug(TAG, "Received group_member_key_updated for group $groupId")
             refreshMemberPublicKeysSilently()
         }
 
         appSocketManager.registerListener(socketOwner, RealtimeSocketEvents.DISCONNECT) {
-            Log.d(TAG, "Socket disconnected")
+            appLogger.debug(TAG, "Socket disconnected")
             clearTypingUsers()
             typingHeartbeatJob?.cancel()
             typingHeartbeatJob = null
@@ -1396,12 +1394,12 @@ class GroupChatViewModel constructor(
                 dedupeKey = "group:$groupId:$clientMessageId",
             )
         ) {
-            AppSocketManager.EmitWithRetryResult.EMITTED -> Unit
-            AppSocketManager.EmitWithRetryResult.QUEUED,
-            AppSocketManager.EmitWithRetryResult.ALREADY_QUEUED -> {
+            RealtimeSocketGateway.EmitWithRetryResult.EMITTED -> Unit
+            RealtimeSocketGateway.EmitWithRetryResult.QUEUED,
+            RealtimeSocketGateway.EmitWithRetryResult.ALREADY_QUEUED -> {
                 _socketError.value = "Disconnected. Message queued and will retry automatically."
             }
-            AppSocketManager.EmitWithRetryResult.QUEUE_FULL -> {
+            RealtimeSocketGateway.EmitWithRetryResult.QUEUE_FULL -> {
                 _socketError.value = "Send queue is full. Please retry in a moment."
             }
         }
@@ -1534,7 +1532,7 @@ class GroupChatViewModel constructor(
         stopTypingNow()
         clearTypingUsers()
         _onlineGroupUsers.value = emptyList()
-        ActiveGroupTracker.clearActiveGroup()
+        activeGroupState.clearActiveGroup()
         disconnectSocket()
     }
 
@@ -1597,8 +1595,8 @@ class GroupChatViewModel constructor(
 
     private fun sendGroupAck(messageIds: List<String>) {
         if (messageIds.isEmpty()) return
-        if (!ActiveGroupTracker.isViewingGroup(groupId)) {
-            Log.d(TAG, "Skipping group ack for inactive group $groupId")
+        if (!activeGroupState.isViewingGroup(groupId)) {
+            appLogger.debug(TAG, "Skipping group ack for inactive group $groupId")
             return
         }
         val payload = JSONObject().apply {
@@ -1606,13 +1604,13 @@ class GroupChatViewModel constructor(
             put("message_ids", JSONArray(messageIds))
         }
         appSocketManager.emit("ack_group_messages", payload)
-        Log.d(TAG, "Sent group ack for ${messageIds.size} message(s)")
+        appLogger.debug(TAG, "Sent group ack for ${messageIds.size} message(s)")
     }
 
     private fun sendGroupRead(messageIds: List<String>) {
         if (messageIds.isEmpty()) return
-        if (!ActiveGroupTracker.isViewingGroup(groupId)) {
-            Log.d(TAG, "Skipping group read for inactive group $groupId")
+        if (!activeGroupState.isViewingGroup(groupId)) {
+            appLogger.debug(TAG, "Skipping group read for inactive group $groupId")
             return
         }
         val payload = JSONObject().apply {
@@ -1620,7 +1618,7 @@ class GroupChatViewModel constructor(
             put("message_ids", JSONArray(messageIds))
         }
         appSocketManager.emit("mark_read_group_messages", payload)
-        Log.d(TAG, "Sent group read for ${messageIds.size} message(s)")
+        appLogger.debug(TAG, "Sent group read for ${messageIds.size} message(s)")
     }
 
     private fun refreshGroupOnlineUsersFromApi() = viewModelScope.launch {
@@ -1629,7 +1627,7 @@ class GroupChatViewModel constructor(
                 _onlineGroupUsers.value = normalizeOnlineUsers(result.data)
             }
             is Resource.Error -> {
-                Log.w(
+                appLogger.warning(
                     TAG,
                     "Failed to fetch online group users from API: ${result.message.resolveWith(stringResolver)}"
                 )
@@ -1828,12 +1826,9 @@ class GroupChatViewModel constructor(
                 if (lagMs > 6000L) {
                     if (!mainThreadStallReported) {
                         mainThreadStallReported = true
-                        val mainStack = runCatching { getApplication<DinoOrderApplication>().mainLooper.thread.stackTrace }
-                            .getOrDefault(emptyArray())
-                            .joinToString(separator = "\n") { it.toString() }
                         appLogger.error(
                             TAG,
-                            "Main thread stall detected in GroupChatViewModel. lagMs=$lagMs\n$mainStack"
+                            "Main thread stall detected in GroupChatViewModel. lagMs=$lagMs"
                         )
                     }
                 } else {
@@ -1922,16 +1917,16 @@ class GroupChatViewModel constructor(
         return mapped.ifEmpty { null }
     }
 
-    override fun onCleared() {
+    override fun clear() {
         stopTypingNow()
         clearTypingUsers()
         mainThreadWatchdogJob?.cancel()
         mainThreadWatchdogJob = null
         mainThreadHeartbeatJob?.cancel()
         mainThreadHeartbeatJob = null
-        ActiveGroupTracker.clearActiveGroup()
+        activeGroupState.clearActiveGroup()
         voiceRecorder?.release()
         disconnectSocket()
-        super.onCleared()
+        super.clear()
     }
 }

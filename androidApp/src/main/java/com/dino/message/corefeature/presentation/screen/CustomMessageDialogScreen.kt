@@ -25,7 +25,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import org.koin.compose.viewmodel.koinViewModel
 import com.dino.message.R
 import com.dino.message.corefeature.domain.model.CustomMessageDialogData
 import com.dino.message.corefeature.domain.model.CustomMessageDialogType
@@ -36,6 +35,7 @@ import com.dino.message.corefeature.presentation.ui.theme.DPLarge
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPSmall
 import com.dino.message.corefeature.presentation.viewmodel.CustomMessageDialogViewModel
+import com.dino.message.corefeature.presentation.viewmodel.rememberStateHolder
 
 
 /**
@@ -49,8 +49,7 @@ import com.dino.message.corefeature.presentation.viewmodel.CustomMessageDialogVi
  */
 @Composable
 fun CustomMessageDialogScreen(customMessageDialogData: CustomMessageDialogData) {
-    // Create an instance of the CustomMessageDialogViewModel using Hilt
-    val viewModel: CustomMessageDialogViewModel = koinViewModel()
+    val viewModel: CustomMessageDialogViewModel = rememberStateHolder(customMessageDialogData.type)
 
     val header = when (customMessageDialogData.type) {
         CustomMessageDialogType.Error.type -> R.string.error

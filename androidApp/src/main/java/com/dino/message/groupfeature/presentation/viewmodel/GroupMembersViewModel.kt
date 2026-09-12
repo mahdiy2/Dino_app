@@ -1,15 +1,12 @@
 package com.dino.message.groupfeature.presentation.viewmodel
 
-import com.dino.message.corefeature.presentation.util.asString
-import android.content.Context
-import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.SavedStateHandle
-import androidx.lifecycle.viewModelScope
-import com.dino.message.DinoOrderApplication
-import com.dino.message.corefeature.data.spref.SPrefManager
+import com.dino.message.corefeature.domain.session.AuthSessionStore
 import com.dino.message.corefeature.domain.result.Resource
+import com.dino.message.corefeature.domain.resource.StringResolver
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
+import com.dino.message.corefeature.presentation.util.UiEventBus
+import com.dino.message.corefeature.presentation.viewmodel.ScopedStateHolder
 import com.dino.message.groupfeature.domain.model.GroupMember
 import com.dino.message.groupfeature.domain.usecase.GetGroupDetailUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,18 +16,18 @@ import kotlinx.coroutines.launch
 import com.dino.message.corefeature.presentation.navigation.AppRoute
 
 class GroupMembersViewModel constructor(
-    app: Context,
-    savedStateHandle: SavedStateHandle,
+    private val stringResolver: StringResolver,
+    uiEventBus: UiEventBus,
+    private val groupId: Int,
+    private val initialGroupName: String?,
     private val getGroupDetailUseCase: GetGroupDetailUseCase,
-    private val sPrefManager: SPrefManager,
-) : AndroidViewModel(app as DinoOrderApplication),
-    HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
+    private val sPrefManager: AuthSessionStore,
+) : ScopedStateHolder(),
+    HaveUIEvent by HaveUIEventImpl(uiEventBus) {
 
-    private val groupId: Int = checkNotNull(savedStateHandle["groupId"])
-    private val initialGroupName: String = savedStateHandle["groupName"] ?: ""
     private val currentUsername: String = sPrefManager.getUsername() ?: ""
 
-    private val _groupName = MutableStateFlow(initialGroupName)
+    private val _groupName = MutableStateFlow(initialGroupName.orEmpty())
     val groupName: StateFlow<String> = _groupName.asStateFlow()
 
     private val _members = MutableStateFlow<List<GroupMember>>(emptyList())
@@ -66,7 +63,7 @@ class GroupMembersViewModel constructor(
                 }
                 is Resource.Error -> {
                     _isLoading.value = false
-                    _errorMessage.value = result.message.asString(getApplication<DinoOrderApplication>())
+                    _errorMessage.value = result.message.resolveWith(stringResolver)
                 }
             }
         }
@@ -76,7 +73,7 @@ class GroupMembersViewModel constructor(
         navigateToDestination(
             AppRoute.AddGroupMembers(
                 groupId = groupId,
-                groupName = _groupName.value.ifBlank { initialGroupName },
+                groupName = _groupName.value.ifBlank { initialGroupName.orEmpty() },
             ),
             viewModelScope,
         )

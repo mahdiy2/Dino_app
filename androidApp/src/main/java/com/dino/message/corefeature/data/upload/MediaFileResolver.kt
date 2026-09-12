@@ -82,7 +82,7 @@ object MediaFileResolver {
         }.getOrNull()
     }
 
-    private fun mimeTypeFromName(name: String?): String? {
+    fun mimeTypeFromName(name: String?): String? {
         val extension = name
             ?.substringAfterLast('.', "")
             ?.trim()

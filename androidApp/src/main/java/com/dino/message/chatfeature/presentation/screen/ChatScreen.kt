@@ -106,7 +106,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
-import org.koin.compose.viewmodel.koinViewModel
+import com.dino.message.corefeature.presentation.viewmodel.rememberStateHolder
 import com.dino.message.chatfeature.domain.model.MessageDeliveryStatus
 import com.dino.message.chatfeature.domain.util.decodeMessageReactions
 import com.dino.message.chatfeature.presentation.component.ChatScreenBottomAppBar
@@ -130,6 +130,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlin.math.min
 import com.dino.message.corefeature.presentation.icons.AppIcons
+import org.koin.core.parameter.parametersOf
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -141,7 +142,9 @@ fun ChatScreen(
     profileImageShape: String? = null,
     profileVideoUrl: String? = null
 ) {
-    val viewModel: ChatViewModel = koinViewModel()
+    val viewModel: ChatViewModel = rememberStateHolder(chatId) {
+        parametersOf(chatId)
+    }
     val isPeerOnline by viewModel.isPeerOnline.collectAsState()
     val isUploading by viewModel.isUploading.collectAsState()
     val isLoadingOlderHistory by viewModel.isLoadingOlderHistory.collectAsState()

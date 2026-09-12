@@ -2,7 +2,7 @@ package com.dino.message.crashfeature.data.service
 
 import android.content.Context
 import android.content.Intent
-import com.dino.message.corefeature.data.remote.logging.AppLogger
+import com.dino.message.corefeature.domain.logging.AppLogger
 import com.dino.message.crashfeature.presentation.activity.CrashReportActivity
 
 class AndroidCrashUiLauncher(

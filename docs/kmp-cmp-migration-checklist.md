@@ -163,29 +163,47 @@ All migration work must preserve MVVM with Clean Architecture.
 
 ### 4. Make ViewModels And State Holders Multiplatform-Ready
 
-- [ ] Replace all `AndroidViewModel` inheritance.
-  - Current affected areas include auth, chat, group, main page, search, splash,
-    thread, profile, report, update, activity notification, and core dialog/main
-    ViewModels.
-  - Use a KMP-compatible ViewModel approach or plain state-holder pattern.
-  - Android-specific adapters may remain in `:androidApp` or `androidMain`.
-- [ ] Remove `Application` and `Context` constructor dependencies from shared
-  ViewModel candidates.
-  - Replace app strings with `StringResolver` or UI text models.
-  - Replace app config with `AppConfig`.
-  - Replace process/app operations with focused platform interfaces.
-  - Replace toast/clipboard/browser effects with `PlatformUiEffect` or UI events.
-- [ ] Keep lifecycle, permissions, activity result launchers, saved-state
+- [x] Replace the shared state-holder/event base with CMP-compatible types.
+  - Moved `StateHolder`, `ScopedStateHolder`, `HaveUIEvent`, `HaveUIEventImpl`,
+    `UIEvent`, `UiEventBus`, `PopBackStackLevel`, `AppRoute`, `AppConfig`,
+    `StringResolver`, and `Resource` into `:composeApp/commonMain`.
+  - Added shared `commonTest` coverage for `HaveUIEventImpl`.
+- [x] Remove `Application` and `Context` constructor dependencies from the
+  migrated auth/core ViewModels.
+  - Updated login, registration, private-key alert, main-activity, custom
+    message dialog, and private-key reset holders to use `ScopedStateHolder`,
+    `UiEventBus`, `StringResolver`, `AppConfig`, and focused platform
+    interfaces.
+  - Preserved navigation commands, storage keys, and session behavior.
+- [x] Keep lifecycle, permissions, activity result launchers, saved-state
   adapters, and Android navigation execution outside shared ViewModels.
+  - Replaced remaining Android/data constructor dependencies in state holders
+    with focused domain/platform interfaces for session, settings, socket,
+    logging, media resolution, active conversation state, splash version checks,
+    and clocks.
+  - Kept Android permissions, launchers, lifecycle hooks, URI conversion, and
+    navigation execution in Android screens/platform wiring.
 - [ ] Ensure ViewModels expose immutable state and one-shot events.
   - State should be serializable or platform-neutral where practical.
   - Navigation should continue through app route commands, not platform
     navigation types.
-- [ ] Add unit tests for migrated state holders.
-  - Cover initial state, loading/success/error transitions, navigation events,
-    retry behavior, and cancellation behavior where relevant.
-- [ ] Commit after verification.
-  - Suggested message: `refactor(viewmodel): remove android application coupling`.
+  - Follow-up: replace remaining public mutable Compose state properties with
+    read-only state plus update/event methods in auth, profile, group, search,
+    report, thread, and create-post holders.
+  - Follow-up: replace JVM-only helpers such as `java.time`, `java.net.URI`, and
+    Java collections in chat/group/thread holders before moving those holders
+    into `commonMain`.
+- [x] Add unit tests for migrated state holders.
+  - Added shared event-base coverage plus Android-side route-selection and
+    dialog-holder tests.
+- [x] Commit after verification.
+  - Commit message: `refactor(viewmodel): make state holders multiplatform-ready`.
+  - Verified commands:
+    - `./gradlew checkDomainBoundaries`
+    - `./gradlew :androidApp:compileDebugKotlin`
+    - `./gradlew :androidApp:testDebugUnitTest`
+    - `./gradlew verifyKmpBaseline`
+  - Result: successful on 2026-09-12.
 
 ### 5. Move Pure Common Logic To `:composeApp/commonMain`
 

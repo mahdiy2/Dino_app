@@ -45,7 +45,7 @@ import androidx.compose.ui.window.DialogProperties
 import com.dino.message.corefeature.presentation.platform.PlatformImageRequestOptions
 import com.dino.message.corefeature.presentation.platform.PlatformSubcomposeAsyncImage
 import com.dino.message.corefeature.presentation.platform.rememberPlatformImageRequest
-import org.koin.compose.viewmodel.koinViewModel
+import com.dino.message.corefeature.presentation.viewmodel.rememberStateHolder
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -58,6 +58,7 @@ import com.dino.message.groupfeature.domain.model.GroupMember
 import com.dino.message.groupfeature.presentation.viewmodel.GroupMembersViewModel
 import com.dino.message.profilefeature.presentation.component.ProfileAvatarMedia
 import com.dino.message.corefeature.presentation.icons.AppIcons
+import org.koin.core.parameter.parametersOf
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -65,7 +66,9 @@ fun GroupMembersScreen(
     groupId: Int,
     groupName: String? = null,
 ) {
-    val viewModel: GroupMembersViewModel = koinViewModel()
+    val viewModel: GroupMembersViewModel = rememberStateHolder(groupId, groupName) {
+        parametersOf(groupId, groupName)
+    }
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 

@@ -1,15 +1,12 @@
 package com.dino.message.threadfeature.presentation.viewmodel
 
-import com.dino.message.corefeature.presentation.util.asString
-import android.content.Context
-import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.SavedStateHandle
-import androidx.lifecycle.viewModelScope
-import com.dino.message.DinoOrderApplication
-import com.dino.message.corefeature.data.spref.DataStoreUtil
+import com.dino.message.corefeature.domain.settings.AppSettingsStore
 import com.dino.message.corefeature.domain.result.Resource
+import com.dino.message.corefeature.domain.resource.StringResolver
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
+import com.dino.message.corefeature.presentation.util.UiEventBus
+import com.dino.message.corefeature.presentation.viewmodel.ScopedStateHolder
 import com.dino.message.threadfeature.domain.model.Post
 import com.dino.message.threadfeature.domain.model.PostMedia
 import com.dino.message.threadfeature.domain.model.VoteTargetType
@@ -25,16 +22,15 @@ import kotlinx.serialization.json.Json
 import com.dino.message.corefeature.presentation.navigation.AppRoute
 
 class SharedPostDetailsViewModel constructor(
-    app: Context,
-    private val dataStoreUtil: DataStoreUtil,
+    private val stringResolver: StringResolver,
+    uiEventBus: UiEventBus,
+    private val dataStoreUtil: AppSettingsStore,
     private val getPostUseCase: GetPostUseCase,
     private val voteUseCase: VoteUseCase,
     private val addTrackToPlaylistUseCase: AddTrackToPlaylistUseCase,
-    savedStateHandle: SavedStateHandle,
-) : AndroidViewModel(app as DinoOrderApplication),
-    HaveUIEvent by HaveUIEventImpl(app as DinoOrderApplication) {
-
-    private val postId: Long = savedStateHandle.get<Long>("postId") ?: 0L
+    private val postId: Long,
+) : ScopedStateHolder(),
+    HaveUIEvent by HaveUIEventImpl(uiEventBus) {
 
     private val _post = MutableStateFlow<Post?>(null)
     val post: StateFlow<Post?> = _post.asStateFlow()
@@ -84,7 +80,7 @@ class SharedPostDetailsViewModel constructor(
                     }
                     is Resource.Error -> {
                         _isLoading.value = false
-                        _error.value = res.message.asString(getApplication())
+                        _error.value = res.message.resolveWith(stringResolver)
                     }
                 }
             }
@@ -106,7 +102,7 @@ class SharedPostDetailsViewModel constructor(
                         _error.value = null
                     }
                     is Resource.Error -> {
-                        _error.value = res.message.asString(getApplication())
+                        _error.value = res.message.resolveWith(stringResolver)
                     }
                 }
             }
@@ -170,7 +166,7 @@ class SharedPostDetailsViewModel constructor(
                 is Resource.Loading -> Unit
 
                 is Resource.Error -> {
-                    _playlistFeedback.value = res.message.asString(getApplication())
+                    _playlistFeedback.value = res.message.resolveWith(stringResolver)
                 }
             }
         }

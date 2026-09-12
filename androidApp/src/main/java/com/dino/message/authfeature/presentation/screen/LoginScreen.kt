@@ -34,7 +34,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import org.koin.compose.viewmodel.koinViewModel
+import com.dino.message.corefeature.presentation.viewmodel.rememberStateHolder
 import com.dino.message.R
 import com.dino.message.authfeature.presentation.viewmodel.LoginScreenViewModel
 import com.dino.message.corefeature.domain.model.AppLanguage
@@ -47,7 +47,7 @@ import com.dino.message.corefeature.presentation.icons.AppIcons
 @Composable
 fun LoginScreen() {
 
-    val viewModel: LoginScreenViewModel = koinViewModel()
+    val viewModel: LoginScreenViewModel = rememberStateHolder()
     val loginErrorMessage by viewModel.loginErrorMessage
     val currentLanguage by viewModel.currentLanguage.collectAsState(initial = AppLanguage.Farsi)
 

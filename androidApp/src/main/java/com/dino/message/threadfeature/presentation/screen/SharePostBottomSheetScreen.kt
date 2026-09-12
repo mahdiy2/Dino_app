@@ -30,7 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import org.koin.compose.viewmodel.koinViewModel
+import com.dino.message.corefeature.presentation.viewmodel.rememberStateHolder
 import com.dino.message.R
 import com.dino.message.corefeature.presentation.component.UserBadgeIcon
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
@@ -45,7 +45,7 @@ fun SharePostBottomSheetScreen(
     authorUsername: String,
     postText: String,
 ) {
-    val viewModel: SharePostBottomSheetViewModel = koinViewModel()
+    val viewModel: SharePostBottomSheetViewModel = rememberStateHolder(postId, authorUsername, postText)
     val isLoading by viewModel.isRecipientsLoading.collectAsState()
     val isSending by viewModel.isSending.collectAsState()
     val error by viewModel.error.collectAsState()

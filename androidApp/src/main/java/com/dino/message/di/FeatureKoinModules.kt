@@ -32,8 +32,8 @@ import com.dino.message.searchfeature.data.remote.SearchApiService
 import com.dino.message.searchfeature.data.remote.SearchApiServiceImpl
 import com.dino.message.searchfeature.data.repository.SearchRepositoryImpl
 import com.dino.message.searchfeature.domain.repository.SearchRepository
-import com.dino.message.spashscreen.data.remote.SplashApiService
 import com.dino.message.spashscreen.data.remote.SplashApiServiceImpl
+import com.dino.message.spashscreen.domain.repository.SplashApiService
 import com.dino.message.threadfeature.data.remote.ThreadApiService
 import com.dino.message.threadfeature.data.remote.ThreadApiServiceImpl
 import com.dino.message.threadfeature.data.repository.ThreadRepositoryImpl

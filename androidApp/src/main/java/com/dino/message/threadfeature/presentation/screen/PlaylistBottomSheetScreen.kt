@@ -72,7 +72,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import org.koin.compose.viewmodel.koinViewModel
+import com.dino.message.corefeature.presentation.viewmodel.rememberStateHolder
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.dino.message.R
@@ -104,7 +104,7 @@ fun PlaylistBottomSheetScreen() {
     val lifecycleOwner = LocalLifecycleOwner.current
     if (lifecycleOwner.lifecycle.currentState == Lifecycle.State.DESTROYED) return
 
-    val viewModel: PlaylistBottomSheetViewModel = koinViewModel()
+    val viewModel: PlaylistBottomSheetViewModel = rememberStateHolder()
     val context = LocalContext.current
     val tracks by viewModel.playlistTracks.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()

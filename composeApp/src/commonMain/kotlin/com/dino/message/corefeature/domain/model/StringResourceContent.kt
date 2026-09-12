@@ -3,7 +3,6 @@ package com.dino.message.corefeature.domain.model
 import com.dino.message.corefeature.domain.resource.StringResolver
 import kotlinx.serialization.Serializable
 
-
 @Serializable
 sealed class StringResourceContent {
     data class Str(val data: String) : StringResourceContent()

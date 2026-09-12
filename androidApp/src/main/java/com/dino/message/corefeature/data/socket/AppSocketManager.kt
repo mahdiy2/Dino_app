@@ -1,10 +1,12 @@
 package com.dino.message.corefeature.data.socket
 
-import com.dino.message.corefeature.data.remote.logging.AppLogger
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.domain.background.BackgroundTask
 import com.dino.message.corefeature.domain.background.BackgroundTaskRegistry
 import com.dino.message.corefeature.domain.background.BackgroundTaskScheduler
+import com.dino.message.corefeature.domain.logging.AppLogger
+import com.dino.message.corefeature.domain.socket.RealtimeSocketEvents
+import com.dino.message.corefeature.domain.socket.RealtimeSocketGateway
 import com.dino.message.corefeature.domain.system.AppClock
 import com.dino.message.crashfeature.data.service.CrashReporter
 import kotlinx.coroutines.CompletableDeferred
@@ -20,6 +22,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 
+private typealias EmitWithRetryResult = RealtimeSocketGateway.EmitWithRetryResult
+
 class AppSocketManager constructor(
     private val sprefManager: SPrefManager,
     private val crashReporter: CrashReporter,
@@ -30,13 +34,6 @@ class AppSocketManager constructor(
     private val appLogger: AppLogger,
     backgroundTaskRegistry: BackgroundTaskRegistry,
 ) : RealtimeSocketGateway {
-
-    enum class EmitWithRetryResult {
-        EMITTED,
-        QUEUED,
-        ALREADY_QUEUED,
-        QUEUE_FULL,
-    }
 
     companion object {
         private const val TAG = "AppSocketManager"

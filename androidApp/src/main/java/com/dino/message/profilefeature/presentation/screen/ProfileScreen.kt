@@ -70,7 +70,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import org.koin.compose.viewmodel.koinViewModel
+import com.dino.message.corefeature.presentation.viewmodel.rememberStateHolder
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -95,7 +95,7 @@ import com.dino.message.corefeature.presentation.icons.AppIcons
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(username: String? = null) {
-    val viewModel: ProfileScreenViewModel = koinViewModel()
+    val viewModel: ProfileScreenViewModel = rememberStateHolder()
     val lifecycleOwner = LocalLifecycleOwner.current
     val profile = viewModel.profile.value
     val posts = viewModel.posts

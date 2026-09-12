@@ -1,13 +1,11 @@
 package com.dino.message.threadfeature.presentation.viewmodel
 
 import com.dino.message.corefeature.presentation.util.asString
-import android.content.Context
-import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.viewModelScope
-import com.dino.message.DinoOrderApplication
 import com.dino.message.R
-import com.dino.message.corefeature.data.spref.DataStoreUtil
+import com.dino.message.corefeature.domain.settings.AppSettingsStore
 import com.dino.message.corefeature.domain.result.Resource
+import com.dino.message.corefeature.domain.resource.StringResolver
+import com.dino.message.corefeature.presentation.viewmodel.ScopedStateHolder
 import com.dino.message.threadfeature.domain.model.PlaylistTrack
 import com.dino.message.threadfeature.domain.usecase.AddTrackToPlaylistUseCase
 import com.dino.message.threadfeature.domain.usecase.GetPlaylistTracksUseCase
@@ -21,12 +19,12 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 class PlaylistBottomSheetViewModel constructor(
-    app: Context,
-    private val dataStoreUtil: DataStoreUtil,
+    private val stringResolver: StringResolver,
+    private val dataStoreUtil: AppSettingsStore,
     private val getPlaylistTracksUseCase: GetPlaylistTracksUseCase,
     private val removeTrackFromPlaylistUseCase: RemoveTrackFromPlaylistUseCase,
     private val addTrackToPlaylistUseCase: AddTrackToPlaylistUseCase,
-) : AndroidViewModel(app as DinoOrderApplication) {
+) : ScopedStateHolder() {
 
     private val playlistPageLimit = 200
     private var isPlaylistRequestRunning = false
@@ -76,7 +74,7 @@ class PlaylistBottomSheetViewModel constructor(
                 }
 
                 is Resource.Error -> {
-                    _error.value = res.message.asString(getApplication())
+                    _error.value = res.message.resolveWith(stringResolver)
                     _isLoading.value = false
                     isPlaylistRequestRunning = false
                 }
@@ -118,11 +116,10 @@ class PlaylistBottomSheetViewModel constructor(
                     is Resource.Loading -> Unit
 
                     is Resource.Error -> {
-                        _error.value = res.message.asString(getApplication())
+                        _error.value = res.message.resolveWith(stringResolver)
                         _snackbarEvents.emit(
                             PlaylistSnackbarEvent(
-                                message = getApplication<DinoOrderApplication>()
-                                    .getString(R.string.playlist_undo_remove_failed)
+                                message = stringResolver.resolveStringId(R.string.playlist_undo_remove_failed)
                             )
                         )
                     }
@@ -143,10 +140,8 @@ class PlaylistBottomSheetViewModel constructor(
                     _error.value = null
                     _snackbarEvents.emit(
                         PlaylistSnackbarEvent(
-                            message = getApplication<DinoOrderApplication>()
-                                .getString(R.string.playlist_removed_message, pendingRemoval.track.title),
-                            actionLabel = getApplication<DinoOrderApplication>()
-                                .getString(R.string.undo),
+                            message = stringResolver.resolveStringId(R.string.playlist_removed_message, pendingRemoval.track.title),
+                            actionLabel = stringResolver.resolveStringId(R.string.undo),
                             trackId = trackId,
                         )
                     )
@@ -157,11 +152,10 @@ class PlaylistBottomSheetViewModel constructor(
                 is Resource.Error -> {
                     pendingRemovalsByTrackId.remove(trackId)
                     restoreTrackAfterFailedRemoval(pendingRemoval)
-                    _error.value = res.message.asString(getApplication())
+                    _error.value = res.message.resolveWith(stringResolver)
                     _snackbarEvents.emit(
                         PlaylistSnackbarEvent(
-                            message = getApplication<DinoOrderApplication>()
-                                .getString(R.string.playlist_remove_failed_restored)
+                            message = stringResolver.resolveStringId(R.string.playlist_remove_failed_restored)
                         )
                     )
                 }

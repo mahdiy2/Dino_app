@@ -35,7 +35,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import org.koin.compose.viewmodel.koinViewModel
+import com.dino.message.corefeature.presentation.viewmodel.rememberStateHolder
 import androidx.navigation.NavHostController
 import com.dino.message.R
 import com.dino.message.corefeature.domain.model.AppLanguage
@@ -44,7 +44,7 @@ import androidx.compose.runtime.collectAsState
 
 @Composable
 fun SplashScreen(navController: NavHostController) {
-    val viewModel: SpashViewModel = koinViewModel()
+    val viewModel: SpashViewModel = rememberStateHolder()
     val uiState by viewModel.uiState.collectAsState()
 
     val infiniteTransition = rememberInfiniteTransition(label = "splash_pulse")
