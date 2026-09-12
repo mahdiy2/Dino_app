@@ -207,24 +207,44 @@ All migration work must preserve MVVM with Clean Architecture.
 
 ### 5. Move Pure Common Logic To `:composeApp/commonMain`
 
-- [ ] Move platform-free domain models and use cases after the architecture
+- [x] Move platform-free domain models and use cases after the architecture
   cleanup is complete.
-- [ ] Move pure reducers, policies, route models, codecs, queue controllers, and
-  utility logic.
-  - Good candidates include route serialization, upload size/MIME policies,
-    message deduplication, socket retry policy, socket payload codec, playback
-    queue controller, contact delta reducer, comment ordering, local paging, and
-    startup coordination logic that has no platform imports.
-- [ ] Move existing JVM tests for moved logic to `commonTest`.
-  - Convert from JUnit assertions to `kotlin.test` where needed.
-  - Keep Android-specific tests in Android source sets.
-- [ ] Keep any code with Android, JVM-only, Room, Java security, Java IO, or
+  - Moved platform-free domain models, repository contracts, and use cases for
+    auth, activity notifications, main page, report, search, splash, crash,
+    core contracts, and pure chat/group/profile/thread models.
+  - Kept upload-bound repositories/use cases and models in Android until
+    `ReadableMediaFile` no longer exposes Ktor/JVM upload input details.
+- [x] Move pure reducers, policies, route models, queue controllers, and utility
+  logic.
+  - Moved upload size/MIME policies, local paging, message deduplication,
+    route modal helper, socket outbound retry queue, contact delta reducer, and
+    playback queue controller/state/contracts.
+- [x] Move existing JVM tests for moved logic to `commonTest`.
+  - Converted moved tests from JUnit assertions to `kotlin.test`.
+  - Kept Android-specific tests in Android source sets.
+- [x] Keep any code with Android, JVM-only, Room, Java security, Java IO, or
   resource imports out of `commonMain` until platform abstractions exist.
-- [ ] Commit in small groups.
-  - Suggested messages:
-    - `refactor(kmp): move route models to common`
-    - `refactor(kmp): move upload policy to common`
-    - `test(kmp): move pure logic tests to common`.
+  - Follow-up: move `ReadableMediaFile` and upload-bound repository contracts
+    after replacing the Ktor/JVM input type with a shared upload stream
+    abstraction.
+  - Follow-up: move `SocketRetryPolicy` and `SocketOutboundPayloadCodec` after
+    replacing direct `org.json` usage with a common payload representation and
+    Android socket edge conversion.
+  - Follow-up: move comment ordering after replacing the `java.time` server
+    timestamp parser with a common-compatible parser or clock abstraction.
+  - Follow-up: move `SyncDeviceIdUseCase` after replacing JVM
+    `AtomicBoolean` with a common synchronization strategy.
+- [x] Commit in small groups.
+  - Commit message: `refactor(kmp): move pure common logic`.
+  - Verified commands:
+    - `./gradlew checkDomainBoundaries`
+    - `./gradlew :composeApp:compileKotlinMetadata`
+    - `./gradlew :composeApp:desktopTest`
+    - `./gradlew :composeApp:compileDebugKotlinAndroid`
+    - `./gradlew :androidApp:compileDebugKotlin`
+    - `./gradlew :androidApp:testDebugUnitTest`
+    - `./gradlew verifyKmpBaseline`
+  - Result: successful on 2026-09-12.
 
 ### 6. Move Networking To Common
 

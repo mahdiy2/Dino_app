@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
+import java.util.UUID
 
 private typealias EmitWithRetryResult = RealtimeSocketGateway.EmitWithRetryResult
 
@@ -54,6 +55,7 @@ class AppSocketManager constructor(
         maxBackoffMs = OUTBOUND_BACKOFF_MAX_MS,
         maxQueueSize = MAX_OUTBOUND_QUEUE_SIZE,
         timeProvider = appClock::currentTimeMillis,
+        queueIdProvider = { UUID.randomUUID().toString() },
     )
     private val outboundScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var outboundQueueJob: Job? = null

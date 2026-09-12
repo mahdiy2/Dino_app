@@ -871,9 +871,10 @@ class ChatViewModel constructor(
     }
 
     private suspend fun deleteMessageLocally(message: MessageEntity) {
-        if (!message.messageId.isNullOrBlank()) {
-            chatRepository.deleteMessageByMessageId(message.messageId)
-            clearMessageStatus(message.messageId)
+        val messageId = message.messageId
+        if (!messageId.isNullOrBlank()) {
+            chatRepository.deleteMessageByMessageId(messageId)
+            clearMessageStatus(messageId)
         } else {
             chatRepository.deleteMessageByLocalId(message.id)
         }

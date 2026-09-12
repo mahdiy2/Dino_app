@@ -18,6 +18,10 @@ tasks.register("checkDomainBoundaries") {
         val domainRoots = listOf(
             file("androidApp/src/main/java"),
             file("androidApp/src/test/java"),
+            file("composeApp/src/commonMain/kotlin"),
+            file("composeApp/src/commonTest/kotlin"),
+            file("composeApp/src/androidMain/kotlin"),
+            file("composeApp/src/androidUnitTest/kotlin"),
         )
         val violations = domainRoots
             .filter { it.exists() }
