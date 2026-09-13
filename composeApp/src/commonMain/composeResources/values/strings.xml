@@ -75,6 +75,16 @@
     <string name="block_list_empty">No blocked users yet.</string>
     <string name="refresh">Refresh</string>
     <string name="unblock">Unblock</string>
+    <string name="add">Add</string>
+    <string name="create">Create</string>
+    <string name="group_add_members_empty">No followers available to add</string>
+    <string name="group_add_members_mutual_hint">Only mutual followers who are not in this group are shown</string>
+    <string name="group_add_members_title">Add members</string>
+    <string name="group_create_mutual_followers_hint">You can only add mutual followers</string>
+    <string name="group_create_title">Create group</string>
+    <string name="group_name">Group name</string>
+    <string name="search_followers">Search followers</string>
+    <string name="selected">Selected</string>
     <string name="error_bad_request">There is a problem with the request</string>
     <string name="error_unauthorized">The required documents to verify the identity of the request were not found</string>
     <string name="error_forbidden">There are no permissions required to access the resource</string>

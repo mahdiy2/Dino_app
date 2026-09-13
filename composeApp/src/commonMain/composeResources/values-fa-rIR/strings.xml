@@ -75,6 +75,16 @@
     <string name="block_list_empty">کاربر بلاک‌شده‌ای نیست.</string>
     <string name="refresh">نوسازی</string>
     <string name="unblock">آنبلاک</string>
+    <string name="add">افزودن</string>
+    <string name="create">ساخت</string>
+    <string name="group_add_members_empty">موردی برای افزودن نیست</string>
+    <string name="group_add_members_mutual_hint">فقط فالوهای دوطرفه نمایش داده می‌شوند</string>
+    <string name="group_add_members_title">افزودن عضو</string>
+    <string name="group_create_mutual_followers_hint">فقط فالوهای دوطرفه را می‌توانید اضافه کنید</string>
+    <string name="group_create_title">ساخت گروه</string>
+    <string name="group_name">نام گروه</string>
+    <string name="search_followers">جستجوی دنبال‌کننده‌ها</string>
+    <string name="selected">انتخاب‌شده</string>
     <string name="error_bad_request">درخواست نامعتبر است</string>
     <string name="error_unauthorized">مجوز لازم پیدا نشد</string>
     <string name="error_forbidden">دسترسی مجاز نیست</string>
