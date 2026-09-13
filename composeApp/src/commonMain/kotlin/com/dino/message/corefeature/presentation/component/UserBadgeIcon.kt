@@ -5,11 +5,9 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.Surface
-import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -20,7 +18,6 @@ import com.dino.message.corefeature.presentation.util.UserBadgeRole
 import com.dino.message.corefeature.presentation.util.parseUserBadgeRole
 import com.dino.message.corefeature.presentation.icons.AppIcons
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun UserBadgeIcon(
     badge: String?,
@@ -38,8 +35,8 @@ fun UserBadgeIcon(
     }
 
     val shape = when (role) {
-        UserBadgeRole.STAFF -> MaterialShapes.Cookie12Sided.toShape()
-        UserBadgeRole.MODERATOR, UserBadgeRole.VERIFIED, UserBadgeRole.POST_OF_THE_DAY -> MaterialShapes.Pill.toShape()
+        UserBadgeRole.STAFF -> RoundedCornerShape(percent = 28)
+        UserBadgeRole.MODERATOR, UserBadgeRole.VERIFIED, UserBadgeRole.POST_OF_THE_DAY -> RoundedCornerShape(percent = 50)
     }
     val border = when (role) {
         UserBadgeRole.STAFF -> if (isDark) BorderStroke(0.5.dp, Color.White.copy(alpha = 0.9f)) else BorderStroke(0.5.dp, Color.White.copy(alpha = 0.45f))

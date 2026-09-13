@@ -5,15 +5,11 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CardElevation
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.dino.message.R
 
 @Composable
 fun PostContainer(
@@ -34,14 +30,5 @@ fun PostContainer(
         }
     ) {
         content()
-    }
-}
-
-@Preview(showSystemUi = true)
-@Composable
-private fun Preview(){
-    PostContainer(
-    ){
-        Text(stringResource(R.string.hellooo))
     }
 }

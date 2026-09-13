@@ -66,6 +66,15 @@
     <string name="report_type_unethical_content">محتوای غیراخلاقی</string>
     <string name="report_type_violence">خشونت</string>
     <string name="report_type_copyright">نقض حق نشر</string>
+    <string name="cancel">لغو</string>
+    <string name="delete">حذف</string>
+    <string name="delete_post_body">این کار قابل بازگشت نیست.</string>
+    <string name="delete_post_title">حذف پست؟</string>
+    <string name="back">بازگشت</string>
+    <string name="block_list">لیست بلاک</string>
+    <string name="block_list_empty">کاربر بلاک‌شده‌ای نیست.</string>
+    <string name="refresh">نوسازی</string>
+    <string name="unblock">آنبلاک</string>
     <string name="error_bad_request">درخواست نامعتبر است</string>
     <string name="error_unauthorized">مجوز لازم پیدا نشد</string>
     <string name="error_forbidden">دسترسی مجاز نیست</string>

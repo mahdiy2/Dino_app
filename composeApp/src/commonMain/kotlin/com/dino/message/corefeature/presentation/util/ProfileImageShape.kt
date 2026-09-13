@@ -1,8 +1,7 @@
 package com.dino.message.corefeature.presentation.util
 
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.MaterialShapes
-import androidx.compose.material3.toShape
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Shape
 
@@ -29,18 +28,17 @@ fun normalizeProfileImageShape(rawShape: String?): String {
     }
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun resolveProfileImageShape(
     badge: String?,
     profileImageShape: String?,
 ): Shape {
-    if (!hasBadgeAccess(badge)) return MaterialShapes.Circle.toShape()
+    if (!hasBadgeAccess(badge)) return CircleShape
     return when (normalizeProfileImageShape(profileImageShape)) {
-        PROFILE_IMAGE_SHAPE_PILL -> MaterialShapes.Pill.toShape()
-        PROFILE_IMAGE_SHAPE_COOKIE_12_SIDED -> MaterialShapes.Cookie12Sided.toShape()
-        PROFILE_IMAGE_SHAPE_COOKIE_9_SIDED -> MaterialShapes.Cookie9Sided.toShape()
-        PROFILE_IMAGE_SHAPE_CIRCLE -> MaterialShapes.Circle.toShape()
-        else -> MaterialShapes.Circle.toShape()
+        PROFILE_IMAGE_SHAPE_PILL -> RoundedCornerShape(percent = 50)
+        PROFILE_IMAGE_SHAPE_COOKIE_12_SIDED -> RoundedCornerShape(percent = 28)
+        PROFILE_IMAGE_SHAPE_COOKIE_9_SIDED -> RoundedCornerShape(percent = 36)
+        PROFILE_IMAGE_SHAPE_CIRCLE -> CircleShape
+        else -> CircleShape
     }
 }

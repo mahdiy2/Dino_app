@@ -66,6 +66,15 @@
     <string name="report_type_unethical_content">Unethical content</string>
     <string name="report_type_violence">Violence</string>
     <string name="report_type_copyright">Copyright</string>
+    <string name="cancel">Cancel</string>
+    <string name="delete">Delete</string>
+    <string name="delete_post_body">This action cannot be undone.</string>
+    <string name="delete_post_title">Delete post?</string>
+    <string name="back">Back</string>
+    <string name="block_list">Block list</string>
+    <string name="block_list_empty">No blocked users yet.</string>
+    <string name="refresh">Refresh</string>
+    <string name="unblock">Unblock</string>
     <string name="error_bad_request">There is a problem with the request</string>
     <string name="error_unauthorized">The required documents to verify the identity of the request were not found</string>
     <string name="error_forbidden">There are no permissions required to access the resource</string>
