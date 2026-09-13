@@ -1,6 +1,5 @@
 package com.dino.message.authfeature.presentation.viewmodel
 
-import com.dino.message.corefeature.presentation.util.asString
 import androidx.compose.runtime.mutableStateOf
 import com.dino.message.authfeature.domain.util.RegisterConfirmErrorPolicy
 import com.dino.message.authfeature.domain.usecase.ConfirmRegistrationUseCase

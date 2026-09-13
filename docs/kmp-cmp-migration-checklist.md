@@ -332,11 +332,18 @@ Follow-up discovered:
 
 ### 8. Move Compose UI Feature By Feature
 
-- [ ] Start with platform-light screens.
+- [x] Start with platform-light screens.
   - Recommended first candidates: error/no-internet/update/basic notification
     screens, then auth/profile/search screens.
-  - Move chat, group chat, story editor/viewer, music, media picker, and playback
-    screens later.
+  - Completed first slice: platform-light shared content remains in
+    `:composeApp`, and auth/update/core dialog state holders plus their
+    common-safe tests moved to `:composeApp`.
+  - Follow-up: move Android route wrappers only after shared state-holder
+    creation/navigation adapters are available for non-Android targets.
+  - Follow-up: move chat, group chat, story editor/viewer, music, media picker,
+    profile edit, media viewer, and playback screens later; they still depend on
+    Android permissions, activity results, `Uri`, lifecycle, keyboard/window,
+    Coil, Media3, filesystem, or platform media adapters.
 - [ ] For each moved screen, remove shared composable dependencies on:
   - `LocalContext`.
   - Android `Toast`.
@@ -357,6 +364,8 @@ Follow-up discovered:
 - [ ] Commit each feature migration separately.
   - Suggested message format:
     `refactor(cmp): move <feature> ui to composeApp`.
+  - Current feature commit target:
+    `refactor(cmp): move platform-light ui state to composeApp`.
 
 ### 9. Finalize Persistence
 

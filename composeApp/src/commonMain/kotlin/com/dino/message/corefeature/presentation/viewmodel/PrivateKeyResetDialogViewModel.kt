@@ -1,6 +1,5 @@
 package com.dino.message.corefeature.presentation.viewmodel
 
-import com.dino.message.corefeature.presentation.util.asString
 import com.dino.message.authfeature.domain.usecase.RotatePublicKeyUseCase
 import com.dino.message.corefeature.domain.session.AuthSessionStore
 import com.dino.message.corefeature.domain.crypto.MessageCrypto

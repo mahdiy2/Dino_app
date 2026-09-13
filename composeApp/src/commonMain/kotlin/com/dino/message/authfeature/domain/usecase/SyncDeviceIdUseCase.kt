@@ -3,19 +3,19 @@ package com.dino.message.authfeature.domain.usecase
 import com.dino.message.corefeature.domain.device.DeviceInfoProvider
 import com.dino.message.corefeature.domain.result.Resource
 import com.dino.message.corefeature.domain.session.LocalSessionStore
-import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.sync.Mutex
 
 class SyncDeviceIdUseCase constructor(
     private val localSessionStore: LocalSessionStore,
     private val deviceIdProvider: DeviceInfoProvider,
     private val updateDeviceIdUseCase: UpdateDeviceIdUseCase,
 ) {
-    private val isSendingDeviceId = AtomicBoolean(false)
+    private val sendingDeviceIdMutex = Mutex()
 
     fun execute() = flow<Resource<Unit>> {
-        if (!isSendingDeviceId.compareAndSet(false, true)) {
+        if (!sendingDeviceIdMutex.tryLock()) {
             emit(Resource.Success(Unit))
             return@flow
         }
@@ -53,7 +53,7 @@ class SyncDeviceIdUseCase constructor(
                 is Resource.Loading -> Unit
             }
         } finally {
-            isSendingDeviceId.set(false)
+            sendingDeviceIdMutex.unlock()
         }
     }
 }

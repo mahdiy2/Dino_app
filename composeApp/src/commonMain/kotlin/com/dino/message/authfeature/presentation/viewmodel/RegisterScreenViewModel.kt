@@ -13,6 +13,7 @@ import com.dino.message.corefeature.domain.resource.StringResolver
 import com.dino.message.corefeature.domain.session.AuthSessionStore
 import com.dino.message.corefeature.domain.settings.AppSettingsStore
 import com.dino.message.corefeature.domain.system.AppClock
+import com.dino.message.corefeature.data.remote.util.CommonUuid
 import com.dino.message.corefeature.presentation.util.PopBackStackLevel
 import com.dino.message.corefeature.domain.result.Resource
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
@@ -22,7 +23,6 @@ import com.dino.message.corefeature.presentation.viewmodel.ScopedStateHolder
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import java.util.UUID
 import com.dino.message.corefeature.presentation.navigation.AppRoute
 
 class RegisterScreenViewModel constructor(
@@ -158,7 +158,7 @@ class RegisterScreenViewModel constructor(
         val keyPair = messageCrypto.generateRsaKeyPair()
         val publicKeyBase64 = keyPair.publicKeyBase64
         val privateKeyBase64 = keyPair.privateKeyBase64
-        val clientNonce = UUID.randomUUID().toString()
+        val clientNonce = CommonUuid.randomUuidString()
         val normalizedReferralCode = referralCode.value.trim().uppercase().ifBlank { null }
         val deviceId = deviceIdProvider.getDeviceId()
 
