@@ -38,7 +38,6 @@ import com.dino.message.threadfeature.data.remote.ThreadApiService
 import com.dino.message.threadfeature.data.remote.ThreadApiServiceImpl
 import com.dino.message.threadfeature.data.repository.ThreadRepositoryImpl
 import com.dino.message.threadfeature.domain.repository.ThreadRepository
-import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 
 val authModule = module {
@@ -58,10 +57,10 @@ val chatModule = module {
             httpClient = get(),
             sPrefManager = get(),
             httpAPIUtil = get(),
-            uploadContentProvider = get(),
             stringResolver = get(),
             appClock = get(),
             appLogger = get(),
+            base64Codec = get(),
         )
     }
     single<ChatRepository> {
@@ -78,10 +77,12 @@ val threadModule = module {
             httpClient = get(),
             sPrefManager = get(),
             httpAPIUtil = get(),
-            crashReporter = get(),
-            uploadContentProvider = get(),
+            networkIssueReporter = get(),
             stringResolver = get(),
             mediaMetadataExtractor = get(),
+            appClock = get(),
+            appLogger = get(),
+            base64Codec = get(),
         )
     }
     single<ThreadRepository> { ThreadRepositoryImpl(threadApiService = get()) }
@@ -93,8 +94,9 @@ val profileModule = module {
             httpClient = get(),
             sPrefManager = get(),
             httpAPIUtil = get(),
-            uploadContentProvider = get(),
-            appContext = androidContext(),
+            appClock = get(),
+            appLogger = get(),
+            base64Codec = get(),
         )
     }
     single<ProfileRepository> { ProfileRepositoryImpl(profileApiService = get()) }
@@ -106,10 +108,10 @@ val groupModule = module {
             httpClient = get(),
             sPrefManager = get(),
             httpAPIUtil = get(),
-            uploadContentProvider = get(),
             stringResolver = get(),
             appClock = get(),
             appLogger = get(),
+            base64Codec = get(),
         )
     }
     single<GroupRepository> {

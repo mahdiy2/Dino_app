@@ -248,32 +248,39 @@ All migration work must preserve MVVM with Clean Architecture.
 
 ### 6. Move Networking To Common
 
-- [ ] Move Ktor API interfaces, request construction, response mapping, DTOs, and
+- [x] Move Ktor API interfaces, request construction, response mapping, DTOs, and
   serialization setup that have no platform dependency to `commonMain`.
-- [ ] Configure platform HTTP engines.
+- [x] Configure platform HTTP engines.
   - Android: OkHttp.
   - iOS: Darwin.
   - Desktop: CIO or Java engine.
   - Web/Wasm: supported Ktor web engine selected for the final web target.
-- [ ] Remove Android `Context` from API service implementations.
-  - Current API service implementations still include `Context` usage in several
-    features.
+- [x] Remove Android `Context` from API service implementations.
+  - API service implementations now depend on shared session/upload/error
+    abstractions instead of Android `Context`.
   - Use structured API errors or a domain-safe `StringResolver` boundary instead
     of resolving Android strings in data/network code.
-- [ ] Keep auth token injection and refresh behavior platform-neutral.
+- [x] Keep auth token injection and refresh behavior platform-neutral.
   - Secure token lookup must go through shared session/secure-storage
     interfaces.
   - Android encrypted storage remains the Android implementation.
-- [ ] Preserve all server wire shapes.
+- [x] Preserve all server wire shapes.
   - DTO serial names must match existing API payloads.
   - Multipart field names and response parsing must remain compatible.
-- [ ] Add or move tests.
+- [x] Add or move tests.
   - DTO mapper tests.
   - Serialization round-trip tests for request/response DTOs.
   - Error mapping tests.
   - Token refresh/session-expiry tests.
-- [ ] Commit after verification.
+- [x] Commit after verification.
   - Suggested message: `refactor(network): move ktor services to common`.
+  - Completed with `verifyKmpBaseline` passing after moving HTTP services and
+    Ktor setup to `composeApp/commonMain`.
+
+Follow-up discovered:
+- Move common fallback network error strings into CMP resources during resource
+  and localization migration; Android still uses existing `R.string` values
+  through its network error message provider.
 
 ### 7. Complete Resource And Localization Migration
 

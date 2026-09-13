@@ -1,6 +1,7 @@
 package com.dino.message.crashfeature.data.service
 
 import com.dino.message.corefeature.domain.logging.AppLogger
+import com.dino.message.corefeature.data.remote.NetworkIssueReporter
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.domain.background.BackgroundTask
 import com.dino.message.corefeature.domain.background.BackgroundTaskRegistry
@@ -39,7 +40,7 @@ class CrashReporter constructor(
     private val crashLogBuilder: CrashLogBuilder,
     private val crashUiLauncher: CrashUiLauncher,
     backgroundTaskRegistry: BackgroundTaskRegistry,
-) {
+) : NetworkIssueReporter {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val isHandlerInstalled = AtomicBoolean(false)
     private val isFlushing = AtomicBoolean(false)
@@ -160,11 +161,11 @@ class CrashReporter constructor(
         }
     }
 
-    fun reportNonFatalIssue(
+    override fun reportNonFatalIssue(
         issueType: String,
         message: String,
-        details: String? = null,
-        category: String = DEFAULT_BREADCRUMB_CATEGORY,
+        details: String?,
+        category: String,
     ) {
         val now = appClock.currentTimeMillis()
         val normalizedIssueType = issueType.trim().ifBlank { "NonFatalIssue" }

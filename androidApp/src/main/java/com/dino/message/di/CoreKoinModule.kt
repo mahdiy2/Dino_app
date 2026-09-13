@@ -26,8 +26,11 @@ import com.dino.message.corefeature.data.network.AndroidNetworkStatusProvider
 import com.dino.message.corefeature.data.notification.AndroidAppNotificationController
 import com.dino.message.corefeature.data.notification.AndroidNotificationDedupeSnapshotStore
 import com.dino.message.corefeature.data.notification.SPrefNotificationTokenProvider
+import com.dino.message.corefeature.data.remote.AndroidNetworkErrorMessageProvider
 import com.dino.message.corefeature.data.remote.NetworkExceptionClassifier
 import com.dino.message.corefeature.data.remote.JvmNetworkExceptionClassifier
+import com.dino.message.corefeature.data.remote.NetworkIssueReporter
+import com.dino.message.corefeature.data.remote.util.NetworkErrorMessageProvider
 import com.dino.message.corefeature.data.remote.util.HttpAPIUtil
 import com.dino.message.corefeature.data.remote.createAppHttpClient
 import com.dino.message.corefeature.data.remote.logging.AndroidAppLogger
@@ -174,6 +177,7 @@ val coreModule = module {
     single<ActiveGroupState> { ActiveGroupTracker }
     single<AppLogger> { AndroidAppLogger }
     single<NetworkExceptionClassifier> { JvmNetworkExceptionClassifier }
+    single<NetworkErrorMessageProvider> { AndroidNetworkErrorMessageProvider(stringResolver = get()) }
     single { AndroidUploadContentProvider(contentResolver = androidContext().contentResolver) }
     single<PlatformMediaResolver> { get<AndroidUploadContentProvider>() }
     single<PlatformMediaMetadataExtractor> {
@@ -190,11 +194,10 @@ val coreModule = module {
     single {
         HttpAPIUtil(
             sPrefManager = get(),
-            context = androidContext(),
             networkExceptionClassifier = get(),
             appLogger = get(),
             uiEventBus = get(),
-            stringResolver = get(),
+            errorMessageProvider = get(),
             appConfig = get(),
         )
     }
@@ -234,6 +237,7 @@ val coreModule = module {
             backgroundTaskRegistry = get(),
         )
     }
+    single<NetworkIssueReporter> { get<CrashReporter>() }
     single {
         AppSocketManager(
             sprefManager = get(),
