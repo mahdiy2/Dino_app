@@ -73,6 +73,11 @@ fun StringResourceContent.asComposeString(): String {
     }
 }
 
+@Composable
+fun List<StringResourceContent>.asComposeString(
+    separator: String = " " + stringResource(Res.string.and) + " ",
+): String = map { it.asComposeString() }.joinToString(separator = separator)
+
 fun AppStringKey.toComposeStringResource(): StringResource = when (this) {
     AppStringKey.And -> Res.string.and
     AppStringKey.ErrorBadRequest -> Res.string.error_bad_request

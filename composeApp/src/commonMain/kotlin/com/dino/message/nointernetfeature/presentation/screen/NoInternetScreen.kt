@@ -1,10 +1,11 @@
-package com.dino.message.errorfeature.presentation.screen
+package com.dino.message.nointernetfeature.presentation.screen
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,21 +22,27 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.dino.message.R
+import com.dino.message.composeapp.generated.resources.Res
+import com.dino.message.composeapp.generated.resources.no_internet_connection
+import com.dino.message.composeapp.generated.resources.no_internet_connection_dsc
+import com.dino.message.composeapp.generated.resources.retry
+import com.dino.message.composeapp.generated.resources.troubleshooting
+import com.dino.message.composeapp.generated.resources.troubleshooting_step_one
+import com.dino.message.composeapp.generated.resources.troubleshooting_step_three
+import com.dino.message.composeapp.generated.resources.troubleshooting_step_two
+import com.dino.message.corefeature.presentation.ui.theme.DPLarge
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
+import com.dino.message.corefeature.presentation.ui.theme.DPSmall
 import com.dino.message.corefeature.presentation.icons.AppIcons
+import org.jetbrains.compose.resources.stringResource
 
-
-// General Error Screen
+// No Internet Screen
 @Composable
-fun ErrorScreen(onRetry: () -> Unit) {
+fun NoInternetScreen(onRetry: () -> Unit) {
     Column(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.Center,
@@ -47,9 +54,9 @@ fun ErrorScreen(onRetry: () -> Unit) {
                 .background(Color(0xFFFBF0F0), shape = CircleShape)
         ) {
             Icon(
-                painter = painterResource(id = R.drawable.ic_error),
+                imageVector = AppIcons.WarningAmber,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.error,
+                tint = Color(0xFF3083F7),
                 modifier = Modifier
                     .padding(30.dp)
                     .size(80.dp)
@@ -62,7 +69,7 @@ fun ErrorScreen(onRetry: () -> Unit) {
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 34.dp),
-            text = stringResource(id = R.string.error_message_title),
+            text = stringResource(Res.string.no_internet_connection),
             fontWeight = FontWeight.Medium,
             fontSize = 25.sp,
             textAlign = TextAlign.Center
@@ -74,13 +81,38 @@ fun ErrorScreen(onRetry: () -> Unit) {
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 34.dp),
-            text = stringResource(id = R.string.error_message_dsc),
+            text = stringResource(Res.string.no_internet_connection_dsc),
             textAlign = TextAlign.Center,
             fontSize = 16.sp,
             color = Color(0xFF4A5463)
         )
 
         Spacer(modifier = Modifier.size(34.dp))
+
+
+        Text(
+            text = stringResource(Res.string.troubleshooting),
+            fontSize = 17.sp,
+            modifier = Modifier
+                .fillMaxWidth(),
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.size(20.dp))
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 76.dp)
+        ) {
+            TroubleshootStepsText(dsc = stringResource(Res.string.troubleshooting_step_one))
+            TroubleshootStepsText(dsc = stringResource(Res.string.troubleshooting_step_two))
+            TroubleshootStepsText(dsc = stringResource(Res.string.troubleshooting_step_three))
+
+        }
+
+        Spacer(modifier = Modifier.size(34.dp))
+
 
         Button(
             onClick = onRetry,
@@ -90,15 +122,27 @@ fun ErrorScreen(onRetry: () -> Unit) {
             shape = RoundedCornerShape(DPMedium)
         ) {
             Icon(imageVector = AppIcons.Refresh, contentDescription = null)
-            Text(text = stringResource(id = R.string.retry))
+            Text(text = stringResource(Res.string.retry))
         }
     }
 }
 
-@Preview(showSystemUi = true)
 @Composable
-private fun ErrorScreenPre() {
-    ErrorScreen {
+private fun TroubleshootStepsText(dsc: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = AppIcons.CheckCircle,
+            contentDescription = null,
+            tint = Color(0xFF4EC15C)
+        )
+        Spacer(modifier = Modifier.size(DPSmall))
+        Text(
+            text = dsc,
+            color = Color(0xFF4A5463)
 
+        )
     }
+    Spacer(modifier = Modifier.size(DPLarge))
 }

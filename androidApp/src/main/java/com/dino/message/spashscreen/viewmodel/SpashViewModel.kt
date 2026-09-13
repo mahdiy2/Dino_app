@@ -5,7 +5,6 @@ import com.dino.message.corefeature.domain.config.AppConfig
 import com.dino.message.corefeature.domain.session.AuthSessionStore
 import com.dino.message.corefeature.domain.settings.AppSettingsStore
 import com.dino.message.corefeature.domain.model.AppLanguage
-import com.dino.message.corefeature.domain.model.StringResourceContent
 import com.dino.message.corefeature.domain.system.AppClock
 import com.dino.message.corefeature.presentation.util.PopBackStackLevel
 import com.dino.message.corefeature.domain.result.Resource
@@ -21,6 +20,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import com.dino.message.corefeature.presentation.navigation.AppRoute
+import com.dino.message.spashscreen.viewmodel.SplashUiState
 
 class SpashViewModel constructor(
     uiEventBus: UiEventBus,
@@ -265,10 +265,3 @@ class SpashViewModel constructor(
         syncDeviceIdUseCase.execute().collect { _ -> }
     }
 }
-
-data class SplashUiState(
-    val isChecking: Boolean = true,
-    val errorMessage: StringResourceContent? = null,
-    val showLanguageSelection: Boolean = false,
-    val isSavingLanguage: Boolean = false,
-)
