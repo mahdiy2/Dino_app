@@ -1,9 +1,8 @@
 package com.dino.message.reportfeature.presentation.viewmodel
 
-import com.dino.message.corefeature.presentation.util.asString
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
-import com.dino.message.R
+import com.dino.message.corefeature.domain.model.AppStringKey
 import com.dino.message.corefeature.domain.result.Resource
 import com.dino.message.corefeature.domain.resource.StringResolver
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
@@ -87,7 +86,7 @@ class ReportPostBottomSheetViewModel constructor(
         val type = selectedType.value
         if (type.isNullOrBlank()) {
             _error.value =
-                stringResolver.resolveStringId(R.string.report_post_select_type_error)
+                stringResolver.resolve(AppStringKey.ReportPostSelectTypeError)
             return
         }
 

@@ -28,6 +28,17 @@
     <string name="error_not_found">پیدا نشد</string>
     <string name="error_conflict">تداخل</string>
     <string name="internal_server_error">خطای سرور</string>
+    <string name="error_cannot_read_file">خواندن فایل ممکن نیست</string>
+    <string name="error_upload_timed_out_weak_network">زمان آپلود در شبکه ضعیف تمام شد. دوباره تلاش کنید.</string>
+    <string name="error_attachment_mime_type_required">نوع فایل پیوست لازم است</string>
+    <string name="error_unsupported_attachment_type_security">این نوع پیوست به دلایل امنیتی پشتیبانی نمی‌شود: %1$s</string>
+    <string name="error_unsupported_attachment_type">این نوع پیوست پشتیبانی نمی‌شود: %1$s</string>
+    <string name="error_image_attachment_too_large">عکس بیش از حد بزرگ است. حداکثر مجاز %1$s است.</string>
+    <string name="error_video_attachment_too_large">ویدیو بیش از حد بزرگ است. حداکثر مجاز %1$s است.</string>
+    <string name="error_voice_attachment_too_large">صدا بیش از حد بزرگ است. حداکثر مجاز %1$s است.</string>
+    <string name="error_file_attachment_too_large">فایل بیش از حد بزرگ است. حداکثر مجاز %1$s است.</string>
+    <string name="error_max_media_files_allowed">حداکثر %1$d فایل رسانه مجاز است</string>
+    <string name="error_story_video_duration_limit">ویدیوهای استوری باید %1$d ثانیه یا کوتاه‌تر باشند</string>
     <string name="error_with_http_status_code">خطا با کد %d</string>
     <string name="error_connecting_to_the_server">خطا در اتصال به سرور</string>
     <string name="error_request_timed_out">مهلت درخواست تمام شد</string>

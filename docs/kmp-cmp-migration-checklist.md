@@ -284,27 +284,51 @@ Follow-up discovered:
 
 ### 7. Complete Resource And Localization Migration
 
-- [ ] Move shared UI strings to Compose Multiplatform resources.
+- [x] Move shared UI strings to Compose Multiplatform resources.
   - Replace common/shared usages of Android `R.string` and
     `androidx.compose.ui.res.stringResource`.
   - Keep Android resource access only in Android shell/platform code.
-- [ ] Move shared drawable/vector assets to CMP resources.
+  - Added CMP resources for the shared string-key subset and Persian
+    translations.
+  - Replaced shared/default network and upload validation messages with stable
+    shared string keys.
+  - Follow-up: Android-only composables still use `R.string` and
+    `androidx.compose.ui.res.stringResource`; migrate each screen's resources
+    with the screen during step 8.
+- [x] Move shared drawable/vector assets to CMP resources.
   - Replace common/shared usages of Android `R.drawable`, `R.mipmap`, and
     `androidx.compose.ui.res.painterResource`.
   - Keep launcher icons, notification icons, XML provider metadata, and
     Android-only service assets in Android resources.
-- [ ] Replace domain models that expose Android resource IDs.
+  - Current audit found no shared/common drawable resources to move; Android
+    drawables remain Android-only until their screens move.
+- [x] Replace domain models that expose Android resource IDs.
   - Current examples include `StringResourceContent`, `AppTheme`, and
     `AppLanguage`.
   - Use stable keys/enums/domain text descriptors instead of Android resource
     IDs.
-- [ ] Preserve current localization behavior.
+  - `StringResourceContent` now stores stable `AppStringKey` values instead of
+    Android integer resource IDs.
+  - `AppTheme` and `AppLanguage` remain stable enums so existing preference
+    values are preserved.
+- [x] Preserve current localization behavior.
   - Keep Persian/RTL behavior working.
   - Keep Android locale application in the Android shell until shared resource
     locale handling is fully validated.
-- [ ] Add UI/resource compile checks for all configured targets.
-- [ ] Commit after verification.
-  - Suggested message: `refactor(resources): migrate shared strings to cmp`.
+  - Android string resolution maps keys back to existing Android resources.
+  - Android locale application remains in the Android shell.
+- [x] Add UI/resource compile checks for all configured targets.
+- [x] Commit after verification.
+  - Commit message: `refactor(resources): migrate shared strings to cmp`.
+  - Verified commands:
+    - `./gradlew checkDomainBoundaries`
+    - `./gradlew :composeApp:compileKotlinMetadata`
+    - `./gradlew :composeApp:desktopTest`
+    - `./gradlew :composeApp:compileDebugKotlinAndroid :composeApp:compileKotlinDesktop :composeApp:compileKotlinWasmJs`
+    - `./gradlew :androidApp:compileDebugKotlin`
+    - `./gradlew :androidApp:testDebugUnitTest`
+    - `./gradlew verifyKmpBaseline`
+  - Result: successful on 2026-09-13.
 
 ### 8. Move Compose UI Feature By Feature
 

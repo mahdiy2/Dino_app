@@ -1,9 +1,8 @@
 package com.dino.message.threadfeature.presentation.viewmodel
 
-import com.dino.message.corefeature.presentation.util.asString
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
-import com.dino.message.R
+import com.dino.message.corefeature.domain.model.AppStringKey
 import com.dino.message.corefeature.domain.session.AuthSessionStore
 import com.dino.message.corefeature.domain.crypto.MessageCrypto
 import com.dino.message.corefeature.domain.crypto.RsaPublicKey
@@ -15,7 +14,6 @@ import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.dino.message.corefeature.presentation.util.UiEventBus
 import com.dino.message.corefeature.presentation.viewmodel.ScopedStateHolder
-import androidx.annotation.StringRes
 import com.dino.message.chatfeature.domain.usecase.GetReceiverPublicKeyUseCase
 import com.dino.message.groupfeature.domain.model.GroupMessageEntity
 import com.dino.message.groupfeature.domain.usecase.GetGroupDetailUseCase
@@ -118,7 +116,7 @@ class SharePostBottomSheetViewModel constructor(
         val targetsContacts = selectedContacts.filterValues { it }.keys.toList()
         val targetGroups = selectedGroups.filterValues { it }.keys.toList()
         if (targetsContacts.isEmpty() && targetGroups.isEmpty()) {
-            _error.value = str(R.string.share_error_select_target)
+            _error.value = str(AppStringKey.ShareErrorSelectTarget)
             return
         }
 
@@ -143,9 +141,9 @@ class SharePostBottomSheetViewModel constructor(
                     ShareDispatchStatus.QUEUED -> queuedCount++
                     ShareDispatchStatus.FAILED -> failedTargets.add(
                         str(
-                            R.string.share_failed_target_format,
+                            AppStringKey.ShareFailedTargetFormat,
                             "@$username",
-                            result.error ?: str(R.string.unknown_error_occurred)
+                            result.error ?: str(AppStringKey.UnknownErrorOccurred)
                         )
                     )
                 }
@@ -162,9 +160,9 @@ class SharePostBottomSheetViewModel constructor(
                     ShareDispatchStatus.QUEUED -> queuedCount++
                     ShareDispatchStatus.FAILED -> failedTargets.add(
                         str(
-                            R.string.share_failed_target_format,
-                            group?.name ?: str(R.string.share_group_fallback, groupId),
-                            result.error ?: str(R.string.unknown_error_occurred)
+                            AppStringKey.ShareFailedTargetFormat,
+                            group?.name ?: str(AppStringKey.ShareGroupFallback, groupId),
+                            result.error ?: str(AppStringKey.UnknownErrorOccurred)
                         )
                     )
                 }
@@ -176,18 +174,18 @@ class SharePostBottomSheetViewModel constructor(
                     navigateUp(viewModelScope)
                 }
                 failedTargets.isEmpty() && queuedCount > 0 -> {
-                    _error.value = str(R.string.share_status_queued, queuedCount)
+                    _error.value = str(AppStringKey.ShareStatusQueued, queuedCount)
                 }
                 sentCount > 0 || queuedCount > 0 -> {
                     _error.value = str(
-                        R.string.share_status_partial,
+                        AppStringKey.ShareStatusPartial,
                         sentCount,
                         queuedCount,
                         failedTargets.joinToString(", ")
                     )
                 }
                 else -> {
-                    _error.value = str(R.string.share_status_failed, failedTargets.joinToString(", "))
+                    _error.value = str(AppStringKey.ShareStatusFailed, failedTargets.joinToString(", "))
                 }
             }
         }
@@ -273,7 +271,7 @@ class SharePostBottomSheetViewModel constructor(
         val receiverPublicKey = fetchReceiverPublicKey(username)
             ?: return ShareDispatchResult(
                 status = ShareDispatchStatus.FAILED,
-                error = str(R.string.share_error_fetch_key),
+                error = str(AppStringKey.ShareErrorFetchKey),
             )
         return try {
             val clientMessageId = UUID.randomUUID().toString()
@@ -319,15 +317,15 @@ class SharePostBottomSheetViewModel constructor(
                 RealtimeSocketGateway.EmitWithRetryResult.QUEUE_FULL -> {
                     ShareDispatchResult(
                         status = ShareDispatchStatus.FAILED,
-                        error = str(R.string.share_error_queue_full),
+                        error = str(AppStringKey.ShareErrorQueueFull),
                     )
                 }
             }
         } catch (e: Exception) {
-            val detail = e.message?.takeIf { it.isNotBlank() } ?: str(R.string.share_error_invalid_public_key)
+            val detail = e.message?.takeIf { it.isNotBlank() } ?: str(AppStringKey.ShareErrorInvalidPublicKey)
             ShareDispatchResult(
                 status = ShareDispatchStatus.FAILED,
-                error = str(R.string.share_error_encryption_failed, detail),
+                error = str(AppStringKey.ShareErrorEncryptionFailed, detail),
             )
         }
     }
@@ -340,7 +338,7 @@ class SharePostBottomSheetViewModel constructor(
         if (memberKeys.isEmpty()) {
             return ShareDispatchResult(
                 status = ShareDispatchStatus.FAILED,
-                error = str(R.string.share_error_group_no_keys),
+                error = str(AppStringKey.ShareErrorGroupNoKeys),
             )
         }
 
@@ -374,15 +372,15 @@ class SharePostBottomSheetViewModel constructor(
                 RealtimeSocketGateway.EmitWithRetryResult.QUEUE_FULL -> {
                     ShareDispatchResult(
                         status = ShareDispatchStatus.FAILED,
-                        error = str(R.string.share_error_queue_full),
+                        error = str(AppStringKey.ShareErrorQueueFull),
                     )
                 }
             }
         } catch (e: Exception) {
-            val detail = e.message?.takeIf { it.isNotBlank() } ?: str(R.string.share_error_invalid_group_key_data)
+            val detail = e.message?.takeIf { it.isNotBlank() } ?: str(AppStringKey.ShareErrorInvalidGroupKeyData)
             ShareDispatchResult(
                 status = ShareDispatchStatus.FAILED,
-                error = str(R.string.share_error_group_encryption_failed, detail),
+                error = str(AppStringKey.ShareErrorGroupEncryptionFailed, detail),
             )
         }
     }
@@ -474,8 +472,8 @@ class SharePostBottomSheetViewModel constructor(
         appSocketManager.connect()
     }
 
-    private fun str(@StringRes id: Int, vararg args: Any): String {
-        return stringResolver.resolveStringId(id, *args)
+    private fun str(key: AppStringKey, vararg args: Any): String {
+        return stringResolver.resolve(key, *args)
     }
 
 }

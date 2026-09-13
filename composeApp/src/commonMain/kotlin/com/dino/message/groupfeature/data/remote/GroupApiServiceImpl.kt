@@ -14,6 +14,7 @@ import com.dino.message.corefeature.data.upload.appendUploadFile
 import com.dino.message.corefeature.data.upload.canOpenForUpload
 import com.dino.message.corefeature.data.upload.toUploadFilePart
 import com.dino.message.corefeature.domain.crypto.Base64Codec
+import com.dino.message.corefeature.domain.model.AppStringKey
 import com.dino.message.corefeature.domain.model.asStringResourceContent
 import com.dino.message.corefeature.domain.system.AppClock
 import com.dino.message.corefeature.domain.result.Resource
@@ -199,10 +200,10 @@ class GroupApiServiceImpl constructor(
             fileSizeBytes = fileSize,
         )
         if (validationError != null) {
-            return Resource.Error(message = validationError.asStringResourceContent())
+            return Resource.Error(message = validationError)
         }
         if (!file.canOpenForUpload()) {
-            return Resource.Error(message = "Cannot read file".asStringResourceContent())
+            return Resource.Error(message = AppStringKey.CannotReadFile.asStringResourceContent())
         }
         val startedAt = appClock.currentTimeMillis()
         appLogger.debug(
@@ -259,7 +260,7 @@ class GroupApiServiceImpl constructor(
                 )
                 if (timeoutLike) {
                     Resource.Error(
-                        message = "Upload timed out on a weak network. Please retry.".asStringResourceContent()
+                        message = AppStringKey.UploadTimedOutWeakNetwork.asStringResourceContent()
                     )
                 } else {
                     result

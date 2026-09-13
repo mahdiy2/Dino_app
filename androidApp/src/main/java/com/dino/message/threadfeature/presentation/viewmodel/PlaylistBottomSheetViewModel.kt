@@ -1,7 +1,6 @@
 package com.dino.message.threadfeature.presentation.viewmodel
 
-import com.dino.message.corefeature.presentation.util.asString
-import com.dino.message.R
+import com.dino.message.corefeature.domain.model.AppStringKey
 import com.dino.message.corefeature.domain.settings.AppSettingsStore
 import com.dino.message.corefeature.domain.result.Resource
 import com.dino.message.corefeature.domain.resource.StringResolver
@@ -119,7 +118,7 @@ class PlaylistBottomSheetViewModel constructor(
                         _error.value = res.message.resolveWith(stringResolver)
                         _snackbarEvents.emit(
                             PlaylistSnackbarEvent(
-                                message = stringResolver.resolveStringId(R.string.playlist_undo_remove_failed)
+                                message = stringResolver.resolve(AppStringKey.PlaylistUndoRemoveFailed)
                             )
                         )
                     }
@@ -140,8 +139,8 @@ class PlaylistBottomSheetViewModel constructor(
                     _error.value = null
                     _snackbarEvents.emit(
                         PlaylistSnackbarEvent(
-                            message = stringResolver.resolveStringId(R.string.playlist_removed_message, pendingRemoval.track.title),
-                            actionLabel = stringResolver.resolveStringId(R.string.undo),
+                            message = stringResolver.resolve(AppStringKey.PlaylistRemovedMessage, pendingRemoval.track.title),
+                            actionLabel = stringResolver.resolve(AppStringKey.Undo),
                             trackId = trackId,
                         )
                     )
@@ -155,7 +154,7 @@ class PlaylistBottomSheetViewModel constructor(
                     _error.value = res.message.resolveWith(stringResolver)
                     _snackbarEvents.emit(
                         PlaylistSnackbarEvent(
-                            message = stringResolver.resolveStringId(R.string.playlist_remove_failed_restored)
+                            message = stringResolver.resolve(AppStringKey.PlaylistRemoveFailedRestored)
                         )
                     )
                 }

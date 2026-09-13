@@ -2,7 +2,7 @@ package com.dino.message.mainpage.presentation.viewmodel
 
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
-import com.dino.message.R
+import com.dino.message.corefeature.domain.model.AppStringKey
 import com.dino.message.corefeature.domain.logging.AppLogger
 import com.dino.message.corefeature.domain.network.NetworkStatusProvider
 import com.dino.message.corefeature.domain.resource.StringResolver
@@ -118,7 +118,7 @@ class MainScreenViewModel constructor(
         addContactUseCase.execute(contact).collect { res ->
             when (res) {
                 is Resource.Success -> {
-                    platformUiEffect.showToast(stringResolver.resolveStringId(R.string.success))
+                    platformUiEffect.showToast(stringResolver.resolve(AppStringKey.Success))
                     hideBottomSheet()
                     getDetailedContacts(page = 1, isRefresh = true)
                     isAddingContacts = false

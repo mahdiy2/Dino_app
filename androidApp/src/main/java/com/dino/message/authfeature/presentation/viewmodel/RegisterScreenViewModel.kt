@@ -1,7 +1,7 @@
 package com.dino.message.authfeature.presentation.viewmodel
 
 import androidx.compose.runtime.mutableStateOf
-import com.dino.message.R
+import com.dino.message.corefeature.domain.model.AppStringKey
 import com.dino.message.authfeature.domain.util.RegisterConfirmErrorPolicy
 import com.dino.message.authfeature.domain.usecase.ConfirmRegistrationUseCase
 import com.dino.message.authfeature.domain.usecase.RegisterUseCase
@@ -131,27 +131,27 @@ class RegisterScreenViewModel constructor(
         val trimmedUsername = userName.value.trim()
         val rawPassword = password.value
         if (trimmedUsername.length < 7) {
-            registerErrorMessage.value = stringResolver.resolveStringId(R.string.error_username_min_length)
+            registerErrorMessage.value = stringResolver.resolve(AppStringKey.ErrorUsernameMinLength)
             return
         }
         if (!isUsernameFormatValid(trimmedUsername)) {
-            registerErrorMessage.value = stringResolver.resolveStringId(R.string.error_username_allowed_chars)
+            registerErrorMessage.value = stringResolver.resolve(AppStringKey.ErrorUsernameAllowedChars)
             return
         }
         if (rawPassword.length < 10) {
-            registerErrorMessage.value = stringResolver.resolveStringId(R.string.error_password_min_length)
+            registerErrorMessage.value = stringResolver.resolve(AppStringKey.ErrorPasswordMinLength)
             return
         }
         if (!passwordLetterPattern.containsMatchIn(rawPassword)) {
-            registerErrorMessage.value = stringResolver.resolveStringId(R.string.error_password_require_letter)
+            registerErrorMessage.value = stringResolver.resolve(AppStringKey.ErrorPasswordRequireLetter)
             return
         }
         if (!passwordDigitPattern.containsMatchIn(rawPassword)) {
-            registerErrorMessage.value = stringResolver.resolveStringId(R.string.error_password_require_number)
+            registerErrorMessage.value = stringResolver.resolve(AppStringKey.ErrorPasswordRequireNumber)
             return
         }
         if (appConfig.authPasswordRequireSymbol && !passwordSymbolPattern.containsMatchIn(rawPassword)) {
-            registerErrorMessage.value = stringResolver.resolveStringId(R.string.error_password_require_symbol)
+            registerErrorMessage.value = stringResolver.resolve(AppStringKey.ErrorPasswordRequireSymbol)
             return
         }
 

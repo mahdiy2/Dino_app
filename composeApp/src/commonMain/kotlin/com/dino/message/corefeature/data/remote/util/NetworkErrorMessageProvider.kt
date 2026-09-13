@@ -1,6 +1,7 @@
 package com.dino.message.corefeature.data.remote.util
 
 import com.dino.message.corefeature.domain.model.StringResourceContent
+import com.dino.message.corefeature.domain.model.AppStringKey
 import com.dino.message.corefeature.domain.model.asStringResourceContent
 
 interface NetworkErrorMessageProvider {
@@ -21,18 +22,18 @@ interface NetworkErrorMessageProvider {
 }
 
 object DefaultNetworkErrorMessageProvider : NetworkErrorMessageProvider {
-    override fun badRequest() = "There is a problem with the request".asStringResourceContent()
-    override fun unauthorized() = "The required documents to verify the identity of the request were not found".asStringResourceContent()
-    override fun forbidden() = "There are no permissions required to access the resource".asStringResourceContent()
-    override fun notFound() = "Not found".asStringResourceContent()
-    override fun conflict() = "Conflict".asStringResourceContent()
-    override fun tooManyRequests() = "Too many login attempts, try again later.".asStringResourceContent()
-    override fun httpStatus(statusCode: Int) = "Error with HTTP status code $statusCode".asStringResourceContent()
-    override fun payloadTooLarge() = "File is too large to upload. Please choose a smaller file.".asStringResourceContent()
-    override fun internalServerError() = "Internal server error".asStringResourceContent()
-    override fun convertJsonResponse() = "Error in converting json response".asStringResourceContent()
-    override fun unknownError() = "Unknown error occurred".asStringResourceContent()
-    override fun requestTimedOut() = "Request timed out".asStringResourceContent()
-    override fun networkError() = "Network error".asStringResourceContent()
-    override fun retriesExceeded() = "Retry failed".asStringResourceContent()
+    override fun badRequest() = AppStringKey.ErrorBadRequest.asStringResourceContent()
+    override fun unauthorized() = AppStringKey.ErrorUnauthorized.asStringResourceContent()
+    override fun forbidden() = AppStringKey.ErrorForbidden.asStringResourceContent()
+    override fun notFound() = AppStringKey.ErrorNotFound.asStringResourceContent()
+    override fun conflict() = AppStringKey.ErrorConflict.asStringResourceContent()
+    override fun tooManyRequests() = AppStringKey.ErrorTooManyLoginAttempts.asStringResourceContent()
+    override fun httpStatus(statusCode: Int) = AppStringKey.ErrorWithHttpStatusCode.asStringResourceContent(statusCode)
+    override fun payloadTooLarge() = AppStringKey.ErrorPayloadTooLarge.asStringResourceContent()
+    override fun internalServerError() = AppStringKey.InternalServerError.asStringResourceContent()
+    override fun convertJsonResponse() = AppStringKey.ErrorConvertJsonResponse.asStringResourceContent()
+    override fun unknownError() = AppStringKey.UnknownErrorOccurred.asStringResourceContent()
+    override fun requestTimedOut() = AppStringKey.ErrorRequestTimedOut.asStringResourceContent()
+    override fun networkError() = AppStringKey.NetworkError.asStringResourceContent()
+    override fun retriesExceeded() = AppStringKey.ErrorRetriesExceeded.asStringResourceContent()
 }

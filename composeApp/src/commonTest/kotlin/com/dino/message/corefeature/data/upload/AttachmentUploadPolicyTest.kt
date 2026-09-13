@@ -1,6 +1,10 @@
 package com.dino.message.corefeature.domain.upload
 
+import com.dino.message.corefeature.domain.model.AppStringKey
+import com.dino.message.corefeature.domain.model.StringResourceContent
+import com.dino.message.corefeature.domain.model.toFormatArgs
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.Test
 
@@ -30,7 +34,9 @@ class AttachmentUploadPolicyTest {
             fileSizeBytes = AttachmentUploadPolicy.MAX_AUDIO_SIZE_BYTES + 1,
         )
 
-        assertEquals("Voice too large. Maximum allowed is 16MB.", error)
+        val content = assertIs<StringResourceContent.Key>(error)
+        assertEquals(AppStringKey.VoiceAttachmentTooLarge, content.key)
+        assertEquals(listOf("16MB"), content.args.toFormatArgs().toList())
     }
 
     @Test
@@ -40,6 +46,8 @@ class AttachmentUploadPolicyTest {
             fileSizeBytes = 256L,
         )
 
-        assertEquals("Unsupported attachment type: application/octet-stream", error)
+        val content = assertIs<StringResourceContent.Key>(error)
+        assertEquals(AppStringKey.UnsupportedAttachmentType, content.key)
+        assertEquals(listOf("application/octet-stream"), content.args.toFormatArgs().toList())
     }
 }

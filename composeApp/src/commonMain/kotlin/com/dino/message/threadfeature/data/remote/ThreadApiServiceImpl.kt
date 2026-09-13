@@ -15,6 +15,7 @@ import com.dino.message.corefeature.domain.upload.PlatformMediaReference
 import com.dino.message.corefeature.data.upload.appendUploadFile
 import com.dino.message.corefeature.data.upload.canOpenForUpload
 import com.dino.message.corefeature.data.upload.toUploadFilePart
+import com.dino.message.corefeature.domain.model.AppStringKey
 import com.dino.message.corefeature.domain.model.asStringResourceContent
 import com.dino.message.corefeature.domain.result.Resource
 import com.dino.message.corefeature.domain.resource.StringResolver
@@ -112,7 +113,7 @@ class ThreadApiServiceImpl constructor(
 
         if (mediaFiles.size > MAX_MEDIA_FILES_PER_POST) {
             return Resource.Error(
-                message = "Maximum 8 media files allowed".asStringResourceContent()
+                message = AppStringKey.MaxMediaFilesAllowed.asStringResourceContent(MAX_MEDIA_FILES_PER_POST)
             )
         }
 
@@ -224,7 +225,7 @@ class ThreadApiServiceImpl constructor(
 
         if (mediaFiles.size > MAX_MEDIA_FILES_PER_POST) {
             return Resource.Error(
-                message = "Maximum 8 media files allowed".asStringResourceContent()
+                message = AppStringKey.MaxMediaFilesAllowed.asStringResourceContent(MAX_MEDIA_FILES_PER_POST)
             )
         }
 
@@ -499,8 +500,9 @@ class ThreadApiServiceImpl constructor(
             val durationSeconds = resolveVideoDurationSeconds(mediaFile)
             if (durationSeconds != null && durationSeconds > MAX_STORY_VIDEO_DURATION_SECONDS) {
                 return Resource.Error(
-                    message = "Story videos must be 30 seconds or shorter"
-                        .asStringResourceContent()
+                    message = AppStringKey.StoryVideoDurationLimit.asStringResourceContent(
+                        MAX_STORY_VIDEO_DURATION_SECONDS.toInt()
+                    )
                 )
             }
         }

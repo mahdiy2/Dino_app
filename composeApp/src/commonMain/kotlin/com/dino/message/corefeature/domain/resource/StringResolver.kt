@@ -1,7 +1,8 @@
 package com.dino.message.corefeature.domain.resource
 
+import com.dino.message.corefeature.domain.model.AppStringKey
+
 interface StringResolver {
     fun resolve(value: String): String = value
-    fun resolveStringId(id: Int): String
-    fun resolveStringId(id: Int, vararg args: Any): String
+    fun resolve(key: AppStringKey, vararg args: Any): String
 }

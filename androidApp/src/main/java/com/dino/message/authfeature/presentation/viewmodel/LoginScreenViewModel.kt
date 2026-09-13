@@ -1,7 +1,7 @@
 package com.dino.message.authfeature.presentation.viewmodel
 
 import androidx.compose.runtime.mutableStateOf
-import com.dino.message.R
+import com.dino.message.corefeature.domain.model.AppStringKey
 import com.dino.message.authfeature.domain.usecase.LoginUseCase
 import com.dino.message.authfeature.domain.usecase.GetKeyStatusUseCase
 import com.dino.message.authfeature.domain.usecase.RotatePublicKeyUseCase
@@ -109,7 +109,7 @@ class LoginScreenViewModel constructor(
                     authSessionStore.setRefreshToken("")
                     loginLoadingState.value = false
                     loginErrorMessage.value =
-                        stringResolver.resolveStringId(R.string.login_key_recovery_failed)
+                        stringResolver.resolve(AppStringKey.LoginKeyRecoveryFailed)
                 }
             }
         }

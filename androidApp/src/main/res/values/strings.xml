@@ -32,6 +32,17 @@
     <string name="error_conflict">Conflict</string>
     <string name="internal_server_error">Internal server error</string>
     <string name="error_payload_too_large" translatable="false">File is too large to upload. Please choose a smaller file.</string>
+    <string name="error_cannot_read_file">Cannot read file</string>
+    <string name="error_upload_timed_out_weak_network">Upload timed out on a weak network. Please retry.</string>
+    <string name="error_attachment_mime_type_required">Attachment mime type is required</string>
+    <string name="error_unsupported_attachment_type_security">Unsupported attachment type for security reasons: %1$s</string>
+    <string name="error_unsupported_attachment_type">Unsupported attachment type: %1$s</string>
+    <string name="error_image_attachment_too_large">Image too large. Maximum allowed is %1$s.</string>
+    <string name="error_video_attachment_too_large">Video too large. Maximum allowed is %1$s.</string>
+    <string name="error_voice_attachment_too_large">Voice too large. Maximum allowed is %1$s.</string>
+    <string name="error_file_attachment_too_large">File too large. Maximum allowed is %1$s.</string>
+    <string name="error_max_media_files_allowed">Maximum %1$d media files allowed</string>
+    <string name="error_story_video_duration_limit">Story videos must be %1$d seconds or shorter</string>
     <string name="error_with_http_status_code">Error with HTTP status code %d</string>
     <string name="error_connecting_to_the_server">Error connecting to the server</string>
     <string name="error_request_timed_out">Request timed out</string>

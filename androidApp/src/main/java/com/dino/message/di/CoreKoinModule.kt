@@ -177,7 +177,7 @@ val coreModule = module {
     single<ActiveGroupState> { ActiveGroupTracker }
     single<AppLogger> { AndroidAppLogger }
     single<NetworkExceptionClassifier> { JvmNetworkExceptionClassifier }
-    single<NetworkErrorMessageProvider> { AndroidNetworkErrorMessageProvider(stringResolver = get()) }
+    single<NetworkErrorMessageProvider> { AndroidNetworkErrorMessageProvider() }
     single { AndroidUploadContentProvider(contentResolver = androidContext().contentResolver) }
     single<PlatformMediaResolver> { get<AndroidUploadContentProvider>() }
     single<PlatformMediaMetadataExtractor> {

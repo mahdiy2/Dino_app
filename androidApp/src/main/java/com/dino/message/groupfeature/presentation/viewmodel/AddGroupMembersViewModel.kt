@@ -2,7 +2,7 @@ package com.dino.message.groupfeature.presentation.viewmodel
 
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
-import com.dino.message.R
+import com.dino.message.corefeature.domain.model.AppStringKey
 import com.dino.message.corefeature.domain.result.Resource
 import com.dino.message.corefeature.domain.resource.StringResolver
 import com.dino.message.corefeature.presentation.viewmodel.HaveUIEvent
@@ -30,7 +30,7 @@ class AddGroupMembersViewModel constructor(
     HaveUIEvent by HaveUIEventImpl(uiEventBus) {
 
     private val initialGroupName: String =
-        initialGroupNameArg ?: stringResolver.resolveStringId(R.string.group_fallback_name)
+        initialGroupNameArg ?: stringResolver.resolve(AppStringKey.GroupFallbackName)
 
     val searchQuery = mutableStateOf("")
 
@@ -143,7 +143,7 @@ class AddGroupMembersViewModel constructor(
         val selected = _selectedUsernames.toList()
         if (selected.isEmpty()) {
             _errorMessage.value =
-                stringResolver.resolveStringId(R.string.group_add_members_error_select_one)
+                stringResolver.resolve(AppStringKey.GroupAddMembersErrorSelectOne)
             return
         }
 
@@ -154,7 +154,7 @@ class AddGroupMembersViewModel constructor(
                     is Resource.Success -> {
                         _isSubmitting.value = false
                         if (result.data.added.isEmpty()) {
-                            _errorMessage.value = stringResolver.resolveStringId(R.string.group_add_members_error_already_member)
+                            _errorMessage.value = stringResolver.resolve(AppStringKey.GroupAddMembersErrorAlreadyMember)
                             return@collect
                         }
                         _membersAdded.value = true
