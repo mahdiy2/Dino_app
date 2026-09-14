@@ -26,14 +26,29 @@ class SPrefManagerTest {
         manager.savePendingPrivateKey("private")
         manager.savePendingPublicKey("public")
         manager.savePendingRegistrationId("registration")
+        manager.savePendingRegistrationUsername("pending-alice")
+        manager.savePendingRegistrationNonce("nonce")
         manager.savePendingRegistrationExpiresAt(123L)
+        manager.saveDeviceSyncUserId("sync-user")
+        manager.saveDeviceSyncDeviceId("sync-device")
+        manager.markThreadRefreshAfterPost()
 
         assertEquals("access", store.values[Constants.TOKEN_KEY])
         assertEquals("refresh", store.values[Constants.REFRESH_TOKEN_KEY])
         assertEquals("alice", store.values["USER_NAME"])
         assertEquals(true, store.values["USER_LOG_IN"])
+        assertEquals("private", store.values["PENDING_PRIVATE_KEY"])
+        assertEquals("public", store.values["PENDING_PUBLIC_KEY"])
+        assertEquals("registration", store.values["PENDING_REGISTRATION_ID"])
+        assertEquals("pending-alice", store.values["PENDING_REGISTRATION_USERNAME"])
+        assertEquals("nonce", store.values["PENDING_REGISTRATION_NONCE"])
         assertEquals(123L, store.values["PENDING_REGISTRATION_EXPIRES_AT"])
+        assertEquals("sync-user", store.values["device_sync_user_id"])
+        assertEquals("sync-device", store.values["device_sync_device_id"])
+        assertEquals(true, store.values["THREAD_REFRESH_AFTER_POST"])
         assertTrue(manager.hasPendingRegistration())
+        assertTrue(manager.consumeThreadRefreshAfterPost())
+        assertFalse(manager.consumeThreadRefreshAfterPost())
 
         manager.finalizePendingRegistration()
         assertEquals("private", manager.getPrivateKey())
@@ -41,6 +56,9 @@ class SPrefManagerTest {
         assertNull(manager.getPendingPrivateKey())
         assertNull(manager.getPendingPublicKey())
         assertNull(manager.getPendingRegistrationId())
+        assertNull(manager.getPendingRegistrationUsername())
+        assertNull(manager.getPendingRegistrationNonce())
+        assertEquals(0L, manager.getPendingRegistrationExpiresAt())
     }
 
     @Test
@@ -65,6 +83,26 @@ class SPrefManagerTest {
         assertNull(manager.getUsername())
         assertNull(manager.getDeviceSyncUserId())
         assertNull(manager.getDeviceSyncDeviceId())
+        assertFalse(manager.getUserLogIn())
+    }
+
+    @Test
+    fun clearAllRemovesLongTermAndSessionValues() {
+        val store = RecordingSecureKeyValueStore()
+        val manager = SPrefManager(store)
+        manager.savePrivateKey("private")
+        manager.savePublicKey("public")
+        manager.setToken("access")
+        manager.setRefreshToken("refresh")
+        manager.setUserLogIn(true)
+
+        manager.clearAll()
+
+        assertTrue(store.values.isEmpty())
+        assertNull(manager.getPrivateKey())
+        assertNull(manager.getPublicKey())
+        assertEquals("", manager.getToken())
+        assertEquals("", manager.getRefreshToken())
         assertFalse(manager.getUserLogIn())
     }
 

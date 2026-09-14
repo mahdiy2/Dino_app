@@ -83,7 +83,7 @@ class DefaultMessageCryptoGoldenTest {
     }
 
     @Test
-    fun importsRawPemPkcs1OpenSshAndUrlSafePublicKeys() = runTest {
+    fun importsRawPemPkcs1OpenSshUrlSafeAndWrappedPublicKeys() = runTest {
         val raw = messageCrypto.decodePublicKey(PUBLIC_KEY)
         val pem = """
             -----BEGIN PUBLIC KEY-----
@@ -96,12 +96,30 @@ class DefaultMessageCryptoGoldenTest {
             -----END RSA PUBLIC KEY-----
         """.trimIndent()
         val urlSafe = PUBLIC_KEY.trimEnd('=').replace('+', '-').replace('/', '_')
+        val quotedEscapedPem = "\"${pem.replace("\n", "\\n")}\""
+        val nestedPem = base64Codec.encodeNoWrap(pem.encodeToByteArray())
+        val dataUriPem = "data:application/x-pem-file;base64,$nestedPem"
 
         assertContentEquals(raw.encoded, messageCrypto.decodePublicKey(pem).encoded)
         assertContentEquals(raw.encoded, messageCrypto.decodePublicKey(pkcs1Pem).encoded)
         assertContentEquals(raw.encoded, messageCrypto.decodePublicKey(OPEN_SSH_PUBLIC_KEY).encoded)
         assertContentEquals(raw.encoded, messageCrypto.decodePublicKey(urlSafe).encoded)
+        assertContentEquals(raw.encoded, messageCrypto.decodePublicKey(quotedEscapedPem).encoded)
+        assertContentEquals(raw.encoded, messageCrypto.decodePublicKey(nestedPem).encoded)
+        assertContentEquals(raw.encoded, messageCrypto.decodePublicKey(dataUriPem).encoded)
         assertNotNull(messageCrypto.decodePublicKeyOrNull(pem))
+    }
+
+    @Test
+    fun importsPublicKeyFromX509Certificate() = runTest {
+        val expected = messageCrypto.decodePublicKey(CERTIFICATE_PUBLIC_KEY)
+        val certificatePem = """
+            -----BEGIN CERTIFICATE-----
+            ${CERTIFICATE.chunked(64).joinToString("\n")}
+            -----END CERTIFICATE-----
+        """.trimIndent()
+
+        assertContentEquals(expected.encoded, messageCrypto.decodePublicKey(certificatePem).encoded)
     }
 
     @Test
@@ -123,5 +141,7 @@ class DefaultMessageCryptoGoldenTest {
         const val LEGACY_MESSAGE = "cCqjvnOfnrHhOkSt07I7Z25Ye2ayDzJ1heKw5B3roJw="
         const val LEGACY_KEY = "P9qpV6mMTUZbrDpRxMBAOYL9pk+vY30VRKHKvitdaHfYhHN1y27MUoc7SRVRtMctLUfgvLCzczEwuMqZ/AFM1rJzc3I2R0+bRmXqhlTiPmh2SpUP8qzWFwoezjiBQD65YQYgesJRZvqiu8GUR9zpsRQeF1WYn+Cx0F+3GgEWAOOefz7bKeAU6LnefXMkcdMqD1OYkwyQ/zwvUpkfcD8vrLq7rVT2g8gDhVEu4qPpru7oB3C4RcLLCcm4knxV8bkgxQFdeiSoeV1/GvKjBawOXB/NUhUIiGruFf59G1tFgM/we5YcglrZqKLnuB5TOkkEFEESj5OE/YC4DEI+O/0lPQ=="
         const val OPEN_SSH_PUBLIC_KEY = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAKrUK2X2OEbHd+uJTWcLQeHTI1m7GQBG2jNUAp+rU2k/9UWt4Wz4fmNvWBXRbHAzjP/O4FuKbRpNBDcmx9iAQm4ooDFUJOp/bcUQ2UKZqQzunFzm7+FYjLoKDCAprd7yhteHHhqCCQmNqluMVwZUO628R+yLvmz/r+3kgj0anXo0Tvlt8skcKutRSNBUWwYhSA2OvpJLNC3Cr2DXLwN/KMPcgc33lJYJOnkn8Qxqpk5czPhXUuN+Z23KEAyguL0WZQsu2fayufdpmIlSFJ/shmgFsL3FJ7ZBxbgMZNBtjA9KKP/mkA1Ccr0CvWMaVsKvVusVDQb8UTBDx9A/0xyRqzE= golden-vector"
+        const val CERTIFICATE_PUBLIC_KEY = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAiYQrwMOaLxJWSbqs5cFLcja9sDJc/Cs9sEcZZfY9OS+1wDriKs5LvsqKvsy0Fv1wZp6WxtPntJXF+Zh4KcghUMsELhUYtvcRZjn520cfhz0Hfp/8X/3cXq/qZvOvJ4VguwCqOjpazbgc+fwTPidCzoMzvx13++cVY+UIu+vDDl29/uA4e6hpQa1pcYb3AyOAFLG0ixsURT38XPOHR62TkK9+0CNo2zqxrV+EVvDqrQn2fPl/b0JcajNv1q1VP70oJB/qtZ07Sn7nwawMys5aH7KF3KtjhT2SspCOPmbT5ZHEBfnhj8yU5o/juf2aS6ahHZtsFhwHAuCofNXb8Mku7QIDAQAB"
+        const val CERTIFICATE = "MIIDFzCCAf+gAwIBAgIUC6FKAMN4Yel5PHv2ucfp9NqwYpYwDQYJKoZIhvcNAQELBQAwGzEZMBcGA1UEAwwQc2VjLW1lc3NhZ2UtdGVzdDAeFw0yNjA5MTQxNjQ3MTZaFw0zNjA5MTExNjQ3MTZaMBsxGTAXBgNVBAMMEHNlYy1tZXNzYWdlLXRlc3QwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCJhCvAw5ovElZJuqzlwUtyNr2wMlz8Kz2wRxll9j05L7XAOuIqzku+yoq+zLQW/XBmnpbG0+e0lcX5mHgpyCFQywQuFRi29xFmOfnbRx+HPQd+n/xf/dxer+pm868nhWC7AKo6OlrNuBz5/BM+J0LOgzO/HXf75xVj5Qi768MOXb3+4Dh7qGlBrWlxhvcDI4AUsbSLGxRFPfxc84dHrZOQr37QI2jbOrGtX4RW8OqtCfZ8+X9vQlxqM2/WrVU/vSgkH+q1nTtKfufBrAzKzlofsoXcq2OFPZKykI4+ZtPlkcQF+eGPzJTmj+O5/ZpLpqEdm2wWHAcC4Kh81dvwyS7tAgMBAAGjUzBRMB0GA1UdDgQWBBTXGwRUOOXsTcnRwxbkm61DkQP5TjAfBgNVHSMEGDAWgBTXGwRUOOXsTcnRwxbkm61DkQP5TjAPBgNVHRMBAf8EBTADAQH/MA0GCSqGSIb3DQEBCwUAA4IBAQBfpusM2xBOAXVMc1cikRNKh4vYwZJm/LEc2zgeorz3pjAEgF3m20UqTOZaQdAOS2isRi3YfV2wmFX1zHSAL8Jg6GDfbk8JhQOPxAVue7s+Po89kSRk18YmA6i35cuGFazFHpUR6SvGU2nSn7Is3csR5AsVtYPiFblLTOdnXRGcNsLH8bh8+/3OPD+IMXxH+lXQisEyXP89Rk36Z9TgcplokBqYb2vkCUDyKx/IwbbPxopCzAOgzn5a7iONv0XwhmTVe5oVHApSBhh6Z/oKpCAm/HtVqR313dPpa893QRwpPpqcKdhqP8LCstSMV9WsVQRMRXrKmPguJoYnigmcJ5Tv"
     }
 }

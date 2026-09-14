@@ -497,9 +497,11 @@ Completed preferences/security verification on 2026-09-14:
   existing RSA-2048, OAEP SHA-256/MGF1 SHA-256, AES-GCM `iv + ciphertext/tag`,
   `v2:` prefix, public-key formats, and legacy decrypt behavior remain stable.
 - Fixed common golden vectors cover v2 and legacy decrypts, private/group
-  round trips, key formats, and debug fingerprints. Executed desktop tests cover
-  encryption and corruption; compiled browser tests cover defaults and namespace
-  isolation pending an available browser-test runtime.
+  round trips, raw, PEM, PKCS#1, certificate, OpenSSH, URL-safe, data-URI, and
+  nested public-key formats, plus debug fingerprints. Executed desktop tests
+  cover encrypted storage persistence/corruption and settings defaults/value
+  round trips; compiled browser tests cover defaults and namespace isolation
+  pending an available browser-test runtime.
 - Verified commands:
   - `./gradlew checkDomainBoundaries`
   - `./gradlew :composeApp:compileCommonMainKotlinMetadata`
