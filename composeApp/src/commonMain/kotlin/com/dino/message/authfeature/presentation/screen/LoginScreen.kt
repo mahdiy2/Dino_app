@@ -9,7 +9,7 @@ import com.dino.message.corefeature.presentation.viewmodel.rememberStateHolder
 
 @Composable
 fun LoginScreen() {
-    val viewModel: LoginScreenViewModel = rememberStateHolder()
+    val viewModel = rememberStateHolder(LoginScreenViewModel::class)
     val loginErrorMessage by viewModel.loginErrorMessage
     val currentLanguage by viewModel.currentLanguage.collectAsState(initial = AppLanguage.Farsi)
 

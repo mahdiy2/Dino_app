@@ -346,6 +346,9 @@ Follow-up discovered:
     rendering, reply composer, follow-back controls, and avatar rendering into
     `:composeApp/commonMain`; Android retains ViewModel orchestration and
     localized notification-text mapping.
+  - Completed auth-screen slice: moved login, registration, and private-key
+    confirmation screens fully into `:composeApp/commonMain`; clipboard and
+    back interception remain behind shared platform interfaces.
   - Added `checkSharedUiBoundaries` and included it in `verifyKmpBaseline` to
     reject Android, lifecycle, Koin, JVM, and Android-resource dependencies from
     shared presentation code.
