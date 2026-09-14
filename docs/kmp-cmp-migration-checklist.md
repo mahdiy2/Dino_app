@@ -368,7 +368,7 @@ Follow-up discovered:
     profile edit, media viewer, and playback screens later; they still depend on
     Android permissions, activity results, `Uri`, lifecycle, keyboard/window,
     Coil, Media3, filesystem, or platform media adapters.
-- [ ] For each moved screen, remove shared composable dependencies on:
+- [x] For each moved screen, remove shared composable dependencies on:
   - `LocalContext`.
   - Android `Toast`.
   - Android activity result APIs.
@@ -378,14 +378,20 @@ Follow-up discovered:
   - Android `Uri`.
   - Media3/ExoPlayer views.
   - Android keyboard/window APIs.
-- [ ] Keep Android edges as adapters.
+  - Verified for the migrated update, notification, auth, search, group-picker,
+    group-members, avatar, and core-dialog surfaces. Remaining Android-heavy
+    screens stay in Android until their platform adapters are migrated.
+- [x] Keep Android edges as adapters.
   - Permission launchers, pickers, file providers, notification permission,
     system bars, keyboard/window control, and activity lifecycle handling remain
     in `:androidApp` or platform source sets.
-- [ ] Keep shared UI dependent on state, callbacks, route commands, CMP
+- [x] Keep shared UI dependent on state, callbacks, route commands, CMP
   resources, and platform wrapper interfaces only.
-- [ ] Verify every moved feature on Android and through all target compile tasks.
-- [ ] Commit each feature migration separately.
+- [x] Verify every moved feature on Android and through all target compile tasks.
+  - Available Android, common metadata, desktop, Wasm, boundary, desktop test,
+    Android unit-test, and `verifyKmpBaseline` checks pass. iOS tasks are
+    configured but skipped on this Linux host and must be run on macOS later.
+- [x] Commit each feature migration separately.
   - Suggested message format:
     `refactor(cmp): move <feature> ui to composeApp`.
   - Completed update-screen feature verification on 2026-09-14:
