@@ -5,6 +5,10 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
 
 class AndroidPlatformUiEffect(
     private val context: Context,
@@ -31,4 +35,22 @@ class AndroidPlatformUiEffect(
             false
         }
     }
+}
+
+class AndroidPlatformBackHandler : PlatformBackHandler {
+    @Composable
+    override fun Handle(enabled: Boolean, onBack: () -> Unit) {
+        BackHandler(enabled = enabled, onBack = onBack)
+    }
+}
+
+@Composable
+fun rememberAndroidPlatformUiEffect(): PlatformUiEffect {
+    val context = LocalContext.current
+    return remember(context) { AndroidPlatformUiEffect(context) }
+}
+
+@Composable
+fun rememberAndroidPlatformBackHandler(): PlatformBackHandler {
+    return remember { AndroidPlatformBackHandler() }
 }

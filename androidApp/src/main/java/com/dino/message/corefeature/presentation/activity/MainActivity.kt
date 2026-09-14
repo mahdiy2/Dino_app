@@ -25,7 +25,9 @@ import com.dino.message.corefeature.domain.model.toLocale
 import com.dino.message.corefeature.domain.notification.AppNotificationController
 import com.dino.message.corefeature.domain.notification.NotificationSocketController
 import com.dino.message.corefeature.presentation.activity.theme.SecMessageTheme
+import com.dino.message.corefeature.presentation.platform.LocalPlatformBackHandler
 import com.dino.message.corefeature.presentation.platform.LocalPlatformUiEffect
+import com.dino.message.corefeature.presentation.platform.rememberAndroidPlatformBackHandler
 import com.dino.message.corefeature.presentation.platform.rememberAndroidPlatformUiEffect
 import com.dino.message.corefeature.presentation.navigation.AndroidIntentDeepLinkHandler
 import com.dino.message.corefeature.presentation.navigation.AppNavGraph
@@ -34,6 +36,8 @@ import com.dino.message.corefeature.presentation.navigation.NotificationClearTar
 import com.dino.message.corefeature.presentation.util.HandleUIEvent
 import com.dino.message.corefeature.presentation.util.LocaleUtils
 import com.dino.message.corefeature.presentation.util.UiEventBus
+import com.dino.message.corefeature.presentation.viewmodel.KoinStateHolderFactory
+import com.dino.message.corefeature.presentation.viewmodel.LocalStateHolderFactory
 import com.dino.message.corefeature.presentation.viewmodel.MainActivityViewModel
 import com.dino.message.corefeature.presentation.viewmodel.rememberStateHolder
 import com.dino.message.threadfeature.presentation.music.MusicPlaybackManager
@@ -70,33 +74,38 @@ class MainActivity : ComponentActivity() {
 
         enableEdgeToEdge()
         setContent {
-            val viewModel: MainActivityViewModel = rememberStateHolder()
+            val stateHolderFactory = remember { KoinStateHolderFactory() }
+            CompositionLocalProvider(LocalStateHolderFactory provides stateHolderFactory) {
+                val viewModel: MainActivityViewModel = rememberStateHolder()
 
-            // Retrieve the app theme and app language from the view model
-            val theme = viewModel.getSystemTheme(systemTheme).collectAsState(initial = systemTheme)
-            val appLanguage = viewModel.appLanguage.collectAsState(initial = AppLanguage.Farsi)
+                // Retrieve the app theme and app language from the view model
+                val theme = viewModel.getSystemTheme(systemTheme).collectAsState(initial = systemTheme)
+                val appLanguage = viewModel.appLanguage.collectAsState(initial = AppLanguage.Farsi)
 
-            val platformUiEffect = rememberAndroidPlatformUiEffect()
-            val activeModalRoute = remember { mutableStateOf<AppRoute?>(null) }
+                val platformUiEffect = rememberAndroidPlatformUiEffect()
+                val platformBackHandler = rememberAndroidPlatformBackHandler()
+                val activeModalRoute = remember { mutableStateOf<AppRoute?>(null) }
 
-            // Create a navigation controller
-            navController = rememberNavController()
+                // Create a navigation controller
+                navController = rememberNavController()
 
-            // Set the app's locale based on the selected language
-            LocaleUtils.setLocale(LocalContext.current, appLanguage.value.toLocale())
+                // Set the app's locale based on the selected language
+                LocaleUtils.setLocale(LocalContext.current, appLanguage.value.toLocale())
 
-            // Handle UI events and update the app's state
-            HandleUIEvent(uiEventBus, navController!!, activeModalRoute)
+                // Handle UI events and update the app's state
+                HandleUIEvent(uiEventBus, navController!!, activeModalRoute)
 
-            SecMessageTheme(
-                darkTheme = theme.value,
-                appLanguage = appLanguage.value
-            ) {
-                CompositionLocalProvider(
-                    LocalPlatformUiEffect provides platformUiEffect,
-                    LocalLayoutDirection provides appLanguage.value.toLayoutDirection()
+                SecMessageTheme(
+                    darkTheme = theme.value,
+                    appLanguage = appLanguage.value
                 ) {
-                    AppNavGraph(navController = navController!!, activeModalRoute = activeModalRoute)
+                    CompositionLocalProvider(
+                        LocalPlatformUiEffect provides platformUiEffect,
+                        LocalPlatformBackHandler provides platformBackHandler,
+                        LocalLayoutDirection provides appLanguage.value.toLayoutDirection()
+                    ) {
+                        AppNavGraph(navController = navController!!, activeModalRoute = activeModalRoute)
+                    }
                 }
             }
         }

@@ -1,11 +1,10 @@
 package com.dino.message.updatefeature.presentation.screen
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import com.dino.message.corefeature.presentation.platform.LocalPlatformUiEffect
-import com.dino.message.updatefeature.presentation.viewmodel.AppUpdateViewModel
+import com.dino.message.corefeature.presentation.platform.PlatformBackHandler
 import com.dino.message.corefeature.presentation.viewmodel.rememberStateHolder
-import com.dino.message.updatefeature.presentation.screen.AppUpdateContent
+import com.dino.message.updatefeature.presentation.viewmodel.AppUpdateViewModel
 
 @Composable
 fun AppUpdateScreen(
@@ -15,10 +14,16 @@ fun AppUpdateScreen(
     @Suppress("UNUSED_PARAMETER")
     downloadUrl: String,
 ) {
-    val viewModel: AppUpdateViewModel = rememberStateHolder(isForceUpdate, title, message, downloadUrl)
+    val viewModel = rememberStateHolder(
+        AppUpdateViewModel::class,
+        isForceUpdate,
+        title,
+        message,
+        downloadUrl,
+    )
     val platformUiEffect = LocalPlatformUiEffect.current
 
-    BackHandler(enabled = isForceUpdate) {
+    PlatformBackHandler(enabled = isForceUpdate) {
         // Force-update gate: keep the user on this screen.
     }
 

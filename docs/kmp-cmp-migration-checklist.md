@@ -338,6 +338,10 @@ Follow-up discovered:
   - Completed first slice: platform-light shared content remains in
     `:composeApp`, and auth/update/core dialog state holders plus their
     common-safe tests moved to `:composeApp`.
+  - Completed update-screen slice: moved `AppUpdateScreen` into
+    `:composeApp/commonMain`, with state-holder creation, URL launching, and
+    system back handling supplied through platform-neutral interfaces and
+    Android implementations.
   - Follow-up: move Android route wrappers only after shared state-holder
     creation/navigation adapters are available for non-Android targets.
   - Follow-up: move chat, group chat, story editor/viewer, music, media picker,
@@ -364,8 +368,18 @@ Follow-up discovered:
 - [ ] Commit each feature migration separately.
   - Suggested message format:
     `refactor(cmp): move <feature> ui to composeApp`.
-  - Current feature commit target:
-    `refactor(cmp): move platform-light ui state to composeApp`.
+  - Completed update-screen feature verification on 2026-09-14:
+    - `./gradlew checkDomainBoundaries`
+    - `./gradlew :composeApp:compileKotlinMetadata`
+    - `./gradlew :composeApp:desktopTest`
+    - `./gradlew :composeApp:compileDebugKotlinAndroid`
+    - `./gradlew :composeApp:compileKotlinDesktop`
+    - `./gradlew :composeApp:compileKotlinWasmJs`
+    - `./gradlew :androidApp:compileDebugKotlin`
+    - `./gradlew :androidApp:testDebugUnitTest`
+    - `./gradlew verifyKmpBaseline`
+  - Follow-up: run configured iOS compile/test tasks on macOS; Kotlin/Native
+    iOS targets remain disabled on this Linux host.
 
 ### 9. Finalize Persistence
 
