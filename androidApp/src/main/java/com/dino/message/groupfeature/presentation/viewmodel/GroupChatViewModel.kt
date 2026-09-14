@@ -376,7 +376,7 @@ class GroupChatViewModel constructor(
         return messages.lastOrNull { it.messageId.isNotBlank() && it.timestamp.isNotBlank() }?.timestamp
     }
 
-    private fun mapHistoryMessageToEntity(
+    private suspend fun mapHistoryMessageToEntity(
         historyMessage: GroupHistoryMessage,
     ): GroupMessageEntity? {
         val sender = historyMessage.from.trim()
@@ -649,7 +649,7 @@ class GroupChatViewModel constructor(
         groupKeySession = null
     }
 
-    private fun getOrCreateGroupKeySession(): GroupKeySession? {
+    private suspend fun getOrCreateGroupKeySession(): GroupKeySession? {
         if (!memberKeysReady || memberPublicKeys.isEmpty()) {
             appLogger.error(TAG, "Cannot encrypt: member keys not ready")
             _socketError.value = "Encryption keys not loaded yet"
@@ -692,7 +692,7 @@ class GroupChatViewModel constructor(
         }
     }
 
-    private fun decryptGroupMessage(
+    private suspend fun decryptGroupMessage(
         encryptedMessage: String?,
         encryptedKeys: Map<String, String>?,
     ): String {
@@ -759,7 +759,7 @@ class GroupChatViewModel constructor(
         )
     }
 
-    private fun encryptForGroup(plaintext: String): Pair<GroupKeySession, String>? {
+    private suspend fun encryptForGroup(plaintext: String): Pair<GroupKeySession, String>? {
         val session = getOrCreateGroupKeySession() ?: return null
         return try {
             session to messageCrypto.encryptWithAesKey(plaintext, session.rawAesKey)
@@ -1221,59 +1221,61 @@ class GroupChatViewModel constructor(
         val trimmed = text.trim()
         if (trimmed.isBlank()) return
 
-        val clientMessageId = UUID.randomUUID().toString()
-        val replyTo = _replyingTo.value
+        viewModelScope.launch {
+            val clientMessageId = UUID.randomUUID().toString()
+            val replyTo = _replyingTo.value
 
-        val json = if (isPublicRoom) {
-            JSONObject().apply {
-                put("group_id", groupId)
-                put("message", trimmed)
-                put("type", "text")
-                put("client_message_id", clientMessageId)
-                if (replyTo != null) {
-                    put("reply_to_message_id", replyTo.messageId)
-                    put("reply_to_sender", replyTo.sender)
-                    val preview = replyTo.content.take(100)
-                    if (preview.isNotBlank()) {
-                        put("encrypted_reply_preview", preview)
+            val json = if (isPublicRoom) {
+                JSONObject().apply {
+                    put("group_id", groupId)
+                    put("message", trimmed)
+                    put("type", "text")
+                    put("client_message_id", clientMessageId)
+                    if (replyTo != null) {
+                        put("reply_to_message_id", replyTo.messageId)
+                        put("reply_to_sender", replyTo.sender)
+                        val preview = replyTo.content.take(100)
+                        if (preview.isNotBlank()) {
+                            put("encrypted_reply_preview", preview)
+                        }
                     }
                 }
-            }
-        } else {
-            val (keySession, encryptedMessage) = encryptForGroup(trimmed) ?: return
-            JSONObject().apply {
-                put("group_id", groupId)
-                put("message", encryptedMessage)
-                put("group_key_ref", keySession.keyRef)
-                put("type", "text")
-                put("client_message_id", clientMessageId)
-                if (keySession.includeKeyRecordsOnNextSend) {
-                    put(
-                        "recipient_key_records",
-                        buildRecipientKeyRecordsJson(keySession.encryptedKeys),
-                    )
-                }
-                if (replyTo != null) {
-                    put("reply_to_message_id", replyTo.messageId)
-                    put("reply_to_sender", replyTo.sender)
-                    val preview = replyTo.content.take(100)
-                    if (preview.isNotBlank()) {
+            } else {
+                val (keySession, encryptedMessage) = encryptForGroup(trimmed) ?: return@launch
+                JSONObject().apply {
+                    put("group_id", groupId)
+                    put("message", encryptedMessage)
+                    put("group_key_ref", keySession.keyRef)
+                    put("type", "text")
+                    put("client_message_id", clientMessageId)
+                    if (keySession.includeKeyRecordsOnNextSend) {
                         put(
-                            "encrypted_reply_preview",
-                            messageCrypto.encryptWithAesKey(preview, keySession.rawAesKey),
+                            "recipient_key_records",
+                            buildRecipientKeyRecordsJson(keySession.encryptedKeys),
                         )
                     }
+                    if (replyTo != null) {
+                        put("reply_to_message_id", replyTo.messageId)
+                        put("reply_to_sender", replyTo.sender)
+                        val preview = replyTo.content.take(100)
+                        if (preview.isNotBlank()) {
+                            put(
+                                "encrypted_reply_preview",
+                                messageCrypto.encryptWithAesKey(preview, keySession.rawAesKey),
+                            )
+                        }
+                    }
+                }.also {
+                    keySession.includeKeyRecordsOnNextSend = false
                 }
-            }.also {
-                keySession.includeKeyRecordsOnNextSend = false
             }
+            emitGroupMessageWithRetry(
+                payload = json,
+                clientMessageId = clientMessageId,
+            )
+            stopTypingNow()
+            clearReply()
         }
-        emitGroupMessageWithRetry(
-            payload = json,
-            clientMessageId = clientMessageId,
-        )
-        stopTypingNow()
-        clearReply()
     }
 
     fun onComposerTextChanged(text: String) {

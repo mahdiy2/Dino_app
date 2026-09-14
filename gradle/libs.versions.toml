@@ -8,6 +8,7 @@ composeCompiler = "2.1.20" # Updated Compose Compiler version to match Kotlin
 composeMultiplatform = "1.8.2"
 composeUiTest = "1.8.2"
 coroutines = "1.10.2"
+cryptographyKotlin = "0.4.0"
 coreKtx = "1.13.1"
 junit = "4.13.2"
 junitVersion = "1.2.1"
@@ -38,6 +39,10 @@ workRuntimeKtx = "2.10.1"
 # ksp = "1.9.23-1.0.20" # Removed this redundant and conflicting line
 material3 = "1.4.0-alpha16"
 [libraries]
+cryptography-core = { module = "dev.whyoleg.cryptography:cryptography-core", version.ref = "cryptographyKotlin" }
+cryptography-provider-jdk = { module = "dev.whyoleg.cryptography:cryptography-provider-jdk", version.ref = "cryptographyKotlin" }
+cryptography-provider-openssl3-prebuilt = { module = "dev.whyoleg.cryptography:cryptography-provider-openssl3-prebuilt", version.ref = "cryptographyKotlin" }
+cryptography-provider-webcrypto = { module = "dev.whyoleg.cryptography:cryptography-provider-webcrypto", version.ref = "cryptographyKotlin" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastorePreferences" }
 androidx-media3-common = { module = "androidx.media3:media3-common", version.ref = "media3Exoplayer" }

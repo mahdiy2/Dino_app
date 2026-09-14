@@ -34,11 +34,10 @@ class PrivateKeyResetDialogViewModel constructor(
         if (_isSubmitting.value) return
         _errorMessage.value = null
 
-        val keyPair = messageCrypto.generateRsaKeyPair()
-        val publicKeyBase64 = keyPair.publicKeyBase64
-        val privateKeyBase64 = keyPair.privateKeyBase64
-
         scope.launch {
+            val keyPair = messageCrypto.generateRsaKeyPair()
+            val publicKeyBase64 = keyPair.publicKeyBase64
+            val privateKeyBase64 = keyPair.privateKeyBase64
             rotatePublicKeyUseCase.execute(publicKeyBase64).collect { result ->
                 when (result) {
                     is Resource.Loading -> {

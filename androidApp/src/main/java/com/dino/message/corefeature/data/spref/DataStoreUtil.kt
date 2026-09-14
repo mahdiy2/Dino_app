@@ -20,15 +20,15 @@ import kotlinx.coroutines.flow.map
  */
 class DataStoreUtil constructor(private val dataStore: DataStore<Preferences>) : AppSettingsStore {
     companion object {
-        const val SETTINGS_DATASTORE_FILE_NAME = "settings.preferences_pb"
+        const val SETTINGS_DATASTORE_FILE_NAME = AppSettingsKeys.SETTINGS_DATASTORE_FILE_NAME
 
         // Define keys for accessing specific preferences
-        val DARK_THEME_SETTINGS_KEY = stringPreferencesKey("DARK_THEME_SETTINGS")
-        val LANGUAGE_KEY = stringPreferencesKey("LANGUAGE")
-        val LANGUAGE_ONBOARDING_DONE_KEY = booleanPreferencesKey("LANGUAGE_ONBOARDING_DONE")
-        val BADGE_ACCESS_ENABLED_KEY = booleanPreferencesKey("BADGE_ACCESS_ENABLED")
-        val BADGE_ACCESS_LAST_SYNC_EPOCH_MS_KEY = longPreferencesKey("BADGE_ACCESS_LAST_SYNC_EPOCH_MS")
-        val BADGE_FEATURES_DIALOG_DISMISSED_KEY = booleanPreferencesKey("BADGE_FEATURES_DIALOG_DISMISSED")
+        val DARK_THEME_SETTINGS_KEY = stringPreferencesKey(AppSettingsKeys.DARK_THEME_SETTINGS)
+        val LANGUAGE_KEY = stringPreferencesKey(AppSettingsKeys.LANGUAGE)
+        val LANGUAGE_ONBOARDING_DONE_KEY = booleanPreferencesKey(AppSettingsKeys.LANGUAGE_ONBOARDING_DONE)
+        val BADGE_ACCESS_ENABLED_KEY = booleanPreferencesKey(AppSettingsKeys.BADGE_ACCESS_ENABLED)
+        val BADGE_ACCESS_LAST_SYNC_EPOCH_MS_KEY = longPreferencesKey(AppSettingsKeys.BADGE_ACCESS_LAST_SYNC_EPOCH_MS)
+        val BADGE_FEATURES_DIALOG_DISMISSED_KEY = booleanPreferencesKey(AppSettingsKeys.BADGE_FEATURES_DIALOG_DISMISSED)
     }
 
     /**

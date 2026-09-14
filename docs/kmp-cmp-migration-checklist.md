@@ -451,35 +451,82 @@ Follow-up discovered:
 
 ### 10. Finalize Preferences, Secure Storage, And Crypto
 
-- [ ] Keep existing Android preference filenames, keys, defaults, and encrypted
+- [x] Keep existing Android preference filenames, keys, defaults, and encrypted
   storage behavior.
-- [ ] Add platform secure storage implementations.
+- [x] Add platform secure storage implementations.
   - Android: current encrypted storage or vetted successor.
   - iOS: Keychain.
   - Desktop: OS keychain or encrypted file strategy.
   - Web/Wasm: explicit browser storage strategy with documented security limits.
-- [ ] Keep sensitive data behind secure/session interfaces.
+- [x] Keep sensitive data behind secure/session interfaces.
   - Auth token.
   - Refresh token.
   - Private keys.
   - Pending registration keys.
   - Device sync state.
   - Theme, language, onboarding, and session flags.
-- [ ] Add non-Android crypto implementations or adopt a vetted KMP crypto
+- [x] Add non-Android crypto implementations or adopt a vetted KMP crypto
   library.
   - Preserve RSA 2048 key generation/import/export.
   - Preserve RSA OAEP SHA-256/MGF1 SHA-256 v2 payload compatibility.
   - Preserve AES-GCM `iv + ciphertext/tag` compatibility.
   - Preserve legacy RSA PKCS#1/AES fallback decryption.
   - Preserve public-key parsing formats currently supported by Android/JVM.
-- [ ] Keep golden-vector tests in common.
+- [x] Keep golden-vector tests in common.
   - Private-message round trips.
   - Group-message recipient key round trips.
   - Legacy payload decrypt.
   - Public-key import/export formats.
   - Stable debug fingerprints.
-- [ ] Commit after verification.
+- [x] Commit after verification.
   - Suggested message: `feat(kmp): add multiplatform secure storage`.
+
+Completed preferences/security verification on 2026-09-14:
+
+- Android keeps encrypted preferences file `sec_message`, its existing keys and
+  defaults, and DataStore file `settings.preferences_pb` with the existing
+  typed keys.
+- Shared session/preferences implementations are backed by Android encrypted
+  preferences/DataStore, iOS Keychain/NSUserDefaults, an AES-GCM encrypted
+  desktop file/JVM preferences, and namespaced browser session/local storage.
+- Browser secrets are session-only and therefore disappear when the tab session
+  ends; this is intentional until a production-hardened browser key design is
+  selected.
+- Shared crypto uses cryptography-kotlin 0.4.0 with JDK, OpenSSL, and WebCrypto
+  providers. Crypto calls are suspendable for browser compatibility while the
+  existing RSA-2048, OAEP SHA-256/MGF1 SHA-256, AES-GCM `iv + ciphertext/tag`,
+  `v2:` prefix, public-key formats, and legacy decrypt behavior remain stable.
+- Fixed common golden vectors cover v2 and legacy decrypts, private/group
+  round trips, key formats, and debug fingerprints. Executed desktop tests cover
+  encryption and corruption; compiled browser tests cover defaults and namespace
+  isolation pending an available browser-test runtime.
+- Verified commands:
+  - `./gradlew checkDomainBoundaries`
+  - `./gradlew :composeApp:compileCommonMainKotlinMetadata`
+  - `./gradlew :composeApp:desktopTest`
+  - `./gradlew :composeApp:compileKotlinWasmJs`
+  - `./gradlew :composeApp:compileTestKotlinWasmJs`
+  - `./gradlew :androidApp:compileDebugKotlin`
+  - `./gradlew :androidApp:testDebugUnitTest`
+  - `./gradlew :androidApp:compileDebugAndroidTestKotlin`
+  - `./gradlew verifyKmpBaseline`
+
+Follow-up discovered:
+
+- Replace browser `sessionStorage` secrets with a server-assisted or
+  non-extractable-key design before treating authenticated web flows as
+  production hardened; session storage remains exposed to same-origin script.
+- Run `wasmJsBrowserTest` after providing a Node.js runtime compatible with the
+  strict settings-repository policy. The Wasm production and test sources
+  compile on this host, but Gradle's automatic Node download is currently
+  rejected by that policy.
+- Run configured iOS compile/tests and Keychain/crypto integration tests on
+  macOS; Kotlin/Native iOS targets remain disabled on this Linux host.
+- Upgrade Kotlin/Compose and cryptography-kotlin together when the project
+  toolchain can consume a newer cryptography-kotlin release.
+- Evaluate moving the desktop master key into native OS keychains; the current
+  encrypted-file strategy protects data at rest but not from another process
+  running as the same OS user.
 
 ### 11. Finalize Realtime Socket
 

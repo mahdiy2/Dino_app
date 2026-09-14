@@ -1,6 +1,7 @@
 package com.dino.message.corefeature.data.crypto
 
 import com.dino.message.corefeature.domain.crypto.MessageCrypto
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -26,7 +27,7 @@ class DefaultMessageCryptoTest {
     )
 
     @Test
-    fun privateMessageRoundTripUsesV2Payloads() {
+    fun privateMessageRoundTripUsesV2Payloads() = runTest {
         val keyPair = messageCrypto.generateRsaKeyPair()
         val publicKey = messageCrypto.decodePublicKey(keyPair.publicKeyBase64)
         val privateKey = messageCrypto.decodePrivateKey(keyPair.privateKeyBase64)
@@ -44,7 +45,7 @@ class DefaultMessageCryptoTest {
     }
 
     @Test
-    fun groupMessageRoundTripDecryptsForEveryRecipient() {
+    fun groupMessageRoundTripDecryptsForEveryRecipient() = runTest {
         val alice = messageCrypto.generateRsaKeyPair()
         val bob = messageCrypto.generateRsaKeyPair()
         val members = mapOf(
@@ -74,7 +75,7 @@ class DefaultMessageCryptoTest {
     }
 
     @Test
-    fun existingGroupAesKeyEncryptsReplyPreview() {
+    fun existingGroupAesKeyEncryptsReplyPreview() = runTest {
         val keyPair = messageCrypto.generateRsaKeyPair()
         val encryptedGroup = messageCrypto.encryptGroupMessage(
             message = "",
@@ -97,7 +98,7 @@ class DefaultMessageCryptoTest {
     }
 
     @Test
-    fun legacyPayloadsStillDecrypt() {
+    fun legacyPayloadsStillDecrypt() = runTest {
         val keyPair = messageCrypto.generateRsaKeyPair()
         val privateKey = messageCrypto.decodePrivateKey(keyPair.privateKeyBase64)
         val publicKey = KeyFactory.getInstance("RSA")
@@ -123,7 +124,7 @@ class DefaultMessageCryptoTest {
     }
 
     @Test
-    fun publicKeyDecoderAcceptsX509PemAndOpenSsh() {
+    fun publicKeyDecoderAcceptsX509PemAndOpenSsh() = runTest {
         val keyPair = messageCrypto.generateRsaKeyPair()
         val x509 = messageCrypto.decodePublicKey(keyPair.publicKeyBase64)
         val pem = """
@@ -139,7 +140,7 @@ class DefaultMessageCryptoTest {
     }
 
     @Test
-    fun publicKeyDebugFingerprintIsStable() {
+    fun publicKeyDebugFingerprintIsStable() = runTest {
         val formatted = messageCrypto.formatPublicKeyForLog(" abc ")
 
         assertTrue(formatted.contains("len=5"))

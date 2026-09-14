@@ -17,20 +17,20 @@ data class ExportedRsaKeyPair(
 )
 
 interface MessageCrypto {
-    fun generateRsaKeyPair(): ExportedRsaKeyPair
-    fun decodePublicKey(rawValue: String): RsaPublicKey
-    fun decodePublicKeyOrNull(rawValue: String?): RsaPublicKey?
-    fun decodePrivateKey(base64Key: String): RsaPrivateKey
-    fun encryptMessage(message: String, receiverPublicKey: RsaPublicKey): EncryptedMessagePayload
-    fun encryptGroupMessage(
+    suspend fun generateRsaKeyPair(): ExportedRsaKeyPair
+    suspend fun decodePublicKey(rawValue: String): RsaPublicKey
+    suspend fun decodePublicKeyOrNull(rawValue: String?): RsaPublicKey?
+    suspend fun decodePrivateKey(base64Key: String): RsaPrivateKey
+    suspend fun encryptMessage(message: String, receiverPublicKey: RsaPublicKey): EncryptedMessagePayload
+    suspend fun encryptGroupMessage(
         message: String,
         memberPublicKeys: Map<String, RsaPublicKey>,
     ): GroupEncryptionPayload
-    fun encryptWithAesKey(message: String, aesKey: ByteArray): String
-    fun decryptMessage(
+    suspend fun encryptWithAesKey(message: String, aesKey: ByteArray): String
+    suspend fun decryptMessage(
         encryptedMessage: String,
         encryptedAesKey: String,
         privateKey: RsaPrivateKey,
     ): String
-    fun formatPublicKeyForLog(rawKey: String?): String
+    suspend fun formatPublicKeyForLog(rawKey: String?): String
 }

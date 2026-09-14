@@ -14,11 +14,11 @@ data class RsaKeyPair(
 )
 
 interface RsaCrypto {
-    fun generateKeyPair(keySizeBits: Int): RsaKeyPair
-    fun importPrivateKeyPkcs8(keyBytes: ByteArray): RsaPrivateKey
-    fun importPublicKey(rawValue: String): RsaPublicKey
-    fun importPublicKeyOrNull(rawValue: String?): RsaPublicKey?
-    fun encryptOaepSha256(data: ByteArray, publicKey: RsaPublicKey): ByteArray
-    fun decryptOaepSha256(data: ByteArray, privateKey: RsaPrivateKey): ByteArray
-    fun decryptPkcs1(data: ByteArray, privateKey: RsaPrivateKey): ByteArray
+    suspend fun generateKeyPair(keySizeBits: Int): RsaKeyPair
+    suspend fun importPrivateKeyPkcs8(keyBytes: ByteArray): RsaPrivateKey
+    suspend fun importPublicKey(rawValue: String): RsaPublicKey
+    suspend fun importPublicKeyOrNull(rawValue: String?): RsaPublicKey?
+    suspend fun encryptOaepSha256(data: ByteArray, publicKey: RsaPublicKey): ByteArray
+    suspend fun decryptOaepSha256(data: ByteArray, privateKey: RsaPrivateKey): ByteArray
+    suspend fun decryptPkcs1(data: ByteArray, privateKey: RsaPrivateKey): ByteArray
 }

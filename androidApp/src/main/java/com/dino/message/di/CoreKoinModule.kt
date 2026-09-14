@@ -204,7 +204,7 @@ val coreModule = module {
     single { createSettingsDataStore(context = androidContext()) }
     single { DataStoreUtil(dataStore = get()) }
     single<AppSettingsStore> { get<DataStoreUtil>() }
-    single { MainActivityUiSettingsState(dataStoreUtil = get()) }
+    single { MainActivityUiSettingsState(appSettingsStore = get()) }
     single { CrashLogApiService(httpClient = get(), sPrefManager = get()) }
     single { CrashLogBuilder(appConfig = get(), platformInfoProvider = get()) }
     single<CrashUiLauncher> {

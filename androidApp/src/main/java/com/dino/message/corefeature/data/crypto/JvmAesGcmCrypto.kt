@@ -9,11 +9,11 @@ import javax.crypto.spec.SecretKeySpec
 class JvmAesGcmCrypto(
     private val secureRandom: SecureRandom = SecureRandom(),
 ) : AesGcmCrypto {
-    override fun generateKey(sizeBytes: Int): ByteArray {
+    override suspend fun generateKey(sizeBytes: Int): ByteArray {
         return ByteArray(sizeBytes).also(secureRandom::nextBytes)
     }
 
-    override fun encrypt(
+    override suspend fun encrypt(
         plainText: ByteArray,
         key: ByteArray,
         ivSizeBytes: Int,
@@ -23,7 +23,7 @@ class JvmAesGcmCrypto(
         return encryptWithIv(plainText, key, iv, tagLengthBits)
     }
 
-    override fun decrypt(
+    override suspend fun decrypt(
         encryptedPayload: ByteArray,
         key: ByteArray,
         ivSizeBytes: Int,
@@ -41,7 +41,7 @@ class JvmAesGcmCrypto(
         return aesCipher.doFinal(cipherText)
     }
 
-    override fun encryptWithIv(
+    override suspend fun encryptWithIv(
         plainText: ByteArray,
         key: ByteArray,
         iv: ByteArray,
@@ -54,6 +54,12 @@ class JvmAesGcmCrypto(
             GCMParameterSpec(tagLengthBits, iv),
         )
         return iv + aesCipher.doFinal(plainText)
+    }
+
+    override suspend fun decryptLegacyEcb(encryptedPayload: ByteArray, key: ByteArray): ByteArray {
+        val aesCipher = Cipher.getInstance(AES_ALGORITHM)
+        aesCipher.init(Cipher.DECRYPT_MODE, SecretKeySpec(key, AES_ALGORITHM))
+        return aesCipher.doFinal(encryptedPayload)
     }
 
     private companion object {

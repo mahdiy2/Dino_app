@@ -155,27 +155,29 @@ class RegisterScreenViewModel constructor(
             return
         }
 
-        val keyPair = messageCrypto.generateRsaKeyPair()
-        val publicKeyBase64 = keyPair.publicKeyBase64
-        val privateKeyBase64 = keyPair.privateKeyBase64
-        val clientNonce = CommonUuid.randomUuidString()
-        val normalizedReferralCode = referralCode.value.trim().uppercase().ifBlank { null }
-        val deviceId = deviceIdProvider.getDeviceId()
+        scope.launch {
+            val keyPair = messageCrypto.generateRsaKeyPair()
+            val publicKeyBase64 = keyPair.publicKeyBase64
+            val privateKeyBase64 = keyPair.privateKeyBase64
+            val clientNonce = CommonUuid.randomUuidString()
+            val normalizedReferralCode = referralCode.value.trim().uppercase().ifBlank { null }
+            val deviceId = deviceIdProvider.getDeviceId()
 
-        authSessionStore.clearPendingRegistration()
-        authSessionStore.savePendingPrivateKey(privateKeyBase64)
-        authSessionStore.savePendingPublicKey(publicKeyBase64)
-        authSessionStore.savePendingRegistrationUsername(trimmedUsername)
-        authSessionStore.savePendingRegistrationNonce(clientNonce)
+            authSessionStore.clearPendingRegistration()
+            authSessionStore.savePendingPrivateKey(privateKeyBase64)
+            authSessionStore.savePendingPublicKey(publicKeyBase64)
+            authSessionStore.savePendingRegistrationUsername(trimmedUsername)
+            authSessionStore.savePendingRegistrationNonce(clientNonce)
 
-        register(
-            trimmedUsername,
-            rawPassword,
-            publicKeyBase64,
-            clientNonce,
-            normalizedReferralCode,
-            deviceId
-        )
+            register(
+                trimmedUsername,
+                rawPassword,
+                publicKeyBase64,
+                clientNonce,
+                normalizedReferralCode,
+                deviceId
+            )
+        }
     }
 
     fun onUsernameValueChange(value: String) {

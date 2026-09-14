@@ -1,5 +1,5 @@
 package com.dino.message.corefeature.domain.crypto
 
 interface HashCrypto {
-    fun sha256(bytes: ByteArray): ByteArray
+    suspend fun sha256(bytes: ByteArray): ByteArray
 }

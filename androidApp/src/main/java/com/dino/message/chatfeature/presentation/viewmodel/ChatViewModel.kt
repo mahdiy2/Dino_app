@@ -283,7 +283,7 @@ class ChatViewModel constructor(
         return isPublicKeyLoaded
     }
 
-    private fun resolveReceiverEncryptionPublicKey(): RsaPublicKey? {
+    private suspend fun resolveReceiverEncryptionPublicKey(): RsaPublicKey? {
         receiverEncryptionPublicKey?.let { return it }
         val rawKey = receiverPublicKey.value.orEmpty()
         if (rawKey.isBlank()) return null
@@ -497,7 +497,7 @@ class ChatViewModel constructor(
         return messages.lastOrNull { !it.messageId.isNullOrBlank() && it.timestamp.isNotBlank() }?.timestamp
     }
 
-    private fun mapHistoryMessageToEntity(historyMessage: PrivateHistoryMessage): MessageEntity? {
+    private suspend fun mapHistoryMessageToEntity(historyMessage: PrivateHistoryMessage): MessageEntity? {
         val sender = historyMessage.from.trim()
         if (sender.isBlank()) return null
 
@@ -524,7 +524,7 @@ class ChatViewModel constructor(
         )
     }
 
-    private fun decryptHistoryMessageText(historyMessage: PrivateHistoryMessage): String {
+    private suspend fun decryptHistoryMessageText(historyMessage: PrivateHistoryMessage): String {
         val encryptedMessage = historyMessage.message.orEmpty()
         val encryptedKey = historyMessage.encryptedKey.orEmpty()
         if (encryptedMessage.isBlank()) {
@@ -551,7 +551,7 @@ class ChatViewModel constructor(
         }
     }
 
-    private fun decryptHistoryReplyPreview(historyMessage: PrivateHistoryMessage): String? {
+    private suspend fun decryptHistoryReplyPreview(historyMessage: PrivateHistoryMessage): String? {
         val encryptedPreview = historyMessage.encryptedReplyPreview ?: return null
         val decryptKey = historyMessage.encryptedReplyKey ?: historyMessage.encryptedKey ?: return null
         return runCatching {
@@ -966,30 +966,31 @@ class ChatViewModel constructor(
             pushSocketDebugLog("Ignoring empty message")
             return
         }
-        val clientMessageId = generateClientMessageId()
-        val replyTo = _replyingTo.value
+        viewModelScope.launch {
+            val clientMessageId = generateClientMessageId()
+            val replyTo = _replyingTo.value
 
-        val publicKey = receiverPublicKey.value
-        if (publicKey.isNullOrBlank() || resolveReceiverEncryptionPublicKey() == null) {
-            pushSocketDebugLog("Cannot send: missing receiver public key")
-            return
+            val publicKey = receiverPublicKey.value
+            if (publicKey.isNullOrBlank() || resolveReceiverEncryptionPublicKey() == null) {
+                pushSocketDebugLog("Cannot send: missing receiver public key")
+                return@launch
+            }
+
+            emitEncryptedMessage(
+                message = trimmedMessage,
+                replyTo = replyTo,
+                clientMessageId = clientMessageId,
+            )
         }
-
-        emitEncryptedMessage(
-            message = trimmedMessage,
-            replyTo = replyTo,
-            clientMessageId = clientMessageId,
-        )
     }
 
     fun sendAttachment(media: PlatformMediaReference, caption: String? = null) {
-        val publicKey = receiverPublicKey.value
-        if (publicKey.isNullOrBlank() || resolveReceiverEncryptionPublicKey() == null) {
-            pushSocketDebugLog("Cannot send attachment: missing receiver public key")
-            return
-        }
-
         viewModelScope.launch {
+            val publicKey = receiverPublicKey.value
+            if (publicKey.isNullOrBlank() || resolveReceiverEncryptionPublicKey() == null) {
+                pushSocketDebugLog("Cannot send attachment: missing receiver public key")
+                return@launch
+            }
             _isUploading.value = true
             _uploadError.value = null
             pushSocketDebugLog("Uploading attachment...")
@@ -1023,7 +1024,7 @@ class ChatViewModel constructor(
         }
     }
 
-    private fun emitAttachmentMessage(
+    private suspend fun emitAttachmentMessage(
         attachment: com.dino.message.chatfeature.domain.model.MessageAttachment,
         caption: String?,
         replyTo: MessageEntity? = _replyingTo.value,
@@ -1140,7 +1141,7 @@ class ChatViewModel constructor(
         }
     }
 
-    private fun emitEncryptedMessage(
+    private suspend fun emitEncryptedMessage(
         message: String,
         replyTo: MessageEntity? = _replyingTo.value,
         clientMessageId: String = generateClientMessageId(),
@@ -1846,7 +1847,7 @@ class ChatViewModel constructor(
 
     private fun generateClientMessageId(): String = UUID.randomUUID().toString()
 
-    private fun encryptForCurrentUser(plainText: String): SenderEncryptedPayload? {
+    private suspend fun encryptForCurrentUser(plainText: String): SenderEncryptedPayload? {
         if (plainText.isBlank()) return null
         val selfPublicKey = spref.getPublicKey().orEmpty()
         if (selfPublicKey.isBlank()) return null

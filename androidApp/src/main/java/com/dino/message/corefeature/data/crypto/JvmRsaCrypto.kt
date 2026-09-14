@@ -41,7 +41,7 @@ class JvmRsaCrypto(
     private val keyFactory: KeyFactory
         get() = KeyFactory.getInstance(RSA_ALGORITHM)
 
-    override fun generateKeyPair(keySizeBits: Int): RsaKeyPair {
+    override suspend fun generateKeyPair(keySizeBits: Int): RsaKeyPair {
         val keyGen = KeyPairGenerator.getInstance(RSA_ALGORITHM)
         keyGen.initialize(keySizeBits)
         val keyPair = keyGen.generateKeyPair()
@@ -51,15 +51,15 @@ class JvmRsaCrypto(
         )
     }
 
-    override fun importPrivateKeyPkcs8(keyBytes: ByteArray): RsaPrivateKey {
+    override suspend fun importPrivateKeyPkcs8(keyBytes: ByteArray): RsaPrivateKey {
         return JvmRsaPrivateKey(keyFactory.generatePrivate(PKCS8EncodedKeySpec(keyBytes)))
     }
 
-    override fun importPublicKey(rawValue: String): RsaPublicKey {
+    override suspend fun importPublicKey(rawValue: String): RsaPublicKey {
         return importPublicKeyInternal(rawValue, depth = 0)
     }
 
-    override fun importPublicKeyOrNull(rawValue: String?): RsaPublicKey? {
+    override suspend fun importPublicKeyOrNull(rawValue: String?): RsaPublicKey? {
         if (rawValue.isNullOrBlank()) return null
         return try {
             importPublicKey(rawValue)
@@ -68,19 +68,19 @@ class JvmRsaCrypto(
         }
     }
 
-    override fun encryptOaepSha256(data: ByteArray, publicKey: RsaPublicKey): ByteArray {
+    override suspend fun encryptOaepSha256(data: ByteArray, publicKey: RsaPublicKey): ByteArray {
         val rsaCipher = Cipher.getInstance(RSA_OAEP_SHA_256_TRANSFORMATION)
         rsaCipher.init(Cipher.ENCRYPT_MODE, publicKey.asJvmKey(), oaepSha256Spec())
         return rsaCipher.doFinal(data)
     }
 
-    override fun decryptOaepSha256(data: ByteArray, privateKey: RsaPrivateKey): ByteArray {
+    override suspend fun decryptOaepSha256(data: ByteArray, privateKey: RsaPrivateKey): ByteArray {
         val rsaCipher = Cipher.getInstance(RSA_OAEP_SHA_256_TRANSFORMATION)
         rsaCipher.init(Cipher.DECRYPT_MODE, privateKey.asJvmKey(), oaepSha256Spec())
         return rsaCipher.doFinal(data)
     }
 
-    override fun decryptPkcs1(data: ByteArray, privateKey: RsaPrivateKey): ByteArray {
+    override suspend fun decryptPkcs1(data: ByteArray, privateKey: RsaPrivateKey): ByteArray {
         val rsaCipher = Cipher.getInstance(RSA_PKCS1_TRANSFORMATION)
         rsaCipher.init(Cipher.DECRYPT_MODE, privateKey.asJvmKey())
         return rsaCipher.doFinal(data)

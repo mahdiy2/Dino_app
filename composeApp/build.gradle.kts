@@ -39,6 +39,7 @@ kotlin {
             implementation(compose.components.resources)
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.serialization.json)
+            implementation(libs.cryptography.core)
             implementation(libs.ktor.client.core)
             implementation(libs.ktor.client.content.negotiation)
             implementation(libs.ktor.client.logging)
@@ -50,6 +51,7 @@ kotlin {
             dependsOn(nonWebMain)
             dependencies {
                 implementation(libs.ktor.client.okhttp)
+                implementation(libs.cryptography.provider.jdk)
             }
         }
 
@@ -57,6 +59,7 @@ kotlin {
             dependsOn(nonWebMain)
             dependencies {
                 implementation(libs.androidx.sqlite.bundled)
+                implementation(libs.cryptography.provider.openssl3.prebuilt)
             }
         }
 
@@ -86,6 +89,7 @@ kotlin {
             dependencies {
                 implementation(libs.ktor.client.cio)
                 implementation(libs.androidx.sqlite.bundled)
+                implementation(libs.cryptography.provider.jdk)
             }
         }
 
@@ -98,6 +102,7 @@ kotlin {
 
         getByName("wasmJsMain").dependencies {
             implementation(libs.ktor.client.js)
+            implementation(libs.cryptography.provider.webcrypto)
         }
 
         commonTest.dependencies {
