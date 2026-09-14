@@ -77,6 +77,13 @@
     <string name="reply">Reply</string>
     <string name="send_reply">Send reply</string>
     <string name="notification_write_reply">Write a reply...</string>
+    <string name="clear">Clear</string>
+    <string name="users">Users</string>
+    <string name="posts">Posts</string>
+    <string name="both">Both</string>
+    <string name="search_placeholder">Search...</string>
+    <string name="search_no_results">No results found.</string>
+    <string name="search_prompt_users_posts">Search for users or posts</string>
     <string name="block_list">Block list</string>
     <string name="block_list_empty">No blocked users yet.</string>
     <string name="refresh">Refresh</string>

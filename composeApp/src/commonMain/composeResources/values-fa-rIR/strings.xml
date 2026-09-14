@@ -77,6 +77,13 @@
     <string name="reply">پاسخ</string>
     <string name="send_reply">ارسال پاسخ</string>
     <string name="notification_write_reply">پاسخت را بنویس...</string>
+    <string name="clear">پاک‌کردن</string>
+    <string name="users">کاربرها</string>
+    <string name="posts">پست‌ها</string>
+    <string name="both">هردو</string>
+    <string name="search_placeholder">جستجو...</string>
+    <string name="search_no_results">نتیجه‌ای نبود.</string>
+    <string name="search_prompt_users_posts">کاربر یا پست جستجو کن</string>
     <string name="block_list">لیست بلاک</string>
     <string name="block_list_empty">کاربر بلاک‌شده‌ای نیست.</string>
     <string name="refresh">نوسازی</string>

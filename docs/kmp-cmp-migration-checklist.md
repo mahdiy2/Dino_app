@@ -349,6 +349,9 @@ Follow-up discovered:
   - Completed auth-screen slice: moved login, registration, and private-key
     confirmation screens fully into `:composeApp/commonMain`; clipboard and
     back interception remain behind shared platform interfaces.
+  - Completed search slice: moved the search scaffold, tabs, user results, and
+    loading/error/empty states into `:composeApp/commonMain`; Android injects
+    the existing post-card renderer until the thread UI slice is migrated.
   - Added `checkSharedUiBoundaries` and included it in `verifyKmpBaseline` to
     reject Android, lifecycle, Koin, JVM, and Android-resource dependencies from
     shared presentation code.

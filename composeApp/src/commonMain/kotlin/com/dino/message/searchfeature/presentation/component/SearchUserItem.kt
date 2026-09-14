@@ -20,64 +20,35 @@ import com.dino.message.profilefeature.presentation.component.ProfileAvatarMedia
 import com.dino.message.searchfeature.domain.model.SearchUser
 
 @Composable
-fun SearchUserItem(
-    user: SearchUser,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
+fun SearchUserItem(user: SearchUser, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
+        modifier = modifier.fillMaxWidth().clickable(onClick = onClick)
             .padding(horizontal = DPMedium, vertical = DPMedium),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(DPMedium)
+        horizontalArrangement = Arrangement.spacedBy(DPMedium),
     ) {
-        UserAvatar(
-            imageUrl = user.profile_image_url,
+        ProfileAvatarMedia(
+            modifier = Modifier.size(44.dp),
+            profileImageUrl = user.profile_image_url,
+            profileVideoUrl = null,
             badge = user.badge,
             profileImageShape = user.profile_image_shape,
-            modifier = Modifier.size(44.dp)
         )
-        Column(
-            verticalArrangement = Arrangement.spacedBy(DPSmall)
-        ) {
+        Column(verticalArrangement = Arrangement.spacedBy(DPSmall)) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                Text(
-                    text = user.username,
-                    style = MaterialTheme.typography.titleSmall
-                )
-                UserBadgeIcon(
-                    badge = user.badge,
-                    size = 16.dp
-                )
+                Text(user.username, style = MaterialTheme.typography.titleSmall)
+                UserBadgeIcon(badge = user.badge, size = 16.dp)
             }
-            user.name?.let { name ->
+            user.name?.let {
                 Text(
-                    text = name,
+                    it,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
     }
-}
-
-@Composable
-private fun UserAvatar(
-    imageUrl: String?,
-    badge: String?,
-    profileImageShape: String?,
-    modifier: Modifier = Modifier
-) {
-    ProfileAvatarMedia(
-        modifier = modifier,
-        profileImageUrl = imageUrl,
-        profileVideoUrl = null,
-        badge = badge,
-        profileImageShape = profileImageShape
-    )
 }
