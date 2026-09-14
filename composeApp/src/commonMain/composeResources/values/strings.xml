@@ -127,6 +127,12 @@
     <string name="group_create_error_empty_name">Please enter a group name</string>
     <string name="group_create_error_name_too_long">Group name must be at most 120 characters</string>
     <string name="group_fallback_name">Group</string>
+    <string name="group_members_title">%1$s members</string>
+    <string name="group_members_empty">No members found</string>
+    <string name="group_members_manage_hint">Only the group creator can add new members</string>
+    <string name="group_member_profile_image">Member profile image</string>
+    <string name="creator">Creator</string>
+    <string name="close">Close</string>
     <string name="group_add_members_error_select_one">Please select at least one member</string>
     <string name="group_add_members_error_already_member">Selected users are already in the group</string>
     <string name="success">Success</string>

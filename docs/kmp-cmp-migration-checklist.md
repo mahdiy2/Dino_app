@@ -352,6 +352,10 @@ Follow-up discovered:
   - Completed search slice: moved the search scaffold, tabs, user results, and
     loading/error/empty states into `:composeApp/commonMain`; Android injects
     the existing post-card renderer until the thread UI slice is migrated.
+  - Completed group-members slice: group picker/member list rendering and
+    profile-avatar presentation now live in `:composeApp/commonMain`; Android
+    retains Koin parameters, lifecycle refresh, toast delivery, and navigation
+    execution.
   - Added `checkSharedUiBoundaries` and included it in `verifyKmpBaseline` to
     reject Android, lifecycle, Koin, JVM, and Android-resource dependencies from
     shared presentation code.

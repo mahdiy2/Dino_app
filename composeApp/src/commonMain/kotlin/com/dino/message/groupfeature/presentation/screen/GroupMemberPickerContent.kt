@@ -44,6 +44,7 @@ import com.dino.message.corefeature.presentation.icons.AppIcons
 import com.dino.message.corefeature.presentation.ui.theme.DPMedium
 import com.dino.message.corefeature.presentation.ui.theme.DPSmall
 import com.dino.message.groupfeature.domain.model.MutualFollower
+import com.dino.message.profilefeature.presentation.component.ProfileAvatarMedia
 import org.jetbrains.compose.resources.stringResource
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -60,7 +61,6 @@ fun CreateGroupContent(
     onToggleMember: (String) -> Unit,
     onCreateGroup: () -> Unit,
     onNavigateUp: () -> Unit,
-    avatarContent: @Composable (MutualFollower, Modifier) -> Unit,
 ) {
     GroupMemberPickerScaffold(
         title = stringResource(Res.string.group_create_title),
@@ -100,7 +100,6 @@ fun CreateGroupContent(
                 emptyMessage = null,
                 onSearchQueryChange = onSearchQueryChange,
                 onToggleMember = onToggleMember,
-                avatarContent = avatarContent,
             )
         }
     }
@@ -119,7 +118,6 @@ fun AddGroupMembersContent(
     onToggleMember: (String) -> Unit,
     onAddMembers: () -> Unit,
     onNavigateUp: () -> Unit,
-    avatarContent: @Composable (MutualFollower, Modifier) -> Unit,
 ) {
     GroupMemberPickerScaffold(
         title = stringResource(Res.string.group_add_members_title),
@@ -154,7 +152,6 @@ fun AddGroupMembersContent(
                 emptyMessage = stringResource(Res.string.group_add_members_empty),
                 onSearchQueryChange = onSearchQueryChange,
                 onToggleMember = onToggleMember,
-                avatarContent = avatarContent,
             )
         }
     }
@@ -212,7 +209,6 @@ private fun GroupFollowerSearchAndList(
     emptyMessage: String?,
     onSearchQueryChange: (String) -> Unit,
     onToggleMember: (String) -> Unit,
-    avatarContent: @Composable (MutualFollower, Modifier) -> Unit,
 ) {
     OutlinedTextField(
         value = searchQuery,
@@ -262,7 +258,13 @@ private fun GroupFollowerSearchAndList(
                             .padding(vertical = DPSmall),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        avatarContent(follower, Modifier.size(48.dp))
+                        ProfileAvatarMedia(
+                            profileImageUrl = follower.profileImageUrl,
+                            profileVideoUrl = null,
+                            badge = follower.badge,
+                            profileImageShape = follower.profileImageShape,
+                            modifier = Modifier.size(48.dp),
+                        )
                         Spacer(Modifier.size(DPMedium))
                         Column(modifier = Modifier.weight(1f)) {
                             Row(

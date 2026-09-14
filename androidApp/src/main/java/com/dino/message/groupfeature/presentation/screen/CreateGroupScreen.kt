@@ -8,7 +8,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
 import com.dino.message.corefeature.presentation.viewmodel.rememberStateHolder
 import com.dino.message.groupfeature.presentation.viewmodel.CreateGroupViewModel
-import com.dino.message.profilefeature.presentation.component.ProfileAvatarMedia
 
 @Composable
 fun CreateGroupScreen() {
@@ -43,14 +42,5 @@ fun CreateGroupScreen() {
         onToggleMember = viewModel::toggleMember,
         onCreateGroup = viewModel::createGroup,
         onNavigateUp = viewModel::navigateUp,
-        avatarContent = { follower, modifier ->
-            ProfileAvatarMedia(
-                profileImageUrl = follower.profileImageUrl,
-                profileVideoUrl = null,
-                badge = follower.badge,
-                profileImageShape = follower.profileImageShape,
-                modifier = modifier,
-            )
-        },
     )
 }

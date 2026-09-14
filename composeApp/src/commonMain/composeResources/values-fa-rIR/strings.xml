@@ -127,6 +127,12 @@
     <string name="group_create_error_empty_name">نام گروه را وارد کنید</string>
     <string name="group_create_error_name_too_long">نام گروه حداکثر ۱۲۰ کاراکتر باشد</string>
     <string name="group_fallback_name">گروه</string>
+    <string name="group_members_title">اعضای %1$s</string>
+    <string name="group_members_empty">عضوی پیدا نشد</string>
+    <string name="group_members_manage_hint">فقط سازنده گروه می‌تواند عضو اضافه کند</string>
+    <string name="group_member_profile_image">عکس پروفایل عضو</string>
+    <string name="creator">سازنده</string>
+    <string name="close">بستن</string>
     <string name="group_add_members_error_select_one">حداقل یک عضو انتخاب کنید</string>
     <string name="group_add_members_error_already_member">کاربران انتخاب‌شده عضو گروه هستند</string>
     <string name="success">موفق</string>
