@@ -8,7 +8,7 @@ import com.dino.message.corefeature.presentation.viewmodel.rememberStateHolder
 
 @Composable
 fun PrivateKeyResetDialogScreen() {
-    val viewModel: PrivateKeyResetDialogViewModel = rememberStateHolder()
+    val viewModel = rememberStateHolder(PrivateKeyResetDialogViewModel::class)
     val isSubmitting by viewModel.isSubmitting.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
 

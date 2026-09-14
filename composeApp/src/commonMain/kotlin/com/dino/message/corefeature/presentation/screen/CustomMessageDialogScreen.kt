@@ -7,8 +7,10 @@ import com.dino.message.corefeature.presentation.viewmodel.rememberStateHolder
 
 @Composable
 fun CustomMessageDialogScreen(customMessageDialogData: CustomMessageDialogData) {
-    val viewModel: CustomMessageDialogViewModel = rememberStateHolder(customMessageDialogData.type)
-
+    val viewModel = rememberStateHolder(
+        CustomMessageDialogViewModel::class,
+        customMessageDialogData.type,
+    )
     CustomMessageDialogContent(
         customMessageDialogData = customMessageDialogData,
         onDismiss = viewModel::navigateUp,

@@ -356,6 +356,9 @@ Follow-up discovered:
     profile-avatar presentation now live in `:composeApp/commonMain`; Android
     retains Koin parameters, lifecycle refresh, toast delivery, and navigation
     execution.
+  - Completed core-dialog slice: custom-message and private-key-reset dialog
+    screens now create their shared state holders and render entirely from
+    `:composeApp/commonMain`.
   - Added `checkSharedUiBoundaries` and included it in `verifyKmpBaseline` to
     reject Android, lifecycle, Koin, JVM, and Android-resource dependencies from
     shared presentation code.
