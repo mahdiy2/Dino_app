@@ -4,6 +4,8 @@ plugins {
     alias(libs.plugins.compose.multiplatform)
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.kotlinx.serialization)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.room)
 }
 
 @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
@@ -20,6 +22,14 @@ kotlin {
     }
 
     sourceSets {
+        val commonMain by getting
+        val nonWebMain by creating {
+            dependsOn(commonMain)
+            dependencies {
+                api(libs.room.runtime)
+            }
+        }
+
         commonMain.dependencies {
             implementation(compose.runtime)
             implementation(compose.animation)
@@ -36,24 +46,54 @@ kotlin {
             implementation(libs.ktor.serialization.kotlinx.json)
         }
 
-        getByName("androidMain").dependencies {
-            implementation(libs.ktor.client.okhttp)
+        getByName("androidMain").apply {
+            dependsOn(nonWebMain)
+            dependencies {
+                implementation(libs.ktor.client.okhttp)
+            }
         }
 
-        getByName("iosX64Main").dependencies {
-            implementation(libs.ktor.client.darwin)
+        val iosMain by creating {
+            dependsOn(nonWebMain)
+            dependencies {
+                implementation(libs.androidx.sqlite.bundled)
+            }
         }
 
-        getByName("iosArm64Main").dependencies {
-            implementation(libs.ktor.client.darwin)
+        getByName("iosX64Main").apply {
+            dependsOn(iosMain)
+            dependencies {
+                implementation(libs.ktor.client.darwin)
+            }
         }
 
-        getByName("iosSimulatorArm64Main").dependencies {
-            implementation(libs.ktor.client.darwin)
+        getByName("iosArm64Main").apply {
+            dependsOn(iosMain)
+            dependencies {
+                implementation(libs.ktor.client.darwin)
+            }
         }
 
-        getByName("desktopMain").dependencies {
-            implementation(libs.ktor.client.cio)
+        getByName("iosSimulatorArm64Main").apply {
+            dependsOn(iosMain)
+            dependencies {
+                implementation(libs.ktor.client.darwin)
+            }
+        }
+
+        getByName("desktopMain").apply {
+            dependsOn(nonWebMain)
+            dependencies {
+                implementation(libs.ktor.client.cio)
+                implementation(libs.androidx.sqlite.bundled)
+            }
+        }
+
+        val desktopTest by getting {
+            dependencies {
+                implementation(kotlin("test"))
+                implementation(libs.kotlinx.coroutines.test)
+            }
         }
 
         getByName("wasmJsMain").dependencies {
@@ -67,6 +107,18 @@ kotlin {
     }
 }
 
+room {
+    schemaDirectory("$projectDir/schemas")
+}
+
+dependencies {
+    add("kspAndroid", libs.room.compiler)
+    add("kspDesktop", libs.room.compiler)
+    add("kspIosX64", libs.room.compiler)
+    add("kspIosArm64", libs.room.compiler)
+    add("kspIosSimulatorArm64", libs.room.compiler)
+}
+
 compose.resources {
     packageOfResClass = "com.dino.message.composeapp.generated.resources"
 }
@@ -77,5 +129,10 @@ android {
 
     defaultConfig {
         minSdk = 28
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 }

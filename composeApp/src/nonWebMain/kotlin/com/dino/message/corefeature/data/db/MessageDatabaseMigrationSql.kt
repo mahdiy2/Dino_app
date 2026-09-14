@@ -26,32 +26,25 @@ internal object MessageDatabaseMigrationSql {
         ),
     )
 
-    val MIGRATION_3_4 = SqlMigrationSpec(
-        startVersion = 3,
-        endVersion = 4,
-        statements = listOf("ALTER TABLE messages ADD COLUMN messageId TEXT"),
-    )
-
+    val MIGRATION_3_4 = SqlMigrationSpec(3, 4, listOf("ALTER TABLE messages ADD COLUMN messageId TEXT"))
     val MIGRATION_4_5 = SqlMigrationSpec(
-        startVersion = 4,
-        endVersion = 5,
-        statements = listOf("CREATE UNIQUE INDEX IF NOT EXISTS index_messages_messageId ON messages (messageId)"),
+        4,
+        5,
+        listOf("CREATE UNIQUE INDEX IF NOT EXISTS index_messages_messageId ON messages (messageId)"),
     )
-
     val MIGRATION_5_6 = SqlMigrationSpec(
-        startVersion = 5,
-        endVersion = 6,
-        statements = listOf(
+        5,
+        6,
+        listOf(
             "ALTER TABLE messages ADD COLUMN replyToMessageId TEXT",
             "ALTER TABLE messages ADD COLUMN replyToSender TEXT",
             "ALTER TABLE messages ADD COLUMN replyPreview TEXT",
         ),
     )
-
     val MIGRATION_6_7 = SqlMigrationSpec(
-        startVersion = 6,
-        endVersion = 7,
-        statements = listOf(
+        6,
+        7,
+        listOf(
             """
             CREATE TABLE IF NOT EXISTS group_messages (
                 id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -74,20 +67,18 @@ internal object MessageDatabaseMigrationSql {
             "CREATE UNIQUE INDEX IF NOT EXISTS index_group_messages_messageId ON group_messages (messageId)",
         ),
     )
-
     val MIGRATION_7_8 = SqlMigrationSpec(
-        startVersion = 7,
-        endVersion = 8,
-        statements = listOf(
+        7,
+        8,
+        listOf(
             "ALTER TABLE messages ADD COLUMN isSeen INTEGER NOT NULL DEFAULT 0",
             "ALTER TABLE group_messages ADD COLUMN isSeen INTEGER NOT NULL DEFAULT 0",
         ),
     )
-
     val MIGRATION_8_9 = SqlMigrationSpec(
-        startVersion = 8,
-        endVersion = 9,
-        statements = listOf(
+        8,
+        9,
+        listOf(
             """
             CREATE TABLE IF NOT EXISTS crash_logs_queue (
                 id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -120,41 +111,26 @@ internal object MessageDatabaseMigrationSql {
             """.trimIndent(),
         ),
     )
-
     val MIGRATION_9_10 = SqlMigrationSpec(
-        startVersion = 9,
-        endVersion = 10,
-        statements = listOf(
-            """
-            CREATE INDEX IF NOT EXISTS index_messages_chatId
-            ON messages (chatId)
-            """.trimIndent(),
-            """
-            CREATE INDEX IF NOT EXISTS index_group_messages_groupId
-            ON group_messages (groupId)
-            """.trimIndent(),
+        9,
+        10,
+        listOf(
+            "CREATE INDEX IF NOT EXISTS index_messages_chatId ON messages (chatId)",
+            "CREATE INDEX IF NOT EXISTS index_group_messages_groupId ON group_messages (groupId)",
         ),
     )
-
     val MIGRATION_10_11 = SqlMigrationSpec(
-        startVersion = 10,
-        endVersion = 11,
-        statements = listOf(
-            """
-            CREATE INDEX IF NOT EXISTS index_messages_chatId_timestamp_id
-            ON messages (chatId, timestamp, id)
-            """.trimIndent(),
-            """
-            CREATE INDEX IF NOT EXISTS index_group_messages_groupId_timestamp_id
-            ON group_messages (groupId, timestamp, id)
-            """.trimIndent(),
+        10,
+        11,
+        listOf(
+            "CREATE INDEX IF NOT EXISTS index_messages_chatId_timestamp_id ON messages (chatId, timestamp, id)",
+            "CREATE INDEX IF NOT EXISTS index_group_messages_groupId_timestamp_id ON group_messages (groupId, timestamp, id)",
         ),
     )
-
     val MIGRATION_11_12 = SqlMigrationSpec(
-        startVersion = 11,
-        endVersion = 12,
-        statements = listOf(
+        11,
+        12,
+        listOf(
             """
             CREATE TABLE IF NOT EXISTS socket_outbound_queue (
                 queueId TEXT NOT NULL,
@@ -169,21 +145,14 @@ internal object MessageDatabaseMigrationSql {
                 PRIMARY KEY(queueId)
             )
             """.trimIndent(),
-            """
-            CREATE INDEX IF NOT EXISTS index_socket_outbound_queue_nextAttemptAtMs
-            ON socket_outbound_queue (nextAttemptAtMs)
-            """.trimIndent(),
-            """
-            CREATE UNIQUE INDEX IF NOT EXISTS index_socket_outbound_queue_dedupeKey
-            ON socket_outbound_queue (dedupeKey)
-            """.trimIndent(),
+            "CREATE INDEX IF NOT EXISTS index_socket_outbound_queue_nextAttemptAtMs ON socket_outbound_queue (nextAttemptAtMs)",
+            "CREATE UNIQUE INDEX IF NOT EXISTS index_socket_outbound_queue_dedupeKey ON socket_outbound_queue (dedupeKey)",
         ),
     )
-
     val MIGRATION_12_13 = SqlMigrationSpec(
-        startVersion = 12,
-        endVersion = 13,
-        statements = listOf(
+        12,
+        13,
+        listOf(
             "ALTER TABLE messages ADD COLUMN reactionsJson TEXT",
             "ALTER TABLE group_messages ADD COLUMN reactionsJson TEXT",
         ),

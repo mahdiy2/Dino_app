@@ -158,13 +158,6 @@ dependencies {
 
     implementation(libs.androidx.work.runtime.ktx)
 
-    // room
-    implementation(libs.room.runtime)
-    implementation(libs.room.ktx)
-    implementation(libs.room.sqlite.wrapper)
-    implementation(libs.androidx.sqlite.bundled)
-    ksp(libs.room.compiler)
-
     coreLibraryDesugaring(libs.desugar.jdk.libs)
 
 }

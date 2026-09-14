@@ -4,16 +4,12 @@ import android.content.Context
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-private const val MESSAGE_DATABASE_NAME = "chat_db"
-
 fun createMessageDatabaseBuilder(context: Context): RoomDatabase.Builder<MessageDatabase> =
-    Room.databaseBuilder(
+    Room.databaseBuilder<MessageDatabase>(
         context.applicationContext,
-        MessageDatabase::class.java,
         MESSAGE_DATABASE_NAME,
+        MessageDatabaseConstructor::initialize,
     )
 
 fun buildMessageDatabase(context: Context): MessageDatabase =
-    createMessageDatabaseBuilder(context)
-        .addMigrations(*MessageDatabase.ALL_MIGRATIONS)
-        .build()
+    MessageDatabase.configure(createMessageDatabaseBuilder(context))

@@ -1,9 +1,12 @@
 package com.dino.message.corefeature.data.db
 
+import androidx.room.ConstructedBy
 import androidx.room.Database
 import androidx.room.RoomDatabase
+import androidx.room.RoomDatabaseConstructor
 import androidx.room.migration.Migration
-import androidx.sqlite.db.SupportSQLiteDatabase
+import androidx.sqlite.SQLiteConnection
+import androidx.sqlite.execSQL
 import com.dino.message.chatfeature.data.db.MessageDao
 import com.dino.message.chatfeature.data.local.MessageLocalEntity
 import com.dino.message.corefeature.data.socket.SocketOutboundQueueDao
@@ -13,6 +16,9 @@ import com.dino.message.crashfeature.data.local.CrashLogEntity
 import com.dino.message.groupfeature.data.db.GroupMessageDao
 import com.dino.message.groupfeature.data.local.GroupMessageLocalEntity
 
+const val MESSAGE_DATABASE_NAME = "chat_db"
+const val MESSAGE_DATABASE_VERSION = 13
+
 @Database(
     entities = [
         MessageLocalEntity::class,
@@ -20,8 +26,9 @@ import com.dino.message.groupfeature.data.local.GroupMessageLocalEntity
         CrashLogEntity::class,
         SocketOutboundQueueEntity::class,
     ],
-    version = 13,
+    version = MESSAGE_DATABASE_VERSION,
 )
+@ConstructedBy(MessageDatabaseConstructor::class)
 abstract class MessageDatabase : RoomDatabase() {
     abstract fun messageDao(): MessageDao
     abstract fun groupMessageDao(): GroupMessageDao
@@ -57,10 +64,20 @@ abstract class MessageDatabase : RoomDatabase() {
             MIGRATION_12_13,
         )
 
-        private fun roomMigration(spec: SqlMigrationSpec) = object : Migration(spec.startVersion, spec.endVersion) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                spec.statements.forEach(db::execSQL)
+        fun configure(builder: Builder<MessageDatabase>): MessageDatabase = builder
+            .addMigrations(*ALL_MIGRATIONS)
+            .build()
+
+        private fun roomMigration(spec: SqlMigrationSpec) =
+            object : Migration(spec.startVersion, spec.endVersion) {
+                override fun migrate(connection: SQLiteConnection) {
+                    spec.statements.forEach(connection::execSQL)
+                }
             }
-        }
     }
+}
+
+@Suppress("NO_ACTUAL_FOR_EXPECT")
+expect object MessageDatabaseConstructor : RoomDatabaseConstructor<MessageDatabase> {
+    override fun initialize(): MessageDatabase
 }

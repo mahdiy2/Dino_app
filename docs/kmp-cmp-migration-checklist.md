@@ -409,30 +409,45 @@ Follow-up discovered:
 
 ### 9. Finalize Persistence
 
-- [ ] Keep Room KMP as the selected database strategy.
-- [ ] Move database declarations, entities, DAOs, and migration SQL only after
+- [x] Keep Room KMP as the selected database strategy.
+- [x] Move database declarations, entities, DAOs, and migration SQL only after
   the module split and source sets are stable.
-- [ ] Preserve the current Android database contract.
+- [x] Preserve the current Android database contract.
   - Database name: `chat_db`.
   - Current schema version: `13`.
   - Existing migration SQL must remain compatible.
-- [ ] Keep domain models separate from Room entities.
+- [x] Keep domain models separate from Room entities.
   - Private message and group message local entities must remain data-layer
     persistence models.
   - Repositories map local entities to domain models.
-- [ ] Add platform database builders.
+- [x] Add platform database builders.
   - Android builder keeps the existing database location.
   - iOS, desktop, and web/wasm storage strategy must be explicit before enabling
     persistence on those targets.
-- [ ] Add migration and repository tests.
+- [x] Add migration and repository tests.
   - Private messages.
   - Group messages.
   - Socket outbound queue.
   - Crash log queue.
   - Notification/message dedupe stores.
   - Schema migration from existing Android installs.
-- [ ] Commit after verification.
+- [x] Commit after verification.
   - Suggested message: `refactor(database): move room schema to composeApp`.
+  - Completed persistence verification on 2026-09-14:
+    - `./gradlew checkDomainBoundaries`
+    - `./gradlew :composeApp:compileKotlinMetadata`
+    - `./gradlew :composeApp:desktopTest`
+    - `./gradlew :composeApp:compileKotlinWasmJs`
+    - `./gradlew :androidApp:compileDebugKotlin`
+    - `./gradlew :androidApp:testDebugUnitTest`
+    - `./gradlew :androidApp:compileDebugAndroidTestKotlin`
+    - `./gradlew verifyKmpBaseline`
+  - KSP2 is enabled because Room KMP processing is incompatible with the
+    project's previous KSP1 processor runtime.
+  - Follow-up: run configured iOS compile/test tasks on macOS; Kotlin/Native iOS
+    targets remain disabled on this Linux host.
+  - Follow-up: select and document a browser storage strategy before enabling
+    Room persistence for web/wasm.
 
 ### 10. Finalize Preferences, Secure Storage, And Crypto
 
