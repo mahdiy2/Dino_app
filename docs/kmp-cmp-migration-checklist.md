@@ -342,6 +342,13 @@ Follow-up discovered:
     `:composeApp/commonMain`, with state-holder creation, URL launching, and
     system back handling supplied through platform-neutral interfaces and
     Android implementations.
+  - Completed activity-notification slice: moved notification list/row
+    rendering, reply composer, follow-back controls, and avatar rendering into
+    `:composeApp/commonMain`; Android retains ViewModel orchestration and
+    localized notification-text mapping.
+  - Added `checkSharedUiBoundaries` and included it in `verifyKmpBaseline` to
+    reject Android, lifecycle, Koin, JVM, and Android-resource dependencies from
+    shared presentation code.
   - Follow-up: move Android route wrappers only after shared state-holder
     creation/navigation adapters are available for non-Android targets.
   - Follow-up: move chat, group chat, story editor/viewer, music, media picker,

@@ -26,8 +26,10 @@ import com.dino.message.corefeature.domain.notification.AppNotificationControlle
 import com.dino.message.corefeature.domain.notification.NotificationSocketController
 import com.dino.message.corefeature.presentation.activity.theme.SecMessageTheme
 import com.dino.message.corefeature.presentation.platform.LocalPlatformBackHandler
+import com.dino.message.corefeature.presentation.platform.LocalPlatformMediaRenderer
 import com.dino.message.corefeature.presentation.platform.LocalPlatformUiEffect
 import com.dino.message.corefeature.presentation.platform.rememberAndroidPlatformBackHandler
+import com.dino.message.corefeature.presentation.platform.rememberAndroidPlatformMediaRenderer
 import com.dino.message.corefeature.presentation.platform.rememberAndroidPlatformUiEffect
 import com.dino.message.corefeature.presentation.navigation.AndroidIntentDeepLinkHandler
 import com.dino.message.corefeature.presentation.navigation.AppNavGraph
@@ -84,6 +86,7 @@ class MainActivity : ComponentActivity() {
 
                 val platformUiEffect = rememberAndroidPlatformUiEffect()
                 val platformBackHandler = rememberAndroidPlatformBackHandler()
+                val platformMediaRenderer = rememberAndroidPlatformMediaRenderer()
                 val activeModalRoute = remember { mutableStateOf<AppRoute?>(null) }
 
                 // Create a navigation controller
@@ -102,6 +105,7 @@ class MainActivity : ComponentActivity() {
                     CompositionLocalProvider(
                         LocalPlatformUiEffect provides platformUiEffect,
                         LocalPlatformBackHandler provides platformBackHandler,
+                        LocalPlatformMediaRenderer provides platformMediaRenderer,
                         LocalLayoutDirection provides appLanguage.value.toLayoutDirection()
                     ) {
                         AppNavGraph(navController = navController!!, activeModalRoute = activeModalRoute)

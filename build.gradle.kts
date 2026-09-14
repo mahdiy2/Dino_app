@@ -48,12 +48,48 @@ tasks.register("checkDomainBoundaries") {
     }
 }
 
+tasks.register("checkSharedUiBoundaries") {
+    group = "verification"
+    description = "Fails when common presentation code imports platform-only APIs."
+
+    doLast {
+        val commonPresentationRoot = file("composeApp/src/commonMain/kotlin")
+        val forbiddenImportPattern = Regex(
+            """^\s*import\s+(android\.|androidx\.(activity|lifecycle)|androidx\.compose\.ui\.res|org\.koin|java\.)"""
+        )
+        val androidResourcePattern = Regex("""\bR\.(string|drawable|mipmap|color|font|raw)\.""")
+        val violations = commonPresentationRoot.walkTopDown()
+            .filter {
+                it.isFile &&
+                    it.extension == "kt" &&
+                    "${it.invariantSeparatorsPath}/".contains("/presentation/")
+            }
+            .flatMap { sourceFile ->
+                sourceFile.readLines().mapIndexedNotNull { index, line ->
+                    if (forbiddenImportPattern.containsMatchIn(line) || androidResourcePattern.containsMatchIn(line)) {
+                        "${sourceFile.relativeTo(rootProject.projectDir).invariantSeparatorsPath}:${index + 1}: $line"
+                    } else {
+                        null
+                    }
+                }
+            }
+            .toList()
+
+        if (violations.isNotEmpty()) {
+            throw GradleException(
+                "Shared UI boundary violations found:\n" + violations.joinToString(separator = "\n")
+            )
+        }
+    }
+}
+
 tasks.register("verifyKmpBaseline") {
     group = "verification"
     description = "Compiles the Android shell and the initial Compose Multiplatform module."
 
     dependsOn(
         "checkDomainBoundaries",
+        "checkSharedUiBoundaries",
         ":androidApp:compileDebugKotlin",
         ":composeApp:compileKotlinMetadata",
         ":composeApp:compileDebugKotlinAndroid",

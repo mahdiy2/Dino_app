@@ -71,6 +71,12 @@
     <string name="delete_post_body">This action cannot be undone.</string>
     <string name="delete_post_title">Delete post?</string>
     <string name="back">Back</string>
+    <string name="notifications">Notifications</string>
+    <string name="no_notifications_yet">No notifications yet.</string>
+    <string name="follow_back">Follow Back</string>
+    <string name="reply">Reply</string>
+    <string name="send_reply">Send reply</string>
+    <string name="notification_write_reply">Write a reply...</string>
     <string name="block_list">Block list</string>
     <string name="block_list_empty">No blocked users yet.</string>
     <string name="refresh">Refresh</string>

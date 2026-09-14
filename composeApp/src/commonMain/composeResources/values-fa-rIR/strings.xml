@@ -71,6 +71,12 @@
     <string name="delete_post_body">این کار قابل بازگشت نیست.</string>
     <string name="delete_post_title">حذف پست؟</string>
     <string name="back">بازگشت</string>
+    <string name="notifications">اعلان‌ها</string>
+    <string name="no_notifications_yet">اعلانی نیست.</string>
+    <string name="follow_back">فالو بک</string>
+    <string name="reply">پاسخ</string>
+    <string name="send_reply">ارسال پاسخ</string>
+    <string name="notification_write_reply">پاسخت را بنویس...</string>
     <string name="block_list">لیست بلاک</string>
     <string name="block_list_empty">کاربر بلاک‌شده‌ای نیست.</string>
     <string name="refresh">نوسازی</string>
