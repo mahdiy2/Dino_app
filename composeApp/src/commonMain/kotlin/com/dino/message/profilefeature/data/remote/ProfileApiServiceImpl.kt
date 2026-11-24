@@ -24,6 +24,7 @@ import com.dino.message.profilefeature.data.remote.dto.UpdateMyProfileRequest
 import com.dino.message.profilefeature.domain.model.Profile
 import com.dino.message.profilefeature.domain.model.AboutUs
 import com.dino.message.profilefeature.domain.model.ProfileFollowResult
+import com.dino.message.profilefeature.domain.model.ProfileMediaUploadPolicy
 import com.dino.message.profilefeature.domain.model.ProfileUpdateImage
 import com.dino.message.profilefeature.domain.model.ProfileUsersPage
 import com.dino.message.profilefeature.domain.model.ReferralSummary
@@ -104,6 +105,16 @@ class ProfileApiServiceImpl constructor(
         }
         if (removeProfileVideo && profileVideo != null) {
             return Resource.Error(message = "Cannot upload and remove profile video in the same request".asStringResourceContent())
+        }
+        profileImage?.file?.handle?.mimeType?.let(ProfileMediaUploadPolicy::validateImage)?.let {
+            return Resource.Error(message = it)
+        }
+        profileVideo?.file?.let { file ->
+            ProfileMediaUploadPolicy.validateVideo(
+                mimeType = file.handle.mimeType,
+                sizeBytes = file.handle.sizeBytes,
+                durationMs = file.metadata?.durationMs,
+            )?.let { return Resource.Error(message = it) }
         }
         val sanitizedBio = bio?.trim()
         val sanitizedProfileImageShape = profileImageShape?.trim()?.lowercase()

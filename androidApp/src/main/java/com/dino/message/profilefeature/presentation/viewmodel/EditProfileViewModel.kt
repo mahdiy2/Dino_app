@@ -4,7 +4,8 @@ import com.dino.message.corefeature.presentation.util.asString
 import androidx.compose.runtime.mutableStateOf
 import com.dino.message.corefeature.domain.settings.AppSettingsStore
 import com.dino.message.corefeature.domain.system.AppClock
-import com.dino.message.corefeature.domain.upload.MediaMimePolicy
+import com.dino.message.corefeature.domain.upload.PlatformMediaMetadata
+import com.dino.message.profilefeature.domain.model.ProfileMediaUploadPolicy
 import com.dino.message.corefeature.domain.upload.PlatformMediaReference
 import com.dino.message.corefeature.domain.upload.PlatformMediaResolver
 import com.dino.message.corefeature.domain.result.Resource
@@ -45,11 +46,6 @@ class EditProfileViewModel constructor(
 ) : ScopedStateHolder(),
     HaveUIEvent by HaveUIEventImpl(uiEventBus) {
 
-    companion object {
-        private const val MAX_PROFILE_VIDEO_DURATION_MS = 5_000L
-        private const val MAX_PROFILE_VIDEO_SIZE_BYTES = 15L * 1024L * 1024L
-    }
-
     val nameDraft = mutableStateOf("")
     val bioDraft = mutableStateOf("")
     val selectedImage = mutableStateOf<SelectedProfileMedia?>(null)
@@ -88,10 +84,8 @@ class EditProfileViewModel constructor(
         if (reference == null) return
         val pickedMedia = mediaResolver.resolvePickedMedia(reference, displayNameHint = "profile_image")
         val mimeType = pickedMedia.mimeType
-        if (!mimeType.startsWith("image/") ||
-            !MediaMimePolicy.isSupportedUploadMimeType(mimeType)
-        ) {
-            _error.value = "Unsupported profile image type"
+        ProfileMediaUploadPolicy.validateImage(mimeType)?.let {
+            _error.value = it.resolveWith(stringResolver)
             return
         }
 
@@ -110,28 +104,13 @@ class EditProfileViewModel constructor(
         if (reference == null) return
         val pickedMedia = mediaResolver.resolvePickedMedia(reference, displayNameHint = "profile_video")
         val mimeType = pickedMedia.mimeType
-        if (!mimeType.startsWith("video/") ||
-            !MediaMimePolicy.isSupportedUploadMimeType(mimeType)
-        ) {
-            _error.value = "Unsupported profile video type"
-            return
-        }
-
-        val durationMs = pickedMedia.durationMs
-        if (mimeType == "video/mp4" || mimeType == "video/quicktime") {
-            if (durationMs == null) {
-                _error.value = "Could not determine profile video duration"
-                return
-            }
-            if (durationMs > MAX_PROFILE_VIDEO_DURATION_MS) {
-                _error.value = "Profile video must be 5 seconds or shorter"
-                return
-            }
-        }
-
-        val size = pickedMedia.sizeBytes
-        if (size != null && size > MAX_PROFILE_VIDEO_SIZE_BYTES) {
-            _error.value = "Profile video is too large. Maximum allowed size is 15.0MB."
+        ProfileMediaUploadPolicy.validateVideo(
+            mimeType = mimeType,
+            sizeBytes = pickedMedia.sizeBytes,
+            durationMs = pickedMedia.durationMs,
+            requireDuration = true,
+        )?.let {
+            _error.value = it.resolveWith(stringResolver)
             return
         }
 
@@ -200,13 +179,6 @@ class EditProfileViewModel constructor(
                 _isSaving.value = false
                 return@launch
             }
-            val videoSizeBytes = videoPayload?.sizeBytes
-            if (videoSizeBytes != null && videoSizeBytes > MAX_PROFILE_VIDEO_SIZE_BYTES) {
-                _error.value = "Profile video is too large. Maximum allowed size is 15.0MB."
-                _isSaving.value = false
-                return@launch
-            }
-
             updateMyProfileUseCase.execute(
                 name = nameDraft.value.trim().ifEmpty { null },
                 bio = bioDraft.value,
@@ -279,7 +251,7 @@ class EditProfileViewModel constructor(
                 displayName = media.displayName,
                 mimeType = media.mimeType,
                 sizeBytes = media.sizeBytes,
-            ),
+            ).copy(metadata = PlatformMediaMetadata(durationMs = media.durationMs)),
         )
     }
 }
