@@ -4,6 +4,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import com.dino.message.corefeature.domain.session.AuthSessionStore
 import com.dino.message.corefeature.domain.upload.MediaMimePolicy
+import com.dino.message.corefeature.domain.upload.PlatformMediaMetadata
 import com.dino.message.corefeature.domain.upload.PlatformMediaReference
 import com.dino.message.corefeature.domain.upload.PlatformMediaResolver
 import com.dino.message.corefeature.domain.result.Resource
@@ -13,6 +14,7 @@ import com.dino.message.corefeature.presentation.viewmodel.HaveUIEventImpl
 import com.dino.message.corefeature.presentation.util.UiEventBus
 import com.dino.message.corefeature.presentation.viewmodel.ScopedStateHolder
 import com.dino.message.threadfeature.domain.model.CreatePostMedia
+import com.dino.message.threadfeature.domain.model.MAX_POST_VIDEO_DURATION_MS
 import com.dino.message.threadfeature.domain.model.Post
 import com.dino.message.threadfeature.domain.model.PostMedia
 import com.dino.message.threadfeature.domain.model.QuotedPostPreview
@@ -50,7 +52,6 @@ class CreatePostViewModel constructor(
 
     companion object {
         const val MAX_MEDIA_FILES_PER_POST = 8
-        private const val MAX_VIDEO_DURATION_MS = 30_000L
     }
 
     val quotedPostId: Long? = quotedPostIdArg.takeIf { it > 0L }
@@ -132,7 +133,7 @@ class CreatePostViewModel constructor(
                     skippedUnknownVideoDuration++
                     return@forEach
                 }
-                if (durationMs > MAX_VIDEO_DURATION_MS) {
+                if (durationMs > MAX_POST_VIDEO_DURATION_MS) {
                     skippedVideoTooLong++
                     return@forEach
                 }
@@ -310,7 +311,7 @@ class CreatePostViewModel constructor(
                         displayName = media.displayName,
                         mimeType = media.mimeType,
                         sizeBytes = media.sizeBytes,
-                    ),
+                    ).copy(metadata = PlatformMediaMetadata(durationMs = media.durationMs)),
                 )
             )
         }

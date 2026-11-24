@@ -10,12 +10,16 @@ import com.dino.message.corefeature.data.remote.util.ensureFreshAccessTokenIfNea
 import com.dino.message.corefeature.domain.crypto.Base64Codec
 import com.dino.message.corefeature.domain.logging.AppLogger
 import com.dino.message.corefeature.domain.session.AuthSessionStore
+import com.dino.message.corefeature.domain.upload.MediaMimePolicy
+import com.dino.message.corefeature.domain.upload.UploadMediaCategory
+import com.dino.message.corefeature.domain.upload.PlatformMediaMetadata
 import com.dino.message.corefeature.domain.upload.PlatformMediaMetadataExtractor
 import com.dino.message.corefeature.domain.upload.PlatformMediaReference
 import com.dino.message.corefeature.data.upload.appendUploadFile
 import com.dino.message.corefeature.data.upload.canOpenForUpload
 import com.dino.message.corefeature.data.upload.toUploadFilePart
 import com.dino.message.corefeature.domain.model.AppStringKey
+import com.dino.message.corefeature.domain.model.StringResourceContent
 import com.dino.message.corefeature.domain.model.asStringResourceContent
 import com.dino.message.corefeature.domain.result.Resource
 import com.dino.message.corefeature.domain.resource.StringResolver
@@ -53,6 +57,7 @@ import com.dino.message.threadfeature.domain.model.DeleteContentResult
 import com.dino.message.threadfeature.domain.model.CreatedComment
 import com.dino.message.threadfeature.domain.model.CreatedPost
 import com.dino.message.threadfeature.domain.model.CreatePostMedia
+import com.dino.message.threadfeature.domain.model.MAX_POST_VIDEO_DURATION_MS
 import com.dino.message.threadfeature.domain.model.FeedMode
 import com.dino.message.threadfeature.domain.model.FeedPage
 import com.dino.message.threadfeature.domain.model.Post
@@ -86,7 +91,8 @@ class ThreadApiServiceImpl constructor(
     private val httpAPIUtil: HttpAPIUtil,
     private val networkIssueReporter: NetworkIssueReporter,
     private val stringResolver: StringResolver,
-    private val mediaMetadataExtractor: PlatformMediaMetadataExtractor,
+    private val mediaMetadataExtractor: PlatformMediaMetadataExtractor =
+        PlatformMediaMetadataExtractor { PlatformMediaMetadata() },
     private val appClock: AppClock,
     private val appLogger: AppLogger,
     private val base64Codec: Base64Codec,
@@ -107,14 +113,16 @@ class ThreadApiServiceImpl constructor(
         followersOnly: Boolean,
         quotedPostId: Long?
     ): Resource<CreatedPost> {
-        if (mediaFiles.isNotEmpty()) {
-            ensureFreshAccessTokenBeforeUpload()
-        }
-
         if (mediaFiles.size > MAX_MEDIA_FILES_PER_POST) {
             return Resource.Error(
                 message = AppStringKey.MaxMediaFilesAllowed.asStringResourceContent(MAX_MEDIA_FILES_PER_POST)
             )
+        }
+        mediaFiles.forEach { media ->
+            validatePostMedia(media)?.let { return Resource.Error(message = it) }
+        }
+        if (mediaFiles.isNotEmpty()) {
+            ensureFreshAccessTokenBeforeUpload()
         }
 
         val idempotencyKey = CommonUuid.randomUuidString()
@@ -219,14 +227,16 @@ class ThreadApiServiceImpl constructor(
         keepMediaIds: List<Long>,
         followersOnly: Boolean?
     ): Resource<DeleteContentResult> {
-        if (mediaFiles.isNotEmpty()) {
-            ensureFreshAccessTokenBeforeUpload()
-        }
-
         if (mediaFiles.size > MAX_MEDIA_FILES_PER_POST) {
             return Resource.Error(
                 message = AppStringKey.MaxMediaFilesAllowed.asStringResourceContent(MAX_MEDIA_FILES_PER_POST)
             )
+        }
+        mediaFiles.forEach { media ->
+            validatePostMedia(media)?.let { return Resource.Error(message = it) }
+        }
+        if (mediaFiles.isNotEmpty()) {
+            ensureFreshAccessTokenBeforeUpload()
         }
 
         val result = httpAPIUtil.callAPIWithErrorHandling<DeleteContentResult, DeleteContentResponse>(
@@ -493,9 +503,12 @@ class ThreadApiServiceImpl constructor(
         mediaFile: CreatePostMedia,
         mentionUsernames: List<String>
     ): Resource<StoryUploadResult> {
-        ensureFreshAccessTokenBeforeUpload()
+        val normalizedMimeType = MediaMimePolicy.normalizeMimeType(mediaFile.mimeType)
+        MediaMimePolicy.validateUploadMimeType(
+            normalizedMimeType,
+            setOf(UploadMediaCategory.Image, UploadMediaCategory.Video),
+        )?.let { return Resource.Error(message = it) }
 
-        val normalizedMimeType = mediaFile.mimeType.trim().lowercase()
         if (normalizedMimeType.startsWith("video/")) {
             val durationSeconds = resolveVideoDurationSeconds(mediaFile)
             if (durationSeconds != null && durationSeconds > MAX_STORY_VIDEO_DURATION_SECONDS) {
@@ -506,6 +519,8 @@ class ThreadApiServiceImpl constructor(
                 )
             }
         }
+
+        ensureFreshAccessTokenBeforeUpload()
 
         val result = httpAPIUtil.callAPIWithErrorHandling<StoryUploadResult, StoryUploadResponse>(
             callAPI = {
@@ -684,10 +699,21 @@ class ThreadApiServiceImpl constructor(
             callRefreshTokenAPI = this::getToken
         )
 
+    private fun validatePostMedia(media: CreatePostMedia): StringResourceContent? {
+        MediaMimePolicy.validateUploadMimeType(media.mimeType)?.let { return it }
+        val duration = media.file.metadata?.durationMs
+        if (MediaMimePolicy.mediaCategory(media.mimeType) == "video" &&
+            duration != null && duration > MAX_POST_VIDEO_DURATION_MS
+        ) {
+            return "Video must be 30 seconds or shorter".asStringResourceContent()
+        }
+        return null
+    }
+
     private fun resolveVideoDurationSeconds(mediaFile: CreatePostMedia): Double? {
-        val durationMillis = mediaMetadataExtractor.extract(
+        val durationMillis = (mediaFile.file.metadata ?: mediaMetadataExtractor.extract(
             PlatformMediaReference(mediaFile.file.handle.id)
-        ).durationMs ?: return null
+        )).durationMs ?: return null
         return durationMillis / 1000.0
     }
 
