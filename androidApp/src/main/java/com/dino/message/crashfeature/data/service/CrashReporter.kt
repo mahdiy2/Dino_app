@@ -146,7 +146,7 @@ class CrashReporter constructor(
         scope.launch {
             runCatching {
                 crashLogDao.insert(crashLog)
-                flushPendingLogsInternal(maxBatchSize = 5)
+                flushPendingLogsAsync()
             }.onFailure { error ->
                 appLogger.error(TAG, "Failed to persist socket queue issue log", error)
             }
@@ -186,7 +186,7 @@ class CrashReporter constructor(
         scope.launch {
             runCatching {
                 crashLogDao.insert(crashLog)
-                flushPendingLogsInternal(maxBatchSize = 5)
+                flushPendingLogsAsync()
             }.onFailure { error ->
                 appLogger.error(TAG, "Failed to persist non-fatal issue log", error)
             }
@@ -213,6 +213,7 @@ class CrashReporter constructor(
             runBlocking {
                 withContext(Dispatchers.IO) {
                     crashLogDao.insert(crashLog)
+                    flushPendingLogsAsync()
                     withTimeoutOrNull(1_500) {
                         flushPendingLogsInternal(maxBatchSize = 1)
                     }

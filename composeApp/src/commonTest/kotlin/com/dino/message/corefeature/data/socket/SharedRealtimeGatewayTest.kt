@@ -2,6 +2,8 @@ package com.dino.message.corefeature.data.socket
 
 import com.dino.message.corefeature.data.socket.SocketIoPacketCodec.IncomingPacket
 import com.dino.message.corefeature.data.socket.SharedRealtimeGateway.SendResult
+import com.dino.message.corefeature.domain.lifecycle.AppLifecycleDispatcher
+import com.dino.message.corefeature.domain.lifecycle.AppLifecycleEvent
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
@@ -83,6 +85,38 @@ class SharedRealtimeGatewayTest {
         assertEquals(1, gateway.queuedOutboundCount.value)
         gateway.disconnect(clearListeners = true)
         assertEquals(listOf("alice"), store.getAll().map { it.ownerUsername })
+    }
+
+    @Test
+    fun foregroundRestoresQueuedSendsAfterBackgroundSuspension() = runTest {
+        val store = MemoryStore()
+        val connections = mutableListOf<FakeConnection>()
+        val gateway = SharedRealtimeGateway({ "alice" }, { "token" }, store, backgroundScope,
+            { testScheduler.currentTime }) { FakeConnection().also(connections::add) }
+        val dispatcher = AppLifecycleDispatcher()
+        val binding = RealtimeRetryLifecycle(dispatcher, backgroundScope, gateway, suspendInBackground = true)
+        try {
+            dispatcher.dispatch(AppLifecycleEvent.ApplicationStarted)
+            runCurrent()
+            assertEquals(SendResult.QUEUED, gateway.send("send_message", "pending", "one"))
+            dispatcher.dispatch(AppLifecycleEvent.EnteredBackground)
+            runCurrent()
+            assertEquals(SharedRealtimeGateway.State.DISCONNECTED, gateway.connectionState.value)
+            binding.networkAvailable()
+            runCurrent()
+            assertEquals(1, connections.size)
+            assertEquals(1, store.rows.size)
+
+            dispatcher.dispatch(AppLifecycleEvent.ScreenStarted("chat", activeScreenCount = 1))
+            runCurrent()
+            assertEquals(2, connections.size)
+            connections.last().packets.send(IncomingPacket.Connected)
+            runCurrent()
+            assertEquals(listOf<Pair<String, Any?>>("send_message" to "pending"), connections.last().sent)
+            assertTrue(store.rows.isEmpty())
+        } finally {
+            binding.close()
+        }
     }
 
     private class FakeConnection : SocketIoConnection {
