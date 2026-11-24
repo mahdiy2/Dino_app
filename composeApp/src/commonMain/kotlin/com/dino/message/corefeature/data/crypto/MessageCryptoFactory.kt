@@ -9,6 +9,5 @@ fun createPlatformMessageCrypto(): MessageCrypto {
         base64Codec = base64Codec,
         rsaCrypto = KmpRsaCrypto(base64Codec),
         aesGcmCrypto = KmpAesGcmCrypto(),
-        hashCrypto = KmpHashCrypto(),
     )
 }

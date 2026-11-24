@@ -225,7 +225,6 @@ class ChatViewModel constructor(
             when (res) {
                 is Resource.Success -> {
                     val publicKey = res.data.public_key
-                    appLogger.debug(TAG, "Fetched receiver public key for $chatId: ${messageCrypto.formatPublicKeyForLog(publicKey)}")
                     if (publicKey.isNullOrBlank()) {
                         appLogger.error(TAG, "getReceiverPublicKey: empty public key for chatId=$chatId")
                         _publicKeyError.value = "Received empty public key"
@@ -238,7 +237,7 @@ class ChatViewModel constructor(
                     if (resolvedPublicKey == null) {
                         appLogger.warning(
                             TAG,
-                            "getReceiverPublicKey: unsupported public key format for chatId=$chatId, ${messageCrypto.formatPublicKeyForLog(publicKey)}"
+                            "getReceiverPublicKey: unsupported public key format for chatId=$chatId"
                         )
                         receiverPublicKey.value = null
                         receiverEncryptionPublicKey = null
@@ -297,7 +296,7 @@ class ChatViewModel constructor(
         val decoded = messageCrypto.decodePublicKeyOrNull(rawKey) ?: run {
             appLogger.warning(
                 TAG,
-                "resolveReceiverEncryptionPublicKey: unsupported key format for chatId=$chatId, ${messageCrypto.formatPublicKeyForLog(rawKey)}"
+                "resolveReceiverEncryptionPublicKey: unsupported key format for chatId=$chatId"
             )
             receiverPublicKey.value = null
             _isPublicKeyReady.value = false
@@ -1417,8 +1416,7 @@ class ChatViewModel constructor(
         appSocketManager.registerListener(socketOwner, "pending_messages") { args ->
             viewModelScope.launch {
                 val raw = extractPayloadArg(args, "pending_messages")
-                appLogger.debug(TAG, "pending_messages raw type=${raw?.javaClass?.name}, value=${raw?.toString()?.take(500)}")
-                pushSocketDebugLog("pending_messages raw type=${raw?.javaClass?.simpleName}, preview=${raw?.toString()?.take(200)}")
+                pushSocketDebugLog("pending_messages raw type=${raw?.javaClass?.simpleName}")
 
                 val messages: JSONArray? = when (raw) {
                     is JSONObject -> raw.optJSONArray("messages")
@@ -1446,7 +1444,7 @@ class ChatViewModel constructor(
 
                 if (messages == null) {
                     pushSocketDebugLog("pending_messages: could not extract messages array (raw type=${raw?.javaClass?.simpleName})")
-                    appLogger.error(TAG, "pending_messages: could not extract messages. raw type=${raw?.javaClass?.name}, raw=$raw")
+                    appLogger.error(TAG, "pending_messages: could not extract messages. raw type=${raw?.javaClass?.name}")
                     return@launch
                 }
                 pushSocketDebugLog("Received ${messages.length()} pending message(s)")
@@ -1485,7 +1483,6 @@ class ChatViewModel constructor(
         appSocketManager.registerListener(socketOwner, "new_message") { args ->
             viewModelScope.launch {
                 val raw = extractPayloadArg(args, "new_message")
-                appLogger.debug(TAG, "new_message raw type=${raw?.javaClass?.name}, value=${raw?.toString()?.take(500)}")
                 val payload = when (raw) {
                     is JSONObject -> raw
                     is String -> try { JSONObject(raw) } catch (e: Exception) {
@@ -1495,8 +1492,8 @@ class ChatViewModel constructor(
                     else -> null
                 }
                 if (payload == null) {
-                    pushSocketDebugLog("new_message payload invalid (type=${raw?.javaClass?.simpleName}, preview=${raw?.toString()?.take(200)})")
-                    appLogger.error(TAG, "new_message: could not parse. raw type=${raw?.javaClass?.name}, raw=$raw")
+                    pushSocketDebugLog("new_message payload invalid (type=${raw?.javaClass?.simpleName})")
+                    appLogger.error(TAG, "new_message: could not parse. raw type=${raw?.javaClass?.name}")
                     return@launch
                 }
                 val msgId = payload.optString("message_id", "")

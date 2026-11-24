@@ -32,5 +32,4 @@ interface MessageCrypto {
         encryptedAesKey: String,
         privateKey: RsaPrivateKey,
     ): String
-    suspend fun formatPublicKeyForLog(rawKey: String?): String
 }

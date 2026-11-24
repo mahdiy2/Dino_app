@@ -83,15 +83,13 @@ fun GroupChatSurface(
 
     LaunchedEffect(duplicateKeys) {
         if (duplicateKeys.isNotEmpty()) {
-            // TODO(security): Revisit keeping raw key samples in production logs; redact or remove once duplicate-source bug is fixed.
-            val sampleKeys = duplicateKeys.take(3).joinToString(",").take(80)
             Log.w(
                 GROUP_CHAT_SURFACE_TAG,
-                "Dropped ${duplicateKeys.size} duplicate group message key(s): ${duplicateKeys.take(5)}"
+                "Dropped ${duplicateKeys.size} duplicate group message key(s)"
             )
             crashReporter?.addBreadcrumb(
                 category = "ui_list_keys",
-                message = "group_chat dup=${duplicateKeys.size} total=${items.size} unique=${renderItems.size} sample=$sampleKeys"
+                message = "group_chat dup=${duplicateKeys.size} total=${items.size} unique=${renderItems.size}"
             )
         }
     }

@@ -5,7 +5,6 @@ import com.dino.message.corefeature.domain.crypto.Base64Codec
 import com.dino.message.corefeature.domain.crypto.EncryptedMessagePayload
 import com.dino.message.corefeature.domain.crypto.ExportedRsaKeyPair
 import com.dino.message.corefeature.domain.crypto.GroupEncryptionPayload
-import com.dino.message.corefeature.domain.crypto.HashCrypto
 import com.dino.message.corefeature.domain.crypto.MessageCrypto
 import com.dino.message.corefeature.domain.crypto.RsaCrypto
 import com.dino.message.corefeature.domain.crypto.RsaPrivateKey
@@ -15,7 +14,6 @@ class DefaultMessageCrypto(
     private val base64Codec: Base64Codec,
     private val rsaCrypto: RsaCrypto,
     private val aesGcmCrypto: AesGcmCrypto,
-    private val hashCrypto: HashCrypto,
 ) : MessageCrypto {
     override suspend fun generateRsaKeyPair(): ExportedRsaKeyPair {
         val keyPair = rsaCrypto.generateKeyPair(RSA_KEY_SIZE_BITS)
@@ -112,35 +110,6 @@ class DefaultMessageCrypto(
         throw lastError ?: IllegalStateException("Failed to decrypt message")
     }
 
-    override suspend fun formatPublicKeyForLog(rawKey: String?): String {
-        if (rawKey == null) return "key=null"
-
-        val trimmed = rawKey.trim()
-        val escaped = trimmed
-            .replace("\r", "\\r")
-            .replace("\n", "\\n")
-        val head = escaped.take(220)
-        val tail = if (escaped.length > 300) escaped.takeLast(120) else ""
-        val sha256 = runCatching {
-            hashCrypto.sha256(trimmed.encodeToByteArray())
-                .joinToString("") { byte ->
-                    val value = byte.toInt() and 0xff
-                    HEX[value ushr 4].toString() + HEX[value and 0x0f]
-                }
-                .take(16)
-        }.getOrElse { "n/a" }
-
-        return buildString {
-            append("len=").append(rawKey.length)
-            append(", trimmedLen=").append(trimmed.length)
-            append(", sha256=").append(sha256)
-            append(", keyHead=").append(head)
-            if (tail.isNotEmpty()) {
-                append(", keyTail=").append(tail)
-            }
-        }
-    }
-
     private suspend fun decryptV2(
         encryptedMessage: String,
         encryptedAesKey: String,
@@ -181,6 +150,5 @@ class DefaultMessageCrypto(
         const val GCM_IV_SIZE_BYTES = 12
         const val GCM_TAG_LENGTH_BITS = 128
         const val V2_PREFIX = "v2:"
-        const val HEX = "0123456789abcdef"
     }
 }

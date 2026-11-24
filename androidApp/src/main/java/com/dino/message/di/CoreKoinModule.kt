@@ -28,7 +28,6 @@ import com.dino.message.corefeature.data.coroutine.AndroidAppDispatchers
 import com.dino.message.corefeature.data.crypto.DefaultMessageCrypto
 import com.dino.message.corefeature.data.crypto.JvmAesGcmCrypto
 import com.dino.message.corefeature.data.crypto.JvmBase64Codec
-import com.dino.message.corefeature.data.crypto.JvmHashCrypto
 import com.dino.message.corefeature.data.crypto.JvmRsaCrypto
 import com.dino.message.corefeature.data.db.MessageDatabase
 import com.dino.message.corefeature.data.db.buildMessageDatabase
@@ -74,7 +73,6 @@ import com.dino.message.corefeature.domain.config.AppConfig
 import com.dino.message.corefeature.domain.coroutine.AppDispatchers
 import com.dino.message.corefeature.domain.crypto.AesGcmCrypto
 import com.dino.message.corefeature.domain.crypto.Base64Codec
-import com.dino.message.corefeature.domain.crypto.HashCrypto
 import com.dino.message.corefeature.domain.crypto.MessageCrypto
 import com.dino.message.corefeature.domain.crypto.RsaCrypto
 import com.dino.message.corefeature.domain.device.DeviceInfoProvider
@@ -138,14 +136,12 @@ val coreModule = module {
     single<MediaPlaybackController> { MusicPlaybackManager }
     single<Base64Codec> { JvmBase64Codec() }
     single<AesGcmCrypto> { JvmAesGcmCrypto() }
-    single<HashCrypto> { JvmHashCrypto() }
     single<RsaCrypto> { JvmRsaCrypto(base64Codec = get()) }
     single<MessageCrypto> {
         DefaultMessageCrypto(
             base64Codec = get(),
             rsaCrypto = get(),
             aesGcmCrypto = get(),
-            hashCrypto = get(),
         )
     }
     single { UiEventBus() }
@@ -198,8 +194,6 @@ val coreModule = module {
         createAppHttpClient(
             engineFactory = OkHttp,
             baseUrl = get<AppConfig>().baseUrl,
-            isDebug = get<AppConfig>().isDebug,
-            appLogger = get(),
         )
     }
     single {

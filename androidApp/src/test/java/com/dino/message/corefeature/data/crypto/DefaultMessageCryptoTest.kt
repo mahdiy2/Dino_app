@@ -3,7 +3,6 @@ package com.dino.message.corefeature.data.crypto
 import com.dino.message.corefeature.domain.crypto.MessageCrypto
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -23,7 +22,6 @@ class DefaultMessageCryptoTest {
         base64Codec = base64Codec,
         rsaCrypto = rsaCrypto,
         aesGcmCrypto = JvmAesGcmCrypto(),
-        hashCrypto = JvmHashCrypto(),
     )
 
     @Test
@@ -139,15 +137,6 @@ class DefaultMessageCryptoTest {
         assertNotNull(messageCrypto.decodePublicKeyOrNull(pem))
     }
 
-    @Test
-    fun publicKeyDebugFingerprintIsStable() = runTest {
-        val formatted = messageCrypto.formatPublicKeyForLog(" abc ")
-
-        assertTrue(formatted.contains("len=5"))
-        assertTrue(formatted.contains("trimmedLen=3"))
-        assertTrue(formatted.contains("sha256=ba7816bf8f01cfea"))
-        assertFalse(formatted.contains("\n"))
-    }
 
     private fun toOpenSshBlob(x509Encoded: ByteArray): String {
         val publicKey = KeyFactory.getInstance("RSA")

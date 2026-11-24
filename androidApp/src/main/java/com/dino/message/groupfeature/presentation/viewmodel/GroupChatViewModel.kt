@@ -572,9 +572,6 @@ class GroupChatViewModel constructor(
                 memberIds[member.username] = member.id
 
                 val pk = member.publicKey
-                if (appConfig.isDebug) {
-                    appLogger.debug(TAG, "Group member key ${member.username}: ${messageCrypto.formatPublicKeyForLog(pk)}")
-                }
                 if (!pk.isNullOrBlank()) {
                     val decodedPublicKey = messageCrypto.decodePublicKeyOrNull(pk)
                     if (decodedPublicKey != null) {
@@ -582,7 +579,7 @@ class GroupChatViewModel constructor(
                     } else {
                         appLogger.warning(
                             TAG,
-                            "Skipping unsupported public key format for ${member.username}, ${messageCrypto.formatPublicKeyForLog(pk)}"
+                            "Skipping unsupported public key format for ${member.username}"
                         )
                     }
                 }

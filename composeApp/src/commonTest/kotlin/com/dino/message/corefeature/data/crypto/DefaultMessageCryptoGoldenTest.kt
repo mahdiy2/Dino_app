@@ -5,7 +5,6 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -15,7 +14,6 @@ class DefaultMessageCryptoGoldenTest {
         base64Codec = base64Codec,
         rsaCrypto = KmpRsaCrypto(base64Codec),
         aesGcmCrypto = KmpAesGcmCrypto(),
-        hashCrypto = KmpHashCrypto(),
     )
 
     @Test
@@ -122,15 +120,6 @@ class DefaultMessageCryptoGoldenTest {
         assertContentEquals(expected.encoded, messageCrypto.decodePublicKey(certificatePem).encoded)
     }
 
-    @Test
-    fun debugFingerprintIsStableAndSingleLine() = runTest {
-        val formatted = messageCrypto.formatPublicKeyForLog(" abc ")
-
-        assertTrue(formatted.contains("len=5"))
-        assertTrue(formatted.contains("trimmedLen=3"))
-        assertTrue(formatted.contains("sha256=ba7816bf8f01cfea"))
-        assertFalse(formatted.contains('\n'))
-    }
 
     private companion object {
         const val PUBLIC_KEY = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqtQrZfY4Rsd364lNZwtB4dMjWbsZAEbaM1QCn6tTaT/1Ra3hbPh+Y29YFdFscDOM/87gW4ptGk0ENybH2IBCbiigMVQk6n9txRDZQpmpDO6cXObv4ViMugoMICmt3vKG14ceGoIJCY2qW4xXBlQ7rbxH7Iu+bP+v7eSCPRqdejRO+W3yyRwq61FI0FRbBiFIDY6+kks0LcKvYNcvA38ow9yBzfeUlgk6eSfxDGqmTlzM+FdS435nbcoQDKC4vRZlCy7Z9rK592mYiVIUn+yGaAWwvcUntkHFuAxk0G2MD0oo/+aQDUJyvQK9YxpWwq9W6xUNBvxRMEPH0D/THJGrMQIDAQAB"

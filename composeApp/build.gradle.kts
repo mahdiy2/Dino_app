@@ -42,7 +42,6 @@ kotlin {
             implementation(libs.cryptography.core)
             implementation(libs.ktor.client.core)
             implementation(libs.ktor.client.content.negotiation)
-            implementation(libs.ktor.client.logging)
             implementation(libs.ktor.client.serialization)
             implementation(libs.ktor.serialization.kotlinx.json)
         }
@@ -50,7 +49,6 @@ kotlin {
         getByName("androidMain").apply {
             dependsOn(nonWebMain)
             dependencies {
-                implementation(libs.ktor.client.okhttp)
                 implementation(libs.androidx.activity.compose)
                 implementation(libs.cryptography.provider.jdk)
             }

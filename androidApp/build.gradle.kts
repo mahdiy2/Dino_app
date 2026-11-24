@@ -5,8 +5,7 @@ plugins {
     alias(libs.plugins.jetbrains.kotlin.android)
     alias(libs.plugins.compose.multiplatform)
     alias(libs.plugins.kotlinx.serialization)
-//    alias(libs.plugins.ksp)
-    id ("com.google.devtools.ksp") version libs.versions.kspVersion.get() // Updated KSP plugin version
+    alias(libs.plugins.ksp)
     alias(libs.plugins.compose.compiler)
 }
 
@@ -75,9 +74,6 @@ android {
         compose = true
         buildConfig = true
     }
-//    composeOptions {
-//        kotlinCompilerExtensionVersion = "1.5.13"
-//    }
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -99,23 +95,14 @@ dependencies {
     implementation(compose.components.resources)
     implementation(compose.components.uiToolingPreview)
     implementation(libs.androidx.material3)
-//    implementation(libs.androidx.navigation.compose)
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.androidx.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
-    androidTestImplementation(platform("androidx.compose:compose-bom:2024.02.01"))
-    androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
-    debugImplementation(libs.androidx.ui.test.manifest)
 
     implementation(platform(libs.koin.bom))
     implementation(libs.koin.android)
-    implementation(libs.koin.androidx.compose)
     implementation(libs.koin.compose)
-    implementation(libs.koin.compose.viewmodel)
-    implementation(libs.koin.compose.viewmodel.navigation)
-    testImplementation(libs.koin.test)
 
     implementation(libs.androidx.navigation.compose)
 
@@ -124,14 +111,9 @@ dependencies {
     //Ktor
     implementation (libs.ktor.client.core)
     implementation (libs.ktor.client.okhttp)
-    implementation (libs.ktor.client.content.negotiation)
-    implementation (libs.ktor.serialization.kotlinx.json)
-    implementation (libs.ktor.client.serialization)
-    implementation (libs.ktor.client.logging)
 
     implementation(libs.socket.io.client)
 
-//    implementation("io.ktor:ktor-client-websockets:2.3.0")
 
     implementation (libs.androidx.datastore.preferences)
 
@@ -141,7 +123,6 @@ dependencies {
     // UI for ExoPlayer
     implementation(libs.androidx.media3.ui)
 
-    // Optional: Common media utilities
     implementation(libs.androidx.media3.common)
     implementation(libs.androidx.media3.transformer)
     implementation(libs.androidx.media3.effect)
@@ -153,8 +134,6 @@ dependencies {
 
     // androidx.security for EncryptedSharedPreferences
     implementation(libs.androidx.security.crypto)
-    implementation(libs.androidx.security.identity.credential)
-    implementation(libs.androidx.security.app.authenticator)
 
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.room.runtime)

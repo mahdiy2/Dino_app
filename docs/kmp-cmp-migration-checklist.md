@@ -675,23 +675,28 @@ backend deployment order.
 
 ### 15. Remove Obsolete Dependencies And Stale Code
 
-- [ ] Remove dependencies only after source imports are gone.
+- [x] Remove dependencies only after source imports are gone.
   - AndroidX Compose artifacts replaced by CMP equivalents where code is shared.
   - Android-only Koin artifacts kept only in Android source sets.
   - OkHttp Ktor engine kept only for Android/JVM targets that use it.
   - Socket.IO Java client kept only if Android transport still requires it.
   - Media3, AndroidX Security, WorkManager, Room Android artifacts, and Android
     test artifacts kept only in Android source sets.
-- [ ] Remove stale comments and old migration wording after each area is moved.
-- [ ] Remove security-sensitive debug logs.
+- [x] Remove stale comments and old migration wording after each area is moved.
+- [x] Remove security-sensitive debug logs.
   - Current TODOs in chat/group surfaces mention raw key samples in production
     logs; redact or remove those logs before release.
-- [ ] Run dependency and import audits.
+- [x] Run dependency and import audits.
   - No Android imports in `commonMain`.
   - No data/presentation imports in domain.
   - No unused old generated navigation or Android-only UI utility dependencies.
-- [ ] Commit after verification.
+- [x] Commit after verification.
   - Suggested message: `chore(kmp): remove obsolete android dependencies`.
+
+Verified in an isolated Linux build with the Android debug and instrumentation
+APKs, Android unit and shared desktop tests, Wasm compilation, and source and
+dependency audits. Android device checks and iOS compilation remain outside
+this verification scope. See Task 14 for the existing blockers.
 
 ## Final Acceptance Criteria
 

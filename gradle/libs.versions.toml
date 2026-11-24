@@ -3,40 +3,33 @@ agp = "8.9.2"
 coil = "3.0.4"
 datastorePreferences = "1.1.1"
 desugar_jdk_libs = "2.0.4"
-kotlin = "2.1.20" # Updated Kotlin version
-composeCompiler = "2.1.20" # Updated Compose Compiler version to match Kotlin
+kotlin = "2.1.20"
+composeCompiler = "2.1.20"
 composeMultiplatform = "1.8.2"
-composeUiTest = "1.8.2"
 coroutines = "1.10.2"
 cryptographyKotlin = "0.4.0"
 coreKtx = "1.13.1"
 junit = "4.13.2"
 junitVersion = "1.2.1"
-espressoCore = "3.6.1"
 kotlinxSerializationJson = "1.8.1"
 koinBom = "4.1.1"
-kspVersion = "2.1.20-1.0.31" # Updated KSP version for Kotlin 2.1.20
+kspVersion = "2.1.20-1.0.31"
 ktorClientCio = "3.1.3"
 ktorClientContentNegotiation = "3.1.3"
 ktorClientCore = "3.1.3"
-ktorClientLogging = "3.1.3"
 ktorClientSerialization = "3.1.3"
 ktorSerializationKotlinxJson = "3.1.3"
 lifecycleRuntimeKtx = "2.9.1"
 activityCompose = "1.9.1"
-composeBom = "2025.06.01"
 media3Exoplayer = "1.6.0"
 media3Ui = "1.6.0"
 media3Transformer = "1.6.0"
-securityAppAuthenticator = "1.0.0-beta01"
 securityCrypto = "1.1.0-alpha06"
-securityIdentityCredential = "1.0.0-alpha03"
 socketIoClient = "2.0.0"
 navigationCompose = "2.9.0-rc01"
 room = "2.8.4"
 sqlite = "2.7.0"
 workRuntimeKtx = "2.10.1"
-# ksp = "1.9.23-1.0.20" # Removed this redundant and conflicting line
 material3 = "1.4.0-alpha16"
 [libraries]
 cryptography-core = { module = "dev.whyoleg.cryptography:cryptography-core", version.ref = "cryptographyKotlin" }
@@ -50,8 +43,6 @@ androidx-media3-ui = { module = "androidx.media3:media3-ui", version.ref = "medi
 androidx-media3-exoplayer = { module = "androidx.media3:media3-exoplayer", version.ref = "media3Exoplayer" }
 androidx-media3-transformer = { module = "androidx.media3:media3-transformer", version.ref = "media3Transformer" }
 androidx-media3-effect = { module = "androidx.media3:media3-effect", version.ref = "media3Transformer" }
-androidx-security-app-authenticator = { module = "androidx.security:security-app-authenticator", version.ref = "securityAppAuthenticator" }
-androidx-security-identity-credential = { module = "androidx.security:security-identity-credential", version.ref = "securityIdentityCredential" }
 androidx-security-crypto = { module = "androidx.security:security-crypto", version.ref = "securityCrypto" }
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
 coil-network-okhttp = { module = "io.coil-kt.coil3:coil-network-okhttp", version.ref = "coil" }
@@ -59,17 +50,10 @@ coil-video = { module = "io.coil-kt.coil3:coil-video", version.ref = "coil" }
 desugar_jdk_libs = { module = "com.android.tools:desugar_jdk_libs", version.ref = "desugar_jdk_libs" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
-androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
 androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycleRuntimeKtx" }
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
-androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
 androidx-ui = { group = "androidx.compose.ui", name = "ui" }
-androidx-compose-foundation = { group = "androidx.compose.foundation", name = "foundation" }
-androidx-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }
 androidx-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
-androidx-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
-androidx-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest", version.ref = "composeUiTest" }
-androidx-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4", version.ref = "composeUiTest" }
 androidx-material3 = { group = "androidx.compose.material3", name = "material3", version.ref = "material3" }
 androidx-navigation-compose = { group = "org.jetbrains.androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerializationJson" }
@@ -77,29 +61,20 @@ kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-c
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
 koin-bom = { module = "io.insert-koin:koin-bom", version.ref = "koinBom" }
 koin-android = { module = "io.insert-koin:koin-android" }
-koin-androidx-compose = { module = "io.insert-koin:koin-androidx-compose" }
 koin-compose = { module = "io.insert-koin:koin-compose" }
-koin-compose-viewmodel = { module = "io.insert-koin:koin-compose-viewmodel" }
-koin-compose-viewmodel-navigation = { module = "io.insert-koin:koin-compose-viewmodel-navigation" }
-koin-test = { module = "io.insert-koin:koin-test" }
 ktor-client-cio = { module = "io.ktor:ktor-client-cio", version.ref = "ktorClientCio" }
 ktor-client-darwin = { module = "io.ktor:ktor-client-darwin", version.ref = "ktorClientCore" }
-ktor-client-java = { module = "io.ktor:ktor-client-java", version.ref = "ktorClientCore" }
 ktor-client-js = { module = "io.ktor:ktor-client-js", version.ref = "ktorClientCore" }
 ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktorClientCore" }
 ktor-client-content-negotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktorClientContentNegotiation" }
 ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktorClientCore" }
-ktor-client-logging = { module = "io.ktor:ktor-client-logging", version.ref = "ktorClientLogging" }
 ktor-client-serialization = { module = "io.ktor:ktor-client-serialization", version.ref = "ktorClientSerialization" }
 ktor-serialization-kotlinx-json = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktorSerializationKotlinxJson" }
 room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
-room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
 room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
-room-sqlite-wrapper = { module = "androidx.room:room-sqlite-wrapper", version.ref = "room" }
 androidx-sqlite-bundled = { module = "androidx.sqlite:sqlite-bundled", version.ref = "sqlite" }
 socket-io-client = { module = "io.socket:socket.io-client", version.ref = "socketIoClient" }
 androidx-work-runtime-ktx = { module = "androidx.work:work-runtime-ktx", version.ref = "workRuntimeKtx" }
-# compose-compiler = { group = "org.jetbrains.kotlin.android", name = "compose-compiler", version.ref = "composeCompiler" } # Removed: Managed by Kotlin Gradle Plugin for Kotlin 2.x
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
@@ -107,7 +82,7 @@ android-library = { id = "com.android.library", version.ref = "agp" }
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 kotlinx-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 jetbrains-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
-ksp = { id = "com.google.devtools.ksp", version.ref = "kspVersion"} # Updated to use kspVersion from versions block
-compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "composeCompiler" } # Added Compose Compiler Plugin with version ref
+ksp = { id = "com.google.devtools.ksp", version.ref = "kspVersion"}
+compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "composeCompiler" }
 compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "composeMultiplatform" }
 room = { id = "androidx.room", version.ref = "room" }
