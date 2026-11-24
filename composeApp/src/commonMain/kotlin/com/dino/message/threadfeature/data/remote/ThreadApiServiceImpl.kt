@@ -11,7 +11,6 @@ import com.dino.message.corefeature.domain.crypto.Base64Codec
 import com.dino.message.corefeature.domain.logging.AppLogger
 import com.dino.message.corefeature.domain.session.AuthSessionStore
 import com.dino.message.corefeature.domain.upload.MediaMimePolicy
-import com.dino.message.corefeature.domain.upload.UploadMediaCategory
 import com.dino.message.corefeature.domain.upload.PlatformMediaMetadata
 import com.dino.message.corefeature.domain.upload.PlatformMediaMetadataExtractor
 import com.dino.message.corefeature.domain.upload.PlatformMediaReference
@@ -57,6 +56,7 @@ import com.dino.message.threadfeature.domain.model.DeleteContentResult
 import com.dino.message.threadfeature.domain.model.CreatedComment
 import com.dino.message.threadfeature.domain.model.CreatedPost
 import com.dino.message.threadfeature.domain.model.CreatePostMedia
+import com.dino.message.threadfeature.domain.model.validateStoryUpload
 import com.dino.message.threadfeature.domain.model.MAX_POST_VIDEO_DURATION_MS
 import com.dino.message.threadfeature.domain.model.FeedMode
 import com.dino.message.threadfeature.domain.model.FeedPage
@@ -100,7 +100,6 @@ class ThreadApiServiceImpl constructor(
 
     companion object {
         private const val MAX_MEDIA_FILES_PER_POST = 8
-        private const val MAX_STORY_VIDEO_DURATION_SECONDS = 30.0
         private const val POST_UPLOAD_REQUEST_TIMEOUT_MS = 120_000L
         private const val POST_UPLOAD_SOCKET_TIMEOUT_MS = 120_000L
         private const val STORY_UPLOAD_REQUEST_TIMEOUT_MS = 120_000L
@@ -503,21 +502,8 @@ class ThreadApiServiceImpl constructor(
         mediaFile: CreatePostMedia,
         mentionUsernames: List<String>
     ): Resource<StoryUploadResult> {
-        val normalizedMimeType = MediaMimePolicy.normalizeMimeType(mediaFile.mimeType)
-        MediaMimePolicy.validateUploadMimeType(
-            normalizedMimeType,
-            setOf(UploadMediaCategory.Image, UploadMediaCategory.Video),
-        )?.let { return Resource.Error(message = it) }
-
-        if (normalizedMimeType.startsWith("video/")) {
-            val durationSeconds = resolveVideoDurationSeconds(mediaFile)
-            if (durationSeconds != null && durationSeconds > MAX_STORY_VIDEO_DURATION_SECONDS) {
-                return Resource.Error(
-                    message = AppStringKey.StoryVideoDurationLimit.asStringResourceContent(
-                        MAX_STORY_VIDEO_DURATION_SECONDS.toInt()
-                    )
-                )
-            }
+        validateStoryUpload(mediaFile, resolveStoryVideoDuration(mediaFile))?.let {
+            return Resource.Error(message = it)
         }
 
         ensureFreshAccessTokenBeforeUpload()
@@ -710,11 +696,11 @@ class ThreadApiServiceImpl constructor(
         return null
     }
 
-    private fun resolveVideoDurationSeconds(mediaFile: CreatePostMedia): Double? {
-        val durationMillis = (mediaFile.file.metadata ?: mediaMetadataExtractor.extract(
-            PlatformMediaReference(mediaFile.file.handle.id)
-        )).durationMs ?: return null
-        return durationMillis / 1000.0
+    private fun resolveStoryVideoDuration(media: CreatePostMedia): Long? {
+        if (MediaMimePolicy.mediaCategory(media.mimeType) != "video") return null
+        return (media.file.metadata ?: mediaMetadataExtractor.extract(
+            PlatformMediaReference(media.file.handle.id)
+        )).durationMs
     }
 
     private fun createMultipartBoundary(): String {

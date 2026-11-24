@@ -75,7 +75,6 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -136,6 +135,7 @@ import com.dino.message.corefeature.presentation.platform.PlatformAsyncImage
 import com.dino.message.corefeature.presentation.platform.PlatformVideoPlayer
 import com.dino.message.corefeature.presentation.platform.PlatformVideoResizeMode
 import com.dino.message.threadfeature.domain.model.CreatePostMedia
+import com.dino.message.threadfeature.domain.model.validateStoryUpload
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -171,46 +171,6 @@ private enum class EditorTool {
     Draw,
 }
 
-private enum class TextAlignOption {
-    Left,
-    Center,
-    Right,
-}
-
-private data class DrawStroke(
-    val points: List<Offset>,
-    val color: Color,
-    val widthPx: Float,
-)
-
-private data class TextOverlay(
-    val id: String,
-    val text: String,
-    val offset: Offset,
-    val color: Color,
-    val backgroundColor: Color,
-    val fontSizeSp: Float,
-    val isBold: Boolean,
-    val isItalic: Boolean,
-    val align: TextAlignOption,
-    val boxWidthPx: Float = 220f,
-)
-
-private data class MentionOverlay(
-    val id: String,
-    val username: String,
-    val offset: Offset,
-)
-
-private data class EditorSnapshot(
-    val zoom: Float,
-    val panX: Float,
-    val panY: Float,
-    val drawStrokes: List<DrawStroke>,
-    val textOverlays: List<TextOverlay>,
-    val mentionOverlays: List<MentionOverlay>,
-)
-
 @Composable
 fun StoryEditorOverlay(
     media: CreatePostMedia,
@@ -223,6 +183,7 @@ fun StoryEditorOverlay(
 ) {
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
     val context = LocalContext.current
+    val stringResolver = org.koin.compose.koinInject<com.dino.message.corefeature.domain.resource.StringResolver>()
     val isImage = media.mimeType.lowercase(Locale.US).startsWith("image/")
     val mediaKey = media.file.handle.id
 
@@ -249,11 +210,11 @@ fun StoryEditorOverlay(
 
     var activeOverlayId by rememberSaveable { mutableStateOf<String?>(null) }
 
-    val drawHistory = remember { mutableStateListOf<DrawStroke>() }
-    val textOverlays = remember { mutableStateListOf<TextOverlay>() }
-    val mentionOverlays = remember { mutableStateListOf<MentionOverlay>() }
-    val undoHistory = remember { mutableStateListOf<EditorSnapshot>() }
-    val redoHistory = remember { mutableStateListOf<EditorSnapshot>() }
+    val draft = remember(mediaKey) { StoryEditingDraft() }
+    val drawHistory = draft.drawStrokes
+    val textOverlays = draft.textOverlays
+    val mentionOverlays = draft.mentionOverlays
+    val editHistory = draft.history
 
     var activeStroke by remember { mutableStateOf<List<Offset>>(emptyList()) }
     val coroutineScope = rememberCoroutineScope()
@@ -261,36 +222,16 @@ fun StoryEditorOverlay(
     val navBarPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val statusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
 
-    fun captureSnapshot(): EditorSnapshot {
-        return EditorSnapshot(
-            zoom = zoom,
-            panX = panX,
-            panY = panY,
-            drawStrokes = drawHistory.map { it.copy(points = it.points.toList()) },
-            textOverlays = textOverlays.toList(),
-            mentionOverlays = mentionOverlays.toList()
-        )
-    }
+    fun captureSnapshot(): EditorSnapshot = draft.snapshot(zoom, panX, panY)
 
     fun restoreSnapshot(snapshot: EditorSnapshot) {
         zoom = snapshot.zoom
         panX = snapshot.panX
         panY = snapshot.panY
-        drawHistory.clear()
-        drawHistory.addAll(snapshot.drawStrokes)
-        textOverlays.clear()
-        textOverlays.addAll(snapshot.textOverlays)
-        mentionOverlays.clear()
-        mentionOverlays.addAll(snapshot.mentionOverlays)
+        draft.restoreOverlays(snapshot)
     }
 
-    fun pushUndoSnapshot() {
-        undoHistory.add(captureSnapshot())
-        if (undoHistory.size > 70) {
-            undoHistory.removeAt(0)
-        }
-        redoHistory.clear()
-    }
+    fun pushUndoSnapshot() = editHistory.record(captureSnapshot())
 
     Surface(
         modifier = modifier
@@ -305,20 +246,18 @@ fun StoryEditorOverlay(
             ) {
                 StoryEditorTopBar(
                     isExporting = isExporting,
-                    canUndo = undoHistory.isNotEmpty(),
-                    canRedo = redoHistory.isNotEmpty(),
+                    canUndo = editHistory.canUndo,
+                    canRedo = editHistory.canRedo,
                     showColorPicker = selectedTool == EditorTool.Draw,
                     showCropHint = selectedTool == EditorTool.Crop,
                     onClose = onDismiss,
                     onUndo = {
-                        val snapshot = undoHistory.removeLastOrNull() ?: return@StoryEditorTopBar
-                        redoHistory.add(captureSnapshot())
+                        val snapshot = editHistory.undo(captureSnapshot()) ?: return@StoryEditorTopBar
                         restoreSnapshot(snapshot)
                         activeTextInputId = null
                     },
                     onRedo = {
-                        val snapshot = redoHistory.removeLastOrNull() ?: return@StoryEditorTopBar
-                        undoHistory.add(captureSnapshot())
+                        val snapshot = editHistory.redo(captureSnapshot()) ?: return@StoryEditorTopBar
                         restoreSnapshot(snapshot)
                         activeTextInputId = null
                     },
@@ -330,11 +269,15 @@ fun StoryEditorOverlay(
                     },
                     onPost = {
                         if (isExporting) return@StoryEditorTopBar
+                        validateStoryUpload(media)?.let {
+                            onEditorNotice(it.resolveWith(stringResolver))
+                            return@StoryEditorTopBar
+                        }
                         coroutineScope.launch {
                             isExporting = true
                             exportProgressPercent = if (isImage) null else 0
                             try {
-                                val mentionUsernames = mentionOverlays.map { it.username }.distinct()
+                                val mentionUsernames = storyMentionUsernames(mentionOverlays)
                                 if (isImage) {
                                     val exported = exportEditedStoryImage(
                                         context = context,
@@ -347,7 +290,7 @@ fun StoryEditorOverlay(
                                         mentionOverlays = mentionOverlays,
                                     )
                                     if (exported != null) {
-                                        onPost(exported, mentionUsernames)
+                                        StoryUploadIntent(exported, mentionUsernames).let { onPost(it.media, it.mentionUsernames) }
                                     }
                                 } else {
                                     val exported = exportEditedStoryVideo(
@@ -366,7 +309,7 @@ fun StoryEditorOverlay(
                                             "Couldn't render edited video. Uploaded original video instead."
                                         )
                                     }
-                                    onPost(exported ?: media, mentionUsernames)
+                                    StoryUploadIntent(exported ?: media, mentionUsernames).let { onPost(it.media, it.mentionUsernames) }
                                 }
                             } finally {
                                 isExporting = false
