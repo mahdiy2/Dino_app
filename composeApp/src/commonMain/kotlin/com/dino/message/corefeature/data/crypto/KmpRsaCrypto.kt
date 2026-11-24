@@ -56,6 +56,9 @@ class KmpRsaCrypto(
     }
 
     override suspend fun decryptPkcs1(data: ByteArray, privateKey: RsaPrivateKey): ByteArray {
+        if (requiresPlatformLegacyRsaDecryptor) {
+            return decryptLegacyRsaPkcs1Platform(privateKey.encoded, data)
+        }
         val algorithm = provider.getOrNull(RSA.PKCS1)
             ?: return decryptLegacyRsaPkcs1Platform(privateKey.encoded, data)
         val key = algorithm.privateKeyDecoder(SHA256)

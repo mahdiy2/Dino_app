@@ -1,5 +1,7 @@
 package com.dino.message.corefeature.data.crypto
 
+internal actual val requiresPlatformLegacyRsaDecryptor: Boolean = true
+
 internal actual suspend fun decryptLegacyRsaPkcs1Platform(
     privateKeyPkcs8: ByteArray,
     ciphertext: ByteArray,
