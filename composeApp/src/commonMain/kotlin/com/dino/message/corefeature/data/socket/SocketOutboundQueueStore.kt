@@ -1,5 +1,8 @@
 package com.dino.message.corefeature.data.socket
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class SocketOutboundQueueRecord(
     val queueId: String,
     val event: String,
