@@ -33,24 +33,6 @@ class AndroidUploadContentProvider(
         }.getOrDefault(false)
     }
 
-    fun filePart(
-        uri: Uri,
-        formName: String,
-        fileName: String,
-        mimeType: String,
-        size: Long?,
-    ): UploadFilePart {
-        return UploadFilePart(
-            formName = formName,
-            fileName = fileName,
-            mimeType = mimeType,
-            size = size,
-            openInput = UploadInputProvider {
-                openInputStream(uri).asInput()
-            },
-        )
-    }
-
     fun readableMediaFile(
         uri: Uri,
         displayName: String? = null,

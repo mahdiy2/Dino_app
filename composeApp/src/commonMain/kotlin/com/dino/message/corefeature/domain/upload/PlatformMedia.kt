@@ -9,6 +9,8 @@ data class PlatformMediaMetadata(
     val title: String? = null,
     val artist: String? = null,
     val mimeType: String? = null,
+    val sizeBytes: Long? = null,
+    val thumbnailJpeg: ByteArray? = null,
 )
 
 data class PlatformPickedMedia(
@@ -19,7 +21,7 @@ data class PlatformPickedMedia(
     val durationMs: Long? = null,
 )
 
-interface PlatformMediaMetadataExtractor {
+fun interface PlatformMediaMetadataExtractor {
     fun extract(source: PlatformMediaReference): PlatformMediaMetadata
 }
 

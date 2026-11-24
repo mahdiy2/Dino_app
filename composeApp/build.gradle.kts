@@ -51,6 +51,7 @@ kotlin {
             dependsOn(nonWebMain)
             dependencies {
                 implementation(libs.ktor.client.okhttp)
+                implementation(libs.androidx.activity.compose)
                 implementation(libs.cryptography.provider.jdk)
             }
         }

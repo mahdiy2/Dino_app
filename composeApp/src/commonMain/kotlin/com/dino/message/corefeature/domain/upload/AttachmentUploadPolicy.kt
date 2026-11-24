@@ -15,15 +15,7 @@ object AttachmentUploadPolicy {
 
     fun validate(mimeType: String, fileSizeBytes: Long?): StringResourceContent? {
         val normalizedMimeType = normalizeMimeType(mimeType)
-        if (normalizedMimeType.isBlank()) {
-            return AppStringKey.AttachmentMimeTypeRequired.asStringResourceContent()
-        }
-        if (MediaMimePolicy.isBlockedForSecurity(normalizedMimeType)) {
-            return AppStringKey.UnsupportedAttachmentTypeSecurity.asStringResourceContent(normalizedMimeType)
-        }
-        if (!MediaMimePolicy.isSupportedUploadMimeType(normalizedMimeType)) {
-            return AppStringKey.UnsupportedAttachmentType.asStringResourceContent(normalizedMimeType)
-        }
+        MediaMimePolicy.validateUploadMimeType(normalizedMimeType)?.let { return it }
 
         val maxSize = maxSizeForMimeType(normalizedMimeType) ?: return null
         if (fileSizeBytes != null && fileSizeBytes > maxSize) {

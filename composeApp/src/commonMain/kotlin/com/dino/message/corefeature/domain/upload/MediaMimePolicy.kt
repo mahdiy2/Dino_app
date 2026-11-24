@@ -1,5 +1,9 @@
 package com.dino.message.corefeature.domain.upload
 
+import com.dino.message.corefeature.domain.model.AppStringKey
+import com.dino.message.corefeature.domain.model.StringResourceContent
+import com.dino.message.corefeature.domain.model.asStringResourceContent
+
 object MediaMimePolicy {
     private val blockedMimeTypes = setOf(
         "image/svg+xml",
@@ -26,6 +30,21 @@ object MediaMimePolicy {
         return normalizedMimeType.startsWith("image/") ||
             normalizedMimeType.startsWith("video/") ||
             normalizedMimeType.startsWith("audio/")
+    }
+
+    fun validateUploadMimeType(
+        mimeType: String,
+        allowedCategories: Set<UploadMediaCategory> = UploadMediaCategory.entries.toSet(),
+    ): StringResourceContent? {
+        val normalized = normalizeMimeType(mimeType)
+        return when {
+            normalized.isBlank() -> AppStringKey.AttachmentMimeTypeRequired.asStringResourceContent()
+            isBlockedForSecurity(normalized) ->
+                AppStringKey.UnsupportedAttachmentTypeSecurity.asStringResourceContent(normalized)
+            allowedCategories.none { mediaCategory(normalized) == it.mimePrefix } ->
+                AppStringKey.UnsupportedAttachmentType.asStringResourceContent(normalized)
+            else -> null
+        }
     }
 
     fun mediaCategory(mimeType: String): String? {

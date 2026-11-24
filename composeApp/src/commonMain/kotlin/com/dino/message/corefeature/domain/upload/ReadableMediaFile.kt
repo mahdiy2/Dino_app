@@ -16,4 +16,7 @@ data class MediaFileHandle(
 data class ReadableMediaFile(
     val handle: MediaFileHandle,
     val openInput: UploadInputProvider,
+    val metadata: PlatformMediaMetadata? = null,
+    /** Release owned resources after uploads and retries have finished. */
+    val release: () -> Unit = {},
 )
