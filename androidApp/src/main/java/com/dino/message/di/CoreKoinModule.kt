@@ -213,7 +213,7 @@ val coreModule = module {
             appLogger = get(),
         )
     }
-    single { AppLifecycleBackgroundTaskScheduler() }
+    single { AppLifecycleBackgroundTaskScheduler(androidContext()) }
     single<BackgroundTaskScheduler> { get<AppLifecycleBackgroundTaskScheduler>() }
     single<BackgroundTaskRegistry> { get<AppLifecycleBackgroundTaskScheduler>() }
     single<RealtimeSocketTransportFactory> {
@@ -234,7 +234,6 @@ val coreModule = module {
             appProcessController = get(),
             crashLogBuilder = get(),
             crashUiLauncher = get(),
-            backgroundTaskRegistry = get(),
         )
     }
     single<NetworkIssueReporter> { get<CrashReporter>() }

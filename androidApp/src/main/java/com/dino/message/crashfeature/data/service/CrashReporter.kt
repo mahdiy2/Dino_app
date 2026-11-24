@@ -4,7 +4,6 @@ import com.dino.message.corefeature.domain.logging.AppLogger
 import com.dino.message.corefeature.data.remote.NetworkIssueReporter
 import com.dino.message.corefeature.data.spref.SPrefManager
 import com.dino.message.corefeature.domain.background.BackgroundTask
-import com.dino.message.corefeature.domain.background.BackgroundTaskRegistry
 import com.dino.message.corefeature.domain.background.BackgroundTaskScheduler
 import com.dino.message.corefeature.domain.system.AppClock
 import com.dino.message.corefeature.domain.system.AppProcessController
@@ -39,19 +38,12 @@ class CrashReporter constructor(
     private val appProcessController: AppProcessController,
     private val crashLogBuilder: CrashLogBuilder,
     private val crashUiLauncher: CrashUiLauncher,
-    backgroundTaskRegistry: BackgroundTaskRegistry,
 ) : NetworkIssueReporter {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val isHandlerInstalled = AtomicBoolean(false)
     private val isFlushing = AtomicBoolean(false)
     private val breadcrumbLock = Any()
     private val breadcrumbs = ArrayDeque<CrashBreadcrumb>()
-
-    init {
-        backgroundTaskRegistry.register(BackgroundTask.CRASH_LOG_RETRY) {
-            flushPendingLogsInternal()
-        }
-    }
 
     fun installGlobalExceptionHandler() {
         if (!isHandlerInstalled.compareAndSet(false, true)) return
@@ -241,14 +233,16 @@ class CrashReporter constructor(
         appProcessController.terminateCurrentProcess(10)
     }
 
-    private suspend fun flushPendingLogsInternal(maxBatchSize: Int = 20) {
-        if (!isFlushing.compareAndSet(false, true)) return
+    suspend fun retryPendingLogs(): Boolean = flushPendingLogsInternal()
+
+    private suspend fun flushPendingLogsInternal(maxBatchSize: Int = 20): Boolean {
+        if (!isFlushing.compareAndSet(false, true)) return false
 
         try {
             while (true) {
                 val pendingLogs = crashLogDao.getOldestPending(maxBatchSize)
                 if (pendingLogs.isEmpty()) {
-                    break
+                    return true
                 }
 
                 val sentIds = mutableListOf<Long>()
@@ -276,7 +270,7 @@ class CrashReporter constructor(
                         ids = listOf(failedLogId),
                         error = "upload_failed",
                     )
-                    break
+                    return false
                 }
             }
         } finally {
