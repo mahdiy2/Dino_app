@@ -95,6 +95,15 @@ kotlin {
         getByName("desktopMain").apply {
             dependsOn(nonWebMain)
             dependencies {
+                val arm64 = System.getProperty("os.arch") in setOf("aarch64", "arm64")
+                val javafxPlatform = when {
+                    System.getProperty("os.name").startsWith("Mac") -> if (arm64) "mac-aarch64" else "mac"
+                    System.getProperty("os.name").startsWith("Windows") -> "win"
+                    else -> if (arm64) "linux-aarch64" else "linux"
+                }
+                for (module in listOf("base", "graphics", "media", "swing")) {
+                    implementation("org.openjfx:javafx-$module:21.0.8:$javafxPlatform")
+                }
                 implementation(libs.ktor.client.cio)
                 implementation(libs.androidx.sqlite.bundled)
                 implementation(libs.cryptography.provider.jdk)
