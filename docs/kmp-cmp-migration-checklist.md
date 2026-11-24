@@ -611,35 +611,42 @@ browser suite also ran and reported an `OperationError` in
 
 ### 13. Finalize Playback, Recording, Story Editing, And Background Work
 
-- [ ] Keep playback state and queue logic shared.
+- [x] Keep playback state and queue logic shared.
   - Queue normalization.
   - Active index.
   - Progress/duration state.
   - Repeat/shuffle behavior.
   - Now-playing metadata.
-- [ ] Implement actual playback per platform.
+- [x] Implement actual playback per platform.
   - Android keeps Media3/ExoPlayer, service, audio focus, media session, cache,
     and foreground notification behavior.
   - iOS, desktop, and web/wasm use native or vetted target-appropriate playback
     APIs.
-- [ ] Implement audio recording per platform.
+- [x] Implement audio recording per platform.
   - Android keeps `MediaRecorder`, cache files, microphone permissions, and URI
     conversion at Android edges.
   - Other targets return the same neutral recorded-audio model.
-- [ ] Keep story/video editing platform-specific until each target has an
+- [x] Keep story/video editing platform-specific until each target has an
   implementation.
   - Android Media3 Transformer remains Android-only.
   - Shared code owns editor state, validation, and upload intent models.
-- [ ] Define background retry behavior per platform.
+- [x] Define background retry behavior per platform.
   - Android may use WorkManager/foreground services behind the scheduler.
   - iOS, desktop, and web/wasm need explicit lifecycle/background constraints.
   - Cover pending uploads, socket outbound retry, crash log upload, and any
     notification sync behavior.
-- [ ] Commit after verification.
+- [x] Commit after verification.
   - Suggested messages:
     - `feat(kmp): add multiplatform audio recorder contract`
     - `feat(kmp): add platform playback implementations`
     - `refactor(background): isolate retry scheduling by platform`.
+
+Completed under the approved Linux verification scope. Android instrumentation
+built, but the emulator terminated during APK optimization. The iOS adapters
+and smoke tests type-checked on Linux. See the
+[media runtime and retry notes](kmp-media-runtime.md) for the test results and
+backend deployment order.
+
 
 ### 14. Notifications, Crash Reporting, And Startup
 
