@@ -3,29 +3,11 @@ package com.dino.message.chatfeature.presentation.component
 import android.content.Context
 import android.media.MediaRecorder
 import android.os.Build
+import com.dino.message.corefeature.domain.upload.MediaFileHandle
+import com.dino.message.corefeature.domain.upload.ReadableMediaFile
+import com.dino.message.corefeature.domain.upload.UploadInputProvider
+import io.ktor.utils.io.streams.asInput
 import java.io.File
-
-data class RecordedAudio(
-    val source: String,
-    val fileName: String,
-    val mimeType: String,
-    val sizeBytes: Long,
-    val durationMs: Long,
-)
-
-interface PlatformAudioRecorder {
-    val isRecording: Boolean
-    val currentDurationMs: Long
-
-    fun startRecording(): Boolean
-    fun stopRecording(): RecordedAudio?
-    fun cancelRecording()
-    fun release()
-}
-
-interface PlatformAudioRecorderFactory {
-    fun createRecorder(): PlatformAudioRecorder
-}
 
 class AndroidAudioRecorderFactory(private val context: Context) : PlatformAudioRecorderFactory {
     override fun createRecorder(): PlatformAudioRecorder = AndroidVoiceRecorder(context)
@@ -42,10 +24,10 @@ class AndroidVoiceRecorder(private val context: Context) : PlatformAudioRecorder
     override val currentDurationMs: Long
         get() = if (isRecording) System.currentTimeMillis() - startTimeMs else 0L
 
-    override fun startRecording(): Boolean {
+    override suspend fun startRecording(): Boolean {
         if (recorder != null) return false
 
-        val file = File(context.cacheDir, "voice_${System.currentTimeMillis()}.m4a")
+        val file = File(context.cacheDir, "voice_${java.util.UUID.randomUUID()}.m4a")
         outputFile = file
 
         val mediaRecorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -61,6 +43,7 @@ class AndroidVoiceRecorder(private val context: Context) : PlatformAudioRecorder
             mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
             mediaRecorder.setAudioSamplingRate(44100)
             mediaRecorder.setAudioEncodingBitRate(96000)
+            mediaRecorder.setMaxFileSize(com.dino.message.corefeature.domain.upload.AttachmentUploadPolicy.MAX_AUDIO_SIZE_BYTES)
             mediaRecorder.setOutputFile(file.absolutePath)
             mediaRecorder.prepare()
             mediaRecorder.start()
@@ -74,7 +57,7 @@ class AndroidVoiceRecorder(private val context: Context) : PlatformAudioRecorder
         }
     }
 
-    override fun stopRecording(): RecordedAudio? {
+    override suspend fun stopRecording(): RecordedAudio? {
         val mediaRecorder = recorder ?: return null
         return try {
             mediaRecorder.stop()
@@ -89,10 +72,11 @@ class AndroidVoiceRecorder(private val context: Context) : PlatformAudioRecorder
                 return null
             }
             RecordedAudio(
-                source = file.absolutePath,
-                fileName = file.name,
-                mimeType = VOICE_RECORDING_MIME_TYPE,
-                sizeBytes = file.length(),
+                file = ReadableMediaFile(
+                    handle = MediaFileHandle(file.toURI().toString(), file.name, VOICE_RECORDING_MIME_TYPE, file.length()),
+                    openInput = UploadInputProvider { file.inputStream().asInput() },
+                    release = { file.delete() },
+                ),
                 durationMs = durationMs,
             )
         } catch (_: Exception) {

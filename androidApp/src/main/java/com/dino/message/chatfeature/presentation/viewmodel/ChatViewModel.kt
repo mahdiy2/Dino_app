@@ -9,6 +9,7 @@ import com.dino.message.chatfeature.domain.usecase.GetMessageFromDBUseCase
 import com.dino.message.chatfeature.domain.usecase.GetReceiverPublicKeyUseCase
 import com.dino.message.chatfeature.domain.usecase.SaveMessageInDbUseCase
 import com.dino.message.chatfeature.domain.usecase.UploadAttachmentUseCase
+import com.dino.message.corefeature.domain.upload.ReadableMediaFile
 import com.dino.message.corefeature.domain.upload.PlatformMediaReference
 import com.dino.message.corefeature.domain.upload.PlatformMediaResolver
 import com.dino.message.corefeature.domain.crypto.MessageCrypto
@@ -810,16 +811,18 @@ class ChatViewModel constructor(
     }
 
     fun startVoiceRecording() {
-        if (_isRecording.value) return
-        val recorder = audioRecorderFactory.createRecorder()
-        if (recorder.startRecording()) {
-            voiceRecorder = recorder
-            _isRecording.value = true
-            _recordingDurationMs.value = 0L
-            recordingTimerJob = viewModelScope.launch {
-                while (_isRecording.value) {
-                    _recordingDurationMs.value = recorder.currentDurationMs
-                    kotlinx.coroutines.delay(200)
+        viewModelScope.launch {
+            if (voiceRecorder != null) return@launch
+            val recorder = audioRecorderFactory.createRecorder()
+            if (recorder.startRecording()) {
+                voiceRecorder = recorder
+                _isRecording.value = true
+                _recordingDurationMs.value = 0L
+                recordingTimerJob = viewModelScope.launch {
+                    while (_isRecording.value) {
+                        _recordingDurationMs.value = recorder.currentDurationMs
+                        kotlinx.coroutines.delay(200)
+                    }
                 }
             }
         }
@@ -829,10 +832,10 @@ class ChatViewModel constructor(
         val recorder = voiceRecorder ?: return
         recordingTimerJob?.cancel()
         _isRecording.value = false
-        val recording = recorder.stopRecording()
         voiceRecorder = null
-        if (recording != null) {
-            sendAttachment(PlatformMediaReference(recording.source))
+        viewModelScope.launch {
+            val recording = recorder.stopRecording() ?: return@launch
+            uploadAttachment({ recording.file }, null)
         }
     }
 
@@ -985,16 +988,20 @@ class ChatViewModel constructor(
     }
 
     fun sendAttachment(media: PlatformMediaReference, caption: String? = null) {
-        viewModelScope.launch {
+        viewModelScope.launch { uploadAttachment({ mediaResolver.readableMediaFile(media) }, caption) }
+    }
+
+    private suspend fun uploadAttachment(resolveFile: () -> ReadableMediaFile, caption: String? = null) {
+        val uploadFile = resolveFile()
+        try {
             val publicKey = receiverPublicKey.value
             if (publicKey.isNullOrBlank() || resolveReceiverEncryptionPublicKey() == null) {
                 pushSocketDebugLog("Cannot send attachment: missing receiver public key")
-                return@launch
+                return
             }
             _isUploading.value = true
             _uploadError.value = null
             pushSocketDebugLog("Uploading attachment...")
-            val uploadFile = mediaResolver.readableMediaFile(media)
 
             uploadAttachmentUseCase.execute(uploadFile).collect { result ->
                 when (result) {
@@ -1021,6 +1028,9 @@ class ChatViewModel constructor(
                     }
                 }
             }
+        } finally {
+            _isUploading.value = false
+            uploadFile.release()
         }
     }
 

@@ -3,6 +3,7 @@ package com.dino.message.groupfeature.presentation.viewmodel
 import com.dino.message.chatfeature.domain.model.MessageDeliveryStatus
 import com.dino.message.chatfeature.domain.util.encodeMessageReactions
 import com.dino.message.chatfeature.domain.util.parseMessageReactionsFromPayload
+import com.dino.message.corefeature.domain.upload.ReadableMediaFile
 import com.dino.message.corefeature.domain.upload.PlatformMediaReference
 import com.dino.message.corefeature.domain.upload.PlatformMediaResolver
 import com.dino.message.corefeature.domain.config.AppConfig
@@ -1299,9 +1300,13 @@ class GroupChatViewModel constructor(
     }
 
     fun sendAttachment(media: PlatformMediaReference, mediaType: String) {
-        viewModelScope.launch {
+        viewModelScope.launch { uploadAttachment({ mediaResolver.readableMediaFile(media) }, mediaType) }
+    }
+
+    private suspend fun uploadAttachment(resolveFile: () -> ReadableMediaFile, mediaType: String) {
+        val uploadFile = resolveFile()
+        try {
             stopTypingNow()
-            val uploadFile = mediaResolver.readableMediaFile(media)
             uploadGroupAttachmentUseCase.execute(groupId, uploadFile).collect { res ->
                 when (res) {
                     is Resource.Loading -> _isUploading.value = true
@@ -1382,6 +1387,9 @@ class GroupChatViewModel constructor(
                     }
                 }
             }
+        } finally {
+            _isUploading.value = false
+            uploadFile.release()
         }
     }
 
@@ -1407,17 +1415,20 @@ class GroupChatViewModel constructor(
         }
     }
 
+
     fun startRecording() {
-        if (_isRecording.value) return
-        val recorder = audioRecorderFactory.createRecorder()
-        if (recorder.startRecording()) {
-            voiceRecorder = recorder
-            _isRecording.value = true
-            _recordingDurationMs.value = 0L
-            recordingTimerJob = viewModelScope.launch {
-                while (_isRecording.value) {
-                    _recordingDurationMs.value = recorder.currentDurationMs
-                    kotlinx.coroutines.delay(200)
+        viewModelScope.launch {
+            if (voiceRecorder != null) return@launch
+            val recorder = audioRecorderFactory.createRecorder()
+            if (recorder.startRecording()) {
+                voiceRecorder = recorder
+                _isRecording.value = true
+                _recordingDurationMs.value = 0L
+                recordingTimerJob = viewModelScope.launch {
+                    while (_isRecording.value) {
+                        _recordingDurationMs.value = recorder.currentDurationMs
+                        kotlinx.coroutines.delay(200)
+                    }
                 }
             }
         }
@@ -1427,10 +1438,10 @@ class GroupChatViewModel constructor(
         val recorder = voiceRecorder ?: return
         recordingTimerJob?.cancel()
         _isRecording.value = false
-        val recording = recorder.stopRecording()
         voiceRecorder = null
-        if (recording != null) {
-            sendAttachment(PlatformMediaReference(recording.source), "voice")
+        viewModelScope.launch {
+            val recording = recorder.stopRecording() ?: return@launch
+            uploadAttachment({ recording.file }, "voice")
         }
     }
 

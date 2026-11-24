@@ -172,7 +172,7 @@ class IosUploadMediaPicker(private val presenter: UIViewController) : UploadMedi
 }
 
 @OptIn(ExperimentalForeignApi::class)
-private class IosFileSource(url: NSURL) : RawSource {
+internal class IosFileSource(url: NSURL) : RawSource {
     private val stream = NSInputStream(url).apply { open() }
     private val buffer = ByteArray(16 * 1024)
 
