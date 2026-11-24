@@ -7,13 +7,13 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class SocketRetryPolicyTest {
+class AndroidSocketRetryPolicyTest {
 
     @Test
     fun `requiresRetry returns true only for chat send events`() {
-        assertTrue(SocketRetryPolicy.requiresRetry("send_message"))
-        assertTrue(SocketRetryPolicy.requiresRetry("send_group_message"))
-        assertFalse(SocketRetryPolicy.requiresRetry("ack_messages"))
+        assertTrue(AndroidSocketRetryPolicy.requiresRetry("send_message"))
+        assertTrue(AndroidSocketRetryPolicy.requiresRetry("send_group_message"))
+        assertFalse(AndroidSocketRetryPolicy.requiresRetry("ack_messages"))
     }
 
     @Test
@@ -25,7 +25,7 @@ class SocketRetryPolicyTest {
 
         assertEquals(
             "private:alice:msg-1",
-            SocketRetryPolicy.autoDedupeKey("send_message", payload),
+            AndroidSocketRetryPolicy.autoDedupeKey("send_message", payload),
         )
     }
 
@@ -38,7 +38,7 @@ class SocketRetryPolicyTest {
 
         assertEquals(
             "group:42:msg-2",
-            SocketRetryPolicy.autoDedupeKey("send_group_message", payload),
+            AndroidSocketRetryPolicy.autoDedupeKey("send_group_message", payload),
         )
     }
 
@@ -48,7 +48,7 @@ class SocketRetryPolicyTest {
             put("to", "bob")
         }
 
-        assertNull(SocketRetryPolicy.autoDedupeKey("send_message", payload))
+        assertNull(AndroidSocketRetryPolicy.autoDedupeKey("send_message", payload))
     }
 
     @Test
@@ -57,6 +57,6 @@ class SocketRetryPolicyTest {
             put("client_message_id", "msg-3")
         }
 
-        assertNull(SocketRetryPolicy.autoDedupeKey("ack_messages", payload))
+        assertNull(AndroidSocketRetryPolicy.autoDedupeKey("ack_messages", payload))
     }
 }

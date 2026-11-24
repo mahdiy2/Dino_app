@@ -7,7 +7,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class SocketOutboundPayloadCodecTest {
+class AndroidSocketOutboundPayloadCodecTest {
 
     @Test
     fun encodeDecode_jsonObject_roundTrips() {
@@ -16,8 +16,8 @@ class SocketOutboundPayloadCodecTest {
             put("message", "enc")
         }
 
-        val encoded = SocketOutboundPayloadCodec.encode(payload)
-        val decoded = SocketOutboundPayloadCodec.decode(encoded.payloadType, encoded.payloadBody)
+        val encoded = AndroidSocketOutboundPayloadCodec.encode(payload)
+        val decoded = AndroidSocketOutboundPayloadCodec.decode(encoded.payloadType, encoded.payloadBody)
 
         assertTrue(decoded is JSONObject)
         assertEquals("alice", (decoded as JSONObject).optString("to"))
@@ -30,8 +30,8 @@ class SocketOutboundPayloadCodecTest {
             put("b")
         }
 
-        val encoded = SocketOutboundPayloadCodec.encode(payload)
-        val decoded = SocketOutboundPayloadCodec.decode(encoded.payloadType, encoded.payloadBody)
+        val encoded = AndroidSocketOutboundPayloadCodec.encode(payload)
+        val decoded = AndroidSocketOutboundPayloadCodec.decode(encoded.payloadType, encoded.payloadBody)
 
         assertTrue(decoded is JSONArray)
         assertEquals(2, (decoded as JSONArray).length())
@@ -39,8 +39,8 @@ class SocketOutboundPayloadCodecTest {
 
     @Test
     fun encodeDecode_null_roundTrips() {
-        val encoded = SocketOutboundPayloadCodec.encode(null)
-        val decoded = SocketOutboundPayloadCodec.decode(encoded.payloadType, encoded.payloadBody)
+        val encoded = AndroidSocketOutboundPayloadCodec.encode(null)
+        val decoded = AndroidSocketOutboundPayloadCodec.decode(encoded.payloadType, encoded.payloadBody)
 
         assertNull(decoded)
     }

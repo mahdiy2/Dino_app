@@ -91,21 +91,28 @@ class AppSocketManager constructor(
 
         synchronized(lock) {
             val activeSocket = socket
-            val canReuseExisting = !forceReconnect && activeSocket != null && authToken == token
-
-            if (canReuseExisting) {
-                if (activeSocket?.isConnected() == true) {
+            when (RealtimeSocketConnectionPlanner.plan(
+                currentToken = authToken,
+                requestedToken = token,
+                hasTransport = activeSocket != null,
+                isConnected = activeSocket?.isConnected() == true,
+                isConnecting = isConnecting,
+                forceReconnect = forceReconnect,
+            )) {
+                RealtimeSocketConnectionPlanner.Action.REUSE_CONNECTED,
+                RealtimeSocketConnectionPlanner.Action.WAIT_FOR_CURRENT_CONNECTION -> return true
+                RealtimeSocketConnectionPlanner.Action.CONNECT_EXISTING -> {
+                    isConnecting = true
+                    checkNotNull(activeSocket).connect()
                     return true
                 }
-                if (!isConnecting) {
-                    isConnecting = true
-                    activeSocket?.connect()
-                }
-                return true
+                RealtimeSocketConnectionPlanner.Action.REPLACE_TRANSPORT -> Unit
             }
 
-            socket?.offAll()
-            socket?.disconnect()
+            socket = null
+            authToken = null
+            activeSocket?.offAll()
+            activeSocket?.disconnect()
 
             val createdSocket = transportFactory.create(token) ?: run {
                 completeConnectionWaitersLocked(success = false)
@@ -123,6 +130,7 @@ class AppSocketManager constructor(
                     message = "Socket connected"
                 )
                 val waiters = synchronized(lock) {
+                    if (socket !== createdSocket) return@RealtimeSocketListener
                     isConnecting = false
                     scheduleOutboundQueueWorker()
                     drainConnectionWaitersLocked()
@@ -138,6 +146,7 @@ class AppSocketManager constructor(
                     message = "Socket disconnected"
                 )
                 synchronized(lock) {
+                    if (socket !== createdSocket) return@RealtimeSocketListener
                     isConnecting = false
                     completeConnectionWaitersLocked(success = false)
                 }
@@ -150,6 +159,7 @@ class AppSocketManager constructor(
                     message = "Socket connect error=$error"
                 )
                 synchronized(lock) {
+                    if (socket !== createdSocket) return@RealtimeSocketListener
                     isConnecting = false
                     completeConnectionWaitersLocked(success = false)
                 }
@@ -228,8 +238,8 @@ class AppSocketManager constructor(
     }
 
     override fun emit(event: String, payload: Any?): Boolean {
-        if (SocketRetryPolicy.requiresRetry(event)) {
-            val dedupeKey = SocketRetryPolicy.autoDedupeKey(event, payload)
+        if (AndroidSocketRetryPolicy.requiresRetry(event)) {
+            val dedupeKey = AndroidSocketRetryPolicy.autoDedupeKey(event, payload)
             crashReporter.addBreadcrumb(
                 category = "socket",
                 message = "Direct emit rerouted to retry queue for event=$event"
@@ -494,7 +504,7 @@ class AppSocketManager constructor(
             }
 
             val payload = runCatching {
-                SocketOutboundPayloadCodec.decode(
+                AndroidSocketOutboundPayloadCodec.decode(
                     payloadType = entity.payloadType,
                     payloadBody = entity.payloadBody,
                 )
@@ -527,7 +537,7 @@ class AppSocketManager constructor(
 
     private fun persistQueueItem(item: SocketOutboundRetryQueue.QueueItem): PersistQueueResult {
         val encodedPayload = runCatching {
-            SocketOutboundPayloadCodec.encode(item.payload)
+            AndroidSocketOutboundPayloadCodec.encode(item.payload)
         }.getOrElse { error ->
             appLogger.error(TAG, "Failed to encode outbound payload queueId=${item.queueId}", error)
             return PersistQueueResult.FAILED

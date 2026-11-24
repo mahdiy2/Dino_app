@@ -1,6 +1,6 @@
 package com.dino.message.corefeature.data.socket
 
-internal object RealtimeSocketConnectionPlanner {
+object RealtimeSocketConnectionPlanner {
     enum class Action {
         REUSE_CONNECTED,
         WAIT_FOR_CURRENT_CONNECTION,

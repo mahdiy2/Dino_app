@@ -5,11 +5,12 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.longOrNull
+import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 
 internal object SocketIoPacketCodec {
@@ -66,11 +67,11 @@ internal object SocketIoPacketCodec {
         val values = runCatching { json.parseToJsonElement(body).jsonArray }.getOrNull()
             ?: return IncomingPacket.Ignore
         val event = values.firstOrNull()?.let { first ->
-            runCatching { first.jsonPrimitive.content }.getOrNull()
+            (first as? JsonPrimitive)?.takeIf { it.isString }?.content
         } ?: return IncomingPacket.Ignore
         return IncomingPacket.Event(
             name = event,
-            arguments = values.drop(1).map(JsonElement::toTransportValue),
+            arguments = values.drop(1).map { it.toTransportValue() },
         )
     }
 

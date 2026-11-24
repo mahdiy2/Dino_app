@@ -98,6 +98,13 @@ class SocketOutboundRetryQueue(
         return EnqueueResult.Queued(queued)
     }
 
+    internal fun restoreItem(item: QueueItem) {
+        markSuccess(item.queueId)
+        items.add(item)
+        item.dedupeKey?.let { dedupeKeys.add(it) }
+        sortByRetryAt()
+    }
+
     fun peekReady(nowMs: Long = timeProvider()): QueueItem? {
         val head = items.firstOrNull() ?: return null
         return if (head.nextAttemptAtMs <= nowMs) head else null

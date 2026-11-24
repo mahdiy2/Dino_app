@@ -532,24 +532,48 @@ Follow-up discovered:
 
 ### 11. Finalize Realtime Socket
 
-- [ ] Keep current Android Socket.IO behavior behind `RealtimeSocketTransport`.
+- [x] Keep current Android Socket.IO behavior behind `RealtimeSocketTransport`.
   - Preserve `/socket.io/` auth, websocket/polling behavior, reconnection policy,
     event names, and payload shapes unless the server protocol changes.
 - [ ] Choose and implement non-Android realtime transports.
-  - Option A: platform-specific Socket.IO actuals.
-  - Option B: Ktor WebSockets if the server supports a compatible protocol.
-  - Do not silently switch protocols without server compatibility validation.
-- [ ] Keep outbound queue persistence behind shared contracts.
+  - Implemented Engine.IO v4 and Socket.IO over Ktor WebSockets and HTTP polling
+    for desktop, iOS, and Wasm. The Flask-SocketIO integration test exercises
+    both transports separately. iOS transport and Room verification still
+    require a macOS host. Run `:composeApp:iosSimulatorArm64Test` there and
+    smoke-test the Darwin client and Room queue against the local backend.
+- [x] Keep outbound queue persistence behind shared contracts.
   - Shared code owns queue policy and payload encoding.
   - Platform code owns durable storage.
-- [ ] Add tests.
+- [x] Add tests.
   - Event mapping.
   - Payload serialization/deserialization.
   - Retry/backoff policy.
   - Queue persistence behavior.
   - Reconnect and auth-refresh behavior.
-- [ ] Commit after verification.
-  - Suggested message: `feat(kmp): add multiplatform realtime transport`.
+- [x] Commit after verification on the available targets.
+  - `feat(kmp): add multiplatform realtime transport`
+
+Non-Android app shells can compose `createSharedRealtimeGateway` with a
+lifecycle scope, auth session store, and `RoomSocketOutboundQueueStore` on
+desktop and iOS or `IndexedDbSocketOutboundQueueStore` on Wasm. Call
+`connect()` after updating credentials and `disconnect(clearListeners = true)`
+before clearing the account session on logout.
+
+For local wire verification, run the fixture from the backend root.
+
+```sh
+PYTHONPATH=. .venv/bin/python ../../android/sec_message/scripts/realtime-test-backend.py /tmp/dino-realtime-tokens
+```
+
+Run `:composeApp:desktopTest`
+with `DINO_REALTIME_TEST_URL=http://127.0.0.1:19381` and
+`DINO_REALTIME_TEST_TOKENS=/tmp/dino-realtime-tokens`. The fixture uses a
+disposable SQLite database and local test users.
+
+Verified Android unit tests, `verifyKmpBaseline`, the desktop Socket.IO wire
+checks, and the Wasm realtime and IndexedDB browser tests. The full Wasm
+browser suite also ran and reported an `OperationError` in
+`DefaultMessageCryptoGoldenTest.decryptsFixedLegacyPayload`.
 
 ### 12. Finalize Media, Uploads, And Files
 
