@@ -583,29 +583,29 @@ browser suite also ran and reported an `OperationError` in
 
 ### 12. Finalize Media, Uploads, And Files
 
-- [ ] Keep platform-neutral upload/file handles in shared APIs.
+- [x] Keep platform-neutral upload/file handles in shared APIs.
   - Shared contracts may expose ID/URI string, display name, MIME type, size,
     byte reading, and lifecycle/cleanup hooks.
   - Shared contracts must not expose Android `Uri`, `ContentResolver`,
     `OpenableColumns`, `MimeTypeMap`, `MediaStore`, `FileProvider`, or
     `Environment`.
-- [ ] Implement media picking per platform.
+- [x] Implement media picking per platform.
   - Android keeps Activity Result APIs and URI permission handling.
   - iOS uses native picker/file APIs.
   - Desktop uses desktop file chooser/file APIs.
   - Web/Wasm uses browser file input/blob APIs.
-- [ ] Implement media metadata extraction per platform.
+- [x] Implement media metadata extraction per platform.
   - Preserve current duration, size, MIME, title/artist, and thumbnail behavior
     where supported.
   - Document target-specific unsupported metadata behavior.
-- [ ] Keep upload validation common.
+- [x] Keep upload validation common.
   - MIME policy.
   - Size policy.
   - Media category policy.
   - User-visible validation errors through domain/presentation-safe text models.
-- [ ] Preserve multipart upload behavior for chat, group, profile, post, music
+- [x] Preserve multipart upload behavior for chat, group, profile, post, music
   post, and story flows.
-- [ ] Commit feature areas separately.
+- [x] Commit feature areas separately.
   - Suggested message format:
     `refactor(upload): move <flow> upload source to common`.
 
