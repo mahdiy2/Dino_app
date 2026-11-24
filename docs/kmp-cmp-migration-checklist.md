@@ -539,8 +539,7 @@ Follow-up discovered:
   - Implemented Engine.IO v4 and Socket.IO over Ktor WebSockets and HTTP polling
     for desktop, iOS, and Wasm. The Flask-SocketIO integration test exercises
     both transports separately. iOS transport and Room verification still
-    require a macOS host. Run `:composeApp:iosSimulatorArm64Test` there and
-    smoke-test the Darwin client and Room queue against the local backend.
+    require a macOS host. Run the native smoke tests below there.
 - [x] Keep outbound queue persistence behind shared contracts.
   - Shared code owns queue policy and payload encoding.
   - Platform code owns durable storage.
@@ -569,6 +568,13 @@ Run `:composeApp:desktopTest`
 with `DINO_REALTIME_TEST_URL=http://127.0.0.1:19381` and
 `DINO_REALTIME_TEST_TOKENS=/tmp/dino-realtime-tokens`. The fixture uses a
 disposable SQLite database and local test users.
+
+On an Apple Silicon macOS host with Xcode and an iOS simulator, run
+`:composeApp:iosSimulatorArm64Test` to exercise the Room queue across database
+reopens. Start the same backend fixture and pass
+`SIMCTL_CHILD_DINO_REALTIME_TEST_URL=http://127.0.0.1:19381` and
+`SIMCTL_CHILD_DINO_REALTIME_TEST_TOKEN` (the first token in the fixture file)
+to the Gradle invocation to exercise both Darwin transport modes.
 
 Verified Android unit tests, `verifyKmpBaseline`, the desktop Socket.IO wire
 checks, and the Wasm realtime and IndexedDB browser tests. The full Wasm

@@ -84,6 +84,13 @@ kotlin {
             }
         }
 
+        val iosTest by creating {
+            dependsOn(getByName("commonTest"))
+        }
+        listOf("iosX64Test", "iosArm64Test", "iosSimulatorArm64Test").forEach { targetTest ->
+            getByName(targetTest).dependsOn(iosTest)
+        }
+
         getByName("desktopMain").apply {
             dependsOn(nonWebMain)
             dependencies {
