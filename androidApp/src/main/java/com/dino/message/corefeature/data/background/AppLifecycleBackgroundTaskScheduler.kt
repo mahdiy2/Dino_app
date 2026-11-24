@@ -19,9 +19,17 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
 class AppLifecycleBackgroundTaskScheduler(
-    private val context: Context,
+    private val enqueueCrashRetry: () -> Unit,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
 ) : BackgroundTaskScheduler, BackgroundTaskRegistry {
+
+    constructor(context: Context) : this(enqueueCrashRetry = {
+        val request = OneTimeWorkRequestBuilder<CrashLogRetryWorker>()
+            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
+            .build()
+        WorkManager.getInstance(context).enqueueUniqueWork("crash-log-retry", ExistingWorkPolicy.KEEP, request)
+    })
 
     private val handlers = ConcurrentHashMap<BackgroundTask, BackgroundTaskHandler>()
 
@@ -31,11 +39,7 @@ class AppLifecycleBackgroundTaskScheduler(
 
     override fun schedule(task: BackgroundTask) {
         if (task == BackgroundTask.CRASH_LOG_RETRY) {
-            val request = OneTimeWorkRequestBuilder<CrashLogRetryWorker>()
-                .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
-                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
-                .build()
-            WorkManager.getInstance(context).enqueueUniqueWork("crash-log-retry", ExistingWorkPolicy.KEEP, request)
+            enqueueCrashRetry()
             return
         }
         val handler = handlers[task] ?: return

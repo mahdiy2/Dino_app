@@ -12,25 +12,23 @@ import org.junit.Test
 class AppLifecycleBackgroundTaskSchedulerTest {
 
     @Test
-    fun schedule_runsRegisteredHandlerForTask() = runBlocking {
-        val completedTask = CompletableDeferred<BackgroundTask>()
+    fun schedule_delegatesCrashRetryToPersistentScheduler() {
+        var enqueued = 0
         val scheduler = AppLifecycleBackgroundTaskScheduler(
+            enqueueCrashRetry = { enqueued++ },
             scope = CoroutineScope(Dispatchers.Unconfined),
         )
 
-        scheduler.register(BackgroundTask.CRASH_LOG_RETRY) {
-            completedTask.complete(BackgroundTask.CRASH_LOG_RETRY)
-        }
-
         scheduler.schedule(BackgroundTask.CRASH_LOG_RETRY)
 
-        assertEquals(BackgroundTask.CRASH_LOG_RETRY, withTimeout(1_000) { completedTask.await() })
+        assertEquals(1, enqueued)
     }
 
     @Test
     fun schedule_afterReplacingHandler_runsLatestHandler() = runBlocking {
         val completedValue = CompletableDeferred<String>()
         val scheduler = AppLifecycleBackgroundTaskScheduler(
+            enqueueCrashRetry = {},
             scope = CoroutineScope(Dispatchers.Unconfined),
         )
 
@@ -49,6 +47,7 @@ class AppLifecycleBackgroundTaskSchedulerTest {
     @Test
     fun schedule_forDeferredUploadTasks_isSafeWithoutRegisteredHandler() {
         val scheduler = AppLifecycleBackgroundTaskScheduler(
+            enqueueCrashRetry = {},
             scope = CoroutineScope(Dispatchers.Unconfined),
         )
 
