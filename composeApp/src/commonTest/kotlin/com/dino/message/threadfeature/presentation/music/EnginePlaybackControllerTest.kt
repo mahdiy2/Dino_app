@@ -38,14 +38,25 @@ class EnginePlaybackControllerTest {
         assertEquals(-1, controller.playbackState.value.queueIndex)
     }
 
+    @Test
+    fun resumeAfterLastTrackEndsSeeksToStart() {
+        val engine = FakeEngine()
+        val controller = EnginePlaybackController(engine)
+        controller.playTrack("track", "Title", null)
+        engine.callbacks.single()(PlaybackEngineEvent.Ended)
+        controller.resume()
+        assertEquals(listOf(0L), engine.seeks)
+    }
+
     private class FakeEngine : MediaPlaybackEngine {
+        val seeks = mutableListOf<Long>()
         val callbacks = mutableListOf<(PlaybackEngineEvent) -> Unit>()
         override fun load(url: String, onEvent: (PlaybackEngineEvent) -> Unit) {
             callbacks += onEvent
         }
         override fun play() = Unit
         override fun pause() = Unit
-        override fun seekTo(positionMs: Long) = Unit
+        override fun seekTo(positionMs: Long) { seeks += positionMs }
         override fun close() = Unit
     }
 }

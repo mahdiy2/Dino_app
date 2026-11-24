@@ -27,6 +27,7 @@ class EnginePlaybackController(
     override val playbackState = mutableState.asStateFlow()
     private var generation = 0L
     private var disposed = false
+    private var ended = false
     private val state get() = mutableState.value
 
     override fun toggleTrack(trackUrl: String, title: String?, artist: String?) {
@@ -46,6 +47,7 @@ class EnginePlaybackController(
     }
 
     private fun load(track: MediaQueueItem) {
+        ended = false
         val currentGeneration = ++generation
         mutableState.value = state.copy(
             currentTrackUrl = track.trackUrl,
@@ -86,6 +88,7 @@ class EnginePlaybackController(
             PlaybackEngineEvent.Ended -> {
                 val next = queue.nextItemOrNull(state.isRepeatEnabled, state.isShuffleEnabled)
                 if (next == null) {
+                    ended = true
                     mutableState.value = state.copy(isPlaying = false, isBuffering = false)
                 } else {
                     load(next)
@@ -101,11 +104,17 @@ class EnginePlaybackController(
     override fun pauseForCompetingAudio() = pause()
 
     override fun resume() {
-        if (state.currentTrackUrl != null) engine.play()
+        if (state.currentTrackUrl == null) return
+        if (ended) {
+            ended = false
+            engine.seekTo(0)
+        }
+        engine.play()
     }
 
     override fun seekTo(positionMs: Long) {
         if (state.currentTrackUrl == null) return
+        ended = false
         engine.seekTo(positionMs.coerceIn(0, state.durationMs.takeIf { it > 0 } ?: Long.MAX_VALUE))
     }
 
@@ -113,6 +122,7 @@ class EnginePlaybackController(
 
     override fun stop() {
         generation++
+        ended = false
         queue.clearQueue()
         mutableState.value = MediaPlaybackState(
             isShuffleEnabled = state.isShuffleEnabled,

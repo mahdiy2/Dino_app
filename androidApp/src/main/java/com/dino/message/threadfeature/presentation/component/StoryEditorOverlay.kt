@@ -1626,12 +1626,12 @@ private suspend fun exportEditedStoryImage(
             displayName = outFile.name,
             mimeType = "image/jpeg",
             sizeBytes = outFile.length(),
-        ),
+        ).copy(release = { outFile.delete() }),
     )
 }
 
 @androidx.annotation.OptIn(UnstableApi::class)
-private suspend fun exportEditedStoryVideo(
+internal suspend fun exportEditedStoryVideo(
     context: Context,
     source: CreatePostMedia,
     viewportSize: IntSize,
@@ -1758,7 +1758,7 @@ private suspend fun exportEditedStoryVideo(
             displayName = outFile.name,
             mimeType = MimeTypes.VIDEO_MP4,
             sizeBytes = outFile.length(),
-        ),
+        ).copy(release = { outFile.delete() }),
     )
 }
 
