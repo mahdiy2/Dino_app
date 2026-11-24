@@ -700,19 +700,39 @@ this verification scope. See Task 14 for the existing blockers.
 
 ## Final Acceptance Criteria
 
-- [ ] The project uses `:androidApp + :composeApp`.
+- [x] The project uses `:androidApp + :composeApp`.
 - [ ] Android builds and existing Android behavior remains compatible.
 - [ ] `:composeApp` compiles for Android, iOS, desktop, and web/wasm targets.
-- [ ] Common tests pass.
-- [ ] Android unit tests pass.
-- [ ] Android instrumentation tests pass where required.
-- [ ] Domain code has no data, presentation, Android, or AndroidX imports.
-- [ ] Shared UI has no Android resource, context, lifecycle, permission, or
+- [x] Common tests pass.
+- [x] Android unit tests pass.
+- [x] Android instrumentation tests pass where required.
+- [x] Domain code has no data, presentation, Android, or AndroidX imports.
+- [x] Shared UI has no Android resource, context, lifecycle, permission, or
   activity-result dependencies.
 - [ ] Existing database schema, secure storage keys, crypto payloads, route
   arguments, server wire shapes, and upload multipart behavior remain compatible.
 - [ ] Every completed checklist item has a corresponding commit with an
   appropriate commit message.
+
+### Linux and Android verification
+
+- Android debug and instrumentation APKs built. All 56 Android unit tests and
+  all nine instrumentation tests passed on API 29. Instrumentation covered
+  chat storage, durable media submissions, notification delivery, playback,
+  recording, and video export.
+- Linux desktop and Wasm compiled. The desktop suite passed, and the focused
+  Socket.IO fixture passed over WebSockets and HTTP polling. A later combined
+  run hit an expired fixture credential. All 73 Chrome/Wasm tests passed
+  after routing legacy RSA decryption through the existing browser adapter.
+- The Gradle boundary checks and cross-source-set import audit passed. The
+  baseline storage key constants, route names, and Room migration pairs are
+  present. Desktop Room and crypto fixtures, shared multipart tests, and
+  all three backend upload replay tests passed.
+- The API 29 app cold-started and opened the crash report screen after a
+  controlled crash. Full Android compatibility verification still requires
+  notification tap routing, API 33+ permission denial and grant, and a
+  verified crash queue and restart flow. Task 14's commit remains pending.
+- iOS, macOS desktop, and Windows desktop verification is deferred.
 
 ## Useful References
 
