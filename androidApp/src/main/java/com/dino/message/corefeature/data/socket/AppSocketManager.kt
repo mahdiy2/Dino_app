@@ -22,6 +22,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.UUID
+import org.json.JSONObject
 
 private typealias EmitWithRetryResult = RealtimeSocketGateway.EmitWithRetryResult
 
@@ -76,10 +77,7 @@ class AppSocketManager constructor(
     }
 
     override fun connect(forceReconnect: Boolean): Boolean {
-        val token = sprefManager.getToken()
-            .removePrefix("Bearer ")
-            .removePrefix("bearer ")
-            .trim()
+        val token = requestedSocketToken()
         if (token.isBlank()) {
             appLogger.warning(TAG, "Token is blank; skipping socket connect")
             crashReporter.addBreadcrumb(
@@ -347,6 +345,48 @@ class AppSocketManager constructor(
         return finalResult
     }
 
+    /** Persist before sending so an upload worker can safely mark its handoff complete. */
+    fun enqueueUploadedAttachment(
+        owner: String,
+        sessionId: String,
+        event: String,
+        payload: JSONObject,
+        dedupeKey: String,
+    ): Boolean {
+        val stored = synchronized(lock) {
+            if (!sprefManager.getUserLogIn() || currentQueueOwner() != owner ||
+                sprefManager.existingMediaSubmissionSessionId() != sessionId
+            ) return false
+            val scopedKey = "media-session:$sessionId:$dedupeKey"
+            when (val result = outboundRetryQueue.enqueue(event, payload, scopedKey)) {
+                is SocketOutboundRetryQueue.EnqueueResult.Queued -> {
+                    val item = result.item
+                    when (persistQueueItem(item, owner)) {
+                        PersistQueueResult.PERSISTED -> {
+                            syncOutboundQueueCountLocked()
+                            true
+                        }
+                        PersistQueueResult.DUPLICATE -> {
+                            outboundRetryQueue.markSuccess(item.queueId)
+                            true
+                        }
+                        PersistQueueResult.FAILED -> {
+                            outboundRetryQueue.markSuccess(item.queueId)
+                            false
+                        }
+                    }
+                }
+                SocketOutboundRetryQueue.EnqueueResult.AlreadyQueued -> true
+                SocketOutboundRetryQueue.EnqueueResult.QueueFull -> false
+            }
+        }
+        if (stored) {
+            connect(forceReconnect = false)
+            scheduleOutboundQueueWorker()
+        }
+        return stored
+    }
+
     private fun attachListenersLocked(targetSocket: RealtimeSocketTransport) {
         listenerBuckets.values.forEach { listenerMap ->
             listenerMap.forEach { (event, listener) ->
@@ -404,7 +444,16 @@ class AppSocketManager constructor(
                 continue
             }
 
-            if (!isConnected()) {
+            if (!belongsToCurrentMediaSession(readyItem.dedupeKey)) {
+                synchronized(lock) {
+                    outboundRetryQueue.markSuccess(readyItem.queueId)
+                    syncOutboundQueueCountLocked()
+                }
+                deletePersistedQueueItem(readyItem.queueId)
+                continue
+            }
+
+            if (!isConnected() || synchronized(lock) { authToken != requestedSocketToken() }) {
                 val connectRequested = connect(forceReconnect = false)
                 if (!connectRequested) {
                     delay(OUTBOUND_CONNECT_RETRY_IDLE_MS)
@@ -417,7 +466,12 @@ class AppSocketManager constructor(
                 }
             }
 
-            val emitted = emitImmediate(readyItem.event, readyItem.payload)
+            val emitted = synchronized(lock) {
+                val stillQueued = outboundRetryQueue.peekReady()?.queueId == readyItem.queueId
+                stillQueued && belongsToCurrentMediaSession(readyItem.dedupeKey) &&
+                    authToken == requestedSocketToken() &&
+                    emitImmediate(readyItem.event, readyItem.payload)
+            }
             if (emitted) {
                 var removedItem: SocketOutboundRetryQueue.QueueItem? = null
                 synchronized(lock) {
@@ -498,7 +552,9 @@ class AppSocketManager constructor(
         }
 
         val queueItems = restoredItems.mapNotNull { entity ->
-            if (currentOwner.isNotBlank() && entity.ownerUsername != currentOwner) {
+            if (currentOwner.isBlank() || entity.ownerUsername != currentOwner ||
+                !belongsToCurrentMediaSession(entity.dedupeKey)
+            ) {
                 deletePersistedQueueItem(entity.queueId)
                 return@mapNotNull null
             }
@@ -535,7 +591,10 @@ class AppSocketManager constructor(
         )
     }
 
-    private fun persistQueueItem(item: SocketOutboundRetryQueue.QueueItem): PersistQueueResult {
+    private fun persistQueueItem(
+        item: SocketOutboundRetryQueue.QueueItem,
+        owner: String = currentQueueOwner(),
+    ): PersistQueueResult {
         val encodedPayload = runCatching {
             AndroidSocketOutboundPayloadCodec.encode(item.payload)
         }.getOrElse { error ->
@@ -549,7 +608,7 @@ class AppSocketManager constructor(
                     SocketOutboundQueueRecord(
                         queueId = item.queueId,
                         event = item.event,
-                        ownerUsername = currentQueueOwner(),
+                        ownerUsername = owner,
                         payloadType = encodedPayload.payloadType,
                         payloadBody = encodedPayload.payloadBody,
                         dedupeKey = item.dedupeKey,
@@ -603,6 +662,15 @@ class AppSocketManager constructor(
             appLogger.error(TAG, "Failed to clear persisted outbound queue", error)
         }
     }
+
+    private fun belongsToCurrentMediaSession(dedupeKey: String?): Boolean {
+        if (dedupeKey?.startsWith("media-session:") != true) return true
+        val expected = dedupeKey.removePrefix("media-session:").substringBefore(':')
+        return expected == sprefManager.existingMediaSubmissionSessionId()
+    }
+
+    private fun requestedSocketToken(): String = sprefManager.getToken().trim()
+        .removePrefix("Bearer ").removePrefix("bearer ").trim()
 
     private fun currentQueueOwner(): String {
         return sprefManager.getUsername().orEmpty().trim()

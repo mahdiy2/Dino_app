@@ -3,6 +3,7 @@ package com.dino.message
 import android.app.Application
 import android.app.Activity
 import android.os.Bundle
+import com.dino.message.corefeature.data.upload.AndroidMediaOutbox
 import com.dino.message.corefeature.data.system.AndroidPlatformInfoProvider
 import com.dino.message.crashfeature.data.service.CrashReporter
 import com.dino.message.corefeature.domain.config.AppConfig
@@ -26,6 +27,7 @@ class DinoOrderApplication: Application() {
     val uiEventBus: UiEventBus by inject()
 
     val inAppNotificationManager: InAppNotificationManager by inject()
+    private val mediaOutbox: AndroidMediaOutbox by inject()
     private val appConfig: AppConfig by inject()
     private val appLifecycleDispatcher: AppLifecycleDispatcher by inject()
     private val appNotificationController: AppNotificationController by inject()
@@ -48,6 +50,7 @@ class DinoOrderApplication: Application() {
         )
         crashReporter.installGlobalExceptionHandler()
         crashReporter.flushPendingLogsAsync()
+        mediaOutbox.restore()
         appNotificationController.ensureAppChannels()
         MusicPlaybackManager.initialize(this)
         appStartupCoordinator.initializeCommonState()

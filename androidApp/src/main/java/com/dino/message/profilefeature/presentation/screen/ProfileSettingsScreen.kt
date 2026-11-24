@@ -90,6 +90,8 @@ fun ProfileSettingsScreen() {
     val currentLanguage by viewModel.currentLanguage.collectAsState(initial = AppLanguage.Farsi)
     var showTermsDialog by rememberSaveable { mutableStateOf(false) }
     var showPrivacyDialog by rememberSaveable { mutableStateOf(false) }
+    var showMediaSubmissions by rememberSaveable { mutableStateOf(false) }
+    if (showMediaSubmissions) MediaSubmissionsDialog { showMediaSubmissions = false }
 
     if (showTermsDialog) {
         LegalTextDialogFa(
@@ -198,6 +200,12 @@ fun ProfileSettingsScreen() {
                                 viewModel.setLanguage(nextLanguage)
                             },
                         )
+                    }
+                }
+
+                item("media_submissions") {
+                    OutlinedButton(onClick = { showMediaSubmissions = true }) {
+                        Text(stringResource(R.string.media_submission_title))
                     }
                 }
 

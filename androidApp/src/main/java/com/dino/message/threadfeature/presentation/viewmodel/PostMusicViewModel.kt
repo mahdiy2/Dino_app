@@ -1,5 +1,9 @@
 package com.dino.message.threadfeature.presentation.viewmodel
 
+import com.dino.message.threadfeature.domain.model.DeleteContentResult
+import com.dino.message.threadfeature.domain.model.CreatedPost
+import com.dino.message.corefeature.data.upload.AndroidMediaOutbox
+import com.dino.message.corefeature.data.upload.MediaSubmissionCommand
 import androidx.compose.runtime.mutableStateOf
 import com.dino.message.corefeature.domain.upload.MediaMimePolicy
 import com.dino.message.corefeature.domain.session.AuthSessionStore
@@ -40,6 +44,7 @@ class PostMusicViewModel constructor(
     private val stringResolver: StringResolver,
     uiEventBus: UiEventBus,
     private val sPrefManager: AuthSessionStore,
+    private val mediaOutbox: AndroidMediaOutbox,
     private val createPostUseCase: CreatePostUseCase,
     private val editPostUseCase: EditPostUseCase,
     private val getPostUseCase: GetPostUseCase,
@@ -57,6 +62,9 @@ class PostMusicViewModel constructor(
     val followersOnly = mutableStateOf(false)
     val selectedTrack = mutableStateOf<SelectedMusicTrack?>(null)
     val existingTrack = mutableStateOf<PostMedia?>(null)
+
+    private val _queuedForUpload = MutableStateFlow(false)
+    val queuedForUpload = _queuedForUpload.asStateFlow()
 
     private val _isSubmitting = MutableStateFlow(false)
     val isSubmitting: StateFlow<Boolean> = _isSubmitting.asStateFlow()
@@ -150,20 +158,33 @@ class PostMusicViewModel constructor(
                     null
                 }
 
+                val submissionMedia = listOfNotNull(media)
                 val submitFlow = if (isEditMode) {
-                    editPostUseCase.execute(
-                        postId = editPostId ?: return@launch,
-                        text = text,
-                        mediaFiles = media?.let { listOf(it) } ?: emptyList(),
-                        keepMediaIds = originalTrack?.let { listOf(it.id) } ?: emptyList(),
-                        followersOnly = null
+                    val postId = editPostId ?: return@launch
+                    val keepMediaIds = originalTrack?.let { listOf(it.id) } ?: emptyList()
+                    val submitImmediately = {
+                        editPostUseCase.execute(postId, text, submissionMedia, keepMediaIds, followersOnly = null)
+                    }
+                    if (submissionMedia.isEmpty()) submitImmediately()
+                    else mediaOutbox.submit(
+                        MediaSubmissionCommand.Post(postId, text, null, null, keepMediaIds, music = true),
+                        submissionMedia,
+                        DeleteContentResult.serializer(),
+                        onQueued = { _queuedForUpload.value = true },
+                        legacy = submitImmediately,
                     )
                 } else {
-                    createPostUseCase.execute(
-                        text = text,
-                        mediaFiles = listOfNotNull(media),
-                        followersOnly = followersOnly.value,
-                        quotedPostId = quotedPostId,
+                    val followers = followersOnly.value
+                    val submitImmediately = {
+                        createPostUseCase.execute(text, submissionMedia, followers, quotedPostId)
+                    }
+                    if (submissionMedia.isEmpty()) submitImmediately()
+                    else mediaOutbox.submit(
+                        MediaSubmissionCommand.Post(null, text, followers, quotedPostId, emptyList(), music = true),
+                        submissionMedia,
+                        CreatedPost.serializer(),
+                        onQueued = { _queuedForUpload.value = true },
+                        legacy = submitImmediately,
                     )
                 }
 
@@ -188,6 +209,7 @@ class PostMusicViewModel constructor(
                 _error.value = "Failed to upload post. Please try again."
             } finally {
                 _isSubmitting.value = false
+                _queuedForUpload.value = false
             }
         }
     }

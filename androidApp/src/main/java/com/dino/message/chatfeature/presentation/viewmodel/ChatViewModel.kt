@@ -1,5 +1,10 @@
 package com.dino.message.chatfeature.presentation.viewmodel
 
+import com.dino.message.chatfeature.domain.model.MessageAttachment
+import com.dino.message.corefeature.data.upload.AndroidMediaOutbox
+import com.dino.message.corefeature.data.upload.MediaSubmissionCommand
+import com.dino.message.corefeature.data.upload.toSocketAttachment
+import com.dino.message.threadfeature.domain.model.CreatePostMedia
 import androidx.compose.runtime.mutableStateOf
 import com.dino.message.chatfeature.domain.model.MessageDeliveryStatus
 import com.dino.message.chatfeature.domain.model.MessageEntity
@@ -64,6 +69,7 @@ class ChatViewModel constructor(
     private val getMessageFromDBUseCase: GetMessageFromDBUseCase,
     private val saveMessageInDbUseCase: SaveMessageInDbUseCase,
     private val clearMessageFromDBUseCase: ClearMessageFromDBUseCase,
+    private val mediaOutbox: AndroidMediaOutbox,
     private val uploadAttachmentUseCase: UploadAttachmentUseCase,
     private val followUserUseCase: FollowUserUseCase,
     private val chatRepository: ChatRepository,
@@ -1003,7 +1009,21 @@ class ChatViewModel constructor(
             _uploadError.value = null
             pushSocketDebugLog("Uploading attachment...")
 
-            uploadAttachmentUseCase.execute(uploadFile).collect { result ->
+            val clientMessageId = generateClientMessageId()
+            val replyTo = _replyingTo.value
+            val prepared = prepareAttachmentMessage(caption, replyTo) ?: return
+            var queued = false
+            mediaOutbox.submit(
+                command = MediaSubmissionCommand.PrivateAttachment(chatId, prepared.toString()),
+                media = listOf(CreatePostMedia(uploadFile)),
+                serializer = MessageAttachment.serializer(),
+                operationId = clientMessageId,
+                onQueued = {
+                    queued = true
+                    if (_replyingTo.value == replyTo) _replyingTo.value = null
+                },
+                legacy = { uploadAttachmentUseCase.execute(uploadFile) },
+            ).collect { result ->
                 when (result) {
                     is Resource.Loading -> {
                         _isUploading.value = true
@@ -1014,10 +1034,11 @@ class ChatViewModel constructor(
                         val attachment = result.data
                         pushSocketDebugLog("Upload success: ${attachment.type} (${attachment.fileName})")
 
-                        emitAttachmentMessage(
-                            attachment = attachment,
-                            caption = caption,
-                        )
+                        if (queued) {
+                            schedulePendingHistoryReconcile(clientMessageId)
+                        } else {
+                            emitAttachmentMessage(attachment, caption, replyTo, clientMessageId, prepared)
+                        }
                     }
 
                     is Resource.Error -> {
@@ -1034,14 +1055,8 @@ class ChatViewModel constructor(
         }
     }
 
-    private suspend fun emitAttachmentMessage(
-        attachment: com.dino.message.chatfeature.domain.model.MessageAttachment,
-        caption: String?,
-        replyTo: MessageEntity? = _replyingTo.value,
-        clientMessageId: String = generateClientMessageId(),
-    ) {
-        val receiverKey = resolveReceiverEncryptionPublicKey() ?: return
-
+    private suspend fun prepareAttachmentMessage(caption: String?, replyTo: MessageEntity?): JSONObject? {
+        val receiverKey = resolveReceiverEncryptionPublicKey() ?: return null
         try {
             val encryptedCaption: String?
             val encryptedKey: String
@@ -1065,20 +1080,9 @@ class ChatViewModel constructor(
                 senderEncryptedCaption = null
             }
 
-            val attachmentJson = JSONObject().apply {
-                put("type", attachment.type)
-                put("url", attachment.url)
-                put("mime_type", attachment.mimeType)
-                attachment.fileName?.let { put("file_name", it) }
-                attachment.sizeBytes?.let { put("size_bytes", it) }
-            }
-
-            val payload = JSONObject().apply {
+            return JSONObject().apply {
                 put("to", chatId)
-                put("type", attachment.type)
                 put("encrypted_key", encryptedKey)
-                put("attachment", attachmentJson)
-                put("client_message_id", clientMessageId)
                 if (encryptedCaption != null) {
                     put("message", encryptedCaption)
                 }
@@ -1099,6 +1103,29 @@ class ChatViewModel constructor(
                        put("encrypted_reply_key", encryptedReplyPayload.encryptedKey)
                    }
                 }
+            }
+
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (error: Exception) {
+            appLogger.error(TAG, "Attachment encryption failed", error)
+            _uploadError.value = "Could not encrypt this attachment"
+            return null
+        }
+    }
+
+    private suspend fun emitAttachmentMessage(
+        attachment: MessageAttachment,
+        caption: String?,
+        replyTo: MessageEntity?,
+        clientMessageId: String,
+        prepared: JSONObject,
+    ) {
+        try {
+            val payload = prepared.apply {
+                put("type", attachment.type)
+                put("attachment", attachment.toSocketAttachment())
+                put("client_message_id", clientMessageId)
             }
 
             pushSocketDebugLog("Socket emit send_message (${attachment.type}) to $chatId")

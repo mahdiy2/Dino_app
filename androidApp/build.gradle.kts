@@ -157,6 +157,8 @@ dependencies {
     implementation(libs.androidx.security.app.authenticator)
 
     implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.room.runtime)
+    ksp(libs.room.compiler)
 
     coreLibraryDesugaring(libs.desugar.jdk.libs)
 

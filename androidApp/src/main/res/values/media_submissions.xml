@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="media_submission_title">Media submissions</string>
+    <string name="media_submission_empty">No media submissions</string>
+    <string name="media_submission_private">Private chat</string>
+    <string name="media_submission_group">Group chat</string>
+    <string name="media_submission_profile">Profile</string>
+    <string name="media_submission_post">Post</string>
+    <string name="media_submission_music">Music post</string>
+    <string name="media_submission_story">Story</string>
+    <string name="media_submission_pending">Pending upload</string>
+    <string name="media_submission_handed_off">Uploaded and queued to send</string>
+    <string name="media_submission_complete">Completed</string>
+    <string name="media_submission_failed">Upload failed</string>
+    <string name="media_submission_retry">Retry</string>
+    <string name="media_submission_dismiss">Dismiss</string>
+    <string name="media_submission_close">Close</string>
+    <string name="media_submission_in_settings">Upload queued. You can leave this screen and check Media submissions in Settings.</string>
+</resources>

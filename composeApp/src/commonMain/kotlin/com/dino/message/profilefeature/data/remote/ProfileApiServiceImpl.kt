@@ -1,5 +1,6 @@
 package com.dino.message.profilefeature.data.remote
 
+import com.dino.message.corefeature.data.upload.currentMediaReplayRequest
 import com.dino.message.corefeature.data.remote.HaveRefreshTokenAPI
 import com.dino.message.corefeature.data.remote.HaveRefreshTokenAPIImpl
 import com.dino.message.corefeature.data.remote.util.HttpAPIUtil
@@ -96,6 +97,7 @@ class ProfileApiServiceImpl constructor(
         removeProfileImage: Boolean,
         removeProfileVideo: Boolean,
     ): Resource<Profile> {
+        val mediaReplay = currentMediaReplayRequest()
         val sanitizedName = name?.trim()
         if (sanitizedName != null && sanitizedName.isEmpty()) {
             return Resource.Error(message = "Name must be a non-empty string".asStringResourceContent())
@@ -145,7 +147,8 @@ class ProfileApiServiceImpl constructor(
                     )
                 }
                 httpClient.put(ProfileRoute.UpdateMyProfile.url) {
-                    appendTokenToHeader(sPrefManager.getToken())
+                    if (mediaReplay == null) appendTokenToHeader(sPrefManager.getToken())
+                    else mediaReplay.authorize(this)
                     if (!hasMedia) {
                         contentType(ContentType.Application.Json)
                         setBody(

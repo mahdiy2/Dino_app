@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="media_submission_title">ارسال‌های رسانه‌ای</string>
+    <string name="media_submission_empty">ارسال رسانه‌ای وجود ندارد</string>
+    <string name="media_submission_private">گفت‌وگوی خصوصی</string>
+    <string name="media_submission_group">گروه</string>
+    <string name="media_submission_profile">نمایه</string>
+    <string name="media_submission_post">پست</string>
+    <string name="media_submission_music">پست موسیقی</string>
+    <string name="media_submission_story">داستان</string>
+    <string name="media_submission_pending">در انتظار بارگذاری</string>
+    <string name="media_submission_handed_off">بارگذاری شد و در صف ارسال است</string>
+    <string name="media_submission_complete">انجام شد</string>
+    <string name="media_submission_failed">بارگذاری ناموفق بود</string>
+    <string name="media_submission_retry">تلاش دوباره</string>
+    <string name="media_submission_dismiss">حذف از فهرست</string>
+    <string name="media_submission_close">بستن</string>
+    <string name="media_submission_in_settings">بارگذاری در صف است. می‌توانید این صفحه را ترک کنید و وضعیت را در ارسال‌های رسانه‌ایِ تنظیمات ببینید.</string>
+</resources>

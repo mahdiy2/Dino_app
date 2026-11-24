@@ -1,5 +1,16 @@
 package com.dino.message.di
 
+import androidx.room.Room
+import com.dino.message.corefeature.data.upload.AndroidMediaOutbox
+import com.dino.message.corefeature.data.upload.ApiMediaSubmissionExecutor
+import com.dino.message.corefeature.data.upload.UploadedAttachmentTransport
+import com.dino.message.corefeature.data.upload.WorkManagerMediaSubmissionScheduler
+import com.dino.message.corefeature.data.upload.mediaReplayCapability
+import io.ktor.client.HttpClient
+import org.json.JSONObject
+import com.dino.message.corefeature.data.upload.MediaSubmissionDatabase
+import com.dino.message.corefeature.data.upload.MediaSubmissionExecutor
+import java.io.File
 import com.dino.message.DinoOrderApplication
 import com.dino.message.chatfeature.data.notification.AndroidMessageDeduplicationStore
 import com.dino.message.chatfeature.data.notification.AndroidMessageSoundPlayer
@@ -211,6 +222,28 @@ val coreModule = module {
         AndroidCrashUiLauncher(
             context = androidContext(),
             appLogger = get(),
+        )
+    }
+    single {
+        Room.databaseBuilder(
+            androidContext(), MediaSubmissionDatabase::class.java,
+            File(androidContext().noBackupFilesDir, "media-submissions.db").absolutePath,
+        ).build()
+    }
+    single<MediaSubmissionExecutor> { ApiMediaSubmissionExecutor(get(), get(), get(), get()) }
+    single {
+        val http = get<HttpClient>()
+        val socket = get<AppSocketManager>()
+        AndroidMediaOutbox(
+            files = File(androidContext().noBackupFilesDir, "pending-media"),
+            dao = get<MediaSubmissionDatabase>().submissions(),
+            session = get(),
+            replayCapability = { http.mediaReplayCapability() },
+            executor = get(),
+            socket = UploadedAttachmentTransport { owner, sessionId, event, payload, key ->
+                socket.enqueueUploadedAttachment(owner, sessionId, event, JSONObject(payload), key)
+            },
+            work = WorkManagerMediaSubmissionScheduler(androidContext()),
         )
     }
     single { AppLifecycleBackgroundTaskScheduler(androidContext()) }

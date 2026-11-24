@@ -1,6 +1,9 @@
 package com.dino.message.corefeature.data.remote
 
 import com.dino.message.corefeature.data.remote.dto.GetTokenResponse
+import com.dino.message.corefeature.data.upload.MediaReplayAccountChanged
+import com.dino.message.corefeature.data.upload.currentMediaReplayRequest
+import kotlinx.coroutines.CancellationException
 import com.dino.message.corefeature.domain.session.AuthSessionStore
 import com.dino.message.corefeature.util.RefreshTokenExpiredException
 import com.dino.message.corefeature.domain.logging.AppLogger
@@ -31,6 +34,8 @@ class HaveRefreshTokenAPIImpl constructor(
      */
     override suspend fun getToken(): String {
         return try {
+            val submission = currentMediaReplayRequest()
+            submission?.requireCurrentAccount()
             val refreshToken = sPrefManager.getRefreshToken()
                 .trim()
                 .removePrefix("Bearer ")
@@ -42,6 +47,7 @@ class HaveRefreshTokenAPIImpl constructor(
                 throw RefreshTokenExpiredException("Refresh token is missing")
             }
 
+            submission?.requireAccountToken(refreshToken)
             val response = httpClient.post(CoreRoute.GetToken.url) {
                 headers {
                     remove(HttpHeaders.Authorization)
@@ -49,6 +55,7 @@ class HaveRefreshTokenAPIImpl constructor(
                 }
             }
 
+            submission?.requireCurrentAccount()
             if (
                 response.status == HttpStatusCode.Unauthorized ||
                 response.status == HttpStatusCode.UnprocessableEntity
@@ -73,8 +80,13 @@ class HaveRefreshTokenAPIImpl constructor(
                 appLogger?.error("HaveRefreshTokenAPI", "getToken: received malformed access token")
                 ""
             } else {
+                submission?.requireAccountToken(newAccessToken)
                 newAccessToken
             }
+        } catch (e: MediaReplayAccountChanged) {
+            throw e
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: RefreshTokenExpiredException) {
             throw e
         } catch (e: Exception) {

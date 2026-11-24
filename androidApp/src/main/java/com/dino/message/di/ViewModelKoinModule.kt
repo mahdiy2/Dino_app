@@ -198,6 +198,7 @@ val viewModelModule = module {
     factoryOf(::RegisterScreenViewModel)
     factory { (chatId: String) ->
         ChatViewModel(
+            mediaOutbox = get(),
             uiEventBus = get(),
             spref = get(),
             getReceiverPublicKeyUseCase = get(),
@@ -238,6 +239,7 @@ val viewModelModule = module {
     factoryOf(::CreateGroupViewModel)
     factory { (groupId: Int, groupName: String?, isPublicRoom: Boolean) ->
         GroupChatViewModel(
+            mediaOutbox = get(),
             uiEventBus = get(),
             spref = get(),
             getGroupDetailUseCase = get(),
@@ -287,6 +289,7 @@ val viewModelModule = module {
     factoryOf(::CreatePostOptionsBottomSheetScreenViewModel)
     factory { (quotedPostId: Long, editPostId: Long) ->
         CreatePostViewModel(
+            mediaOutbox = get(),
             stringResolver = get(),
             uiEventBus = get(),
             sPrefManager = get(),
@@ -301,6 +304,7 @@ val viewModelModule = module {
     factoryOf(::PlaylistBottomSheetViewModel)
     factory { (quotedPostId: Long, editPostId: Long) ->
         PostMusicViewModel(
+            mediaOutbox = get(),
             stringResolver = get(),
             uiEventBus = get(),
             sPrefManager = get(),
@@ -327,6 +331,7 @@ val viewModelModule = module {
     factoryOf(::ThreadCommentsViewModel)
     factory {
         ThreadViewModel(
+            mediaOutbox = get(),
             stringResolver = get(),
             uiEventBus = get(),
             getPostsUseCase = get(),

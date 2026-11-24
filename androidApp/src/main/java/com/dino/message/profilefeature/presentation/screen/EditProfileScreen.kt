@@ -99,6 +99,7 @@ import com.dino.message.corefeature.presentation.icons.AppIcons
 fun EditProfileScreen() {
     val viewModel: EditProfileViewModel = rememberStateHolder()
     val isLoading by viewModel.isLoading.collectAsState()
+    val queuedForUpload by viewModel.queuedForUpload.collectAsState()
     val isSaving by viewModel.isSaving.collectAsState()
     val error by viewModel.error.collectAsState()
     val selectedImage = viewModel.selectedImage.value
@@ -155,7 +156,7 @@ fun EditProfileScreen() {
                 shape = resolvedAvatarShape,
                 collapsedFraction = topBarCollapsedFraction,
                 onNavigateBack = viewModel::closeScreen,
-                navigationEnabled = !isSaving,
+                navigationEnabled = !isSaving || queuedForUpload,
                 onSave = viewModel::saveProfile,
                 saveEnabled = isFormEnabled
             )
@@ -177,6 +178,10 @@ fun EditProfileScreen() {
                 ),
                 verticalArrangement = Arrangement.spacedBy(DPLarge)
             ) {
+                if (queuedForUpload) {
+                    item { Text(stringResource(R.string.media_submission_in_settings)) }
+                }
+
                 item("media") {
                     EditProfileSectionReveal(delayMillis = 70) {
                         PostContainer(

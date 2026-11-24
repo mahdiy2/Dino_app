@@ -1,5 +1,7 @@
 package com.dino.message.corefeature.data.remote.util
 
+import com.dino.message.corefeature.data.upload.MediaReplayAccountChanged
+import com.dino.message.corefeature.data.upload.currentMediaReplayRequest
 import com.dino.message.corefeature.data.remote.NetworkExceptionClassifier
 import com.dino.message.corefeature.data.remote.ResponseToResultMapper
 import com.dino.message.corefeature.domain.logging.AppLogger
@@ -64,11 +66,19 @@ class HttpAPIUtil constructor(
         ) {
 
             try {
+                val mediaReplay = currentMediaReplayRequest()
+                mediaReplay?.recordStatus(null)
                 val response = callAPI()
                 val status = response.status
+                mediaReplay?.recordStatus(status.value)
                 val rawErrorBody = if (status.isSuccess()) null else readResponseBodySafely(response)
 
                 when {
+                    status.isSuccess() && mediaReplay != null &&
+                        response.headers["X-Dino-Media-Replay"] != "1" -> Resource.Error(
+                            message = "The server did not confirm resumable upload support".asStringResourceContent()
+                        )
+
                     status.isSuccess() -> {
                         val body = response.body<ResponseType>()
                         Resource.Success(body.mapResponseToResult())
@@ -183,6 +193,8 @@ class HttpAPIUtil constructor(
                     throw RetryableException("Timeout error", e)
                 }
                 throw RetryableException("Network error", e)
+            } catch (e: MediaReplayAccountChanged) {
+                throw e
             } catch (e: CancellationException) {
                 throw e
             } catch (e: JsonConvertException) {
@@ -220,16 +232,20 @@ class HttpAPIUtil constructor(
         rawErrorBody: String?,
         useServerMessageForUnauthorized: Boolean
     ): Resource<ResultType> {
+        val submission = currentMediaReplayRequest()
         if (needToUpdateToken) {
+            submission?.requireCurrentAccount()
             val newToken = try {
                 callRefreshTokenAPI().trim()
             } catch (e: RefreshTokenExpiredException) {
+                submission?.requireCurrentAccount()
                 clearAuthSessionAndRedirectToLogin()
                 return Resource.Error(
                     message = errorMessageProvider.unauthorized()
                 )
             }
             if (newToken.isNotBlank()) {
+                submission?.requireCurrentAccount()
                 sPrefManager.setToken(newToken)
                 throw RetryableException("Token refreshed, retrying request.")
             }

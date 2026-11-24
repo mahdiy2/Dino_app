@@ -1,6 +1,9 @@
 package com.dino.message.corefeature.data.remote.util
 
 import com.dino.message.corefeature.domain.session.AuthSessionStore
+import com.dino.message.corefeature.data.upload.MediaReplayAccountChanged
+import com.dino.message.corefeature.data.upload.currentMediaReplayRequest
+import kotlinx.coroutines.CancellationException
 import com.dino.message.corefeature.domain.crypto.Base64Codec
 import com.dino.message.corefeature.domain.logging.AppLogger
 import com.dino.message.corefeature.domain.system.AppClock
@@ -36,7 +39,8 @@ suspend fun ensureFreshAccessTokenIfNearExpiry(
     thresholdSeconds: Long = 90L,
     base64Codec: Base64Codec,
 ) {
-    val accessToken = sPrefManager.getToken()
+    val submission = currentMediaReplayRequest()
+    val accessToken = (submission?.requireCurrentAccount() ?: sPrefManager.getToken())
         .trim()
         .removePrefix("Bearer ")
         .removePrefix("bearer ")
@@ -55,8 +59,13 @@ suspend fun ensureFreshAccessTokenIfNearExpiry(
             .removePrefix("bearer ")
             .trim()
         if (refreshedToken.isNotBlank()) {
+            submission?.requireCurrentAccount()
             sPrefManager.setToken(refreshedToken)
         }
+    } catch (changed: MediaReplayAccountChanged) {
+        throw changed
+    } catch (cancelled: CancellationException) {
+        throw cancelled
     } catch (exception: Exception) {
         appLogger.warning(logTag, "Failed to pre-refresh token before upload", exception)
     }

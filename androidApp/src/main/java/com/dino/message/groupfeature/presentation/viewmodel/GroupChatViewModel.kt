@@ -1,5 +1,10 @@
 package com.dino.message.groupfeature.presentation.viewmodel
 
+import com.dino.message.chatfeature.domain.model.MessageAttachment
+import com.dino.message.corefeature.data.upload.AndroidMediaOutbox
+import com.dino.message.corefeature.data.upload.MediaSubmissionCommand
+import com.dino.message.corefeature.data.upload.toSocketAttachment
+import com.dino.message.threadfeature.domain.model.CreatePostMedia
 import com.dino.message.chatfeature.domain.model.MessageDeliveryStatus
 import com.dino.message.chatfeature.domain.util.encodeMessageReactions
 import com.dino.message.chatfeature.domain.util.parseMessageReactionsFromPayload
@@ -57,6 +62,7 @@ class GroupChatViewModel constructor(
     uiEventBus: UiEventBus,
     private val spref: AuthSessionStore,
     private val getGroupDetailUseCase: GetGroupDetailUseCase,
+    private val mediaOutbox: AndroidMediaOutbox,
     private val uploadGroupAttachmentUseCase: UploadGroupAttachmentUseCase,
     private val saveGroupMessageUseCase: SaveGroupMessageUseCase,
     private val getGroupMessagesFromDbUseCase: GetGroupMessagesFromDbUseCase,
@@ -1307,79 +1313,30 @@ class GroupChatViewModel constructor(
         val uploadFile = resolveFile()
         try {
             stopTypingNow()
-            uploadGroupAttachmentUseCase.execute(groupId, uploadFile).collect { res ->
+            val clientMessageId = UUID.randomUUID().toString()
+            val replyTo = _replyingTo.value
+            val prepared = prepareGroupAttachmentMessage(mediaType, replyTo) ?: return
+            var queued = false
+            mediaOutbox.submit(
+                command = MediaSubmissionCommand.GroupAttachment(groupId, prepared.toString()),
+                media = listOf(CreatePostMedia(uploadFile)),
+                serializer = MessageAttachment.serializer(),
+                operationId = clientMessageId,
+                onQueued = {
+                    queued = true
+                    if (_replyingTo.value == replyTo) clearReply()
+                },
+                legacy = { uploadGroupAttachmentUseCase.execute(groupId, uploadFile) },
+            ).collect { res ->
                 when (res) {
                     is Resource.Loading -> _isUploading.value = true
                     is Resource.Success -> {
-                        _isUploading.value = false
-                        val att = res.data
-
-                        val clientMessageId = UUID.randomUUID().toString()
-                        val replyTo = _replyingTo.value
-
-                        val json = if (isPublicRoom) {
-                            JSONObject().apply {
-                                put("group_id", groupId)
-                                put("message", "")
-                                put("type", mediaType)
-                                put("client_message_id", clientMessageId)
-                                put("attachment", JSONObject().apply {
-                                    put("type", att.type)
-                                    put("url", att.url)
-                                    put("mime_type", att.mimeType)
-                                    att.fileName?.let { put("file_name", it) }
-                                    att.sizeBytes?.let { put("size_bytes", it) }
-                                })
-                                if (replyTo != null) {
-                                    put("reply_to_message_id", replyTo.messageId)
-                                    put("reply_to_sender", replyTo.sender)
-                                    val preview = replyTo.content.take(100)
-                                    if (preview.isNotBlank()) {
-                                        put("encrypted_reply_preview", preview)
-                                    }
-                                }
-                            }
-                        } else {
-                            val (keySession, encryptedMessage) = encryptForGroup("") ?: return@collect
-                            JSONObject().apply {
-                                put("group_id", groupId)
-                                put("message", encryptedMessage)
-                                put("group_key_ref", keySession.keyRef)
-                                put("type", mediaType)
-                                put("client_message_id", clientMessageId)
-                                if (keySession.includeKeyRecordsOnNextSend) {
-                                    put(
-                                        "recipient_key_records",
-                                        buildRecipientKeyRecordsJson(keySession.encryptedKeys),
-                                    )
-                                }
-                                put("attachment", JSONObject().apply {
-                                    put("type", att.type)
-                                    put("url", att.url)
-                                    put("mime_type", att.mimeType)
-                                    att.fileName?.let { put("file_name", it) }
-                                    att.sizeBytes?.let { put("size_bytes", it) }
-                                })
-                                if (replyTo != null) {
-                                    put("reply_to_message_id", replyTo.messageId)
-                                    put("reply_to_sender", replyTo.sender)
-                                    val preview = replyTo.content.take(100)
-                                    if (preview.isNotBlank()) {
-                                        put(
-                                            "encrypted_reply_preview",
-                                            messageCrypto.encryptWithAesKey(preview, keySession.rawAesKey),
-                                        )
-                                    }
-                                }
-                            }.also {
-                                keySession.includeKeyRecordsOnNextSend = false
-                            }
+                        if (!queued) {
+                            prepared.put("attachment", res.data.toSocketAttachment())
+                            prepared.put("client_message_id", clientMessageId)
+                            emitGroupMessageWithRetry(prepared, clientMessageId)
+                            if (_replyingTo.value == replyTo) clearReply()
                         }
-                        emitGroupMessageWithRetry(
-                            payload = json,
-                            clientMessageId = clientMessageId,
-                        )
-                        clearReply()
                     }
                     is Resource.Error -> {
                         _isUploading.value = false
@@ -1390,6 +1347,32 @@ class GroupChatViewModel constructor(
         } finally {
             _isUploading.value = false
             uploadFile.release()
+        }
+    }
+
+    private suspend fun prepareGroupAttachmentMessage(mediaType: String, replyTo: GroupMessageEntity?): JSONObject? {
+        val prepared = JSONObject().apply {
+            put("group_id", groupId)
+            put("type", mediaType)
+            if (replyTo != null) {
+                put("reply_to_message_id", replyTo.messageId)
+                put("reply_to_sender", replyTo.sender)
+            }
+        }
+        val preview = replyTo?.content?.take(100)?.takeIf { it.isNotBlank() }
+        if (isPublicRoom) {
+            prepared.put("message", "")
+            if (preview != null) prepared.put("encrypted_reply_preview", preview)
+            return prepared
+        }
+        val (keySession, encryptedMessage) = encryptForGroup("") ?: return null
+        return prepared.apply {
+            put("message", encryptedMessage)
+            put("group_key_ref", keySession.keyRef)
+            put("recipient_key_records", buildRecipientKeyRecordsJson(keySession.encryptedKeys))
+            if (preview != null) {
+                put("encrypted_reply_preview", messageCrypto.encryptWithAesKey(preview, keySession.rawAesKey))
+            }
         }
     }
 

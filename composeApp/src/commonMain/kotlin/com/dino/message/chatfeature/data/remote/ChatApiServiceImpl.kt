@@ -1,5 +1,6 @@
 package com.dino.message.chatfeature.data.remote
 
+import com.dino.message.corefeature.data.upload.currentMediaReplayRequest
 import com.dino.message.chatfeature.data.remote.dto.InboxResponse
 import com.dino.message.chatfeature.data.remote.dto.MessageAttachment
 import com.dino.message.chatfeature.data.remote.dto.PrivateHistoryResponse
@@ -121,6 +122,7 @@ class ChatApiServiceImpl constructor(
         )
 
     override suspend fun uploadAttachment(file: ReadableMediaFile): Resource<MessageAttachment> {
+        val mediaReplay = currentMediaReplayRequest()
         val mimeType = AttachmentUploadPolicy.normalizeMimeType(file.handle.mimeType)
         val fileName = file.handle.displayName
         val fileSize = file.handle.sizeBytes
@@ -151,7 +153,8 @@ class ChatApiServiceImpl constructor(
         val result = httpAPIUtil.callAPIWithErrorHandling<MessageAttachment, UploadAttachmentResponse>(
             callAPI = {
                 httpClient.post(ChatRoute.UploadAttachment.url) {
-                    appendTokenToHeader(sPrefManager.getToken())
+                    if (mediaReplay == null) appendTokenToHeader(sPrefManager.getToken())
+                    else mediaReplay.authorize(this)
                     timeout {
                         requestTimeoutMillis = ATTACHMENT_UPLOAD_TIMEOUT_MS
                         socketTimeoutMillis = ATTACHMENT_UPLOAD_TIMEOUT_MS

@@ -71,6 +71,7 @@ fun CreatePostScreen(
     val viewModel: CreatePostViewModel = rememberStateHolder(quotedPostId, editPostId) {
         parametersOf(quotedPostId, editPostId)
     }
+    val queuedForUpload by viewModel.queuedForUpload.collectAsState()
     val isSubmitting by viewModel.isSubmitting.collectAsState()
     val isInitialPostLoading by viewModel.isInitialPostLoading.collectAsState()
     val error by viewModel.error.collectAsState()
@@ -138,7 +139,7 @@ fun CreatePostScreen(
                 navigationIcon = {
                     IconButton(
                         onClick = { viewModel.closeScreen() },
-                        enabled = !isSubmitting && !isInitialPostLoading
+                        enabled = (!isSubmitting || queuedForUpload) && !isInitialPostLoading
                     ) {
                         Icon(
                             imageVector = AppIcons.ArrowBackIosNew,
@@ -172,6 +173,8 @@ fun CreatePostScreen(
                 .padding(horizontal = DPExtraLarge, vertical = DPMedium),
             verticalArrangement = Arrangement.spacedBy(DPMedium)
         ) {
+            if (queuedForUpload) Text(stringResource(R.string.media_submission_in_settings))
+
             if (isInitialPostLoading) {
                 Row(
                     modifier = Modifier

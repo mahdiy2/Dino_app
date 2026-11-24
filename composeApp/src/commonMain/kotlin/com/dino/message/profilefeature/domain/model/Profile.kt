@@ -1,5 +1,8 @@
 package com.dino.message.profilefeature.domain.model
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class Profile(
     val username: String,
     val name: String?,

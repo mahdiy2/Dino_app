@@ -1,5 +1,9 @@
 package com.dino.message.threadfeature.presentation.viewmodel
 
+import com.dino.message.threadfeature.domain.model.DeleteContentResult
+import com.dino.message.threadfeature.domain.model.CreatedPost
+import com.dino.message.corefeature.data.upload.AndroidMediaOutbox
+import com.dino.message.corefeature.data.upload.MediaSubmissionCommand
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import com.dino.message.corefeature.domain.session.AuthSessionStore
@@ -41,6 +45,7 @@ class CreatePostViewModel constructor(
     private val stringResolver: StringResolver,
     uiEventBus: UiEventBus,
     private val sPrefManager: AuthSessionStore,
+    private val mediaOutbox: AndroidMediaOutbox,
     private val createPostUseCase: CreatePostUseCase,
     private val editPostUseCase: EditPostUseCase,
     private val getPostUseCase: GetPostUseCase,
@@ -65,6 +70,9 @@ class CreatePostViewModel constructor(
     private val _existingMedia = mutableStateListOf<PostMedia>()
     val existingMedia: List<PostMedia> = _existingMedia
     private var mediaIdSequence = 0L
+
+    private val _queuedForUpload = MutableStateFlow(false)
+    val queuedForUpload = _queuedForUpload.asStateFlow()
 
     private val _isSubmitting = MutableStateFlow(false)
     val isSubmitting: StateFlow<Boolean> = _isSubmitting.asStateFlow()
@@ -195,20 +203,33 @@ class CreatePostViewModel constructor(
                     return@launch
                 }
 
+                val submissionMedia = mediaFiles
                 val submitFlow = if (isEditMode) {
-                    editPostUseCase.execute(
-                        postId = editPostId ?: return@launch,
-                        text = text,
-                        mediaFiles = mediaFiles,
-                        keepMediaIds = _existingMedia.map { it.id },
-                        followersOnly = null
+                    val postId = editPostId ?: return@launch
+                    val keepMediaIds = _existingMedia.map { it.id }
+                    val submitImmediately = {
+                        editPostUseCase.execute(postId, text, submissionMedia, keepMediaIds, followersOnly = null)
+                    }
+                    if (submissionMedia.isEmpty()) submitImmediately()
+                    else mediaOutbox.submit(
+                        MediaSubmissionCommand.Post(postId, text, null, null, keepMediaIds, music = false),
+                        submissionMedia,
+                        DeleteContentResult.serializer(),
+                        onQueued = { _queuedForUpload.value = true },
+                        legacy = submitImmediately,
                     )
                 } else {
-                    createPostUseCase.execute(
-                        text = text,
-                        mediaFiles = mediaFiles,
-                        followersOnly = followersOnly.value,
-                        quotedPostId = quotedPostId,
+                    val followers = followersOnly.value
+                    val submitImmediately = {
+                        createPostUseCase.execute(text, submissionMedia, followers, quotedPostId)
+                    }
+                    if (submissionMedia.isEmpty()) submitImmediately()
+                    else mediaOutbox.submit(
+                        MediaSubmissionCommand.Post(null, text, followers, quotedPostId, emptyList(), music = false),
+                        submissionMedia,
+                        CreatedPost.serializer(),
+                        onQueued = { _queuedForUpload.value = true },
+                        legacy = submitImmediately,
                     )
                 }
 
@@ -233,6 +254,7 @@ class CreatePostViewModel constructor(
                 _error.value = "Failed to upload post. Please try again."
             } finally {
                 _isSubmitting.value = false
+                _queuedForUpload.value = false
             }
         }
     }

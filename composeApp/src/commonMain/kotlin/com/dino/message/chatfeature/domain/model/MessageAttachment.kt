@@ -1,5 +1,8 @@
 package com.dino.message.chatfeature.domain.model
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class MessageAttachment(
     val type: String,
     val url: String? = null,
@@ -14,6 +17,7 @@ data class MessageAttachment(
     val storyReferencePreview: StoryReferencePreview? = null
 )
 
+@Serializable
 data class StoryReferencePreview(
     val storyId: Long? = null,
     val mediaType: String? = null,

@@ -1,5 +1,6 @@
 package com.dino.message.corefeature.data.spref
 
+import com.dino.message.corefeature.data.remote.util.CommonUuid
 import com.dino.message.corefeature.data.util.Constants.REFRESH_TOKEN_KEY
 import com.dino.message.corefeature.data.util.Constants.TOKEN_KEY
 import com.dino.message.corefeature.domain.session.AuthSessionStore
@@ -26,6 +27,7 @@ class SPrefManager constructor(
         const val PENDING_REGISTRATION_NONCE = "PENDING_REGISTRATION_NONCE"
         const val PENDING_REGISTRATION_EXPIRES_AT = "PENDING_REGISTRATION_EXPIRES_AT"
         const val THREAD_REFRESH_AFTER_POST = "THREAD_REFRESH_AFTER_POST"
+        const val MEDIA_SUBMISSION_SESSION_ID = "media_submission_session_id"
         const val DEVICE_SYNC_USER_ID = "device_sync_user_id"
         const val DEVICE_SYNC_DEVICE_ID = "device_sync_device_id"
     }
@@ -85,6 +87,7 @@ class SPrefManager constructor(
     }
 
     override fun setUserLogIn(isLogIn: Boolean){
+        if (!isLogIn) invalidateMediaSubmissionSession()
         secureStore.putBoolean(USER_LOG_IN, isLogIn)
     }
 
@@ -93,6 +96,7 @@ class SPrefManager constructor(
     }
 
     override fun setUsername(username: String){
+        if (getUsername() != username) invalidateMediaSubmissionSession()
         secureStore.putString(USER_NAME, username)
     }
     override fun getUsername(): String?{
@@ -189,6 +193,7 @@ class SPrefManager constructor(
     }
 
     override fun clearAuthSession() {
+        invalidateMediaSubmissionSession()
         secureStore
             .remove(TOKEN_KEY)
             .remove(REFRESH_TOKEN_KEY)
@@ -201,7 +206,28 @@ class SPrefManager constructor(
     }
 
     override fun clearAll() {
+        invalidateMediaSubmissionSession()
         secureStore.clear()
+    }
+
+    var onMediaSubmissionSessionInvalidated: ((String) -> Unit)? = null
+
+    fun mediaSubmissionSessionId(): String? {
+        if (!getUserLogIn() || getUsername().isNullOrBlank()) return null
+        return secureStore.getString(MEDIA_SUBMISSION_SESSION_ID, null)
+            ?: CommonUuid.randomUuidString().also {
+                secureStore.putString(MEDIA_SUBMISSION_SESSION_ID, it)
+                secureStore.apply()
+            }
+    }
+
+    fun existingMediaSubmissionSessionId(): String? =
+        secureStore.getString(MEDIA_SUBMISSION_SESSION_ID, null)
+
+    private fun invalidateMediaSubmissionSession() {
+        val id = existingMediaSubmissionSessionId() ?: return
+        secureStore.remove(MEDIA_SUBMISSION_SESSION_ID).apply()
+        onMediaSubmissionSessionInvalidated?.invoke(id)
     }
 
     override fun saveDeviceSyncUserId(userId: String) {

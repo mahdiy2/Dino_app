@@ -1,5 +1,9 @@
 package com.dino.message.profilefeature.presentation.viewmodel
 
+import com.dino.message.threadfeature.domain.model.CreatePostMedia
+import com.dino.message.profilefeature.domain.model.Profile
+import com.dino.message.corefeature.data.upload.AndroidMediaOutbox
+import com.dino.message.corefeature.data.upload.MediaSubmissionCommand
 import com.dino.message.corefeature.presentation.util.asString
 import androidx.compose.runtime.mutableStateOf
 import com.dino.message.corefeature.domain.settings.AppSettingsStore
@@ -40,6 +44,7 @@ class EditProfileViewModel constructor(
     uiEventBus: UiEventBus,
     private val dataStoreUtil: AppSettingsStore,
     private val getMyProfileUseCase: GetMyProfileUseCase,
+    private val mediaOutbox: AndroidMediaOutbox,
     private val updateMyProfileUseCase: UpdateMyProfileUseCase,
     private val mediaResolver: PlatformMediaResolver,
     private val appClock: AppClock,
@@ -59,6 +64,9 @@ class EditProfileViewModel constructor(
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    private val _queuedForUpload = MutableStateFlow(false)
+    val queuedForUpload = _queuedForUpload.asStateFlow()
 
     private val _isSaving = MutableStateFlow(false)
     val isSaving: StateFlow<Boolean> = _isSaving.asStateFlow()
@@ -179,20 +187,34 @@ class EditProfileViewModel constructor(
                 _isSaving.value = false
                 return@launch
             }
-            updateMyProfileUseCase.execute(
+            val submission = MediaSubmissionCommand.Profile(
                 name = nameDraft.value.trim().ifEmpty { null },
                 bio = bioDraft.value,
-                profileImageShape = selectedProfileImageShape.value.takeIf {
-                    hasBadgeAccess(currentProfileBadge.value)
-                },
-                profileImage = imagePayload,
-                profileVideo = videoPayload,
-                removeProfileImage = removeProfileImageRequested.value,
-                removeProfileVideo = removeProfileVideoRequested.value,
-            ).collect { res ->
+                shape = selectedProfileImageShape.value.takeIf { hasBadgeAccess(currentProfileBadge.value) },
+                hasImage = imagePayload != null,
+                hasVideo = videoPayload != null,
+                removeImage = removeProfileImageRequested.value,
+                removeVideo = removeProfileVideoRequested.value,
+            )
+            val submitImmediately = {
+                updateMyProfileUseCase.execute(
+                    name = submission.name, bio = submission.bio, profileImageShape = submission.shape,
+                    profileImage = imagePayload, profileVideo = videoPayload,
+                    removeProfileImage = submission.removeImage, removeProfileVideo = submission.removeVideo,
+                )
+            }
+            val media = listOfNotNull(imagePayload, videoPayload).map { CreatePostMedia(it.file) }
+            val updates = if (media.isEmpty()) submitImmediately()
+            else mediaOutbox.submit(
+                submission, media, Profile.serializer(),
+                onQueued = { _queuedForUpload.value = true },
+                legacy = submitImmediately,
+            )
+            updates.collect { res ->
                 when (res) {
                     is Resource.Success -> {
                         _isSaving.value = false
+                        _queuedForUpload.value = false
                         _error.value = null
                         navigateUp(viewModelScope)
                     }
@@ -203,6 +225,7 @@ class EditProfileViewModel constructor(
 
                     is Resource.Error -> {
                         _isSaving.value = false
+                        _queuedForUpload.value = false
                         _error.value = res.message.resolveWith(stringResolver)
                     }
                 }

@@ -1,5 +1,6 @@
 package com.dino.message.threadfeature.data.remote
 
+import com.dino.message.corefeature.data.upload.currentMediaReplayRequest
 import com.dino.message.corefeature.data.remote.HaveRefreshTokenAPI
 import com.dino.message.corefeature.data.remote.HaveRefreshTokenAPIImpl
 import com.dino.message.corefeature.data.remote.NetworkIssueReporter
@@ -112,6 +113,7 @@ class ThreadApiServiceImpl constructor(
         followersOnly: Boolean,
         quotedPostId: Long?
     ): Resource<CreatedPost> {
+        val mediaReplay = currentMediaReplayRequest()
         if (mediaFiles.size > MAX_MEDIA_FILES_PER_POST) {
             return Resource.Error(
                 message = AppStringKey.MaxMediaFilesAllowed.asStringResourceContent(MAX_MEDIA_FILES_PER_POST)
@@ -128,8 +130,9 @@ class ThreadApiServiceImpl constructor(
         val result = httpAPIUtil.callAPIWithErrorHandling<CreatedPost, CreatePostResponse>(
             callAPI = {
                 httpClient.post(ThreadRoute.CreatePost.url) {
-                    appendTokenToHeader(sPrefManager.getToken())
-                    header("Idempotency-Key", idempotencyKey)
+                    if (mediaReplay == null) appendTokenToHeader(sPrefManager.getToken())
+                    else mediaReplay.authorize(this)
+                    if (mediaReplay == null) header("Idempotency-Key", idempotencyKey)
                     timeout {
                         requestTimeoutMillis = POST_UPLOAD_REQUEST_TIMEOUT_MS
                         socketTimeoutMillis = POST_UPLOAD_SOCKET_TIMEOUT_MS
@@ -226,6 +229,7 @@ class ThreadApiServiceImpl constructor(
         keepMediaIds: List<Long>,
         followersOnly: Boolean?
     ): Resource<DeleteContentResult> {
+        val mediaReplay = currentMediaReplayRequest()
         if (mediaFiles.size > MAX_MEDIA_FILES_PER_POST) {
             return Resource.Error(
                 message = AppStringKey.MaxMediaFilesAllowed.asStringResourceContent(MAX_MEDIA_FILES_PER_POST)
@@ -241,7 +245,8 @@ class ThreadApiServiceImpl constructor(
         val result = httpAPIUtil.callAPIWithErrorHandling<DeleteContentResult, DeleteContentResponse>(
             callAPI = {
                 httpClient.put(ThreadRoute.UpdatePost(postId).url) {
-                    appendTokenToHeader(sPrefManager.getToken())
+                    if (mediaReplay == null) appendTokenToHeader(sPrefManager.getToken())
+                    else mediaReplay.authorize(this)
                     timeout {
                         requestTimeoutMillis = POST_UPLOAD_REQUEST_TIMEOUT_MS
                         socketTimeoutMillis = POST_UPLOAD_SOCKET_TIMEOUT_MS
@@ -502,6 +507,7 @@ class ThreadApiServiceImpl constructor(
         mediaFile: CreatePostMedia,
         mentionUsernames: List<String>
     ): Resource<StoryUploadResult> {
+        val mediaReplay = currentMediaReplayRequest()
         validateStoryUpload(mediaFile, resolveStoryVideoDuration(mediaFile))?.let {
             return Resource.Error(message = it)
         }
@@ -511,7 +517,8 @@ class ThreadApiServiceImpl constructor(
         val result = httpAPIUtil.callAPIWithErrorHandling<StoryUploadResult, StoryUploadResponse>(
             callAPI = {
                 httpClient.post(ThreadRoute.UploadStory.url) {
-                    appendTokenToHeader(sPrefManager.getToken())
+                    if (mediaReplay == null) appendTokenToHeader(sPrefManager.getToken())
+                    else mediaReplay.authorize(this)
                     timeout {
                         requestTimeoutMillis = STORY_UPLOAD_REQUEST_TIMEOUT_MS
                         socketTimeoutMillis = STORY_UPLOAD_SOCKET_TIMEOUT_MS
@@ -698,9 +705,9 @@ class ThreadApiServiceImpl constructor(
 
     private fun resolveStoryVideoDuration(media: CreatePostMedia): Long? {
         if (MediaMimePolicy.mediaCategory(media.mimeType) != "video") return null
-        return (media.file.metadata ?: mediaMetadataExtractor.extract(
+        return media.file.metadata?.durationMs ?: mediaMetadataExtractor.extract(
             PlatformMediaReference(media.file.handle.id)
-        )).durationMs
+        ).durationMs
     }
 
     private fun createMultipartBoundary(): String {

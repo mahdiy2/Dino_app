@@ -1,5 +1,8 @@
 package com.dino.message.threadfeature.presentation.viewmodel
 
+import com.dino.message.threadfeature.domain.model.StoryUploadResult
+import com.dino.message.corefeature.data.upload.AndroidMediaOutbox
+import com.dino.message.corefeature.data.upload.MediaSubmissionCommand
 import com.dino.message.corefeature.presentation.util.asString
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -78,6 +81,7 @@ class ThreadViewModel constructor(
     private val setStoryLikeUseCase: SetStoryLikeUseCase,
     private val getStoryViewersUseCase: GetStoryViewersUseCase,
     private val replyToStoryUseCase: ReplyToStoryUseCase,
+    private val mediaOutbox: AndroidMediaOutbox,
     private val uploadStoryUseCase: UploadStoryUseCase,
     private val followUserUseCase: FollowUserUseCase,
     private val getMyProfileUseCase: GetMyProfileUseCase,
@@ -831,25 +835,37 @@ class ThreadViewModel constructor(
     }
 
     fun uploadStory(media: CreatePostMedia, mentions: List<String> = emptyList()) = viewModelScope.launch {
-        uploadStoryUseCase.execute(media, mentions).collect { res ->
-            when (res) {
-                is Resource.Success -> {
-                    _storyActionInFlight.value = false
-                    _storyFeedback.value = "Story uploaded"
-                    loadStoryFeed()
-                }
+        try {
+            mediaOutbox.submit(
+                MediaSubmissionCommand.Story(mentions),
+                listOf(media),
+                StoryUploadResult.serializer(),
+                onQueued = { _storyFeedback.value = "Story queued for upload" },
+                legacy = { uploadStoryUseCase.execute(media, mentions) },
+            ).collect { res ->
+                when (res) {
+                    is Resource.Success -> {
+                        _storyActionInFlight.value = false
+                        _storyFeedback.value = "Story uploaded"
+                        loadStoryFeed()
+                    }
 
-                is Resource.Loading -> {
-                    _storyActionInFlight.value = true
-                }
+                    is Resource.Loading -> {
+                        _storyActionInFlight.value = true
+                    }
 
-                is Resource.Error -> {
-                    _storyActionInFlight.value = false
-                    _storyFeedback.value = res.message.resolveWith(stringResolver)
+                    is Resource.Error -> {
+                        _storyActionInFlight.value = false
+                        _storyFeedback.value = res.message.resolveWith(stringResolver)
+                    }
                 }
             }
+        } finally {
+            _storyActionInFlight.value = false
+            media.file.release()
         }
     }
+
 
     fun clearStoryFeedback() {
         _storyFeedback.value = null
