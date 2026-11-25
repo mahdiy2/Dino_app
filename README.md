@@ -117,7 +117,7 @@ The equivalent launch commands from the project root are:
 ```
 
 ## Release
-- Release artifact path: `androidApp/release/app-release.apk`
+- Gradle writes release APKs to `androidApp/build/outputs/apk/release/`.
 - You can get releases from: https://api.dinosocial.ir/
 - Build release APK:
 
