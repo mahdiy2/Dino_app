@@ -68,11 +68,24 @@ run configuration dropdown, and press **Run**. The web configuration starts
 a local development server. Chrome can open the URL printed in the Run panel.
 
 Both launchers open SecMessage's shared sign-in and account shell. Use an
-existing backend account. The Android app still provides the full feature set.
+existing backend account or register and save the generated private-key
+backup. The Android app still provides the full feature set.
+
+In the account screen, import a matching Android-format key backup or confirm
+a replacement if the old key is lost. Replacing the key can make older
+messages unreadable. Chrome keeps encrypted account keys in an IndexedDB
+vault. Save the vault passphrase separately from the account password and
+enter it after reload or switching accounts. Signing out locks the vault and
+leaves its encrypted backup on the device. To resume pending registration
+after restart, enter the same username, password, and vault passphrase.
+
+Linux stores its session and account keys in an encrypted file with an
+owner-only local master key. The development host exposes Secret Service
+over D-Bus. This implementation still uses the encrypted-file adapter.
 
 Linux uses `APP_BASE_URL` from the Run configuration environment, or
-`http://127.0.0.1:5000/` by default. The web development server proxies
-`/api/auth/web-session` to port 5000 on loopback. For local Chrome sign-in,
+`http://127.0.0.1:5000/` by default. The web development server proxies the session, key, and registration
+endpoints to port 5000 on loopback. For local Chrome sign-in,
 start the backend with `WEB_SESSION_ORIGIN=http://127.0.0.1:8080` and
 `WEB_SESSION_LOCAL_HTTP=1`, then open that exact URL. Use the printed port
 if 8080 is occupied and set the backend origin to match.

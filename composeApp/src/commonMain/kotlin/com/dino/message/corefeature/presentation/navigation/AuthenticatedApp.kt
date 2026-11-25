@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -18,9 +17,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.rememberNavController
+import com.dino.message.authfeature.presentation.screen.LoginContent
+import com.dino.message.authfeature.domain.model.AccountKeyRecord
+import com.dino.message.corefeature.domain.model.AppLanguage
 import com.dino.message.corefeature.presentation.util.PopBackStackLevel
 import com.dino.message.corefeature.presentation.util.UIEvent
 import com.dino.message.corefeature.presentation.util.UiEventBus
@@ -34,8 +35,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
 
 @Composable
-fun AuthenticatedApp(
+internal fun AuthenticatedApp(
     session: ShellSession,
+    keys: AccountKeyWorkflow,
     bindNavigation: @Composable (androidx.navigation.NavHostController, Boolean) -> Unit = { _, _ -> },
 ) {
     val navigator = rememberNavController()
@@ -47,7 +49,7 @@ fun AuthenticatedApp(
             CompositionLocalProvider(LocalStateHolderFactory provides factory) {
                 val holder = rememberStateHolder(SessionHolder::class)
                 LaunchedEffect(holder) { holder.restore() }
-                AppShell(navigator, events, factory) { route -> SessionContent(route, holder) }
+                AppShell(navigator, events, factory) { route -> SessionContent(route, holder, keys) }
                 bindNavigation(navigator, holder.account != null)
             }
         }
@@ -71,6 +73,8 @@ private class SessionHolder(
 ) : ScopedStateHolder() {
     var account by mutableStateOf<String?>(null)
         private set
+    var messagingKey by mutableStateOf<AccountKeyRecord?>(null)
+        private set
     var busy by mutableStateOf(false)
         private set
     var error by mutableStateOf<String?>(null)
@@ -81,6 +85,14 @@ private class SessionHolder(
     fun signOut() = update {
         session.signOut()
         null
+    }
+
+    fun updateMessagingKey(key: AccountKeyRecord?) {
+        messagingKey = key
+    }
+
+    fun openRegistration() {
+        scope.launch { events.mutableUIEventFlow.emit(UIEvent.Navigate(AppRoute.Register)) }
     }
 
     fun openAccount() {
@@ -97,7 +109,9 @@ private class SessionHolder(
         error = null
         scope.launch {
             try {
-                account = operation()
+                val nextAccount = operation()
+                if (account != nextAccount) messagingKey = null
+                account = nextAccount
                 events.mutableUIEventFlow.subscriptionCount.first { it > 0 }
                 events.mutableUIEventFlow.emit(
                     UIEvent.NavigateWithPopBackStack(
@@ -117,9 +131,37 @@ private class SessionHolder(
 }
 
 @Composable
-private fun SessionContent(route: AppRoute, holder: SessionHolder) {
+private fun SessionContent(route: AppRoute, holder: SessionHolder, keys: AccountKeyWorkflow) {
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    val account = holder.account
+    if (account == null && route == AppRoute.Register) {
+        RegistrationControls(keys, holder::goBack, holder::signIn)
+        return
+    }
+    if (account == null && route != AppRoute.Splash) {
+        LoginContent(
+            username = username,
+            password = password,
+            usernameIsError = false,
+            passwordIsError = holder.error != null,
+            loginErrorMessage = holder.error,
+            loginLoading = holder.busy,
+            currentLanguage = AppLanguage.English,
+            onUsernameChange = { username = it },
+            onPasswordChange = { password = it },
+            onLoginClick = {
+                if (username.isNotBlank() && password.isNotEmpty() && !holder.busy) {
+                    holder.signIn(username.trim(), password)
+                    password = ""
+                }
+            },
+            onCreateAccountClick = holder::openRegistration,
+            onToggleLanguage = {},
+            showLanguageToggle = false,
+        )
+        return
+    }
     Column(
         modifier = Modifier.fillMaxSize().padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -127,36 +169,18 @@ private fun SessionContent(route: AppRoute, holder: SessionHolder) {
     ) {
         Text("SecMessage", style = MaterialTheme.typography.headlineLarge)
         holder.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        val account = holder.account
-        when {
-            route == AppRoute.Splash -> {
-                if (holder.error == null) Text("Checking session…")
-                else Button(onClick = holder::restore, enabled = !holder.busy) { Text("Retry") }
+        if (route == AppRoute.Splash) {
+            if (holder.error == null) Text("Checking session…")
+            else Button(onClick = holder::restore, enabled = !holder.busy) { Text("Retry") }
+        } else if (account != null) {
+            Text("Signed in as @$account")
+            if (route is AppRoute.Profile) {
+                androidx.compose.runtime.key(account) { AccountKeyControls(keys, holder.messagingKey, holder::updateMessagingKey, holder::restore) }
+                Button(onClick = holder::goBack) { Text("Back") }
+            } else {
+                Button(onClick = holder::openAccount) { Text("Account") }
             }
-            account != null -> {
-                Text("Signed in as @$account")
-                if (route is AppRoute.Profile) {
-                    Button(onClick = holder::signOut, enabled = !holder.busy) { Text("Sign out") }
-                    Button(onClick = holder::goBack) { Text("Back") }
-                } else {
-                    Button(onClick = holder::openAccount) { Text("Account") }
-                    Button(onClick = holder::signOut, enabled = !holder.busy) { Text("Sign out") }
-                }
-            }
-            else -> {
-                OutlinedTextField(username, { username = it }, label = { Text("Username") }, singleLine = true)
-                OutlinedTextField(
-                    password, { password = it }, label = { Text("Password") },
-                    visualTransformation = PasswordVisualTransformation(), singleLine = true,
-                )
-                Button(
-                    onClick = {
-                        holder.signIn(username.trim(), password)
-                        password = ""
-                    },
-                    enabled = username.isNotBlank() && password.isNotEmpty() && !holder.busy,
-                ) { Text("Sign in") }
-            }
+            Button(onClick = holder::signOut, enabled = !holder.busy) { Text("Sign out") }
         }
     }
 }

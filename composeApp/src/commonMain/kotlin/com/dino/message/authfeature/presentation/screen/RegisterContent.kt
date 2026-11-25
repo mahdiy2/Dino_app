@@ -25,6 +25,7 @@ import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -64,6 +65,8 @@ fun RegisterContent(
     onRegisterClick: () -> Unit,
     onAlreadyHaveAccountClick: () -> Unit,
     onToggleLanguage: () -> Unit,
+    showLanguageToggle: Boolean = true,
+    extraFields: @Composable () -> Unit = {},
 ) {
     val minUsernameLength = 7
     val minPasswordLength = 10
@@ -77,7 +80,7 @@ fun RegisterContent(
                 .padding(innerPadding)
                 .fillMaxSize()
         ) {
-            IconButton(
+            if (showLanguageToggle) IconButton(
                 modifier = Modifier
                     .align(AbsoluteAlignment.TopRight)
                     .statusBarsPadding()
@@ -134,6 +137,7 @@ fun RegisterContent(
                         colors = authTextFieldColors(),
                         shape = MaterialTheme.shapes.extraLarge,
                         value = password,
+                        visualTransformation = PasswordVisualTransformation(),
                         onValueChange = onPasswordChange,
                         isError = password.isNotEmpty() && password.length < minPasswordLength,
                         placeholder = { Text(stringResource(Res.string.password)) },
@@ -160,6 +164,8 @@ fun RegisterContent(
                         supportingText = { Text(stringResource(Res.string.referral_code_optional_hint)) },
                         maxLines = 1
                     )
+
+                    extraFields()
 
                     AnimatedVisibility(
                         modifier = Modifier.align(Alignment.CenterHorizontally),

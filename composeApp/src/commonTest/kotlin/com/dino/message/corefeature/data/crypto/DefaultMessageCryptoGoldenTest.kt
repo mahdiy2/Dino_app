@@ -1,11 +1,13 @@
 package com.dino.message.corefeature.data.crypto
 
 import com.dino.message.corefeature.domain.crypto.MessageCrypto
+import com.dino.message.corefeature.presentation.navigation.verifiedBackup
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class DefaultMessageCryptoGoldenTest {
@@ -18,7 +20,7 @@ class DefaultMessageCryptoGoldenTest {
 
     @Test
     fun decryptsFixedV2PayloadFromExistingWireFormat() = runTest {
-        val privateKey = messageCrypto.decodePrivateKey(PRIVATE_KEY)
+        val privateKey = assertNotNull(verifiedBackup(messageCrypto, PUBLIC_KEY, PRIVATE_KEY))
 
         assertEquals(
             "golden private message",
@@ -29,12 +31,18 @@ class DefaultMessageCryptoGoldenTest {
     @Test
     fun decryptsFixedLegacyPayload() = runTest {
         if (!platformSupportsLegacyMessageCrypto) return@runTest
-        val privateKey = messageCrypto.decodePrivateKey(PRIVATE_KEY)
+        val privateKey = assertNotNull(verifiedBackup(messageCrypto, PUBLIC_KEY, PRIVATE_KEY))
 
         assertEquals(
             "legacy golden message",
             messageCrypto.decryptMessage(LEGACY_MESSAGE, LEGACY_KEY, privateKey),
         )
+    }
+
+    @Test
+    fun rejectsValidBackupFromADifferentAccount() = runTest {
+        val other = messageCrypto.generateRsaKeyPair()
+        assertNull(verifiedBackup(messageCrypto, PUBLIC_KEY, other.privateKeyBase64))
     }
 
     @Test

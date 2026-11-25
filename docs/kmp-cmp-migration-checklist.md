@@ -47,15 +47,37 @@ disposable HTTPS backend. Backend session implementation and tests are in
 
 ### 2. Authentication and session lifecycle
 
-- [ ] Connect shared splash, login, registration, private-key confirmation and
+- [x] Connect shared splash, login, registration, private-key confirmation and
   recovery, and logout to real HTTP, settings, and secure-storage adapters.
   Wire session restoration and token refresh into each launcher.
-- [ ] Verify valid and invalid sign-in, restart with a saved session, token
+- [x] Verify valid and invalid sign-in, restart with a saved session, token
   refresh, account switching, and logout cleanup. Preserve existing Android
   storage keys, session behavior, and wire contracts.
-- [ ] Define and implement browser key and session storage suitable for
+- [x] Define and implement browser key and session storage suitable for
   production use. Validate the policy for reload, logout, and key recovery.
   Evaluate native keychain integration for the Linux encryption master key.
+
+Linux and Chrome use the shared login and registration forms and support
+backup import and explicit, password-confirmed key reset. Browser keys and
+pending registrations live in an account-scoped, passphrase-encrypted
+IndexedDB vault. Reload and logout lock it. Chrome uses the existing
+same-origin cookie for session restoration. Linux uses encrypted local
+storage and coalesces concurrent expired-token refreshes. The development
+host exposes Secret Service over D-Bus. The Linux client uses its existing
+encrypted-file adapter.
+
+Verified against a disposable backend. Chrome completed registration, backup
+confirmation, vault unlock, reload, logout, and key reset. The Linux integration
+suite verified registration resume, backup import, account switching, token
+refresh, and recovery after a lost rotation response. The browser suite verified
+wrong passphrases, account isolation, and tampered records. Both suites used the
+key-import validator with the existing legacy and current ciphertext fixtures.
+Android's existing registration and sign-in reached the feed, and logout
+returned to the login screen. All 56 Android unit, nine API 29 instrumentation,
+82 desktop, 75 Chrome, and four backend session and key tests passed.
+
+Backend browser key endpoints and authorization tests are in `0546899` in the
+backend repository. Messaging screens remain under Task 4.
 
 ### 3. Feed, search, and account flows
 

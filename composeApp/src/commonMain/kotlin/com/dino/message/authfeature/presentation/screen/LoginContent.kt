@@ -26,6 +26,7 @@ import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -59,6 +60,7 @@ fun LoginContent(
     onLoginClick: () -> Unit,
     onCreateAccountClick: () -> Unit,
     onToggleLanguage: () -> Unit,
+    showLanguageToggle: Boolean = true,
 ) {
     Scaffold { innerPadding ->
         Box(
@@ -66,7 +68,7 @@ fun LoginContent(
                 .padding(innerPadding)
                 .fillMaxSize()
         ) {
-            IconButton(
+            if (showLanguageToggle) IconButton(
                 modifier = Modifier
                     .align(AbsoluteAlignment.TopRight)
                     .statusBarsPadding()
@@ -117,6 +119,7 @@ fun LoginContent(
                         colors = authTextFieldColors(),
                         shape = MaterialTheme.shapes.extraLarge,
                         value = password,
+                        visualTransformation = PasswordVisualTransformation(),
                         onValueChange = onPasswordChange,
                         placeholder = { Text(stringResource(Res.string.password)) },
                         maxLines = 1

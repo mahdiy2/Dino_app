@@ -17,13 +17,15 @@ interface ShellSession {
     suspend fun signOut()
 }
 
+internal class ShellSessionExpiredException : IllegalStateException("Sign-in required.")
+
 @Serializable
 internal data class ShellCredentials(val username: String, val password: String)
 
 @Serializable
 private data class BrowserIdentity(val username: String? = null)
 
-internal class BrowserShellSession(private val http: HttpClient) : ShellSession {
+internal class BrowserShellSession(private val http: HttpClient) : ShellSession, AccountKeyApi {
     override suspend fun restore() = http.get(PATH).let {
         check(it.status.isSuccess()) { "Could not check your session." }
         it.body<BrowserIdentity>().username
@@ -42,6 +44,20 @@ internal class BrowserShellSession(private val http: HttpClient) : ShellSession 
 
     override suspend fun signOut() {
         check(http.delete(PATH).status.isSuccess()) { "Could not sign out. Try again." }
+    }
+
+    override suspend fun currentKey(): AccountPublicKey = http.get("$PATH/keys").let {
+        if (it.status.value == 401) throw ShellSessionExpiredException()
+        check(it.status.isSuccess()) { "Could not read the account key." }
+        it.body()
+    }
+
+    override suspend fun rotate(password: String, publicKey: String) {
+        val response = http.post("$PATH/keys") {
+            contentType(ContentType.Application.Json)
+            setBody(RotateShellKey(password, publicKey))
+        }
+        check(response.status.isSuccess()) { "Could not replace the account key." }
     }
 
     private companion object {
