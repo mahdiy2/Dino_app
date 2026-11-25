@@ -2,8 +2,8 @@ package com.dino.message.chatfeature.data.notification
 
 import com.dino.message.corefeature.data.socket.AppSocketManager
 import com.dino.message.corefeature.domain.logging.AppLogger
-import com.dino.message.corefeature.domain.notification.AppNotificationPresenter
 import com.dino.message.corefeature.domain.notification.NotificationDedupeSnapshotStore
+import com.dino.message.corefeature.domain.notification.NotificationPayload
 import com.dino.message.corefeature.domain.notification.NotificationSocketConnection
 import com.dino.message.corefeature.domain.socket.RealtimeSocketEvents
 import com.dino.message.corefeature.domain.system.AppClock
@@ -11,7 +11,7 @@ import org.json.JSONObject
 
 class InAppNotificationManager constructor(
     private val appSocketManager: AppSocketManager,
-    private val notificationPresenter: AppNotificationPresenter,
+    private val notificationHelper: NotificationHelper,
     private val dedupeSnapshotStore: NotificationDedupeSnapshotStore,
     private val appClock: AppClock,
     private val appLogger: AppLogger,
@@ -116,7 +116,7 @@ class InAppNotificationManager constructor(
 
                 val lastType = senderLastType[sender] ?: "text"
                 val body = buildNotificationBody(lastType, count)
-                notificationPresenter.showPrivateMessage(sender, body)
+                notificationHelper.show(NotificationPayload.PrivateMessage(sender, body))
             }
         } catch (e: Exception) {
             appLogger.error(TAG, "Error handling pending_messages", e)
@@ -142,11 +142,7 @@ class InAppNotificationManager constructor(
                 val groupName = payload.optString("group_name", "Group Chat")
                 val type = payload.optString("type", "text")
                 val body = buildGroupNotificationBody(sender, type)
-                notificationPresenter.showGroupMessage(
-                    groupId = groupId,
-                    groupName = groupName,
-                    body = body
-                )
+                notificationHelper.show(NotificationPayload.GroupMessage(groupId, groupName, body))
                 return
             }
             // Deterministic overlap policy: private notification UI is driven by `new_message`.
@@ -177,7 +173,7 @@ class InAppNotificationManager constructor(
 
             val type = payload.optString("type", "text")
             val body = buildNotificationBody(type, 1)
-            notificationPresenter.showPrivateMessage(sender, body)
+            notificationHelper.show(NotificationPayload.PrivateMessage(sender, body))
         } catch (e: Exception) {
             appLogger.error(TAG, "Error handling new_message for notification", e)
         }
@@ -239,8 +235,8 @@ class InAppNotificationManager constructor(
                 .ifBlank { "Someone" }
 
             val body = buildActivityNotificationBody(kind, actorName, payload)
-            val notifId = payload.optLong("id", appClock.currentTimeMillis()).toInt()
-            notificationPresenter.showActivity("Activity", body, notifId)
+            val eventId = payload.optLong("id", appClock.currentTimeMillis())
+            notificationHelper.show(NotificationPayload.Activity("Activity", body, eventId))
         } catch (e: Exception) {
             appLogger.error(TAG, "Error handling activity_notification", e)
         }
@@ -272,11 +268,7 @@ class InAppNotificationManager constructor(
                 buildGroupNotificationBody(sender, type)
             }
 
-            notificationPresenter.showGroupMessage(
-                groupId = groupId,
-                groupName = groupName,
-                body = body
-            )
+            notificationHelper.show(NotificationPayload.GroupMessage(groupId, groupName, body))
         } catch (e: Exception) {
             appLogger.error(TAG, "Error handling pending_group_messages", e)
         }
@@ -309,10 +301,12 @@ class InAppNotificationManager constructor(
                     } else {
                         "You have $unreadCount new activity notifications"
                     }
-                    notificationPresenter.showActivity("Activity", body)
+                    notificationHelper.show(NotificationPayload.Activity("Activity", body))
                 }
             } else {
-                notificationPresenter.showActivity("Activity", "You have $unreadCount new activity notifications")
+                notificationHelper.show(
+                    NotificationPayload.Activity("Activity", "You have $unreadCount new activity notifications"),
+                )
             }
         } catch (e: Exception) {
             appLogger.error(TAG, "Error handling pending_activity_notifications", e)

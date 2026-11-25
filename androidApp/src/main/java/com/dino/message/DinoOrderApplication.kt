@@ -9,7 +9,7 @@ import com.dino.message.crashfeature.data.service.CrashReporter
 import com.dino.message.corefeature.domain.config.AppConfig
 import com.dino.message.corefeature.domain.lifecycle.AppLifecycleDispatcher
 import com.dino.message.corefeature.domain.lifecycle.AppLifecycleEvent
-import com.dino.message.corefeature.domain.notification.AppNotificationController
+import com.dino.message.chatfeature.data.notification.NotificationHelper
 import com.dino.message.corefeature.domain.startup.AppStartupCoordinator
 import com.dino.message.corefeature.presentation.util.UiEventBus
 import com.dino.message.di.appModules
@@ -30,7 +30,7 @@ class DinoOrderApplication: Application() {
     private val mediaOutbox: AndroidMediaOutbox by inject()
     private val appConfig: AppConfig by inject()
     private val appLifecycleDispatcher: AppLifecycleDispatcher by inject()
-    private val appNotificationController: AppNotificationController by inject()
+    private val notificationHelper: NotificationHelper by inject()
     private val appStartupCoordinator: AppStartupCoordinator by inject()
     private var startedActivitiesCount: Int = 0
 
@@ -51,9 +51,10 @@ class DinoOrderApplication: Application() {
         crashReporter.installGlobalExceptionHandler()
         crashReporter.flushPendingLogsAsync()
         mediaOutbox.restore()
-        appNotificationController.ensureAppChannels()
+        val commonStartup = appStartupCoordinator
+        notificationHelper.ensureAppChannels()
         MusicPlaybackManager.initialize(this)
-        appStartupCoordinator.initializeCommonState()
+        commonStartup.initializeCommonState()
         registerAppBackgroundTracker()
     }
 

@@ -82,7 +82,6 @@ import com.dino.message.corefeature.domain.lifecycle.AppLifecycleDispatcher
 import com.dino.message.corefeature.domain.logging.AppLogger
 import com.dino.message.corefeature.domain.network.NetworkStatusProvider
 import com.dino.message.corefeature.domain.notification.AppNotificationController
-import com.dino.message.corefeature.domain.notification.AppNotificationPresenter
 import com.dino.message.corefeature.domain.notification.NotificationDedupeSnapshotStore
 import com.dino.message.corefeature.domain.notification.DefaultNotificationSocketController
 import com.dino.message.corefeature.domain.notification.NotificationSocketConnection
@@ -146,7 +145,7 @@ val coreModule = module {
     }
     single { UiEventBus() }
     single { AppLifecycleDispatcher() }
-    single<AppNotificationPresenter> { NotificationHelper(context = androidContext()) }
+    single { NotificationHelper(context = androidContext()) }
     single<NotificationDedupeSnapshotStore> {
         AndroidNotificationDedupeSnapshotStore(context = androidContext())
     }
@@ -158,7 +157,7 @@ val coreModule = module {
     single<ReferralShareLauncher> { AndroidReferralShareLauncher(context = androidContext()) }
     single<AppNotificationController> {
         AndroidAppNotificationController(
-            notificationPresenter = get(),
+            notificationHelper = get(),
             inAppNotificationManager = get(),
         )
     }
@@ -280,7 +279,7 @@ val coreModule = module {
     single {
         InAppNotificationManager(
             appSocketManager = get(),
-            notificationPresenter = get(),
+            notificationHelper = get(),
             dedupeSnapshotStore = get(),
             appClock = get(),
             appLogger = get(),

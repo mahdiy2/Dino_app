@@ -650,28 +650,38 @@ backend deployment order.
 
 ### 14. Notifications, Crash Reporting, And Startup
 
-- [ ] Keep Android notification implementation platform-specific.
+- [x] Keep Android notification implementation platform-specific.
   - Notification channels.
   - `NotificationManager`.
   - `PendingIntent`.
   - Runtime notification permission.
   - Foreground service notifications.
   - Android notification icons/resources.
-- [ ] Share only platform-neutral notification intent and payload models.
-- [ ] Add target-specific notification behavior only after product requirements
+- [x] Share only platform-neutral notification intent and payload models.
+- [x] Add target-specific notification behavior only after product requirements
   are clear for iOS, desktop, and web/wasm.
-- [ ] Keep crash capture and restart UI platform-specific.
+- [x] Keep crash capture and restart UI platform-specific.
   - Android keeps uncaught exception handler, crash activity, restart intents,
     Room-backed crash queue, and process kill/exit behavior.
   - Shared code may own crash payload construction, trimming, breadcrumbs, and
     upload mapping.
-- [ ] Keep startup split clean.
+- [x] Keep startup split clean.
   - Shared startup initializes common state and observers.
   - Android shell owns Koin startup, crash reporter installation, notification
     channel setup, Android music setup, locale application, permissions, and
     intent/deep-link consumption.
 - [ ] Commit after verification.
   - Suggested message: `refactor(startup): separate shared and android startup`.
+
+The implementation and source audit are complete. The Android debug and
+instrumentation APKs built, Android unit and shared desktop tests passed, and
+Wasm compiled. Notification behavior for iOS, desktop, and web/Wasm is deferred
+pending product requirements.
+
+Android runtime verification and the completion commit are pending. The
+software emulator did not finish booting, so the notification, playback, and
+crash smoke checks could not run. iOS simulator compilation is also blocked by
+an ABI mismatch between Kotlin 2.1.20 and Room 2.8.4.
 
 ### 15. Remove Obsolete Dependencies And Stale Code
 

@@ -9,12 +9,16 @@ import android.net.Uri
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import com.dino.message.R
-import com.dino.message.corefeature.domain.notification.AppNotificationPresenter
+import com.dino.message.corefeature.domain.notification.NotificationPayload
 import com.dino.message.corefeature.presentation.activity.MainActivity
+import com.dino.message.corefeature.presentation.navigation.AndroidIntentDeepLinkHandler.Companion.EXTRA_OPEN_ACTIVITY_NOTIFICATIONS
+import com.dino.message.corefeature.presentation.navigation.AndroidIntentDeepLinkHandler.Companion.EXTRA_OPEN_CHAT
+import com.dino.message.corefeature.presentation.navigation.AndroidIntentDeepLinkHandler.Companion.EXTRA_OPEN_GROUP_ID
+import com.dino.message.corefeature.presentation.navigation.AndroidIntentDeepLinkHandler.Companion.EXTRA_OPEN_GROUP_NAME
 
 class NotificationHelper(
     private val context: Context,
-) : AppNotificationPresenter {
+) {
 
     private companion object {
         const val CHANNEL_ID = "messages"
@@ -23,7 +27,24 @@ class NotificationHelper(
         const val ACTIVITY_CHANNEL_NAME = "Activity Notifications"
     }
 
-    override fun ensureMessageChannel() {
+    fun ensureAppChannels() {
+        ensureMessageChannel()
+        ensureActivityChannel()
+    }
+
+    fun show(payload: NotificationPayload) {
+        when (payload) {
+            is NotificationPayload.PrivateMessage -> showPrivateMessage(payload.senderUsername, payload.body)
+            is NotificationPayload.GroupMessage -> showGroupMessage(payload.groupId, payload.groupName, payload.body)
+            is NotificationPayload.Activity -> showActivity(
+                payload.title,
+                payload.body,
+                payload.eventId?.toInt() ?: "activity_notif".hashCode(),
+            )
+        }
+    }
+
+    private fun ensureMessageChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID, CHANNEL_NAME,
@@ -35,7 +56,7 @@ class NotificationHelper(
         }
     }
 
-    override fun ensureActivityChannel() {
+    private fun ensureActivityChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 ACTIVITY_CHANNEL_ID, ACTIVITY_CHANNEL_NAME,
@@ -47,14 +68,14 @@ class NotificationHelper(
         }
     }
 
-    override fun showPrivateMessage(
+    private fun showPrivateMessage(
         senderUsername: String,
         body: String
     ) {
         ensureMessageChannel()
 
         val intent = Intent(context, MainActivity::class.java).apply {
-            putExtra("open_chat", senderUsername)
+            putExtra(EXTRA_OPEN_CHAT, senderUsername)
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
         }
 
@@ -79,7 +100,7 @@ class NotificationHelper(
         manager.notify(senderUsername.hashCode(), notification)
     }
 
-    override fun showGroupMessage(
+    private fun showGroupMessage(
         groupId: Int,
         groupName: String,
         body: String
@@ -88,8 +109,8 @@ class NotificationHelper(
 
         val deepLink = Uri.parse("secmessage://group/$groupId")
         val intent = Intent(context, MainActivity::class.java).apply {
-            putExtra("open_group_id", groupId)
-            putExtra("open_group_name", groupName)
+            putExtra(EXTRA_OPEN_GROUP_ID, groupId)
+            putExtra(EXTRA_OPEN_GROUP_NAME, groupName)
             data = deepLink
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
         }
@@ -116,7 +137,7 @@ class NotificationHelper(
         manager.notify(notificationId, notification)
     }
 
-    override fun showActivity(
+    private fun showActivity(
         title: String,
         body: String,
         notificationId: Int
@@ -124,7 +145,7 @@ class NotificationHelper(
         ensureActivityChannel()
 
         val intent = Intent(context, MainActivity::class.java).apply {
-            putExtra("open_activity_notifications", true)
+            putExtra(EXTRA_OPEN_ACTIVITY_NOTIFICATIONS, true)
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
         }
 
@@ -149,19 +170,19 @@ class NotificationHelper(
         manager.notify(notificationId, notification)
     }
 
-    override fun clearPrivateChat(username: String) {
+    fun clearPrivateChat(username: String) {
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE)
                 as NotificationManager
         manager.cancel(username.hashCode())
     }
 
-    override fun clearGroupChat(groupId: Int) {
+    fun clearGroupChat(groupId: Int) {
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE)
             as NotificationManager
         manager.cancel("group_$groupId".hashCode())
     }
 
-    override fun clearAll() {
+    fun clearAll() {
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE)
                 as NotificationManager
         manager.cancelAll()
