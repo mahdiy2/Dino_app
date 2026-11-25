@@ -1,3 +1,7 @@
+import java.util.Properties
+import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootExtension
+import org.jetbrains.kotlin.gradle.targets.js.yarn.YarnRootExtension
+
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.android.library)
@@ -18,7 +22,12 @@ kotlin {
     jvm("desktop")
 
     wasmJs {
-        browser()
+        browser {
+            commonWebpackConfig {
+                outputFileName = "composeApp.js"
+            }
+        }
+        binaries.executable()
     }
 
     sourceSets {
@@ -36,6 +45,7 @@ kotlin {
             implementation(compose.ui)
             implementation(compose.foundation)
             implementation(compose.material3)
+            implementation(libs.androidx.navigation.compose)
             implementation(compose.components.resources)
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.serialization.json)
@@ -93,6 +103,8 @@ kotlin {
         getByName("desktopMain").apply {
             dependsOn(nonWebMain)
             dependencies {
+                implementation(compose.desktop.currentOs)
+                implementation(libs.kotlinx.coroutines.swing)
                 val arm64 = System.getProperty("os.arch") in setOf("aarch64", "arm64")
                 val javafxPlatform = when {
                     System.getProperty("os.name").startsWith("Mac") -> if (arm64) "mac-aarch64" else "mac"
@@ -124,6 +136,28 @@ kotlin {
             implementation(kotlin("test"))
             implementation(libs.kotlinx.coroutines.test)
         }
+    }
+}
+
+compose.desktop {
+    application {
+        mainClass = "com.dino.message.preview.DesktopMainKt"
+    }
+}
+
+// Use local tooling because Gradle settings disallow repositories added by setup tasks.
+val webTools = Properties().apply {
+    rootProject.file("local.properties").takeIf { it.isFile }?.inputStream()?.use { load(it) }
+}
+
+gradle.projectsEvaluated {
+    rootProject.extensions.findByType<NodeJsRootExtension>()?.apply {
+        download = false
+        nodeCommand = webTools.getProperty("web.node", "node")
+    }
+    rootProject.extensions.findByType<YarnRootExtension>()?.apply {
+        download = false
+        command = webTools.getProperty("web.yarn", "yarn")
     }
 }
 

@@ -3,6 +3,7 @@ package com.dino.message.chatfeature.data.notification
 import android.app.Notification
 import android.app.NotificationManager
 import android.content.Context
+import android.os.SystemClock
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.dino.message.corefeature.domain.notification.NotificationPayload
@@ -35,7 +36,12 @@ class NotificationPayloadTest {
                 groupNotificationId to ("messages" to "Group message"),
                 activityId.toInt() to ("activity_notifications" to "Activity update"),
             )
-            val posted = manager.activeNotifications.associateBy { it.id }
+            val deadline = SystemClock.elapsedRealtime() + 3_000
+            var posted = manager.activeNotifications.associateBy { it.id }
+            while (!posted.keys.containsAll(expected.keys) && SystemClock.elapsedRealtime() < deadline) {
+                SystemClock.sleep(50)
+                posted = manager.activeNotifications.associateBy { it.id }
+            }
             for ((id, channelAndBody) in expected) {
                 val (channel, body) = channelAndBody
                 val notification = requireNotNull(posted[id]) { "Missing notification $id" }.notification

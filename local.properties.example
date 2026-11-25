@@ -9,3 +9,8 @@ APP_BASE_URL=http://10.0.2.2:5000/
 
 # Password rule toggle used by auth screens
 AUTH_PASSWORD_REQUIRE_SYMBOL=false
+
+# Optional absolute paths for the Chrome/Wasm run and test configurations.
+# By default Gradle finds these tools on the PATH inherited from Android Studio.
+# web.node=/path/to/node
+# web.yarn=/path/to/yarn

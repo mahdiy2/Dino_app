@@ -7,13 +7,13 @@ import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
-import androidx.lifecycle.lifecycleScope
+import androidx.compose.runtime.LaunchedEffect
+import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -24,6 +24,7 @@ import com.dino.message.corefeature.presentation.util.toLayoutDirection
 import com.dino.message.corefeature.domain.model.toLocale
 import com.dino.message.corefeature.domain.notification.AppNotificationController
 import com.dino.message.corefeature.domain.notification.NotificationSocketController
+import com.dino.message.corefeature.domain.session.SessionProvider
 import com.dino.message.corefeature.presentation.activity.theme.SecMessageTheme
 import com.dino.message.corefeature.presentation.platform.LocalPlatformBackHandler
 import com.dino.message.corefeature.presentation.platform.LocalPlatformMediaRenderer
@@ -32,10 +33,10 @@ import com.dino.message.corefeature.presentation.platform.rememberAndroidPlatfor
 import com.dino.message.corefeature.presentation.platform.rememberAndroidPlatformMediaRenderer
 import com.dino.message.corefeature.presentation.platform.rememberAndroidPlatformUiEffect
 import com.dino.message.corefeature.presentation.navigation.AndroidIntentDeepLinkHandler
-import com.dino.message.corefeature.presentation.navigation.AppNavGraph
+import com.dino.message.corefeature.presentation.navigation.AndroidRouteContent
+import com.dino.message.corefeature.presentation.navigation.AppShell
 import com.dino.message.corefeature.presentation.navigation.AppRoute
 import com.dino.message.corefeature.presentation.navigation.NotificationClearTarget
-import com.dino.message.corefeature.presentation.util.HandleUIEvent
 import com.dino.message.corefeature.presentation.util.LocaleUtils
 import com.dino.message.corefeature.presentation.util.UiEventBus
 import com.dino.message.corefeature.presentation.viewmodel.KoinStateHolderFactory
@@ -43,8 +44,8 @@ import com.dino.message.corefeature.presentation.viewmodel.LocalStateHolderFacto
 import com.dino.message.corefeature.presentation.viewmodel.MainActivityViewModel
 import com.dino.message.corefeature.presentation.viewmodel.rememberStateHolder
 import com.dino.message.threadfeature.presentation.music.MusicPlaybackManager
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
 import org.koin.android.ext.android.inject
 
 class MainActivity : ComponentActivity() {
@@ -57,7 +58,8 @@ class MainActivity : ComponentActivity() {
 
     private val uiEventBus: UiEventBus by inject()
 
-    private var navController: NavHostController? = null
+    private val sessionProvider: SessionProvider by inject()
+    private val pendingRoute = MutableStateFlow<AppRoute?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -87,16 +89,12 @@ class MainActivity : ComponentActivity() {
                 val platformUiEffect = rememberAndroidPlatformUiEffect()
                 val platformBackHandler = rememberAndroidPlatformBackHandler()
                 val platformMediaRenderer = rememberAndroidPlatformMediaRenderer()
-                val activeModalRoute = remember { mutableStateOf<AppRoute?>(null) }
 
-                // Create a navigation controller
-                navController = rememberNavController()
+                val navController = rememberNavController()
+                LaunchedEffect(navController) { routeNotificationIntents(navController) }
 
                 // Set the app's locale based on the selected language
                 LocaleUtils.setLocale(LocalContext.current, appLanguage.value.toLocale())
-
-                // Handle UI events and update the app's state
-                HandleUIEvent(uiEventBus, navController!!, activeModalRoute)
 
                 SecMessageTheme(
                     darkTheme = theme.value,
@@ -108,7 +106,9 @@ class MainActivity : ComponentActivity() {
                         LocalPlatformMediaRenderer provides platformMediaRenderer,
                         LocalLayoutDirection provides appLanguage.value.toLayoutDirection()
                     ) {
-                        AppNavGraph(navController = navController!!, activeModalRoute = activeModalRoute)
+                        AppShell(navController, uiEventBus, stateHolderFactory) { route ->
+                            AndroidRouteContent(navController, route)
+                        }
                     }
                 }
             }
@@ -159,15 +159,27 @@ class MainActivity : ComponentActivity() {
             null -> Unit
         }
 
-        lifecycleScope.launch {
-            delay(300)
-            val nav = navController ?: return@launch
-            try {
-                nav.navigate(command.route) {
-                    launchSingleTop = true
+        pendingRoute.value = command.route
+    }
+
+    private suspend fun routeNotificationIntents(navigator: NavHostController) {
+        combine(pendingRoute, navigator.currentBackStackEntryFlow) { route, entry ->
+            val destination = entry.destination
+            route?.takeIf {
+                sessionProvider.hasActiveSession() &&
+                    !destination.hasRoute<AppRoute.Splash>() &&
+                    !destination.hasRoute<AppRoute.Login>() &&
+                    !destination.hasRoute<AppRoute.Register>() &&
+                    !destination.hasRoute<AppRoute.PrivateKeyAlert>() &&
+                    !destination.hasRoute<AppRoute.AppUpdate>()
+            }
+        }.collect { route ->
+            if (route != null && pendingRoute.compareAndSet(route, null)) {
+                try {
+                    navigator.navigate(route) { launchSingleTop = true }
+                } catch (error: IllegalArgumentException) {
+                    Log.e("MainActivity", "Unable to open notification destination", error)
                 }
-            } catch (e: Exception) {
-                Log.e("MainActivity", "Failed to navigate deep link: ${command.route}", e)
             }
         }
     }
